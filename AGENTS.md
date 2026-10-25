@@ -184,13 +184,16 @@ agent/grant/certificate session before updating the live-version badge.
 
 ## Change conventions and documentation
 
-- Feature work and refactors may change observable behavior (status codes,
-  reason codes, audit/metric/log fields, fail-open or fail-closed outcomes,
-  defaults, wire formats) only when required, and only after discussing the
-  change with the user and getting their agreement. Until then, preserve current
-  behavior; when a change looks necessary or you find a latent bug, add a
-  characterization test and raise it with the user. Call out any approved
-  behavior change in the PR and changelog.
+- Behavior rules for feature work and refactors. Observable behavior means
+  status codes, reason codes, audit/metric/log fields, fail-open or fail-closed
+  outcomes, defaults and wire formats.
+  1. Preserve it. Do not change observable behavior as a side effect; add a
+     characterization test before touching code whose behavior is unclear.
+  2. Discuss it. If a change looks required, or you find a latent bug, stop and
+     raise it with the user; change it only after they agree.
+  3. Justify it. State the issue, the evidence, the security/compatibility
+     impact and the alternatives. Keep the change in its own commit and call it
+     out in the PR and changelog.
 - Match nearby patterns and keep scope focused. Branches use `component/feature_name`;
   agents create a branch and PR, never push directly to `main`.
 - Use `fix(component):`, `feat(component):`, `doc:` or `website:` commits.
