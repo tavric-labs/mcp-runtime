@@ -6,8 +6,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	policypkg "mcp-runtime/pkg/policy"
 )
 
 type rpcRequest struct {
@@ -71,7 +69,7 @@ func inspectRPCBody(body []byte) rpcInspection {
 	}
 
 	var toolName string
-	if policypkg.IsToolCallMethod(req.Method) && len(req.Params) > 0 {
+	if len(req.Params) > 0 {
 		var params toolParams
 		if err := json.Unmarshal(req.Params, &params); err == nil {
 			toolName = params.Name

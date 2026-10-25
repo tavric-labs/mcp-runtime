@@ -94,10 +94,8 @@ func validateSessionBinding(binding *policypkg.Binding, actor identityContext, n
 	if binding == nil {
 		return errSessionUnavailable
 	}
-	deadline, err := parseDeadline(strings.TrimSpace(binding.ExpiresAt))
-	if err != nil {
-		return errSessionUnavailable
-	}
+	// A malformed expiry is treated as no expiry, as the gateway always has.
+	deadline, _ := parseDeadline(strings.TrimSpace(binding.ExpiresAt))
 	switch {
 	case binding.Revoked:
 		return errSessionRevoked

@@ -29,7 +29,6 @@ type MCPRequest struct {
 	Reason                  string `json:"reason"`
 	PolicyVersion           string `json:"policy_version"`
 	RPCMethod               string `json:"rpc_method,omitempty"`
-	RPCMessageKind          string `json:"rpc_message_kind,omitempty"`
 	ToolName                string `json:"tool_name,omitempty"`
 	AuthDelegation          string `json:"auth_delegation,omitempty"`
 	CallerIdentity          string `json:"caller_identity,omitempty"`

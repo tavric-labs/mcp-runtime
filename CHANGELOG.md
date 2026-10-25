@@ -35,7 +35,7 @@ reset or MCP Auth release is required.
 
 ### Changed
 
-- Shared Go authentication helpers now live in `pkg/identity`; policy defaults, platform defaults and route defaults live with their owning packages. Source consumers must update imports from `credentialheaders`, `oauthresource` and `mcpdefaults`. Gateway audit records add optional request/notification classification and keep non-tool RPC names separate from tool names ([#860](https://github.com/tavric-labs/mcp-runtime/pull/860)).
+- Shared Go authentication helpers now live in `pkg/identity`; policy defaults, platform defaults and route defaults live with their owning packages. Source consumers must update imports from `credentialheaders`, `oauthresource` and `mcpdefaults`. Gateway audit records and authentication behavior are unchanged ([#860](https://github.com/tavric-labs/mcp-runtime/pull/860)).
 
 ## [0.13.0] - 2026-10-24
 

@@ -10,7 +10,6 @@ import (
 // applyFilterResponse is the single response owner for the pre-proxy stages.
 // Unknown/zero outcomes fail closed. The forwarding stage alone owns streaming.
 func applyFilterResponse(ex *Exchange, response *FilterResponse) {
-	ex.SkipAudit = false
 	switch response.kind {
 	case responseDenied:
 		if response.Decision.Allowed || response.Decision.Status != 0 && (response.Decision.Status < 400 || response.Decision.Status > 599) {

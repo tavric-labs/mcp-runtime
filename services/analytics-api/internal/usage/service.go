@@ -3,14 +3,13 @@ package usage
 import (
 	"context"
 	"fmt"
-	"mcp-analytics-api/internal/identity"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-
+	"mcp-analytics-api/internal/identity"
 	"mcp-runtime/pkg/platformauth"
 	"mcp-runtime/pkg/platforminventory"
 )

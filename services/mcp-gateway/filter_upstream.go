@@ -35,7 +35,6 @@ func (s *gatewayServer) upstreamFilter(in PermittedRequest) (AuthorizedRequest, 
 	ex := &upstreamContext{R: request.R, W: in.writer, Inspection: request.Inspection, Policy: request.Policy, Identity: request.Identity, Decision: request.Decision}
 	defer func() {
 		in.outcome.decision, in.outcome.idempotency = ex.Decision, ex.Idempotency
-		request.R = ex.R
 	}()
 	if len(ex.R.Header.Values(idempotencyKeyHeader)) > 0 {
 		s.idempotentUpstream(ex)

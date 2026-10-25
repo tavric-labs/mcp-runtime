@@ -264,7 +264,7 @@ func (s *gatewayServer) auditPayload(ex *Exchange, elapsed time.Duration) events
 		PolicyVersion: policypkg.FirstNonEmpty(decision.PolicyVersion, s.defaultPolicyVersion),
 		ServerUID:     s.serverUID, WouldDeny: decision.WouldDeny, WouldDenyReason: ternary(decision.WouldDeny, decision.WouldDenyReason, ""),
 		Idempotency: ex.Idempotency.Outcome, IdempotencyKeyHash: ex.Idempotency.KeyHash,
-		RPCMethod: ex.Inspection.Method(), RPCMessageKind: string(ex.Inspection.Kind()), ToolName: ex.Inspection.ToolName(),
+		RPCMethod: ex.Inspection.Method(), ToolName: ex.Inspection.ToolName(),
 		MatchedGrant: decision.MatchedGrant, MatchedSession: decision.MatchedSession,
 		RequiredTrust: decision.RequiredTrust, RequiredSideEffect: decision.RequiredSideEffect,
 		RiskLevel:  policypkg.FirstNonEmpty(decision.RiskLevel, policypkg.ToolRiskLevel(policy, ex.Inspection.ToolName())),
