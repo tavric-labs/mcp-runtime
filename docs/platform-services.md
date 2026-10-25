@@ -966,7 +966,9 @@ signed-in user. Team owners can follow **Manage members** to
 `#/workspace/team?team=<slug>`; member accounts cannot manage memberships.
 
 Admin-only Organization links include **Platform overview** (`#/admin/overview`),
-Teams and Operations; Platform links include Platform health and Usage analytics. The
+Teams and Operations; Platform links include Usage analytics. Platform overview
+combines resource totals and service health on one page, including component
+readiness, Grafana, confirmed restarts, and expandable platform maintenance. The
 overview uses complete database counts for non-deleted users/teams, agents of
 current teams, and unrevoked, unexpired sessions excluding retired servers and
 inactive agents. Server totals come from the complete MCPServer list, not a

@@ -48,10 +48,13 @@ describe("AgentsPanel", () => {
     const { fetchMock } = setup();
 
     await screen.findByText("Ops Agent");
-    await user.selectOptions(screen.getByTestId("agent-team-select"), "acme");
+    await user.click(screen.getByRole("button", { name: "Create agent identity" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: /Identity team/ }), "acme");
     await user.type(screen.getByTestId("agent-create-name"), "New Agent");
     await user.click(screen.getByTestId("agent-create-submit"));
     await screen.findByTestId("agent-action-notice");
+    expect(screen.getByTestId("agent-team-select")).toHaveValue("*");
+    expect(screen.getByRole("link", { name: "Open agent details and connection steps" })).toHaveAttribute("href", "#/agents?team=acme&agent=agt_01arz3ndektsv4rrffq69g5fav");
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/runtime/teams/acme/agents"), expect.objectContaining({ method: "POST" }));
 
     await user.click(screen.getByTestId("agent-deactivate"));
@@ -65,6 +68,7 @@ describe("AgentsPanel", () => {
     const { fetchMock } = setup({ role: "user", teamRole: "member" });
     await screen.findByTestId("agent-open");
     expect(screen.queryByTestId("agent-create-name")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create agent identity" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("agent-deactivate")).not.toBeInTheDocument();
     await user.click(screen.getByTestId("agent-open"));
     expect(await screen.findByTestId("agent-detail")).toBeInTheDocument();

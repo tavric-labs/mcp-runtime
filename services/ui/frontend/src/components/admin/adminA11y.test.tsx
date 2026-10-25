@@ -18,6 +18,8 @@ const ADMIN: AuthStatus = {
 };
 
 const PAYLOADS: Record<string, unknown> = {
+  "/admin/overview/directory": { teams: 1, users: 1, agents: 0, active_sessions: 0 },
+  "/admin/overview/servers": { servers: 0, failures: [] },
   "/runtime/grants": {
     grants: [
       {
@@ -92,7 +94,7 @@ function stub() {
   );
 }
 
-function renderAdmin(auth: AuthStatus, section: "teams" | "operations" | "platform" | "analytics" = "teams") {
+function renderAdmin(auth: AuthStatus, section: "teams" | "operations" | "overview" | "analytics" = "teams") {
   return render(
     <AppProviders>
       <AdminWorkspace auth={auth} onSignIn={() => {}} section={section} />
@@ -127,10 +129,10 @@ describe("admin accessibility", () => {
     expect(await axe(container, AXE_OPTIONS)).toHaveNoViolations();
   });
 
-  it("has no detectable violations on platform health", async () => {
+  it("has no detectable violations on the combined platform overview", async () => {
     const user = userEvent.setup();
     stub();
-    const { container } = renderAdmin(ADMIN, "platform");
+    const { container } = renderAdmin(ADMIN, "overview");
     await screen.findByTestId("platform-components");
 
     expect(await axe(container, AXE_OPTIONS)).toHaveNoViolations();

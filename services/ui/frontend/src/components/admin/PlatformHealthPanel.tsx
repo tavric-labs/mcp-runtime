@@ -7,7 +7,6 @@ import { Button, ButtonLink } from "../../ui/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../ui/ConfirmDialog";
 import { Icon } from "../../ui/Icon";
 import { MetricGrid } from "../../ui/MetricCard";
-import { PageHeader } from "../../ui/PageHeader";
 import { EmptyState } from "../../ui/States";
 import { useAdminReload, useComponents } from "../../hooks/useAdminData";
 import { restartComponent } from "../../api/admin";
@@ -50,22 +49,10 @@ export function PlatformHealthPanel({ onSignIn }: PlatformHealthPanelProps) {
 
   return (
     <>
-      <PageHeader
-        title="Platform health"
-        breadcrumb={[{ label: "Administration" }, { label: "Platform health" }]}
-        description="Operator, platform services, and observability components reported by the runtime API."
-        actions={
-          <Button
-            variant="secondary"
-            icon="refresh"
-            onClick={reload}
-            busy={componentsQuery.isFetching && !componentsQuery.isPending}
-            data-testid="platform-refresh"
-          >
-            Refresh
-          </Button>
-        }
-      />
+      <div className="overview-section-head">
+        <div><h2 id="overview-health-title">Platform health</h2><p className="section-note">Readiness of platform services and observability components.</p></div>
+        <ButtonLink variant="secondary" href={grafanaPath()} target="_blank" rel="noreferrer" trailingIcon="external" data-testid="grafana-link">Grafana</ButtonLink>
+      </div>
 
       <MetricGrid
         label="Platform summary"
@@ -82,19 +69,6 @@ export function PlatformHealthPanel({ onSignIn }: PlatformHealthPanelProps) {
         ]}
       />
 
-      <nav className="observability-links" aria-label="Observability tools" style={{ marginBottom: "var(--space-5)" }}>
-        {/* Keep the link direct so the platform ingress forward-auth still applies. */}
-        <ButtonLink
-          variant="secondary"
-          href={grafanaPath()}
-          target="_blank"
-          rel="noreferrer"
-          trailingIcon="external"
-          data-testid="grafana-link"
-        >
-          Grafana
-        </ButtonLink>
-      </nav>
 
       {notice ? (
         <p className="notice notice-success" role="status" data-testid="platform-action-notice">
@@ -132,7 +106,7 @@ export function PlatformHealthPanel({ onSignIn }: PlatformHealthPanelProps) {
               const name = component.display || component.key;
               return (
                 <li key={component.key}>
-                  <article className="component-card" data-testid="platform-component">
+                  <article className={`component-card ${ready ? "component-ready" : "component-attention"}`} data-testid="platform-component">
                     <div className="component-card-head">
                       <div>
                         <p className="component-name">{name}</p>
@@ -181,7 +155,8 @@ export function PlatformHealthPanel({ onSignIn }: PlatformHealthPanelProps) {
         )}
       </AsyncSection>
 
-      <section className="danger-zone" aria-labelledby="platform-danger-title">
+      <details className="danger-zone">
+        <summary>Platform maintenance</summary>
         <h2 id="platform-danger-title">
           <Icon name="alert" /> Disruptive actions
         </h2>
@@ -194,7 +169,7 @@ export function PlatformHealthPanel({ onSignIn }: PlatformHealthPanelProps) {
           variant="danger"
           icon="power"
           busy={busyKey === "all"}
-          disabled={busyKey !== "" && busyKey !== "all"}
+          disabled={!loaded || components.length === 0 || (busyKey !== "" && busyKey !== "all")}
           data-testid="restart-all"
           onClick={() =>
             setConfirm({
@@ -208,7 +183,7 @@ export function PlatformHealthPanel({ onSignIn }: PlatformHealthPanelProps) {
         >
           Restart all
         </Button>
-      </section>
+      </details>
 
       {confirm ? (
         <ConfirmDialog

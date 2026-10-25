@@ -35,6 +35,18 @@ The source-of-truth data plane is:
   claims, or from the
   session named by a verified adapter certificate.
 
+## Create an agent identity in the console
+
+Open **Agents** → **Create agent identity**. Choose the owning team, enter a
+name (1–64 characters), and select **Create agent**. This action is available
+from **All teams** as well as a team-filtered directory. Platform administrators
+can choose any team; team owners can choose only teams they own. Members have
+read access. If no team exists, administrators must create one in **Teams** first.
+
+The platform generates the immutable agent ID. Open the created agent to grant
+access and follow its client connection steps. Creating an identity does not
+issue a session or grant access automatically.
+
 ## Inspect an agent's ownership and activity
 
 Open **Agents** and select an agent. The detail view shows its owning team,

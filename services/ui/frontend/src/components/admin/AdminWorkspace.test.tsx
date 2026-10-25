@@ -137,7 +137,9 @@ function stubAdminApi(overrides: Record<string, { status?: number; body?: unknow
         text: async () => JSON.stringify(body),
       } as unknown as Response;
     }
-    const body = url.includes("/runtime/grants")
+    const body = url.includes("/overview/directory") ? { teams: 1, users: 1, agents: 0, active_sessions: 0 }
+      : url.includes("/overview/servers") ? { servers: 0, failures: [] }
+      : url.includes("/runtime/grants")
       ? GRANTS
       : url.includes("/runtime/sessions")
         ? SESSIONS
@@ -156,7 +158,7 @@ function stubAdminApi(overrides: Record<string, { status?: number; body?: unknow
   return fetchMock;
 }
 
-function renderAdmin(auth: AuthStatus, section: "teams" | "operations" | "platform" | "analytics" = "teams") {
+function renderAdmin(auth: AuthStatus, section: "teams" | "operations" | "overview" | "analytics" = "teams") {
   return render(
     <AppProviders>
       <AdminWorkspace auth={auth} onSignIn={() => {}} section={section} />
@@ -285,10 +287,9 @@ describe("AdminWorkspace sections", () => {
   });
 
   it("renders platform health and keeps Grafana a plain forward-auth link", async () => {
-    const user = userEvent.setup();
     stubAdminApi();
 
-    renderAdmin(ADMIN, "platform");
+    renderAdmin(ADMIN, "overview");
 
     const grid = await screen.findByTestId("platform-components");
     expect(within(grid).getByText("Operator")).toBeInTheDocument();

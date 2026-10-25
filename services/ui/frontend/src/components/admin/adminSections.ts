@@ -1,4 +1,4 @@
-export type AdminSectionId = "overview" | "teams" | "operations" | "platform" | "analytics";
+export type AdminSectionId = "overview" | "teams" | "operations" | "analytics";
 
 export type AdminSection = {
   id: AdminSectionId;
@@ -29,12 +29,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Operations",
     group: "Organization",
     description: "Platform users, the audit trail, and image activity.",
-  },
-  {
-    id: "platform",
-    label: "Platform health",
-    group: "Platform",
-    description: "Operator, platform services, and observability components.",
   },
   {
     id: "analytics",

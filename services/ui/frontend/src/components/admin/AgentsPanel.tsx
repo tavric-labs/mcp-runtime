@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { createTeamAgent, listTeamAgents, renameAgent } from "../../api/admin";
@@ -28,6 +28,11 @@ export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamC
   const [search, setSearch] = useState("");
   const [cursors, setCursors] = useState<string[]>([]);
   const [allPage, setAllPage] = useState(0);
+  const createButtonRef = useRef<HTMLButtonElement>(null);
+  const createNameRef = useRef<HTMLInputElement>(null);
+  const [createdAgent, setCreatedAgent] = useState<AgentRecord | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createTeam, setCreateTeam] = useState("");
   const [createName, setCreateName] = useState("");
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
   const [lifecycle, setLifecycle] = useState<AgentRecord | null>(null);
@@ -74,17 +79,19 @@ export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamC
   const allAgents = allAgentsQuery.data ?? [];
   const agents = teamSlug === "*" ? allAgents.slice(allPage * 100, (allPage + 1) * 100) : agentsQuery.data?.agents ?? [];
   const selectedTeam = teams.find((team) => team.slug === teamSlug);
-  const canManageTeam = platformAdmin || selectedTeam?.role === "owner";
+  const manageableTeams = teams.filter(team => platformAdmin || team.role === "owner");
 
   async function runAction(message: string, action: () => Promise<unknown>) {
     setBusy(true);
     setError("");
     setNotice("");
+    setCreatedAgent(null);
     try {
       await action();
       setNotice(message);
       setEditing(null);
       setCreateName("");
+      setCreating(false);
       await reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The change could not be applied.");
@@ -93,14 +100,34 @@ export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamC
     }
   }
 
+  function openCreate() {
+    if (creating) {
+      createNameRef.current?.focus();
+      return;
+    }
+    setCreatedAgent(null);
+    setNotice("");
+    setCreateTeam(selectedTeam && manageableTeams.some(team => team.slug === selectedTeam.slug) ? selectedTeam.slug : "");
+    setCreating(true);
+    setError("");
+  }
+
+  function cancelCreate() {
+    setCreating(false);
+    setCreateName("");
+    setError("");
+    createButtonRef.current?.focus();
+  }
+
   function submitCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = createName.trim();
-    if (!selectedTeam || !canManageTeam || !name || name.length > 64 || busy) {
+    const identityTeam = manageableTeams.find(team => team.slug === createTeam);
+    if (!identityTeam || !name || name.length > 64 || busy) {
       setError("Choose a team and enter an agent name from 1 to 64 characters.");
       return;
     }
-    void runAction(`Agent “${name}” created.`, () => createTeamAgent(selectedTeam.slug, name));
+    void runAction(`Agent “${name}” created.`, async () => { setCreatedAgent(await createTeamAgent(identityTeam.slug, name)); });
   }
 
   function submitRename(event: FormEvent<HTMLFormElement>) {
@@ -162,9 +189,30 @@ export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamC
 
   return (
     <>
-      <PageHeader title="Agent Management" description="Browse team-owned agent identities, access, sessions, and connection steps." />
-      {notice ? <p className="notice notice-success" role="status" data-testid="agent-action-notice">{notice}</p> : null}
+      <PageHeader title="Agent Management" description="Browse team-owned agent identities, access, sessions, and connection steps."
+        actions={platformAdmin || manageableTeams.length > 0 ? (
+          <Button ref={createButtonRef} variant="primary" icon="plus"
+            disabled={teamsQuery.isPending || Boolean(teamsQuery.error) || manageableTeams.length === 0 || busy}
+            aria-expanded={creating} aria-controls={creating ? "agent-create-form" : undefined}
+            onClick={openCreate}>Create agent identity</Button>
+        ) : undefined} />
+      {notice ? <p className="notice notice-success agent-creation-notice" role="status" data-testid="agent-action-notice">{notice}{createdAgent ? <> <a href={`#/agents?team=${encodeURIComponent(createdAgent.team_slug)}&agent=${encodeURIComponent(createdAgent.id)}`}>Open agent details and connection steps</a></> : null}</p> : null}
       {error ? <p className="notice notice-danger" role="alert" data-testid="agent-action-error">{error}</p> : null}
+
+      {creating ? <section className="section agent-create-panel" aria-labelledby="agent-create-title" id="agent-create-form">
+        <h2 id="agent-create-title">Create agent identity</h2>
+        <p className="section-note">Choose the team that owns this identity. After creation, open the agent to grant access and connect a client.</p>
+        <form onSubmit={submitCreate}>
+          <div className="form-grid">
+            <SelectField label="Identity team" value={createTeam} required disabled={busy} options={[{ value: "", label: "Choose a team" }, ...manageableTeams.map(team => ({ value: team.slug, label: team.name || team.slug }))]} onChange={event => setCreateTeam(event.target.value)} />
+            <TextField ref={createNameRef} label="New agent name" value={createName} required autoFocus maxLength={64} disabled={busy} data-testid="agent-create-name" hint="1–64 characters. The platform generates an immutable agent ID." onChange={event => setCreateName(event.target.value)} />
+          </div>
+          <div className="inline-actions">
+            <Button type="submit" variant="primary" busy={busy} data-testid="agent-create-submit">Create agent</Button>
+            <Button variant="ghost" disabled={busy} onClick={cancelCreate}>Cancel</Button>
+          </div>
+        </form>
+      </section> : platformAdmin && teamsQuery.isSuccess && teams.length === 0 ? <p className="notice notice-info">Create a team in <a href="#/admin/teams">Teams</a> before creating an agent identity.</p> : null}
 
       <section className="section">
         <div className="form-grid">
@@ -184,10 +232,6 @@ export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamC
           />
           <TextField label="Search agents" type="search" value={search} data-testid="agent-search" onChange={(event) => { setSearch(event.target.value); setCursors([]); setAllPage(0); }} />
         </div>
-        {selectedTeam && canManageTeam ? <form className="inline-actions" onSubmit={submitCreate}>
-          <TextField label="New agent name" value={createName} maxLength={64} disabled={!teamSlug || busy} data-testid="agent-create-name" hint={selectedTeam ? `New identity in ${selectedTeam.name || selectedTeam.slug}.` : "Select a team first."} onChange={(event) => setCreateName(event.target.value)} />
-          <Button type="submit" disabled={!teamSlug} busy={busy} data-testid="agent-create-submit">Create agent</Button>
-        </form> : null}
       </section>
 
       <section className="section" aria-label="Agents">

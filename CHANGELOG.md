@@ -9,6 +9,8 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Fixed
 
+- The console exposes **Create agent identity** from the all-team Agents directory, with an explicit owning-team selector for administrators and team owners. Platform overview now includes component health, Grafana and confirmed maintenance actions in one page, with clearer resource totals, deployment issues, audit activity and responsive status colors.
+
 - `cluster mcp-auth-connector apply` keeps `gateway-login-*` connectors that the supplied file does not mention. The hosted release deploy merges those entries before refreshing Keycloak, so an mcp-auth image rollout no longer removes the credential gateway's resource login and exits.
 
 ## [0.13.0] - 2026-10-24

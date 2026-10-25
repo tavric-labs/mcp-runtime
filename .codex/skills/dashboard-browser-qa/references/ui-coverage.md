@@ -387,7 +387,7 @@ back/forward work. Drive coverage from these URLs rather than clicking through:
 | `#/servers?tool=<ns>/<server>/<tool>` | Tool inspector open |
 | `#/activity` | Tenant activity |
 | `#/keys` | Personal API keys |
-| `#/access` `#/admin/teams` `#/admin/operations` `#/admin/platform` `#/admin/analytics` | Administration sections |
+| `#/access` `#/admin/teams` `#/admin/operations` `#/admin/overview` `#/admin/analytics` | Administration sections |
 | `#/signin` | Sign-in |
 
 Things that changed and will break an older script:
@@ -406,9 +406,14 @@ Things that changed and will break an older script:
   after selecting a section. Check active state, filtering, and role visibility.
 - Operations is tabbed: `operations-tab-users|audit|images`. Only the active
   tab's table is in the DOM.
-- Platform health is a card grid (`platform-components`, `platform-component`),
-  not `platform-table`. `restart-all` sits in a separated disruptive-actions
-  area.
+- Platform overview combines totals, deployment issues, recent audit activity, and
+  component health. There is one sidebar entry (`admin-section-overview`);
+  `#/admin/platform` resolves to the overview through the unknown-section fallback.
+- In Agents, **Create agent identity** opens a form with its own owning-team
+  selector, including when the directory filter is **All teams**. Check admin,
+  owner, member, empty-team, validation, error/retry, cancel and success cases.
+- Platform health within the overview is a card grid (`platform-components`, `platform-component`),
+  not `platform-table`. `restart-all` sits in the expandable **Platform maintenance** area.
 - The tool catalog paginates at 25 rows: `tool-table-next-page`,
   `tool-table-prev-page`, `tool-table-pagination-status`.
 - Server and tool search are separate and scoped: `server-search` matches server

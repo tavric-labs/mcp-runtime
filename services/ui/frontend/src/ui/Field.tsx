@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useId, type InputHTMLAttributes, type ReactNode, type Ref, type SelectHTMLAttributes } from "react";
 
 import { Icon } from "./Icon";
 
@@ -59,6 +59,7 @@ export function Field({
 }
 
 type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & {
+  ref?: Ref<HTMLInputElement>;
   label: string;
   hint?: string;
   error?: string;
