@@ -122,3 +122,6 @@ func (r Routes) ValidateAuth(platformHost, issuer string) error {
 }
 
 func (r Routes) PlatformPrefix() string { return strings.TrimSuffix(r.WithDefaults().Platform, "/") }
+
+// DefaultMCPPath is the default public MCP path for a managed server.
+func DefaultMCPPath(serverName string) string { return "/" + serverName + "/mcp" }

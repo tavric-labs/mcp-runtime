@@ -13,7 +13,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/credentialheaders"
+	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/metadata"
 )
 
@@ -358,7 +358,7 @@ func headerAuthNames(auth *mcpv1alpha1.AuthConfig) []string {
 	seen := make(map[string]struct{}, len(auth.Headers))
 	for _, name := range auth.Headers {
 		name = strings.TrimSpace(name)
-		if credentialheaders.ValidateName(name) != nil {
+		if identity.ValidateCredentialHeaderName(name) != nil {
 			continue
 		}
 		key := strings.ToLower(name)
@@ -378,7 +378,7 @@ func headerAuthPresence(auth *mcpv1alpha1.AuthConfig) string {
 	if !mcpv1alpha1.AuthUsesHeaderMode(auth) {
 		return ""
 	}
-	presence, err := credentialheaders.NormalizePresence(auth.CredentialPresence)
+	presence, err := identity.NormalizeCredentialPresence(auth.CredentialPresence)
 	if err != nil {
 		return ""
 	}

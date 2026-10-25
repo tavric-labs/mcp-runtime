@@ -158,4 +158,11 @@ Kubernetes field causes and platform error text when changing these boundaries.
 
 - CRDs: `api/v1alpha1/`, `config/crd/bases/`
 - Shared policy: `pkg/access/`, `pkg/policy/`
+- Shared authentication contracts and OAuth resource URLs: `pkg/identity/`
+- Gateway stages: `services/mcp-gateway/filter*.go`; request stages return typed
+  outcomes and the runner renders denials/metadata. Upstream receives a
+  `PermittedRequest`; session/OAuth dependencies can be injected through the
+  read-only consumer interfaces in `dependencies.go`.
+- Audit wire payload: `pkg/events.MCPRequest`; this is a platform audit record,
+  independent of any draft MCP Events extension.
 - Adapters: `internal/cli/adapter/`, `internal/agentadapter/`, `services/runtime-api/internal/runtimeapi/adapter.go`

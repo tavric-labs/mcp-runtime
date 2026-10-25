@@ -89,10 +89,10 @@ func (b *credentialBroker) resolve(ctx context.Context, request cb.ResolutionReq
 	return result, nil
 }
 
-func (s *gatewayServer) injectCredentials(ex *Exchange) bool {
+func (s *gatewayServer) injectCredentials(ex *upstreamContext) bool {
 	cb.StripHeaders(ex.R.Header)
 	cb.StripHeaders(ex.R.Trailer)
-	if ex.Policy == nil || len(ex.Policy.CredentialBindings) == 0 || !ex.Inspection.ToolCall {
+	if ex.Policy == nil || len(ex.Policy.CredentialBindings) == 0 || !ex.Inspection.IsToolCall() {
 		return true
 	}
 	if ex.Identity.Session == nil || !ex.Decision.Allowed {
@@ -102,7 +102,7 @@ func (s *gatewayServer) injectCredentials(ex *Exchange) bool {
 		return false
 	}
 	b := ex.Identity.Session
-	result, err := s.credentialBroker.resolve(ex.R.Context(), cb.ResolutionRequest{Session: string(b.Namespace) + "/" + string(b.Name), Tool: ex.Inspection.ToolName, Bindings: ex.Policy.CredentialBindings})
+	result, err := s.credentialBroker.resolve(ex.R.Context(), cb.ResolutionRequest{Session: string(b.Namespace) + "/" + string(b.Name), Tool: ex.Inspection.ToolName(), Bindings: ex.Policy.CredentialBindings})
 	if err != nil {
 		return false
 	}

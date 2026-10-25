@@ -20,8 +20,8 @@ import (
 	uiproxy "mcp-ui/internal/proxy"
 	"mcp-ui/internal/session"
 
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/platformmode"
+	policypkg "mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/publishscope"
 	"mcp-runtime/pkg/serviceutil"
 )
@@ -129,7 +129,7 @@ func newMux(apiBase, apiUpstream, apiKey, apiKeys, adminAPIKeys string) (*http.S
 	if defaultNamespace == "" {
 		defaultNamespace = defaultCatalogNamespaceForMode(platformMode)
 	}
-	defaultPolicyVersion := serviceutil.EnvOr("UI_DEFAULT_POLICY_VERSION", mcpdefaults.PolicyVersion)
+	defaultPolicyVersion := serviceutil.EnvOr("UI_DEFAULT_POLICY_VERSION", policypkg.DefaultVersion)
 	baseJSON, err := json.Marshal(apiBase)
 	if err != nil {
 		return nil, err

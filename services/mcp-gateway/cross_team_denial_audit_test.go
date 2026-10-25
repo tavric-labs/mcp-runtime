@@ -49,15 +49,15 @@ func TestCertificateDenialPreservesOnlyVerifiedKnownActor(t *testing.T) {
 			if tc.wantReason == "session_not_found" {
 				ex.Policy.Session = nil
 			}
-			if result := s.authFilter(ex); result != Reject || ex.Decision.Allowed || ex.Decision.Reason != tc.wantReason {
+			if result := ex.authenticate(s); result == nil || ex.Decision.Allowed || ex.Decision.Reason != tc.wantReason {
 				t.Fatalf("result=%v decision=%+v", result, ex.Decision)
 			}
 			if tc.wantActor {
 				if ex.Identity.TeamID != "team-b" || ex.Identity.HumanID != "human-b" || ex.Identity.SessionID != "binding" {
 					t.Fatalf("actor=%+v", ex.Identity)
 				}
-				payload := s.auditPayload(ex.R, "/mcp", "tools/call", "aaa-ping", ex.Identity, ex.Policy, ex.Decision, http.StatusUnauthorized, 0, 0)
-				if payload["subject_team_id"] != "team-b" || payload["resource_team_id"] != "team-a" {
+				payload := auditPayloadForTest(s, ex.R, "/mcp", "tools/call", "aaa-ping", ex.Identity, ex.Policy, ex.Decision, http.StatusUnauthorized, 0, 0)
+				if payload.SubjectTeamID != "team-b" || payload.ResourceTeamID != "team-a" {
 					t.Fatalf("denial attribution=%+v", payload)
 				}
 			} else if ex.Identity != (identityContext{}) {

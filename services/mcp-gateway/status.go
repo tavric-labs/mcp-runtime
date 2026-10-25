@@ -33,7 +33,7 @@ func (s *gatewayServer) handleReady(w http.ResponseWriter, _ *http.Request) {
 		serviceutil.WriteJSON(w, http.StatusServiceUnavailable, payload)
 		return
 	}
-	if snapshot.Policy != nil && snapshot.Policy.Session != nil && snapshot.Policy.Session.Store == "platform" && !s.sessionSync.fresh() {
+	if snapshot.Policy != nil && snapshot.Policy.Session != nil && snapshot.Policy.Session.Store == "platform" && !s.sessionReader().Fresh(s.currentTime()) {
 		serviceutil.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "reason": "session_sync_unavailable"})
 		return
 	}
@@ -59,10 +59,10 @@ func (s *gatewayServer) handleConfigStatus(w http.ResponseWriter, _ *http.Reques
 		status.LastReloadError = snapshot.Err.Error()
 	}
 	if s.sessionSync != nil {
-		status.SessionSyncReady = s.sessionSync.fresh()
+		status.SessionSyncReady = s.sessionReader().Fresh(s.currentTime())
 		s.sessionSync.mu.RLock()
 		if !s.sessionSync.lastSync.IsZero() {
-			age := time.Since(s.sessionSync.lastSync).Seconds()
+			age := s.currentTime().Sub(s.sessionSync.lastSync).Seconds()
 			status.SessionSyncAgeSeconds = &age
 		}
 		s.sessionSync.mu.RUnlock()

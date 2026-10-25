@@ -17,12 +17,11 @@
 //   - Authentication (stage 3) always completes before authorization (stage 4).
 //   - The policy snapshot (stage 2) is captured once and held immutable for the
 //     entire exchange lifetime; no later stage may re-acquire it.
-//   - Authorization inputs (Policy and Identity on Exchange) must not be mutated
-//     after the authz stage sets Decision; upstream preparation (stage 5) only
-//     reads them.
+//   - Authorization consumes AuthenticatedRequest and produces AuthorizedRequest;
+//     upstream preparation (stage 5) only reads its policy and identity.
 //
-// Each filter returns Continue, Reject, or Respond. On any non-Continue result
-// the pipeline halts and stage 6 runs from the orchestrator.
+// Filters have typed phase inputs and outputs (see filter.go). A non-nil
+// FilterResponse halts processing; stage 6 runs from the HTTP orchestrator.
 package main
 
 import (
@@ -32,39 +31,14 @@ import (
 	policypkg "mcp-runtime/pkg/policy"
 )
 
-// Result is the signal a Filter returns to the pipeline runner.
-type Result int
-
-const (
-	// Continue passes control to the next filter in the pipeline.
-	Continue Result = iota
-	// Reject signals that this filter wrote a denial response. The pipeline
-	// halts; stage 6 (audit) runs from the orchestrator.
-	Reject
-	// Respond signals that this filter wrote a terminal response (e.g. OAuth
-	// metadata, successful upstream proxy). The pipeline halts; stage 6 runs.
-	Respond
-)
-
-// Filter is a single stage in the gateway request pipeline.
-type Filter interface {
-	Handle(*Exchange) Result
-}
-
-// FilterFunc is a function that implements Filter.
-type FilterFunc func(*Exchange) Result
-
-// Handle implements Filter.
-func (f FilterFunc) Handle(ex *Exchange) Result { return f(ex) }
-
-// Exchange holds all request-scoped state shared across pipeline stages.
-// Fields are written by one designated stage and read by all later stages.
-// Do not mutate Policy or Identity after AuthzFilter sets Decision.
+// Exchange records request-scoped state for audit, metrics and tracing.
+// Pipeline copies completed phase outputs here; filters receive typed inputs
+// instead of this mutable observation record.
 type Exchange struct {
 	// W wraps the original ResponseWriter to capture status code and byte count.
 	W *statusRecorder
-	// R is the inbound HTTP request. InspectFilter may replace Body with a
-	// buffered reader; no later stage should replace R.
+	// R is the latest HTTP request, with its parent trace context restored after
+	// each stage. Inspection may buffer Body; upstream may rewrite its path.
 	R *http.Request
 	// OriginalPath is r.URL.Path captured before any prefix stripping.
 	OriginalPath string
@@ -87,6 +61,9 @@ type Exchange struct {
 
 	// Set by stage 4 (AuthzFilter). Policy and Identity must not change after this.
 	Decision policypkg.Decision
+	// Authorization remains separate from operational denials during dispatch.
+	AuthorizationDecision policypkg.Decision
+	AuthorizationObserved bool
 
 	// SkipAudit is set by a filter that writes a terminal response that bypasses
 	// authentication and authorization entirely (e.g. OAuth metadata early-exit in

@@ -4,7 +4,7 @@ import (
 	"path"
 	"strings"
 
-	"mcp-runtime/pkg/oauthresource"
+	"mcp-runtime/pkg/identity"
 )
 
 const (
@@ -79,7 +79,7 @@ func (r *MCPServer) CanonicalResourceURL(options PublicURLOptions) string {
 // a resource URL: the well-known prefix inserted between origin and path, the
 // location a conforming client derives from the resource it connected to.
 func ProtectedResourceMetadataURL(resource string) string {
-	return oauthresource.ProtectedResourceMetadataURL(resource)
+	return identity.ProtectedResourceMetadataURL(resource)
 }
 
 func cleanURLPath(value string) string {

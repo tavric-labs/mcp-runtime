@@ -8,7 +8,7 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/platforminventory"
 )
 
 // checkGatewayAnalyticsCredentials verifies every analytics-enabled gateway
@@ -42,7 +42,7 @@ func checkGatewayAnalyticsCredentials(kubectl core.KubectlRunner) DoctorCheck {
 			Name:   checkName,
 			OK:     false,
 			Detail: strings.Join(limitStrings(failures, 4), "; "),
-			Remedy: "update the operator and let it reconcile the MCPServer (or redeploy with `mcp-runtime server deploy`) so the gateway gets a projected token for audience " + mcpdefaults.AnalyticsTokenAudience + " under the " + kubeworkload.DefaultServiceAccountName + " ServiceAccount",
+			Remedy: "update the operator and let it reconcile the MCPServer (or redeploy with `mcp-runtime server deploy`) so the gateway gets a projected token for audience " + platforminventory.AnalyticsTokenAudience + " under the " + kubeworkload.DefaultServiceAccountName + " ServiceAccount",
 		}
 	}
 	if len(deployments) == 0 {
@@ -137,8 +137,8 @@ func analyticsTokenProblem(deployment doctorDeployment, container doctorContaine
 	if audience == "" {
 		return fmt.Sprintf("volume %s is not a projected service account token", volumeName)
 	}
-	if audience != mcpdefaults.AnalyticsTokenAudience {
-		return fmt.Sprintf("token audience is %q, ingest requires %q", audience, mcpdefaults.AnalyticsTokenAudience)
+	if audience != platforminventory.AnalyticsTokenAudience {
+		return fmt.Sprintf("token audience is %q, ingest requires %q", audience, platforminventory.AnalyticsTokenAudience)
 	}
 	if sa := deployment.Spec.Template.Spec.ServiceAccountName; sa != kubeworkload.DefaultServiceAccountName {
 		return fmt.Sprintf("runs as ServiceAccount %q, ingest only accepts %q", sa, kubeworkload.DefaultServiceAccountName)
@@ -226,8 +226,8 @@ func checkIngestServiceAccountAuth(kubectl core.KubectlRunner) DoctorCheck {
 			ingest = container
 		}
 	}
-	if got := envValue(ingest.Env, "INGEST_SA_TOKEN_AUDIENCE"); got != mcpdefaults.AnalyticsTokenAudience {
-		return DoctorCheck{Name: checkName, OK: false, Detail: fmt.Sprintf("mcp-ingest INGEST_SA_TOKEN_AUDIENCE is %q, gateways present %q: every gateway event will be rejected", got, mcpdefaults.AnalyticsTokenAudience), Remedy: remedy}
+	if got := envValue(ingest.Env, "INGEST_SA_TOKEN_AUDIENCE"); got != platforminventory.AnalyticsTokenAudience {
+		return DoctorCheck{Name: checkName, OK: false, Detail: fmt.Sprintf("mcp-ingest INGEST_SA_TOKEN_AUDIENCE is %q, gateways present %q: every gateway event will be rejected", got, platforminventory.AnalyticsTokenAudience), Remedy: remedy}
 	}
 	if podSpec.ServiceAccountName != ingestServiceAccountName {
 		return DoctorCheck{Name: checkName, OK: false, Detail: fmt.Sprintf("mcp-ingest runs as ServiceAccount %q, expected %q", podSpec.ServiceAccountName, ingestServiceAccountName), Remedy: remedy}
@@ -246,7 +246,7 @@ func checkIngestServiceAccountAuth(kubectl core.KubectlRunner) DoctorCheck {
 		}
 		return DoctorCheck{Name: checkName, OK: false, Detail: detail, Remedy: remedy + " (ClusterRoleBinding mcp-ingest-tokenreview)"}
 	}
-	return DoctorCheck{Name: checkName, OK: true, Detail: fmt.Sprintf("mcp-ingest validates gateway tokens for audience %q as ServiceAccount %s/%s", mcpdefaults.AnalyticsTokenAudience, namespace, ingestServiceAccountName)}
+	return DoctorCheck{Name: checkName, OK: true, Detail: fmt.Sprintf("mcp-ingest validates gateway tokens for audience %q as ServiceAccount %s/%s", platforminventory.AnalyticsTokenAudience, namespace, ingestServiceAccountName)}
 }
 
 const ingestServiceAccountName = "mcp-ingest"

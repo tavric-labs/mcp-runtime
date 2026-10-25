@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"mcp-runtime/pkg/credentialheaders"
+	"mcp-runtime/pkg/identity"
 )
 
 const (
@@ -66,7 +66,7 @@ func (s CredentialSource) value() (string, error) {
 			value = strings.TrimSuffix(value, "\n")
 		}
 	}
-	if err := credentialheaders.ValidateValue(value); err != nil {
+	if err := identity.ValidateCredentialValue(value); err != nil {
 		return "", err
 	}
 	return value, nil
@@ -77,7 +77,7 @@ func (s CredentialSource) value() (string, error) {
 func ValidateCredentialSources(sources map[string]CredentialSource) error {
 	seen := make(map[string]bool, len(sources))
 	for _, name := range sortedCredentialNames(sources) {
-		if err := credentialheaders.ValidateName(name); err != nil {
+		if err := identity.ValidateCredentialHeaderName(name); err != nil {
 			return err
 		}
 		key := strings.ToLower(name)

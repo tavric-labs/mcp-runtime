@@ -13,9 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"mcp-runtime/pkg/events"
@@ -24,8 +22,6 @@ import (
 )
 
 const upstreamResponseHeaderTimeout = 30 * time.Second
-
-var gatewayStageNames = [...]string{"inspect", "policy", "auth", "authz", "upstream"}
 
 func newUpstreamReverseProxy(target *url.URL) *httputil.ReverseProxy {
 	return newUpstreamReverseProxyWithTimeout(target, upstreamResponseHeaderTimeout)
@@ -108,72 +104,41 @@ func (s *gatewayServer) handleGateway(w http.ResponseWriter, r *http.Request) {
 	stopInflight := s.metrics.trackInflight(scope)
 	defer stopInflight()
 	policyDecisionObserved := false
-	var authorizationDecision policypkg.Decision
-	authorizationObserved := false
 	defer func() {
 		metricScope := s.metricScope(ex.Policy)
 		s.metrics.recordRequest(
-			metricScope, ex.R, ex.Inspection.Method, ex.Decision,
+			metricScope, ex.R, ex.Inspection.Method(), ex.Decision,
 			ex.W.status, time.Since(ex.StartTime), ex.R.ContentLength, ex.W.bytes,
 		)
-		if ex.Inspection.ToolCall && ex.Inspection.ToolName != "" {
+		if ex.Inspection.IsToolCall() && ex.Inspection.ToolName() != "" {
 			s.metrics.recordToolCall(ex.R.Context(), metricScope, ex.Policy,
-				ex.Inspection.ToolName, ex.Decision, ex.W.status, time.Since(ex.StartTime))
+				ex.Inspection.ToolName(), ex.Decision, ex.W.status, time.Since(ex.StartTime))
 		}
-		if policyDecisionObserved || authorizationObserved {
+		if policyDecisionObserved || ex.AuthorizationObserved {
 			decision := ex.Decision
-			if authorizationObserved {
-				decision = authorizationDecision
+			if ex.AuthorizationObserved {
+				decision = ex.AuthorizationDecision
 			}
-			s.metrics.recordPolicyDecision(metricScope, ex.Inspection.Method, decision)
+			s.metrics.recordPolicyDecision(metricScope, ex.Inspection.Method(), decision)
 		}
 	}()
 
-	for i, f := range s.buildPipeline() {
-		parent := ex.R.Context()
-		ctx, span := otel.Tracer("mcp-runtime/gateway").Start(parent,
-			"gateway."+gatewayStageNames[i], trace.WithSpanKind(trace.SpanKindInternal))
-		ex.R = ex.R.WithContext(ctx)
-		result := Continue
-		completed := false
-		func() {
-			defer func() {
-				span.SetAttributes(attribute.String("mcp.method.name", metricRPCMethod(ex.Inspection.Method)),
-					attribute.String("gateway.stage", gatewayStageNames[i]),
-					attribute.String("gateway.decision.reason", ex.Decision.Reason))
-				if !completed || result != Continue && (ex.W.status >= http.StatusBadRequest || ex.Decision.Status >= http.StatusBadRequest) {
-					span.SetStatus(codes.Error, "gateway request failed")
-				}
-				span.End()
-				ex.R = ex.R.WithContext(parent)
-			}()
-			result = f.Handle(ex)
-			completed = true
-		}()
-		// Upstream availability/backpressure is an operational denial, not a
-		// grant restriction. Preserve the actual authorization counter result.
-		if i == 3 && (ex.Inspection.ToolCall || ex.Inspection.Indeterminate) {
-			authorizationDecision, authorizationObserved = ex.Decision, true
-		}
-		if result != Continue {
-			break
-		}
-	}
+	s.buildPipeline().Run(ex)
 	if ex.Decision.PolicyVersion == "" {
 		ex.Decision.PolicyVersion = s.defaultPolicyVersion
 	}
-	policyDecisionObserved = ex.Inspection.ToolCall || ex.Inspection.Indeterminate
+	policyDecisionObserved = ex.Inspection.IsToolCall() || ex.Inspection.Indeterminate()
 	if !policyDecisionObserved && !ex.Decision.Allowed && !ex.SkipAudit {
 		policyDecisionObserved = true
 	}
 	trace.SpanFromContext(ex.R.Context()).SetAttributes(
-		attribute.String("mcp.method.name", metricRPCMethod(ex.Inspection.Method)),
+		attribute.String("mcp.method.name", metricRPCMethod(ex.Inspection.Method())),
 		attribute.Bool("mcp.async", false),
 		attribute.String("mcp.server.name", s.metricScope(ex.Policy).Server),
 		attribute.String("service.namespace", s.metricScope(ex.Policy).Namespace),
 	)
-	if len(ex.Inspection.ToolName) > 0 && len(ex.Inspection.ToolName) <= 128 {
-		trace.SpanFromContext(ex.R.Context()).SetAttributes(attribute.String("gen_ai.tool.name", ex.Inspection.ToolName))
+	if len(ex.Inspection.ToolName()) > 0 && len(ex.Inspection.ToolName()) <= 128 {
+		trace.SpanFromContext(ex.R.Context()).SetAttributes(attribute.String("gen_ai.tool.name", ex.Inspection.ToolName()))
 	}
 }
 
@@ -194,19 +159,19 @@ func (s *gatewayServer) recordGatewayOutcome(ex *Exchange) {
 		}
 		scope := s.metricScope(ex.Policy)
 		tool := "none"
-		if ex.Inspection.ToolCall {
+		if ex.Inspection.IsToolCall() {
 			tool = "__other__"
-			if ex.Policy != nil && len(ex.Inspection.ToolName) <= 128 {
+			if ex.Policy != nil && len(ex.Inspection.ToolName()) <= 128 {
 				for _, configured := range ex.Policy.Tools {
-					if string(configured.Name) == ex.Inspection.ToolName {
-						tool = ex.Inspection.ToolName
+					if string(configured.Name) == ex.Inspection.ToolName() {
+						tool = ex.Inspection.ToolName()
 						break
 					}
 				}
 			}
 		}
 		serviceutil.LogfCtx(ex.R.Context(), "event=gateway.request service=%q namespace=%q server=%q tool=%q policy_version=%q method=%q status=%d decision=%q reason=%q duration_ms=%.3f",
-			serviceutil.EnvOr("OTEL_SERVICE_NAME", "mcp-gateway"), scope.Namespace, scope.Server, tool, ex.Decision.PolicyVersion, metricRPCMethod(ex.Inspection.Method), status,
+			serviceutil.EnvOr("OTEL_SERVICE_NAME", "mcp-gateway"), scope.Namespace, scope.Server, tool, ex.Decision.PolicyVersion, metricRPCMethod(ex.Inspection.Method()), status,
 			decision, ex.Decision.Reason, float64(time.Since(ex.StartTime))/float64(time.Millisecond))
 	}
 	denied := !ex.Decision.Allowed && !ex.SkipAudit
@@ -220,24 +185,11 @@ func (s *gatewayServer) recordGatewayOutcome(ex *Exchange) {
 	if reason == "" {
 		reason = http.StatusText(status)
 	}
-	method := metricRPCMethod(ex.Inspection.Method)
+	method := metricRPCMethod(ex.Inspection.Method())
 	ctx := ex.R.Context()
 	serviceutil.RecordSpanFailure(ctx, "gateway.request", reason, status, nil)
 	serviceutil.LogfCtx(ctx, "gateway request rejected method=%q status=%d reason=%q duration=%s",
 		method, status, reason, time.Since(ex.StartTime))
-}
-
-// buildPipeline returns the fixed ordered filter slice for a gateway request.
-// Stages are defined in exchange.go; order is security-sensitive and must not
-// be changed without updating the ordering guarantees documented there.
-func (s *gatewayServer) buildPipeline() []Filter {
-	return []Filter{
-		FilterFunc(s.inspectFilter),
-		FilterFunc(s.policyFilter),
-		FilterFunc(s.authFilter),
-		FilterFunc(s.authzFilter),
-		FilterFunc(s.upstreamFilter),
-	}
 }
 
 // emitAuditFromExchange is stage 6 of the pipeline. It emits a single audit
@@ -255,48 +207,35 @@ func (s *gatewayServer) emitAuditFromExchange(ex *Exchange) {
 	if ex.Identity.AgentID == "mcp-runtime-live-inventory" {
 		return
 	}
-	rpcMethod := ex.Inspection.Method
+	rpcMethod := ex.Inspection.Method()
 	if ex.Decision.Allowed {
 		if rpcMethod == "" {
 			return
 		}
-	} else if rpcMethod == "" && !ex.Inspection.IsRPCAttempt {
+	} else if rpcMethod == "" && !ex.Inspection.IsRPCAttempt() {
 		return
 	}
-	s.emitAuditPayload(ex.R, s.auditPayloadForExchange(ex, ex.R))
+	envelope, err := events.NewEnvelope(s.source, s.eventType, s.auditPayload(ex, time.Since(ex.StartTime)), s.currentTime().UTC())
+	if err == nil {
+		s.emitIfEnabled(ex.R.Context(), envelope)
+	}
 }
 
-// auditPayloadForExchange builds the audit payload and adds the opt-in
-// idempotency fields: an outcome enum and a truncated hash, never the raw key.
-func (s *gatewayServer) auditPayloadForExchange(ex *Exchange, r *http.Request) map[string]any {
-	payload := s.auditPayload(
-		r, ex.OriginalPath, ex.Inspection.Method, ex.Inspection.ToolName,
-		ex.Identity, ex.Policy, ex.Decision,
-		ex.W.status, time.Since(ex.StartTime).Milliseconds(), ex.W.bytes,
-	)
-	if ex.Idempotency.Outcome != "" {
-		payload["idempotency"] = ex.Idempotency.Outcome
-	}
-	if ex.Idempotency.KeyHash != "" {
-		payload["idempotency_key_hash"] = ex.Idempotency.KeyHash
-	}
-	return payload
-}
-
-// writeDeniedResponse writes the HTTP denial response for the current exchange.
+// deniedFilterResponse writes a denial and returns its terminal decision.
 // Audit emission is intentionally absent here; it is centralised in
 // emitAuditFromExchange (stage 6) so each denial is audited exactly once.
-func (s *gatewayServer) writeDeniedResponse(ex *Exchange) {
-	ex.W.Header().Set("content-type", "application/json")
-	if shouldChallengeOAuth(ex.Policy, ex.Decision) {
-		ex.W.Header().Set("www-authenticate", oauthAuthenticateHeader(
-			ex.Policy, ex.Decision.Reason, ex.Inspection.ToolName, ex.Decision,
+func writeDeniedResponse(w http.ResponseWriter, policy *policypkg.Document, toolName string, decision policypkg.Decision) policypkg.Decision {
+	w.Header().Set("content-type", "application/json")
+	if shouldChallengeOAuth(policy, decision) {
+		w.Header().Set("www-authenticate", oauthAuthenticateHeader(
+			policy, decision.Reason, toolName, decision,
 		))
 	}
-	status := gatewayDeniedStatus(ex.Policy, ex.Decision)
-	ex.Decision.Status = status
-	ex.W.WriteHeader(status)
-	_ = json.NewEncoder(ex.W).Encode(gatewayDeniedPayload(ex.Policy, ex.Decision))
+	status := gatewayDeniedStatus(policy, decision)
+	decision.Status = status
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(gatewayDeniedPayload(policy, decision))
+	return decision
 }
 
 func gatewayDeniedStatus(policy *policypkg.Document, decision policypkg.Decision) int {
@@ -310,91 +249,39 @@ func gatewayDeniedPayload(_ *policypkg.Document, decision policypkg.Decision) ma
 	return map[string]any{"error": decision.Reason}
 }
 
-func (s *gatewayServer) emitAuditPayload(r *http.Request, payload map[string]any) {
-	envelope, err := events.NewEnvelope(s.source, s.eventType, payload, time.Now().UTC())
-	if err != nil {
-		return
-	}
-	s.emitIfEnabled(r.Context(), envelope)
-}
-
-func (s *gatewayServer) auditPayload(
-	r *http.Request,
-	path, rpcMethod, toolName string,
-	authCtx identityContext,
-	policy *policypkg.Document,
-	decision policypkg.Decision,
-	status int,
-	latencyMs int64,
-	bytesOut int,
-) map[string]any {
-	payload := map[string]any{
-		"method":           r.Method,
-		"path":             path,
-		"status":           status,
-		"latency_ms":       latencyMs,
-		"bytes_in":         maxInt64(r.ContentLength, 0),
-		"bytes_out":        bytesOut,
-		"server":           policypkg.FirstNonEmpty(policypkg.PolicyServerName(policy), s.serverName),
-		"namespace":        policypkg.FirstNonEmpty(policypkg.PolicyServerNamespace(policy), s.serverNamespace),
-		"server_uid":       s.serverUID,
-		"team_id":          policypkg.PolicyServerTeamID(policy),
-		"resource_team_id": policypkg.PolicyServerTeamID(policy),
-		"cluster":          policypkg.FirstNonEmpty(policypkg.PolicyServerCluster(policy), s.clusterName),
-		"human_id":         authCtx.HumanID,
-		"agent_id":         authCtx.AgentID,
-		"subject_team_id":  authCtx.TeamID,
-		"session_id":       authCtx.SessionID,
-		"decision":         ternary(decision.Allowed, "allow", "deny"),
-		"reason":           decision.Reason,
-		"policy_version":   policypkg.FirstNonEmpty(decision.PolicyVersion, s.defaultPolicyVersion),
-	}
-	if decision.WouldDeny {
-		payload["would_deny"] = true
-		payload["would_deny_reason"] = decision.WouldDenyReason
-	}
-	if policypkg.UsesDelegatedHeaders(policy) {
-		payload["auth_delegation"] = "upstream_header"
-		payload["caller_identity"] = "unverified"
-	}
-	if rpcMethod != "" {
-		payload["rpc_method"] = rpcMethod
-	}
-	if toolName != "" {
-		payload["tool_name"] = toolName
+// auditPayload maps the typed observation record to the shared wire contract.
+func (s *gatewayServer) auditPayload(ex *Exchange, elapsed time.Duration) events.MCPRequest {
+	policy, decision, actor := ex.Policy, ex.Decision, ex.Identity
+	payload := events.MCPRequest{
+		Method: ex.R.Method, Path: ex.OriginalPath, Status: ex.W.status,
+		LatencyMS: elapsed.Milliseconds(), BytesIn: maxInt64(ex.R.ContentLength, 0), BytesOut: ex.W.bytes,
+		Server:    policypkg.FirstNonEmpty(policypkg.PolicyServerName(policy), s.serverName),
+		Namespace: policypkg.FirstNonEmpty(policypkg.PolicyServerNamespace(policy), s.serverNamespace),
+		TeamID:    policypkg.PolicyServerTeamID(policy), ResourceTeamID: policypkg.PolicyServerTeamID(policy),
+		Cluster: policypkg.FirstNonEmpty(policypkg.PolicyServerCluster(policy), s.clusterName),
+		HumanID: string(actor.HumanID), AgentID: string(actor.AgentID), SubjectTeamID: string(actor.TeamID), SessionID: string(actor.SessionID),
+		Decision: ternary(decision.Allowed, "allow", "deny"), Reason: decision.Reason,
+		PolicyVersion: policypkg.FirstNonEmpty(decision.PolicyVersion, s.defaultPolicyVersion),
+		ServerUID:     s.serverUID, WouldDeny: decision.WouldDeny, WouldDenyReason: ternary(decision.WouldDeny, decision.WouldDenyReason, ""),
+		Idempotency: ex.Idempotency.Outcome, IdempotencyKeyHash: ex.Idempotency.KeyHash,
+		RPCMethod: ex.Inspection.Method(), RPCMessageKind: string(ex.Inspection.Kind()), ToolName: ex.Inspection.ToolName(),
+		MatchedGrant: decision.MatchedGrant, MatchedSession: decision.MatchedSession,
+		RequiredTrust: decision.RequiredTrust, RequiredSideEffect: decision.RequiredSideEffect,
+		RiskLevel:  policypkg.FirstNonEmpty(decision.RiskLevel, policypkg.ToolRiskLevel(policy, ex.Inspection.ToolName())),
+		AdminTrust: decision.AdminTrust, ConsentedTrust: decision.ConsentedTrust, EffectiveTrust: decision.EffectiveTrust,
 	}
 	if decision.MatchedGrant != "" {
-		payload["matched_grant"] = decision.MatchedGrant
-		if decision.MatchedGrantNamespace != "" {
-			payload["matched_grant_namespace"] = decision.MatchedGrantNamespace
-		}
+		payload.MatchedGrantNamespace = decision.MatchedGrantNamespace
 	}
 	if decision.MatchedSession != "" {
-		payload["matched_session"] = decision.MatchedSession
-		if decision.MatchedSessionNamespace != "" {
-			payload["matched_session_namespace"] = decision.MatchedSessionNamespace
-		}
+		payload.MatchedSessionNamespace = decision.MatchedSessionNamespace
 	}
-	if decision.RequiredTrust != "" {
-		payload["required_trust"] = decision.RequiredTrust
-	}
-	if decision.RequiredSideEffect != "" {
-		payload["required_side_effect"] = decision.RequiredSideEffect
-	}
-	if riskLevel := policypkg.FirstNonEmpty(decision.RiskLevel, policypkg.ToolRiskLevel(policy, toolName)); riskLevel != "" {
-		payload["risk_level"] = riskLevel
-	}
-	if decision.AdminTrust != "" {
-		payload["admin_trust"] = decision.AdminTrust
-	}
-	if decision.ConsentedTrust != "" {
-		payload["consented_trust"] = decision.ConsentedTrust
-	}
-	if decision.EffectiveTrust != "" {
-		payload["effective_trust"] = decision.EffectiveTrust
+	if policypkg.UsesDelegatedHeaders(policy) {
+		payload.AuthDelegation, payload.CallerIdentity = "upstream_header", "unverified"
 	}
 	return payload
 }
+
 func absoluteRequestURL(r *http.Request, requestPath string) string {
 	path := normalizeURLPath(requestPath)
 	if r == nil {
@@ -442,13 +329,6 @@ func parseExternalBaseURL(raw string) (*url.URL, error) {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed, nil
-}
-
-func (s *gatewayServer) publicRequestURL(r *http.Request, requestPath string) string {
-	if s.externalBaseURL != nil {
-		return resolveBaseURLPath(s.externalBaseURL, requestPath)
-	}
-	return absoluteRequestURL(r, requestPath)
 }
 
 func resolveBaseURLPath(base *url.URL, requestPath string) string {

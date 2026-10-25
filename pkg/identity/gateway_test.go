@@ -1,4 +1,4 @@
-package credentialheaders
+package identity
 
 import (
 	"strings"

@@ -58,10 +58,10 @@ func TestGatewayBrokerUsesVerifiedSessionAndPrivateRotatingUpstreamDelivery(t *t
 	target, _ := url.Parse(upstream.URL)
 	s.upstreamURL = target
 	s.proxy = newUpstreamReverseProxy(target)
-	newExchange := func() *Exchange {
+	newExchange := func() *filterFixture {
 		ex := newTestExchange(http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search"}}`, nil)
 		ex.Policy = &policy.Document{CredentialBindings: []string{"upstream"}}
-		ex.Inspection = rpcInspection{Method: "tools/call", ToolName: "search", ToolCall: true}
+		ex.Inspection = inspectedRPC("tools/call", "search", RPCRequest)
 		ex.Identity = identityContext{SessionID: "session", Session: &policy.Binding{Name: "session", Namespace: "team", HumanID: "human", AgentID: "verified-agent"}}
 		ex.Decision = policy.Allow("fixture", "v1")
 		ex.R.Header.Set(cb.HeaderPrefix+"Token", "caller-forged")
@@ -71,7 +71,7 @@ func TestGatewayBrokerUsesVerifiedSessionAndPrivateRotatingUpstreamDelivery(t *t
 	for _, rotated := range []string{"fixture-upstream-one", "fixture-upstream-two"} {
 		value = rotated
 		ex := newExchange()
-		if s.upstreamFilter(ex) != Respond {
+		if ex.upstream(s) == nil {
 			t.Fatal("upstream did not complete")
 		}
 		if strings.Contains(ex.W.ResponseWriter.(*httptest.ResponseRecorder).Body.String(), "fixture-upstream") {
@@ -83,12 +83,12 @@ func TestGatewayBrokerUsesVerifiedSessionAndPrivateRotatingUpstreamDelivery(t *t
 	}
 	ex := newExchange()
 	ex.Identity.Session = nil
-	if s.upstreamFilter(ex) != Respond || ex.Decision.Allowed || ex.W.ResponseWriter.(*httptest.ResponseRecorder).Code != 503 || calls.Load() != 2 || upstreamCalls != 2 {
+	if ex.upstream(s) == nil || ex.Decision.Allowed || ex.W.ResponseWriter.(*httptest.ResponseRecorder).Code != 503 || calls.Load() != 2 || upstreamCalls != 2 {
 		t.Fatal("sessionless call reached broker/upstream")
 	}
 	s.credentialBroker = nil
 	ex = newExchange()
-	s.upstreamFilter(ex)
+	ex.upstream(s)
 	if ex.Decision.Allowed || upstreamCalls != 2 {
 		t.Fatal("missing broker allowed a tool call")
 	}
@@ -142,8 +142,8 @@ func TestCallerCredentialHeadersAreStrippedWithoutBrokerOnDiscovery(t *testing.T
 	s := minimalServer()
 	ex := newTestExchange(http.MethodPost, "/mcp", `{}`, nil)
 	ex.R.Header.Set(cb.HeaderPrefix+"Token", "forged")
-	ex.Inspection = rpcInspection{Method: "tools/list"}
-	if !s.injectCredentials(ex) || ex.R.Header.Get(cb.HeaderPrefix+"Token") != "" {
+	ex.Inspection = inspectedRPC("tools/list", "", RPCRequest)
+	if !s.injectCredentials(&upstreamContext{R: ex.R, Inspection: ex.Inspection}) || ex.R.Header.Get(cb.HeaderPrefix+"Token") != "" {
 		t.Fatal("discovery retained a caller-injected credential")
 	}
 }

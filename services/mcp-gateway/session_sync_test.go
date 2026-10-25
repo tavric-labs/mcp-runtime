@@ -63,13 +63,13 @@ func TestSessionSyncLargeSnapshotRevocationAndRestore(t *testing.T) {
 			w.WriteHeader(404)
 		}
 	})
-	if _, reason := cache.binding(context.Background(), "team", "session-0"); reason != "policy_unavailable" {
+	if _, reason := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session-0"}, time.Now()); reason != errSessionUnavailable {
 		t.Fatalf("cold reason=%s", reason)
 	}
 	if err := cache.sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if binding, reason := cache.binding(context.Background(), "team", "session-0"); reason != "" || binding == nil {
+	if binding, reason := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session-0"}, time.Now()); reason != nil || binding == nil {
 		t.Fatalf("warm binding=%+v reason=%s", binding, reason)
 	}
 	mu.Lock()
@@ -78,7 +78,7 @@ func TestSessionSyncLargeSnapshotRevocationAndRestore(t *testing.T) {
 	if err := cache.sync(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, reason := cache.binding(context.Background(), "team", "session-0"); reason != "session_not_found" {
+	if _, reason := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session-0"}, time.Now()); reason != errSessionNotFound {
 		t.Fatalf("revoked reason=%s", reason)
 	}
 	mu.Lock()
@@ -93,7 +93,7 @@ func TestSessionSyncLargeSnapshotRevocationAndRestore(t *testing.T) {
 	cache.mu.Lock()
 	cache.lastSync = time.Now().Add(-2 * time.Minute)
 	cache.mu.Unlock()
-	if _, reason := cache.binding(context.Background(), "team", "session-1"); reason != "policy_unavailable" {
+	if _, reason := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session-1"}, time.Now()); reason != errSessionUnavailable {
 		t.Fatalf("stale reason=%s", reason)
 	}
 }
@@ -117,7 +117,7 @@ func TestSessionSyncRejectsForeignGenerationAndKeepsLastGood(t *testing.T) {
 	if err := cache.sync(context.Background()); err == nil {
 		t.Fatal("foreign generation accepted")
 	}
-	if binding, reason := cache.binding(context.Background(), "team", "session"); binding == nil || reason != "" {
+	if binding, reason := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session"}, time.Now()); binding == nil || reason != nil {
 		t.Fatalf("last good binding lost: %+v %s", binding, reason)
 	}
 }
@@ -139,8 +139,8 @@ func TestSessionSyncConcurrentReadsUseIndependentBindings(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 100; j++ {
-				b, reason := cache.binding(context.Background(), "team", "session")
-				if b == nil || reason != "" {
+				b, reason := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session"}, time.Now())
+				if b == nil || reason != nil {
 					t.Error(reason)
 					return
 				}
@@ -154,7 +154,7 @@ func TestSessionSyncConcurrentReadsUseIndependentBindings(t *testing.T) {
 		}
 	}
 	wg.Wait()
-	b, _ := cache.binding(context.Background(), "team", "session")
+	b, _ := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session"}, time.Now())
 	if b.ConsentedTrust != "medium" {
 		t.Fatal("reader mutated cache")
 	}
@@ -182,8 +182,38 @@ func TestSessionSyncKnownResetOrIdentityRejectionInvalidatesWarmState(t *testing
 			if err := cache.sync(context.Background()); err == nil {
 				t.Fatal("outage accepted")
 			}
-			if binding, reason := cache.binding(context.Background(), "team", "session"); binding != nil || reason != "policy_unavailable" {
+			if binding, reason := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session"}, time.Now()); binding != nil || reason != errSessionUnavailable {
 				t.Fatalf("invalid authority remained usable: %+v %s", binding, reason)
+			}
+		})
+	}
+}
+
+func TestSessionSyncStopsServingAfterStaleWindow(t *testing.T) {
+	t.Parallel()
+	lastSync := time.Date(2026, 10, 25, 10, 0, 0, 0, time.UTC)
+	cache := &gatewaySessionSync{
+		lastSync:    lastSync,
+		staleWindow: time.Minute,
+		sessions: map[string]sessionstate.Session{
+			"team/session": {Binding: policy.Binding{Name: "session", Namespace: "team"}},
+		},
+	}
+	for _, age := range []time.Duration{time.Minute - time.Nanosecond, time.Minute, time.Minute + time.Nanosecond} {
+		t.Run(age.String(), func(t *testing.T) {
+			t.Parallel()
+			now := lastSync.Add(age)
+			wantFresh := age <= time.Minute
+			if cache.Fresh(now) != wantFresh {
+				t.Fatal("incorrect cache freshness at stale deadline")
+			}
+			binding, reason := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "session"}, now)
+			if wantFresh {
+				if binding == nil || reason != nil {
+					t.Fatalf("fresh session unavailable: binding=%+v reason=%s", binding, reason)
+				}
+			} else if binding != nil || reason != errSessionUnavailable {
+				t.Fatalf("stale authority remained usable: binding=%+v reason=%s", binding, reason)
 			}
 		})
 	}

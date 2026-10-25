@@ -100,7 +100,7 @@ func TestGatewaySuccessfulCompletionHasCorrelatedBoundedLog(t *testing.T) {
 	server := &gatewayServer{}
 	request := httptest.NewRequest(http.MethodPost, "/mcp?token=private-url", nil).WithContext(ctx)
 	ex := &Exchange{R: request, W: &statusRecorder{ResponseWriter: httptest.NewRecorder(), status: http.StatusOK}, StartTime: time.Now(), SkipAudit: true}
-	ex.Inspection.Method = "arbitrary-private-method"
+	ex.Inspection = inspectedRPC("arbitrary-private-method", "", RPCRequest)
 	server.recordGatewayOutcome(ex)
 	line := logs.String()
 	for _, want := range []string{"event=gateway.request", "status=200", `decision="skip"`, "trace_id=" + serviceutil.TraceIDFromContext(ctx)} {
@@ -143,7 +143,7 @@ func TestGatewayRejectedUnknownMethodIsNotLoggedRaw(t *testing.T) {
 	ctx, _, logs, end := startTestSpan(t)
 	defer end()
 	ex := &Exchange{R: httptest.NewRequest(http.MethodPost, "/mcp", nil).WithContext(ctx), W: &statusRecorder{ResponseWriter: httptest.NewRecorder(), status: http.StatusBadRequest}, StartTime: time.Now()}
-	ex.Inspection.Method = "private-method-value"
+	ex.Inspection = inspectedRPC("private-method-value", "", RPCRequest)
 	(&gatewayServer{}).recordGatewayOutcome(ex)
 	if strings.Contains(logs.String(), "private-method-value") {
 		t.Fatal("raw unknown method leaked into rejection log")

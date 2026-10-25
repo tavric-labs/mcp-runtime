@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/mcpdefaults"
+	policypkg "mcp-runtime/pkg/policy"
 )
 
 // New returns the access command.
@@ -132,7 +132,7 @@ func bindAccessInitCommonFlags(cmd *cobra.Command, opts *accessManifestInitOptio
 	cmd.Flags().StringVar(&opts.AgentID, "agent-id", "", "Agent subject ID")
 	cmd.Flags().StringVar(&opts.TeamID, "team-id", "", "Team subject ID")
 	cmd.Flags().StringVar(&opts.Trust, "trust", "low", "Trust level: low, medium, or high")
-	cmd.Flags().StringVar(&opts.PolicyVersion, "policy-version", mcpdefaults.PolicyVersion, "Policy version")
+	cmd.Flags().StringVar(&opts.PolicyVersion, "policy-version", policypkg.DefaultVersion, "Policy version")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Replace output file if it already exists")
 	_ = cmd.MarkFlagRequired("server")
 }

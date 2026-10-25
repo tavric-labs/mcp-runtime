@@ -31,6 +31,67 @@ explicit isolated Kind kubeconfig from the contributor guide.
 | Metadata | `go test ./pkg/metadata/... -count=1` | `.mcp` loading, host resolution, manifest generation |
 | Platform services | `go test -race -count=1 ./...` in each service module | API, UI, ingest, processor, proxy service logic |
 
+### Gateway filter boundaries
+
+The gateway's `Filter[In, Out]` contract in `services/mcp-gateway/filter.go`
+models five phases: `RequestInput` → `InspectedRequest` → `PolicyRequest` →
+`AuthenticatedRequest` → `AuthorizedRequest` → `PermittedRequest` → upstream. Each filter returns
+its phase output and an optional `*FilterResponse`: `nil` continues; a non-nil
+response describes a terminal outcome and carries its decision. The runner
+renders denials and public metadata; the upstream stage owns proxy streaming.
+Even a terminal output must retain partial state used by audit and metrics.
+
+Call a filter directly with its typed input to test a boundary. To test
+orchestration, start with `server.buildPipeline()` and replace a named slot:
+
+```go
+pipeline := server.buildPipeline()
+pipeline.Upstream = FilterFunc[PermittedRequest, AuthorizedRequest](
+    func(permitted PermittedRequest) (AuthorizedRequest, *FilterResponse) {
+        in := permitted.request
+        // Assert the captured policy, identity and authorization decision.
+        return in, forwardedResponse(in.Decision)
+    },
+)
+pipeline.Run(exchange)
+```
+
+The runner fixes stage order and copies completed outputs into `Exchange` for
+observability; pre-dispatch filters never receive that observation record or
+an HTTP writer. Only the permitted upstream input carries the writer. Request state is shared,
+while policy documents and session bindings are treated as immutable snapshots.
+Upstream dispatch requires an explicit allow. Audit and request
+metrics finalize in `handleGateway`, including early exits and proxy aborts.
+Dispatch outcomes preserve credential-injection and idempotency results during
+stream failure; policy metrics retain the authorization decision separately
+from operational denials such as upstream backpressure.
+
+`inspectRPCBody([]byte)` extracts RPC inputs without HTTP or I/O;
+`inspectRPCRequest` owns body capture and replay. `authorizeRequest` evaluates
+policy facts at an explicit time without an HTTP writer or live session cache.
+The filters adapt these results to HTTP. Set `gatewayServer.now` before serving
+requests to control grant/session expiry in filter tests; session-cache reads
+also take an explicit time. Session lookup uses the read-only `SessionReader`
+interface with a typed `SessionRef`. OAuth authentication uses
+`OAuthAuthenticator`; tests can replace both without network access.
+OAuth JWT verification retains its verifier's clock.
+
+Tests are named for the behavior they verify. `rpc_test.go` exercises extraction,
+malformed inputs, exact size limits, bounded reads and body replay.
+`authorization_test.go` checks grants, consent, side effects and expiration;
+`filter_auth_test.go` and `session_sync_test.go` check expiry and staleness at exact
+instants without sleeps. `filter_test.go` checks early exits, audit state, policy
+reloads and denied dispatch; `stage_trace_test.go` checks trace context and order.
+`contracts_test.go` checks dependency injection, wrapped errors, zero dispatch
+capabilities, invalid terminal outcomes, and method observation with both dated
+protocol revisions. Those pass-through checks do not certify full protocol
+conformance or implement an extension.
+Run the full gateway suite with an isolated kubeconfig:
+
+```bash
+hack/ci/go-test.sh services/mcp-gateway -race -count=1 ./...
+```
+
 ## macOS Adapter form checks
 
 On macOS with the Swift command-line tools and Python 3.11 or later (for TOML

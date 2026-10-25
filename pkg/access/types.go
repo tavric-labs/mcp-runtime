@@ -3,7 +3,7 @@ package access
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"mcp-runtime/pkg/mcpdefaults"
+	policypkg "mcp-runtime/pkg/policy"
 )
 
 // ServerName identifies an MCPServer resource by name.
@@ -57,7 +57,7 @@ type PolicyDecision string
 
 const (
 	DecisionAllow PolicyDecision = "allow"
-	DecisionDeny  PolicyDecision = mcpdefaults.PolicyDecisionDeny
+	DecisionDeny  PolicyDecision = policypkg.DecisionDeny
 	DecisionAudit PolicyDecision = "audit"
 )
 

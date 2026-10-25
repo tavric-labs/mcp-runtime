@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"mcp-runtime/pkg/access/specvalidation"
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/policy"
 )
 
 // GrantApplyRequest is the platform apply contract shared by the CLI and API.
@@ -52,7 +52,7 @@ func normalizeApplyIdentity(name, namespace *string, server *ServerReference, su
 	subject.TeamID = TeamID(strings.TrimSpace(string(subject.TeamID)))
 	*version = strings.TrimSpace(*version)
 	if *version == "" {
-		*version = mcpdefaults.PolicyVersion
+		*version = policy.DefaultVersion
 	}
 }
 func validateApplyNames(name, namespace string, server ServerReference) error {

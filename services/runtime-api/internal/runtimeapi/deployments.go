@@ -26,7 +26,8 @@ import (
 	"mcp-runtime-api/internal/runtimeapi/k8sprovision"
 	"mcp-runtime/pkg/apihttp"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/platforminventory"
+
 	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/publishscope"
 	"mcp-runtime/pkg/serviceutil"
@@ -39,7 +40,7 @@ const (
 	platformTeamSlugLabel   = "mcpruntime.org/team-slug"
 	platformScopeLabel      = "mcpruntime.org/scope"
 	createdByLabel          = "created-by"
-	defaultDeployPort       = int32(mcpdefaults.MCPServerPort)
+	defaultDeployPort       = int32(platforminventory.MCPServerPort)
 	restrictedRunAsUser     = kubeworkload.RestrictedRunAsUser
 	traefikWatchRoleName    = k8sprovision.TraefikWatchRoleName
 	registryNamespace       = k8sprovision.RegistryNamespace

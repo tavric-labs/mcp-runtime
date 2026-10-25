@@ -10,8 +10,8 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	registrycli "mcp-runtime/internal/cli/registry"
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/metadata"
+	"mcp-runtime/pkg/platforminventory"
 )
 
 // New returns the server command.
@@ -354,7 +354,7 @@ mcp-servers); --team is unavailable.`,
 func defaultDeployPort() int32 {
 	port := core.GetDefaultServerPort()
 	if port <= 0 || port > math.MaxInt32 {
-		return int32(mcpdefaults.MCPServerPort)
+		return int32(platforminventory.MCPServerPort)
 	}
 	return int32(port)
 }

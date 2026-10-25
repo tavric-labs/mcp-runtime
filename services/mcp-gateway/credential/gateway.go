@@ -16,7 +16,7 @@ import (
 
 	"github.com/Agent-Hellboy/mcp-auth/auth-client/go/mcpauth"
 
-	"mcp-runtime/pkg/credentialheaders"
+	"mcp-runtime/pkg/identity"
 )
 
 const sessionHeader = "Mcp-Session-Id"
@@ -187,7 +187,7 @@ func render(headers []Header, values map[string]string) (map[string]string, erro
 	out := make(map[string]string, len(headers))
 	for _, h := range headers {
 		value, ok := values[h.Field]
-		if !ok || credentialheaders.ValidateInjectedValue(value) != nil {
+		if !ok || identity.ValidateInjectedValue(value) != nil {
 			return nil, errors.New("invalid credential value")
 		}
 		out[h.Name] = value

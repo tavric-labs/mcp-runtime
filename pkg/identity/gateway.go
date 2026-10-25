@@ -1,4 +1,4 @@
-package credentialheaders
+package identity
 
 import (
 	"fmt"
@@ -56,7 +56,7 @@ func IsSecretHeader(header string, secretHeaders []string) bool {
 // credential gateway: a valid credential header name that is not one the gateway
 // itself owns (Via, Accept-Encoding, Last-Event-Id, Sec-*).
 func ValidateGatewayHeader(name string) error {
-	if err := ValidateName(name); err != nil {
+	if err := ValidateCredentialHeaderName(name); err != nil {
 		return err
 	}
 	lower := strings.ToLower(name)

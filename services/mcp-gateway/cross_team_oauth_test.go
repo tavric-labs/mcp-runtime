@@ -1,8 +1,11 @@
 package main
 
 import (
-	"github.com/golang-jwt/jwt/v4"
 	"testing"
+
+	"github.com/golang-jwt/jwt/v4"
+
+	policypkg "mcp-runtime/pkg/policy"
 )
 
 func TestCertificateOAuthSelectsAssertedSubjectTeam(t *testing.T) {
@@ -27,7 +30,7 @@ func TestCertificateOAuthSelectsAssertedSubjectTeam(t *testing.T) {
 				t.Fatalf("team=%q allowed=%t", team, allowed)
 			}
 			if allowed {
-				reason := certificateOAuthMismatch(identityContext{HumanID: "human", TeamID: "subject-b"}, identityContext{HumanID: "human", TeamID: team})
+				reason := certificateOAuthMismatch(identityContext{HumanID: "human", TeamID: "subject-b"}, identityContext{HumanID: "human", TeamID: policypkg.TeamID(team)})
 				if reason != tc.wantMismatch {
 					t.Fatalf("reason=%q", reason)
 				}

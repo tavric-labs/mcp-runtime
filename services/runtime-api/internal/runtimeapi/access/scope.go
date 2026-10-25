@@ -5,10 +5,10 @@ import (
 
 	mcpaccess "mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/access/specvalidation"
-	"mcp-runtime/pkg/mcpdefaults"
+	policypkg "mcp-runtime/pkg/policy"
 )
 
-const DefaultPolicyVersionValue = mcpdefaults.PolicyVersion
+const DefaultPolicyVersionValue = policypkg.DefaultVersion
 
 func DefaultAccessNamespace(namespace string) string {
 	if namespace = strings.TrimSpace(namespace); namespace != "" {

@@ -1,6 +1,4 @@
-// Package oauthresource contains dependency-light OAuth resource URL helpers
-// shared by the API and runtime services.
-package oauthresource
+package identity
 
 import (
 	"net/url"

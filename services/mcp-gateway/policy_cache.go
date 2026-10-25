@@ -98,13 +98,13 @@ func (s *gatewayServer) currentPolicy() (*policypkg.Document, error) {
 
 func (s *gatewayServer) loadPolicySnapshot() policySnapshot {
 	if value := s.policyState.Load(); value != nil {
-		return value.(policySnapshot)
+		return *value
 	}
 	return policySnapshot{Policy: s.defaultPolicyDocument()}
 }
 
 func (s *gatewayServer) snapshotPolicy(snapshot policySnapshot) {
-	s.policyState.Store(snapshot)
+	s.policyState.Store(&snapshot)
 }
 
 func (s *gatewayServer) loadPolicy() (*policypkg.Document, error) {
@@ -188,10 +188,10 @@ func (s *gatewayServer) applyPolicyDefaults(doc *policypkg.Document) {
 
 func policyIdentity(identity identityContext) policypkg.Identity {
 	return policypkg.Identity{
-		HumanID:   policypkg.HumanID(identity.HumanID),
-		AgentID:   policypkg.AgentID(identity.AgentID),
-		TeamID:    policypkg.TeamID(identity.TeamID),
-		SessionID: policypkg.SessionID(identity.SessionID),
+		HumanID:   identity.HumanID,
+		AgentID:   identity.AgentID,
+		TeamID:    identity.TeamID,
+		SessionID: identity.SessionID,
 	}
 }
 

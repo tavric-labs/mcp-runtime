@@ -14,35 +14,88 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 
+	"mcp-runtime/pkg/events"
 	policypkg "mcp-runtime/pkg/policy"
 )
 
 // ---- helpers ----------------------------------------------------------------
 
-func newTestExchange(method, target, body string, headers map[string]string) *Exchange {
-	var r *http.Request
-	if body != "" {
-		r = httptest.NewRequest(method, target, strings.NewReader(body))
-	} else {
-		r = httptest.NewRequest(method, target, nil)
-	}
+// filterFixture retains phase outputs for tests that exercise several boundaries.
+// Tests can also call any typed filter directly with only its required input.
+type filterFixture struct {
+	AuthorizedRequest
+	W            *statusRecorder
+	OriginalPath string
+	SkipAudit    bool
+}
+
+func newTestExchange(method, target, body string, headers map[string]string) *filterFixture {
+	r := httptest.NewRequest(method, target, strings.NewReader(body))
 	for k, v := range headers {
 		r.Header.Set(k, v)
 	}
-	r.ContentLength = int64(len(body))
-	ex := &Exchange{
-		W:            &statusRecorder{ResponseWriter: httptest.NewRecorder(), status: http.StatusOK},
-		R:            r,
-		OriginalPath: r.URL.Path,
-		StartTime:    time.Now(),
-		Decision: policypkg.Decision{
-			Allowed:       true,
-			Status:        http.StatusOK,
-			Reason:        "allowed",
-			PolicyVersion: "test",
+	return &filterFixture{
+		AuthorizedRequest: AuthorizedRequest{
+			AuthenticatedRequest: AuthenticatedRequest{
+				PolicyRequest: PolicyRequest{
+					InspectedRequest: InspectedRequest{RequestInput: &RequestInput{
+						R: r,
+					}},
+				},
+			},
+			Decision: policypkg.Deny(http.StatusForbidden, "undecided", "test"),
 		},
+		W:            &statusRecorder{ResponseWriter: httptest.NewRecorder(), status: http.StatusOK},
+		OriginalPath: r.URL.Path,
 	}
-	return ex
+}
+
+func (f *filterFixture) record(response *FilterResponse) {
+	if response != nil {
+		ex := &Exchange{W: f.W, R: f.R, Policy: f.Policy, Inspection: f.Inspection, Decision: f.Decision}
+		applyFilterResponse(ex, response)
+		f.Decision, f.SkipAudit = ex.Decision, ex.SkipAudit
+	}
+}
+
+func (f *filterFixture) inspect(s *gatewayServer) *FilterResponse {
+	out, response := s.inspectFilter(f.RequestInput)
+	f.InspectedRequest = out
+	f.record(response)
+	return response
+}
+
+func (f *filterFixture) policy(s *gatewayServer) *FilterResponse {
+	out, response := s.policyFilter(f.InspectedRequest)
+	f.PolicyRequest = out
+	f.record(response)
+	return response
+}
+
+func (f *filterFixture) authenticate(s *gatewayServer) *FilterResponse {
+	out, response := s.authFilter(f.PolicyRequest)
+	f.AuthenticatedRequest = out
+	f.record(response)
+	return response
+}
+
+func (f *filterFixture) authorize(s *gatewayServer) *FilterResponse {
+	out, response := s.authzFilter(f.AuthenticatedRequest)
+	f.AuthorizedRequest = out
+	f.record(response)
+	return response
+}
+
+func (f *filterFixture) upstream(s *gatewayServer) *FilterResponse {
+	permitted, response := permitRequest(f.AuthorizedRequest, f.W)
+	if response != nil {
+		f.record(response)
+		return response
+	}
+	out, response := s.upstreamFilter(permitted)
+	f.AuthorizedRequest = out
+	f.record(response)
+	return response
 }
 
 func minimalServer() *gatewayServer {
@@ -62,8 +115,8 @@ func TestInspectFilterAlwaysContinues(t *testing.T) {
 
 	for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodDelete} {
 		ex := newTestExchange(method, "/mcp", "", nil)
-		if got := s.inspectFilter(ex); got != Continue {
-			t.Errorf("inspectFilter(%s) = %v, want Continue", method, got)
+		if got := ex.inspect(s); got != nil {
+			t.Errorf("inspectFilter(%s) = %v, want continuation", method, got)
 		}
 	}
 }
@@ -74,15 +127,15 @@ func TestInspectFilterSetsInspection(t *testing.T) {
 	body := `{"method":"tools/call","params":{"name":"echo"}}`
 	ex := newTestExchange(http.MethodPost, "/mcp", body, map[string]string{"Content-Type": "application/json"})
 
-	s.inspectFilter(ex)
+	ex.inspect(s)
 
-	if ex.Inspection.Method != "tools/call" {
-		t.Fatalf("Method = %q, want tools/call", ex.Inspection.Method)
+	if ex.Inspection.Method() != "tools/call" {
+		t.Fatalf("Method = %q, want tools/call", ex.Inspection.Method())
 	}
-	if ex.Inspection.ToolName != "echo" {
-		t.Fatalf("ToolName = %q, want echo", ex.Inspection.ToolName)
+	if ex.Inspection.ToolName() != "echo" {
+		t.Fatalf("ToolName = %q, want echo", ex.Inspection.ToolName())
 	}
-	if !ex.Inspection.ToolCall {
+	if !ex.Inspection.IsToolCall() {
 		t.Fatal("ToolCall = false, want true")
 	}
 }
@@ -95,8 +148,8 @@ func TestPolicyFilterContinuesForNonOAuthPath(t *testing.T) {
 	s.snapshotPolicy(policySnapshot{Policy: testPolicy()})
 	ex := newTestExchange(http.MethodPost, "/mcp", `{}`, map[string]string{"Content-Type": "application/json"})
 
-	if got := s.policyFilter(ex); got != Continue {
-		t.Fatalf("policyFilter = %v, want Continue", got)
+	if got := ex.policy(s); got != nil {
+		t.Fatalf("policyFilter = %v, want continuation", got)
 	}
 	if ex.Policy == nil {
 		t.Fatal("Policy not set after policyFilter")
@@ -110,8 +163,8 @@ func TestPolicyFilterRespondsForOAuthMetadataPath(t *testing.T) {
 	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
 	ex := newTestExchange(http.MethodGet, "/.well-known/oauth-protected-resource", "", nil)
 
-	if got := s.policyFilter(ex); got != Respond {
-		t.Fatalf("policyFilter for OAuth metadata path = %v, want Respond", got)
+	if got := ex.policy(s); got == nil {
+		t.Fatalf("policyFilter for OAuth metadata path = %v, want terminal response", got)
 	}
 	recorder := ex.W.ResponseWriter.(*httptest.ResponseRecorder)
 	if recorder.Code != http.StatusOK {
@@ -128,7 +181,7 @@ func TestPolicyFilterSetsSkipAuditForOAuthMetadataPath(t *testing.T) {
 	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
 	ex := newTestExchange(http.MethodGet, "/.well-known/oauth-protected-resource", "", nil)
 
-	s.policyFilter(ex)
+	ex.policy(s)
 
 	if !ex.SkipAudit {
 		t.Fatal("SkipAudit = false after OAuth metadata early-exit, want true")
@@ -142,7 +195,7 @@ func TestPolicyFilterPolicySnapshotIsImmutableForExchange(t *testing.T) {
 	s.snapshotPolicy(policySnapshot{Policy: snap})
 	ex := newTestExchange(http.MethodPost, "/mcp", "", nil)
 
-	s.policyFilter(ex)
+	ex.policy(s)
 	captured := ex.Policy
 
 	// Replace the gateway snapshot mid-exchange — the Exchange copy must be unaffected.
@@ -162,8 +215,8 @@ func TestAuthFilterRejectsOAuthMissingBearer(t *testing.T) {
 	ex := newTestExchange(http.MethodPost, "/mcp", `{}`, map[string]string{"Content-Type": "application/json"})
 	ex.Policy = oauthPolicy(issuer.url)
 
-	if got := s.authFilter(ex); got != Reject {
-		t.Fatalf("authFilter OAuth no bearer = %v, want Reject", got)
+	if got := ex.authenticate(s); got == nil {
+		t.Fatalf("authFilter OAuth no bearer = %v, want denial response", got)
 	}
 	recorder := ex.W.ResponseWriter.(*httptest.ResponseRecorder)
 	if recorder.Code != http.StatusUnauthorized {
@@ -216,8 +269,8 @@ func TestAuthFilterAdapterRequiresMatchingOAuthAndUsesCertificateIdentity(t *tes
 	})
 	ex.R.Header.Set("Authorization", "Bearer "+token)
 
-	if got := s.authFilter(ex); got != Continue {
-		t.Fatalf("authFilter adapter = %v, want Continue", got)
+	if got := ex.authenticate(s); got != nil {
+		t.Fatalf("authFilter adapter = %v, want continuation", got)
 	}
 	if ex.Identity.HumanID != "human-1" || ex.Identity.AgentID != "agent-1" || ex.Identity.SessionID != "session-1" {
 		t.Fatalf("identity = %#v, want rendered session identity", ex.Identity)
@@ -240,8 +293,8 @@ func TestAuthFilterAdapterCertificateOnlyWhenOAuthDisabled(t *testing.T) {
 			Name: "session-1", Namespace: "team-a", HumanID: "human-1", AgentID: "agent-1",
 		}},
 	}
-	if got := s.authFilter(ex); got != Continue {
-		t.Fatalf("authFilter adapter without OAuth = %v, want Continue", got)
+	if got := ex.authenticate(s); got != nil {
+		t.Fatalf("authFilter adapter without OAuth = %v, want continuation", got)
 	}
 	if ex.Identity.HumanID != "human-1" || ex.Identity.AgentID != "agent-1" || ex.Identity.SessionID != "session-1" {
 		t.Fatalf("identity = %#v, want certificate session identity", ex.Identity)
@@ -264,8 +317,8 @@ func TestAuthFilterAdapterRejectsMissingOAuthBearer(t *testing.T) {
 		Sessions: []policypkg.Binding{{Name: "session-1", Namespace: "team-a", HumanID: "human-1"}},
 	}
 
-	if got := s.authFilter(ex); got != Reject {
-		t.Fatalf("authFilter = %v, want Reject", got)
+	if got := ex.authenticate(s); got == nil {
+		t.Fatalf("authFilter = %v, want denial response", got)
 	}
 	if ex.Decision.Reason != "missing_bearer_token" {
 		t.Fatalf("reason = %q, want missing_bearer_token", ex.Decision.Reason)
@@ -290,8 +343,8 @@ func TestAuthFilterAdapterRejectsMismatchedOAuthSubject(t *testing.T) {
 	})
 	ex.R.Header.Set("Authorization", "Bearer "+token)
 
-	if got := s.authFilter(ex); got != Reject {
-		t.Fatalf("authFilter = %v, want Reject", got)
+	if got := ex.authenticate(s); got == nil {
+		t.Fatalf("authFilter = %v, want denial response", got)
 	}
 	if ex.Decision.Reason != "certificate_oauth_subject_mismatch" {
 		t.Fatalf("reason = %q, want certificate_oauth_subject_mismatch", ex.Decision.Reason)
@@ -314,8 +367,8 @@ func TestAuthFilterMTLSRejectsForgedHeaderWithoutMTLS(t *testing.T) {
 		Sessions: []policypkg.Binding{{Name: "session-1", Namespace: "team-a", HumanID: "human-1"}},
 	}
 
-	if got := s.authFilter(ex); got != Reject {
-		t.Fatalf("authFilter = %v, want Reject", got)
+	if got := ex.authenticate(s); got == nil {
+		t.Fatalf("authFilter = %v, want denial response", got)
 	}
 	if ex.Decision.Reason != "missing_client_certificate" {
 		t.Fatalf("reason = %q, want missing_client_certificate", ex.Decision.Reason)
@@ -334,8 +387,8 @@ func TestAuthFilterWithoutVerifiedHeaderAllowsDirectWhenOAuthDisabled(t *testing
 	ex.R.TLS = verifiedProxyTLS()
 	ex.Policy = &policypkg.Document{Auth: &policypkg.Auth{TrustDomain: "example.org"}}
 
-	if got := s.authFilter(ex); got != Continue {
-		t.Fatalf("authFilter = %v, want Continue", got)
+	if got := ex.authenticate(s); got != nil {
+		t.Fatalf("authFilter = %v, want continuation", got)
 	}
 	if ex.Identity != (identityContext{}) {
 		t.Fatalf("identity = %#v, want empty direct identity", ex.Identity)
@@ -354,8 +407,8 @@ func TestAuthFilterMTLSRejectsWrongTrustDomain(t *testing.T) {
 		Sessions: []policypkg.Binding{{Name: "session-1", Namespace: "team-a"}},
 	}
 
-	if got := s.authFilter(ex); got != Reject {
-		t.Fatalf("authFilter = %v, want Reject", got)
+	if got := ex.authenticate(s); got == nil {
+		t.Fatalf("authFilter = %v, want denial response", got)
 	}
 	if ex.Decision.Reason != "invalid_spiffe_identity" {
 		t.Fatalf("reason = %q, want invalid_spiffe_identity", ex.Decision.Reason)
@@ -390,12 +443,12 @@ func TestAuthFilterMTLSTrustedProxyPinning(t *testing.T) {
 
 			_, reason := s.authenticateAdapterCertificate(ex.R, ex.Policy)
 			if tc.wantAllow {
-				if reason != "" {
+				if reason != nil {
 					t.Fatalf("authenticateAdapterCertificate reason = %q, want empty", reason)
 				}
 				return
 			}
-			if reason != tc.reason {
+			if reason == nil || reason.Error() != tc.reason {
 				t.Fatalf("reason = %q, want %q", reason, tc.reason)
 			}
 		})
@@ -440,8 +493,8 @@ func TestAuthFilterMTLSRejectsRevokedOrExpiredSession(t *testing.T) {
 				Sessions: []policypkg.Binding{tc.binding},
 			}
 
-			if got := s.authFilter(ex); got != Reject {
-				t.Fatalf("authFilter = %v, want Reject", got)
+			if got := ex.authenticate(s); got == nil {
+				t.Fatalf("authFilter = %v, want denial response", got)
 			}
 			if ex.Decision.Reason != tc.reason {
 				t.Fatalf("reason = %q, want %q", ex.Decision.Reason, tc.reason)
@@ -452,33 +505,18 @@ func TestAuthFilterMTLSRejectsRevokedOrExpiredSession(t *testing.T) {
 
 func TestAuthFilterAlwaysRunsBeforeAuthz(t *testing.T) {
 	t.Parallel()
-	// Prove ordering by verifying that when authFilter Rejects, authzFilter
-	// is never called. Use a base filter after auth in a custom pipeline.
-	authzCalled := false
 	s := minimalServer()
-
 	issuer := newTestJWTIssuer(t)
 	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
-
-	pipeline := []Filter{
-		FilterFunc(s.inspectFilter),
-		FilterFunc(s.policyFilter),
-		FilterFunc(s.authFilter),
-		FilterFunc(func(_ *Exchange) Result {
-			authzCalled = true
-			return Continue
-		}),
-	}
-
+	pipeline := s.buildPipeline()
+	pipeline.Authz = FilterFunc[AuthenticatedRequest, AuthorizedRequest](func(in AuthenticatedRequest) (AuthorizedRequest, *FilterResponse) {
+		t.Fatal("authorization reached after failed authentication")
+		return AuthorizedRequest{AuthenticatedRequest: in}, nil
+	})
 	ex := newExchange(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/mcp", nil), "test")
-	for _, f := range pipeline {
-		if f.Handle(ex) != Continue {
-			break
-		}
-	}
-
-	if authzCalled {
-		t.Fatal("authz stage was called despite authFilter rejecting — ordering violated")
+	pipeline.Run(ex)
+	if ex.Decision.Allowed || ex.W.status != http.StatusUnauthorized {
+		t.Fatalf("decision=%+v status=%d", ex.Decision, ex.W.status)
 	}
 }
 
@@ -488,12 +526,12 @@ func TestAuthzFilterContinuesForNonToolCall(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	ex := newTestExchange(http.MethodPost, "/mcp", `{"method":"tools/list"}`, map[string]string{"Content-Type": "application/json"})
-	s.inspectFilter(ex)
+	ex.inspect(s)
 	ex.Policy = testPolicy()
 	ex.Identity = identityContext{HumanID: "human-1", AgentID: "client-1", TeamID: "team-acme"}
 
-	if got := s.authzFilter(ex); got != Continue {
-		t.Fatalf("authzFilter tools/list = %v, want Continue", got)
+	if got := ex.authorize(s); got != nil {
+		t.Fatalf("authzFilter tools/list = %v, want continuation", got)
 	}
 	if !ex.Decision.Allowed {
 		t.Fatalf("Decision.Allowed = false for non-tool-call, want true")
@@ -520,11 +558,11 @@ func TestAuthzFilterSetsExplicitAllowForNonToolCall(t *testing.T) {
 	// (now deny) default — otherwise the request would be denied.
 	s := minimalServer()
 	ex := newTestExchange(http.MethodPost, "/mcp", `{"method":"tools/list"}`, map[string]string{"Content-Type": "application/json"})
-	s.inspectFilter(ex)
+	ex.inspect(s)
 	ex.Policy = testPolicy()
 
-	if got := s.authzFilter(ex); got != Continue {
-		t.Fatalf("authzFilter tools/list = %v, want Continue", got)
+	if got := ex.authorize(s); got != nil {
+		t.Fatalf("authzFilter tools/list = %v, want continuation", got)
 	}
 	if !ex.Decision.Allowed {
 		t.Fatal("non-tool-call Decision.Allowed = false, want explicit allow")
@@ -536,7 +574,7 @@ func TestAuthzFilterRejectsDeniedToolCall(t *testing.T) {
 	s := minimalServer()
 	body := `{"method":"tools/call","params":{"name":"echo"}}`
 	ex := newTestExchange(http.MethodPost, "/mcp", body, map[string]string{"Content-Type": "application/json"})
-	s.inspectFilter(ex)
+	ex.inspect(s)
 	// Use a session-optional allow-list policy so an unrecognised identity
 	// reaches grant evaluation and gets no_matching_grant → 403.
 	ex.Policy = &policypkg.Document{
@@ -558,8 +596,8 @@ func TestAuthzFilterRejectsDeniedToolCall(t *testing.T) {
 	// No matching grant → default deny.
 	ex.Identity = identityContext{HumanID: "unknown", AgentID: "unknown"}
 
-	if got := s.authzFilter(ex); got != Reject {
-		t.Fatalf("authzFilter denied tool call = %v, want Reject", got)
+	if got := ex.authorize(s); got == nil {
+		t.Fatalf("authzFilter denied tool call = %v, want denial response", got)
 	}
 	if ex.Decision.Allowed {
 		t.Fatal("Decision.Allowed = true after authz rejection, want false")
@@ -574,18 +612,18 @@ func TestAuthzFilterMonitorVsEnforceGrant(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		mode       string
-		wantResult Result
+		wantResult bool
 		wantAllow  bool
 		wantShadow bool
 	}{
-		{name: "monitor", mode: "monitor", wantResult: Continue, wantAllow: true, wantShadow: true},
-		{name: "default enforce", wantResult: Reject},
+		{name: "monitor", mode: "monitor", wantResult: false, wantAllow: true, wantShadow: true},
+		{name: "default enforce", wantResult: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			s := minimalServer()
 			ex := newTestExchange(http.MethodPost, "/mcp", `{"method":"tools/call","params":{"name":"echo"}}`, map[string]string{"Content-Type": "application/json"})
-			s.inspectFilter(ex)
+			ex.inspect(s)
 			ex.Identity = identityContext{HumanID: "human-1"}
 			ex.Policy = &policypkg.Document{
 				Policy: &policypkg.Config{Mode: "allow-list", DefaultDecision: "deny"},
@@ -593,7 +631,7 @@ func TestAuthzFilterMonitorVsEnforceGrant(t *testing.T) {
 				Grants: []policypkg.Grant{{Name: "g1", Mode: tc.mode, HumanID: "human-1", MaxTrust: "low", AllowedSideEffects: []string{"read"}, ToolRules: []policypkg.ToolAccess{{Name: "echo", Decision: "allow"}}}},
 			}
 
-			if got := s.authzFilter(ex); got != tc.wantResult {
+			if got := ex.authorize(s); (got != nil) != tc.wantResult {
 				t.Fatalf("authzFilter result = %v, want %v (decision=%#v)", got, tc.wantResult, ex.Decision)
 			}
 			if ex.Decision.Allowed != tc.wantAllow || ex.Decision.WouldDeny != tc.wantShadow {
@@ -605,50 +643,18 @@ func TestAuthzFilterMonitorVsEnforceGrant(t *testing.T) {
 
 func TestAuthzFilterAuthorizationInputsUnchangedAfterDecision(t *testing.T) {
 	t.Parallel()
-	// Prove that upstreamFilter (stage 5) receives the same Policy and Identity
-	// pointers that authzFilter read, confirming no mutation happened between
-	// stages 4 and 5.
 	s := minimalServer()
-
-	upstreamCalled := false
-	var policyAtUpstream *policypkg.Document
-	var identityAtUpstream identityContext
-
-	target, _ := url.Parse("http://127.0.0.1:1") // unreachable; we intercept before
-	s.proxy = newUpstreamReverseProxy(target)
-
-	pipeline := []Filter{
-		FilterFunc(s.authzFilter),
-		FilterFunc(func(ex *Exchange) Result {
-			upstreamCalled = true
-			policyAtUpstream = ex.Policy
-			identityAtUpstream = ex.Identity
-			return Respond
-		}),
+	fixture := newTestExchange(http.MethodPost, "/mcp", "", nil)
+	fixture.Inspection = inspectedRPC("tools/list", "", RPCRequest)
+	fixture.Policy = testPolicy()
+	fixture.Identity = identityContext{HumanID: "human-1", AgentID: "client-1", TeamID: "team-acme"}
+	in := fixture.AuthenticatedRequest
+	out, response := s.authzFilter(in)
+	if response != nil || !out.Decision.Allowed {
+		t.Fatalf("unexpected terminal response: %+v", response)
 	}
-
-	body := `{"method":"tools/list"}`
-	ex := newTestExchange(http.MethodPost, "/mcp", body, map[string]string{"Content-Type": "application/json"})
-	s.inspectFilter(ex) // sets ToolCall=false, so authz skips evaluation
-	pol := testPolicy()
-	ex.Policy = pol
-	ident := identityContext{HumanID: "human-1", AgentID: "client-1", TeamID: "team-acme"}
-	ex.Identity = ident
-
-	for _, f := range pipeline {
-		if f.Handle(ex) != Continue {
-			break
-		}
-	}
-
-	if !upstreamCalled {
-		t.Fatal("upstream stage was not reached")
-	}
-	if policyAtUpstream != pol {
-		t.Fatal("Policy was replaced between authz and upstream stages")
-	}
-	if identityAtUpstream != ident {
-		t.Fatal("Identity was mutated between authz and upstream stages")
+	if out.Policy != in.Policy || out.Identity != in.Identity || in.Identity != fixture.Identity {
+		t.Fatal("authorization changed its input snapshot")
 	}
 }
 
@@ -657,12 +663,12 @@ func TestAuthzFilterPolicyUnavailableDeniesWith503(t *testing.T) {
 	s := minimalServer()
 	body := `{"method":"tools/call","params":{"name":"echo"}}`
 	ex := newTestExchange(http.MethodPost, "/mcp", body, map[string]string{"Content-Type": "application/json"})
-	s.inspectFilter(ex)
+	ex.inspect(s)
 	ex.Policy = &policypkg.Document{Policy: &policypkg.Config{}}
 	ex.PolicyErr = errPolicyUnavailable
 
-	if got := s.authzFilter(ex); got != Reject {
-		t.Fatalf("authzFilter policy_unavailable = %v, want Reject", got)
+	if got := ex.authorize(s); got == nil {
+		t.Fatalf("authzFilter policy_unavailable = %v, want denial response", got)
 	}
 	recorder := ex.W.ResponseWriter.(*httptest.ResponseRecorder)
 	if recorder.Code != http.StatusServiceUnavailable {
@@ -677,7 +683,7 @@ func TestAuthzFilterPolicyUnavailableDeniesWith503(t *testing.T) {
 
 // ---- stage 5: upstreamFilter ------------------------------------------------
 
-func TestUpstreamFilterAlwaysReturnsRespond(t *testing.T) {
+func TestUpstreamFilterReturnsTerminalResponse(t *testing.T) {
 	t.Parallel()
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -689,9 +695,10 @@ func TestUpstreamFilterAlwaysReturnsRespond(t *testing.T) {
 	s.proxy = newUpstreamReverseProxy(target)
 	ex := newTestExchange(http.MethodGet, "/mcp", "", nil)
 	ex.Policy = testPolicy()
+	ex.Decision = policypkg.Allow("allowed", "test")
 
-	if got := s.upstreamFilter(ex); got != Respond {
-		t.Fatalf("upstreamFilter = %v, want Respond", got)
+	if got := ex.upstream(s); got == nil {
+		t.Fatalf("upstreamFilter = %v, want terminal response", got)
 	}
 }
 
@@ -713,9 +720,10 @@ func TestUpstreamFilterStripsVerifiedIdentityHeader(t *testing.T) {
 		defaultVerifiedSPIFFEHeader: "spiffe://example.org/ns/team-a/session/forged",
 	})
 	ex.Policy = testPolicy()
+	ex.Decision = policypkg.Allow("allowed", "test")
 
-	if got := s.upstreamFilter(ex); got != Respond {
-		t.Fatalf("upstreamFilter = %v, want Respond", got)
+	if got := ex.upstream(s); got == nil {
+		t.Fatalf("upstreamFilter = %v, want terminal response", got)
 	}
 	if got, _ := seen.Load().(string); got != "" {
 		t.Fatalf("upstream saw %s = %q, want it stripped", defaultVerifiedSPIFFEHeader, got)
@@ -738,9 +746,10 @@ func TestUpstreamFilterPreservesOAuthBearerForMCPServer(t *testing.T) {
 		"Authorization": "Bearer validated-token",
 	})
 	ex.Policy = oauthPolicy("https://issuer.example.com")
+	ex.Decision = policypkg.Allow("allowed", "test")
 
-	if got := s.upstreamFilter(ex); got != Respond {
-		t.Fatalf("upstreamFilter = %v, want Respond", got)
+	if got := ex.upstream(s); got == nil {
+		t.Fatalf("upstreamFilter = %v, want terminal response", got)
 	}
 	if got, _ := seen.Load().(string); got != "Bearer validated-token" {
 		t.Fatalf("upstream Authorization = %q, want validated bearer", got)
@@ -763,9 +772,10 @@ func TestUpstreamFilterStripsUnvalidatedBearerWhenOAuthDisabled(t *testing.T) {
 		"Authorization": "Bearer unvalidated-token",
 	})
 	ex.Policy = testPolicy()
+	ex.Decision = policypkg.Allow("allowed", "test")
 
-	if got := s.upstreamFilter(ex); got != Respond {
-		t.Fatalf("upstreamFilter = %v, want Respond", got)
+	if got := ex.upstream(s); got == nil {
+		t.Fatalf("upstreamFilter = %v, want terminal response", got)
 	}
 	if got, _ := seen.Load().(string); got != "" {
 		t.Fatalf("upstream Authorization = %q, want stripped on non-OAuth server", got)
@@ -783,4 +793,13 @@ func TestErrPolicyUnavailableIsBaseError(t *testing.T) {
 	if errPolicyUnavailable.Error() == "" {
 		t.Fatal("errPolicyUnavailable.Error() is empty")
 	}
+}
+
+// auditPayloadForTest assembles explicit facts without depending on a live clock.
+func auditPayloadForTest(s *gatewayServer, r *http.Request, path, method, tool string, actor identityContext, policy *policypkg.Document, decision policypkg.Decision, status int, latencyMS int64, bytesOut int) events.MCPRequest {
+	ex := newExchange(httptest.NewRecorder(), r, s.defaultPolicyVersion)
+	ex.OriginalPath, ex.Identity, ex.Policy, ex.Decision = path, actor, policy, decision
+	ex.Inspection = inspectedRPC(method, tool, RPCRequest)
+	ex.W.status, ex.W.bytes = status, bytesOut
+	return s.auditPayload(ex, time.Duration(latencyMS)*time.Millisecond)
 }

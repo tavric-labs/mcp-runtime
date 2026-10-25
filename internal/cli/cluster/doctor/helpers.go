@@ -12,7 +12,6 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/kubeerr"
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/platforminventory"
 )
 
@@ -270,11 +269,11 @@ func resolveDoctorSmokeImage(kubectl core.KubectlRunner, preferredNamespace stri
 
 func resolveDoctorSmokeTarget(kubectl core.KubectlRunner, preferredNamespace string) doctorSmokeTarget {
 	if image := strings.TrimSpace(os.Getenv("MCP_DOCTOR_SMOKE_IMAGE")); image != "" {
-		return doctorSmokeTarget{Image: image, Port: mcpdefaults.MCPServerPort, Source: "MCP_DOCTOR_SMOKE_IMAGE", WaitForReady: false}
+		return doctorSmokeTarget{Image: image, Port: platforminventory.MCPServerPort, Source: "MCP_DOCTOR_SMOKE_IMAGE", WaitForReady: false}
 	}
 	configName := platforminventory.SharedConfigName
 	if image, err := readKubectlOutput(kubectl, []string{"get", "configmap", configName, "-n", componentNamespace("platform-api"), "-o", "jsonpath={.data.MCP_DOCTOR_SMOKE_IMAGE}"}); err == nil && strings.TrimSpace(image) != "" {
-		return doctorSmokeTarget{Image: strings.TrimSpace(image), Port: mcpdefaults.MCPServerPort, Source: configName + "/MCP_DOCTOR_SMOKE_IMAGE", WaitForReady: true}
+		return doctorSmokeTarget{Image: strings.TrimSpace(image), Port: platforminventory.MCPServerPort, Source: configName + "/MCP_DOCTOR_SMOKE_IMAGE", WaitForReady: true}
 	}
 	mcpServerNames, haveMCPServerNames := readDoctorMCPServerNames(kubectl, preferredNamespace)
 	out, err := readKubectlOutput(kubectl, []string{"get", "deploy", "-n", preferredNamespace, "-o", "jsonpath={range .items[*]}{.metadata.name}|{.status.readyReplicas}|{.spec.template.spec.containers[0].image}|{.spec.template.spec.containers[0].ports[0].containerPort}{\"\\n\"}{end}"})
@@ -293,7 +292,7 @@ func resolveDoctorSmokeTarget(kubectl core.KubectlRunner, preferredNamespace str
 			if haveMCPServerNames && !mcpServerNames[name] {
 				continue
 			}
-			port := int32(mcpdefaults.MCPServerPort)
+			port := int32(platforminventory.MCPServerPort)
 			if len(parts) == 4 {
 				if parsed, parseErr := strconv.ParseInt(strings.TrimSpace(parts[3]), 10, 32); parseErr == nil && parsed > 0 && parsed <= 65535 {
 					port = int32(parsed)
@@ -309,7 +308,7 @@ func resolveDoctorSmokeTarget(kubectl core.KubectlRunner, preferredNamespace str
 	}
 	return doctorSmokeTarget{
 		Image:        "registry.k8s.io/pause:3.9",
-		Port:         mcpdefaults.MCPServerPort,
+		Port:         platforminventory.MCPServerPort,
 		Source:       "fallback image registry.k8s.io/pause:3.9",
 		WaitForReady: false,
 	}

@@ -20,7 +20,8 @@ import (
 	_ "go.uber.org/automaxprocs" // align GOMAXPROCS with container CPU quota
 
 	"mcp-gateway/credential"
-	"mcp-runtime/pkg/mcpdefaults"
+
+	"mcp-runtime/pkg/platforminventory"
 	"mcp-runtime/pkg/serviceutil"
 	"mcp-runtime/pkg/sessionstate"
 )
@@ -36,7 +37,7 @@ func main() {
 		}
 		return
 	}
-	port := serviceutil.EnvOr("PORT", strconv.Itoa(mcpdefaults.MCPGatewayPort))
+	port := serviceutil.EnvOr("PORT", strconv.Itoa(platforminventory.MCPGatewayPort))
 	metricsPort := serviceutil.EnvOr("METRICS_PORT", "9103")
 	upstream := serviceutil.EnvOr("UPSTREAM_URL", "http://127.0.0.1:8090")
 	analyticsURL := strings.TrimSpace(os.Getenv("ANALYTICS_INGEST_URL"))

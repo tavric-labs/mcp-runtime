@@ -48,8 +48,12 @@ func BenchmarkSessionCertificateAuthorization(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				for b.Loop() {
-					actor, reason := server.authenticateAdapterCertificate(request, doc)
-					if reason != wantReason || reason == "" && actor.SessionID != name {
+					actor, err := server.authenticateAdapterCertificate(request, doc)
+					reason := ""
+					if err != nil {
+						reason = authenticationDecision(err, "v1").Reason
+					}
+					if reason != wantReason || reason == "" && string(actor.SessionID) != name {
 						b.Fatalf("actor=%+v reason=%q, want %q", actor, reason, wantReason)
 					}
 				}

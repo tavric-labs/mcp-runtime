@@ -15,7 +15,6 @@ import (
 	kubeapply "mcp-runtime/internal/cli/kube"
 	"mcp-runtime/internal/cli/kubeerr"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/policy"
 )
 
@@ -188,7 +187,7 @@ func (m *AccessManager) loadExplainPolicy(ctx context.Context, server, namespace
 		if !useKube {
 			data, err = plat.GetRuntimePolicy(ctx, namespace, server)
 		} else {
-			configMapName := mcpdefaults.GatewayPolicyConfigMapName(server)
+			configMapName := policy.ConfigMapName(server)
 			args := []string{"get", "configmap", configMapName, "-n", namespace, "-o", `go-template={{index .data "policy.json"}}`}
 			data, err = m.kubectl.Output(args)
 			if err != nil {
@@ -212,7 +211,7 @@ func (m *AccessManager) loadExplainPolicy(ctx context.Context, server, namespace
 
 func newExplainOutput(doc *policy.Document, decision policy.Decision, server, namespace, rpcMethod, toolName string, identity policy.Identity) explainOutput {
 	result := explainOutput{
-		Decision:                mcpdefaults.PolicyDecision,
+		Decision:                policy.DefaultDecision,
 		Status:                  decision.Status,
 		Reason:                  decision.Reason,
 		Server:                  server,

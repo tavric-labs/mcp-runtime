@@ -3,22 +3,22 @@ package runtimeapi
 import (
 	"context"
 	"errors"
+	"mcp-runtime-api/internal/platformclient"
 	"net/http"
 	"strings"
 
 	"go.uber.org/zap"
 
-	"mcp-runtime-api/internal/platformclient"
 	"mcp-runtime/pkg/apihttp"
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/platforminventory"
 	"mcp-runtime/pkg/serviceutil"
 )
 
 const (
 	roleAdmin               = platformauth.RoleAdmin
 	roleUser                = platformauth.RoleUser
-	sharedCatalogNamespace  = mcpdefaults.MCPServersNamespace
+	sharedCatalogNamespace  = platforminventory.MCPServersNamespace
 	teamNamespacePrefix     = "mcp-team-"
 	teamRoleOwner           = "owner"
 	teamRoleMember          = "member"

@@ -4,8 +4,6 @@ package platforminventory
 
 import (
 	"strings"
-
-	"mcp-runtime/pkg/mcpdefaults"
 )
 
 type Owner string
@@ -66,7 +64,7 @@ type PortTarget struct {
 const (
 	PlatformNamespace      = "mcp-platform"
 	ObservabilityNamespace = "mcp-observability"
-	LogCollectorNamespace  = mcpdefaults.LogCollectorNamespace
+	LogCollectorNamespace  = "mcp-log-collector"
 	OperatorNamespace      = "mcp-runtime"
 	// SharedConfigName is the same ConfigMap name in every published namespace.
 	// The namespace is the location; the name marks the copy as shared.

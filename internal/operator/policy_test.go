@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/policy"
 )
 
@@ -382,7 +381,7 @@ func TestRenderGatewayPolicyObserveWhenPolicyOmitted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("renderGatewayPolicy: %v", err)
 	}
-	if doc.Policy == nil || doc.Policy.Mode != mcpdefaults.ObservabilityPolicyMode {
+	if doc.Policy == nil || doc.Policy.Mode != policy.ObservabilityMode {
 		t.Fatalf("policy = %#v, want observe-mode default", doc.Policy)
 	}
 }

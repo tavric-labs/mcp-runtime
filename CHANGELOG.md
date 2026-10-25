@@ -33,6 +33,10 @@ reset or MCP Auth release is required.
 
 - Dependency maintenance updates `kin-openapi` to 0.152.0, AWS SDK configuration and Secrets Manager modules to 1.33.10 and 1.50.6, and the pinned `docker/login-action` to 4.7.0. Service module files stay aligned with the root OpenAPI dependency so image builds remain reproducible ([#865](https://github.com/tavric-labs/mcp-runtime/pull/865), [#866](https://github.com/tavric-labs/mcp-runtime/pull/866), [#867](https://github.com/tavric-labs/mcp-runtime/pull/867)).
 
+### Changed
+
+- Shared Go authentication helpers now live in `pkg/identity`; policy defaults, platform defaults and route defaults live with their owning packages. Source consumers must update imports from `credentialheaders`, `oauthresource` and `mcpdefaults`. Gateway audit records add optional request/notification classification and keep non-tool RPC names separate from tool names ([#860](https://github.com/tavric-labs/mcp-runtime/pull/860)).
+
 ## [0.13.0] - 2026-10-24
 
 Optional credential gateway for header-mode servers. `mcp-runtime update` applies the new MCPServer field with this release. Resource logins need mcp-auth 0.7.0, rolled separately with `mcp-runtime update --only mcp-auth`. No database reset or fresh setup is required. Submitted headers stay in the gateway's memory on one replica, and those sessions are not platform users.

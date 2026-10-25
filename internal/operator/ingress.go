@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/oauthresource"
+	"mcp-runtime/pkg/identity"
 )
 
 func (r *MCPServerReconciler) reconcileIngress(ctx context.Context, mcpServer *mcpv1alpha1.MCPServer) error {
@@ -104,7 +104,7 @@ func ingressPathsForServer(mcpServer *mcpv1alpha1.MCPServer, pathType networking
 		// let one server claim another server's metadata path on a shared,
 		// host-less ingress and point its clients at a different issuer.
 		paths = append(paths, networkingv1.HTTPIngressPath{
-			Path:     oauthresource.ProtectedResourceMetadataPath(effectiveIngressPath(mcpServer)),
+			Path:     identity.ProtectedResourceMetadataPath(effectiveIngressPath(mcpServer)),
 			PathType: &pathType,
 			Backend:  backend,
 		})

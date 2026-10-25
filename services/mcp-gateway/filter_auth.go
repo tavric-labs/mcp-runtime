@@ -1,133 +1,119 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/credentialheaders"
 	"mcp-runtime/pkg/identity"
 	policypkg "mcp-runtime/pkg/policy"
 )
 
-// authFilter is stage 3 of the gateway pipeline. When OAuth is configured it
-// authenticates the bearer token. Adapter requests additionally present a
-// verified certificate; on OAuth servers its enrolled session must match the
-// OAuth principal. On any authentication failure, authFilter writes a denial
-// response and returns Reject.
-//
-// authFilter always runs after policyFilter (stage 2) has set Exchange.Policy
-// and always completes before authzFilter (stage 4) reads Exchange.Identity.
-func (s *gatewayServer) authFilter(ex *Exchange) Result {
+// authFilter establishes identity from OAuth and/or verified adapter certificates.
+// Terminal outputs retain trusted partial identity for denial audit.
+func (s *gatewayServer) authFilter(in PolicyRequest) (AuthenticatedRequest, *FilterResponse) {
+	ex := AuthenticatedRequest{PolicyRequest: in, CallerKind: CallerAnonymous}
+	version := policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(ex.Policy), s.defaultPolicyVersion)
+	deny := func(err error) (AuthenticatedRequest, *FilterResponse) {
+		return ex, denyResponse(authenticationDecision(err, version))
+	}
+	if ex.Policy == nil {
+		return deny(errSessionUnavailable)
+	}
 	if policypkg.UsesDelegatedHeaders(ex.Policy) {
-		reason := credentialheaders.CheckRequest(ex.R.Header, ex.Policy.Auth.Headers, ex.Policy.Auth.CredentialPresence)
-		if reason != "" {
-			ex.Decision = policypkg.Deny(
-				http.StatusUnauthorized,
-				reason,
-				policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(ex.Policy), s.defaultPolicyVersion),
-			)
-			s.writeDeniedResponse(ex)
-			return Reject
+		ex.CallerKind = CallerDelegated
+		credentials, err := identity.NewCredentialPolicy(ex.Policy.Auth.Headers, ex.Policy.Auth.CredentialPresence)
+		if err != nil {
+			return deny(&authenticationFailure{status: http.StatusUnauthorized, reason: string(identity.ErrInvalidCredentialConfig)})
 		}
-		return Continue
+		if err := credentials.Check(ex.R.Header); err != nil {
+			return deny(&authenticationFailure{status: http.StatusUnauthorized, reason: err.Error()})
+		}
+		return ex, nil
 	}
 	var certificateIdentity *identityContext
-	// A presented adapter certificate proves the enrolled agent session. The
-	// request must also carry OAuth below because the upstream MCP server is
-	// part of the protected resource and validates the bearer token itself.
 	if ex.Policy.Auth != nil && strings.TrimSpace(ex.Policy.Auth.TrustDomain) != "" &&
 		strings.TrimSpace(ex.R.Header.Get(s.verifiedSPIFFEHeaderName())) != "" {
-		verifiedIdentity, reason := s.authenticateAdapterCertificate(ex.R, ex.Policy)
-		if reason != "" {
-			// A revoked/expired binding still identifies the caller of a verified
-			// certificate. Preserve that trusted identity for denial audit only;
-			// every unverified/unknown certificate path returns an empty identity.
+		verifiedIdentity, err := s.authenticateAdapterCertificate(ex.R, ex.Policy)
+		if err != nil {
+			// A known revoked/expired binding identifies the actor for audit,
+			// while the terminal failure prevents using it as an active session.
 			ex.Identity = verifiedIdentity
-			status := http.StatusUnauthorized
-			if reason == "policy_unavailable" {
-				status = http.StatusServiceUnavailable
+			if verifiedIdentity.Session != nil {
+				ex.CallerKind = CallerCertificate
 			}
-			ex.Decision = policypkg.Deny(
-				status,
-				reason,
-				policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(ex.Policy), s.defaultPolicyVersion),
-			)
-			s.writeDeniedResponse(ex)
-			return Reject
+			return deny(err)
 		}
 		certificateIdentity = &verifiedIdentity
 	}
 	if !policypkg.PolicyUsesOAuth(ex.Policy) {
 		if certificateIdentity != nil {
-			ex.Identity = *certificateIdentity
+			ex.Identity, ex.CallerKind = *certificateIdentity, CallerCertificate
 		}
-		return Continue
+		return ex, nil
 	}
-
-	subjectTeam := ""
+	var subjectTeam policypkg.TeamID
 	if certificateIdentity != nil {
 		subjectTeam = certificateIdentity.TeamID
 	}
-	oauthResult := s.authenticateOAuthForSubjectTeam(ex.R, ex.Policy, subjectTeam)
-	s.metrics.recordOAuthOutcome(s.metricScope(ex.Policy), oauthResult.Allowed, oauthResult.Reason)
-	ex.Identity = oauthResult.Identity
-	ex.OAuthToken = oauthResult.Token
-
-	if !oauthResult.Allowed {
-		ex.Decision = policypkg.Deny(
-			oauthResult.Status,
-			oauthResult.Reason,
-			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(ex.Policy), s.defaultPolicyVersion),
-		)
-		s.writeDeniedResponse(ex)
-		return Reject
+	credentials, err := s.oauthAuthenticator().Authenticate(ex.R, ex.Policy, subjectTeam)
+	reason := ""
+	if err != nil {
+		reason = authenticationDecision(err, version).Reason
 	}
+	s.metrics.recordOAuthOutcome(s.metricScope(ex.Policy), err == nil, reason)
+	if err != nil {
+		return deny(err)
+	}
+	ex.Identity, ex.OAuthToken, ex.CallerKind = credentials.Identity, credentials.Token, CallerOAuth
 	if certificateIdentity != nil {
-		if reason := certificateOAuthMismatch(*certificateIdentity, oauthResult.Identity); reason != "" {
-			ex.Decision = policypkg.Deny(
-				http.StatusUnauthorized,
-				reason,
-				policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(ex.Policy), s.defaultPolicyVersion),
-			)
-			s.writeDeniedResponse(ex)
-			return Reject
+		if reason := certificateOAuthMismatch(*certificateIdentity, credentials.Identity); reason != "" {
+			return deny(&authenticationFailure{status: http.StatusUnauthorized, reason: reason})
 		}
-		ex.Identity = *certificateIdentity
-	} else if ex.Identity.SessionID != "" && ex.Policy.Session != nil && ex.Policy.Session.Store == "platform" && (ex.Inspection.ToolCall || ex.Inspection.Indeterminate) {
-		binding, reason := s.sessionSync.binding(ex.R.Context(), string(ex.Policy.Server.Namespace), ex.Identity.SessionID)
-		if reason == "" {
-			if binding.Revoked {
-				reason = "session_revoked"
-			} else if mtlsBindingExpired(binding.ExpiresAt) {
-				reason = "session_expired"
-			} else if (string(binding.HumanID) != "" && string(binding.HumanID) != ex.Identity.HumanID) ||
-				(string(binding.AgentID) != "" && string(binding.AgentID) != ex.Identity.AgentID) ||
-				(string(binding.TeamID) != "" && string(binding.TeamID) != ex.Identity.TeamID) {
-				reason = "session_identity_mismatch"
-			}
+		ex.Identity, ex.CallerKind = *certificateIdentity, CallerCertificate
+	} else if ex.Identity.SessionID != "" && ex.Policy.Session != nil && ex.Policy.Session.Store == "platform" && (ex.Inspection.IsToolCall() || ex.Inspection.Indeterminate()) {
+		binding, err := s.sessionReader().Lookup(ex.R.Context(), SessionRef{Namespace: ex.Policy.Server.Namespace, ID: ex.Identity.SessionID}, s.currentTime())
+		if err == nil {
+			err = validateSessionBinding(binding, ex.Identity, s.currentTime())
 		}
-		if reason != "" {
-			// Optional sessions previously ignored missing/revoked/mismatched
-			// bindings while still enforcing identity and grant policy.
-			if !ex.Policy.Session.Required && reason != "policy_unavailable" {
-				return Continue
+		if err != nil {
+			if !ex.Policy.Session.Required && !errors.Is(err, errSessionUnavailable) {
+				return ex, nil
 			}
-			status := http.StatusUnauthorized
-			if reason == "policy_unavailable" {
-				status = http.StatusServiceUnavailable
-			}
-			ex.Decision = policypkg.Deny(status, reason, policypkg.PolicyVersion(ex.Policy))
-			s.writeDeniedResponse(ex)
-			return Reject
+			return deny(err)
 		}
 		ex.Identity.Session = binding
 	}
-	return Continue
+	return ex, nil
+}
+
+// validateSessionBinding is pure: identity matching and lifetime checks use an
+// explicit instant, and the error retains its stable category through wrapping.
+func validateSessionBinding(binding *policypkg.Binding, actor identityContext, now time.Time) error {
+	if binding == nil {
+		return errSessionUnavailable
+	}
+	deadline, err := parseDeadline(strings.TrimSpace(binding.ExpiresAt))
+	if err != nil {
+		return errSessionUnavailable
+	}
+	switch {
+	case binding.Revoked:
+		return errSessionRevoked
+	case deadline.expired(now):
+		return errSessionExpired
+	case binding.HumanID != "" && binding.HumanID != actor.HumanID,
+		binding.AgentID != "" && binding.AgentID != actor.AgentID,
+		binding.TeamID != "" && binding.TeamID != actor.TeamID:
+		return errSessionMismatch
+	default:
+		return nil
+	}
 }
 
 func certificateOAuthMismatch(certificateIdentity, oauthIdentity identityContext) string {
-	if strings.TrimSpace(oauthIdentity.HumanID) == "" || oauthIdentity.HumanID != certificateIdentity.HumanID {
+	if strings.TrimSpace(string(oauthIdentity.HumanID)) == "" || oauthIdentity.HumanID != certificateIdentity.HumanID {
 		return "certificate_oauth_subject_mismatch"
 	}
 	if oauthIdentity.TeamID != "" && certificateIdentity.TeamID != "" && oauthIdentity.TeamID != certificateIdentity.TeamID {
@@ -162,33 +148,36 @@ func certificateOAuthMismatch(certificateIdentity, oauthIdentity identityContext
 //
 // Client-supplied governance headers (human/agent/team/session) are never
 // consulted in this mode; identity comes only from the verified SPIFFE header.
-func (s *gatewayServer) authenticateAdapterCertificate(r *http.Request, policy *policypkg.Document) (identityContext, string) {
+func (s *gatewayServer) authenticateAdapterCertificate(r *http.Request, policy *policypkg.Document) (identityContext, error) {
 	// (1) The connection must be an ingress-authenticated mTLS hop.
 	if r == nil || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
-		return identityContext{}, "missing_client_certificate"
+		return identityContext{}, errMissingCertificate
 	}
 	// (2) Optionally pin the trusted ingress identity.
 	if expected := strings.TrimSpace(s.trustedProxySPIFFE); expected != "" {
 		if !identity.CertificateHasURI(r.TLS.PeerCertificates[0], expected) {
-			return identityContext{}, "untrusted_proxy"
+			return identityContext{}, errUntrustedProxy
 		}
 	}
 
 	// (3) Read the caller identity from the ingress-injected verified header.
 	rawID := strings.TrimSpace(r.Header.Get(s.verifiedSPIFFEHeaderName()))
 	if rawID == "" {
-		return identityContext{}, "missing_verified_identity"
+		return identityContext{}, errMissingVerifiedIdentity
 	}
 	namespace, sessionID, ok := identity.ParseSessionSPIFFE(rawID, policy.Auth.TrustDomain)
 	if !ok {
-		return identityContext{}, "invalid_spiffe_identity"
+		return identityContext{}, errInvalidSPIFFE
 	}
 
 	bindings := policy.Sessions
 	if policy.Session != nil && policy.Session.Store == "platform" {
-		binding, reason := s.sessionSync.binding(r.Context(), namespace, sessionID)
-		if reason != "" {
-			return identityContext{}, reason
+		binding, err := s.sessionReader().Lookup(r.Context(), SessionRef{Namespace: policypkg.Namespace(namespace), ID: policypkg.SessionID(sessionID)}, s.currentTime())
+		if err != nil {
+			return identityContext{}, err
+		}
+		if binding == nil {
+			return identityContext{}, errSessionUnavailable
 		}
 		bindings = []policypkg.Binding{*binding}
 	}
@@ -196,16 +185,13 @@ func (s *gatewayServer) authenticateAdapterCertificate(r *http.Request, policy *
 		if string(binding.Namespace) != namespace || string(binding.Name) != sessionID {
 			continue
 		}
-		boundIdentity := identityContext{HumanID: string(binding.HumanID), AgentID: string(binding.AgentID), TeamID: string(binding.TeamID), SessionID: string(binding.Name), Session: &binding}
-		if binding.Revoked {
-			return boundIdentity, "session_revoked"
+		boundIdentity := identityContext{HumanID: binding.HumanID, AgentID: binding.AgentID, TeamID: binding.TeamID, SessionID: binding.Name, Session: &binding}
+		if err := validateSessionBinding(&binding, boundIdentity, s.currentTime()); err != nil {
+			return boundIdentity, err
 		}
-		if mtlsBindingExpired(binding.ExpiresAt) {
-			return boundIdentity, "session_expired"
-		}
-		return boundIdentity, ""
+		return boundIdentity, nil
 	}
-	return identityContext{}, "session_not_found"
+	return identityContext{}, errSessionNotFound
 }
 
 // verifiedSPIFFEHeaderName returns the configured trusted-identity header,
@@ -215,13 +201,4 @@ func (s *gatewayServer) verifiedSPIFFEHeaderName() string {
 		return h
 	}
 	return defaultVerifiedSPIFFEHeader
-}
-
-func mtlsBindingExpired(expiresAt string) bool {
-	trimmed := strings.TrimSpace(expiresAt)
-	if trimmed == "" {
-		return false
-	}
-	parsed, err := time.Parse(time.RFC3339, trimmed)
-	return err == nil && !parsed.After(time.Now())
 }

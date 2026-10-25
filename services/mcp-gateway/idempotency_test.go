@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -326,17 +327,20 @@ func TestIdempotencyNeverRecordsRawKeyOrPayload(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "http://proxy.example.com/mcp", strings.NewReader(toolBody))
-	ex := newTestExchange(http.MethodPost, "/mcp", toolBody, nil)
+	ex := newExchange(httptest.NewRecorder(), req, "test")
 	ex.Idempotency = idempotencyAudit{Outcome: "replay", KeyHash: "abcd1234abcd1234"}
-	payload := h.s.auditPayloadForExchange(ex, req)
-	if payload["idempotency"] != "replay" || payload["idempotency_key_hash"] != "abcd1234abcd1234" {
+	payload := h.s.auditPayload(ex, 0)
+	if payload.Idempotency != "replay" || payload.IdempotencyKeyHash != "abcd1234abcd1234" {
 		t.Fatalf("audit payload = %#v", payload)
 	}
-	for k, v := range payload {
-		if s, ok := v.(string); ok && strings.Contains(s, idemRawKey) {
-			t.Fatalf("raw key in audit field %s", k)
-		}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if strings.Contains(string(raw), idemRawKey) {
+		t.Fatal("raw key in audit payload")
+	}
+
 }
 
 func TestIdempotencyContentEncodedReplyIsNotReplayable(t *testing.T) {

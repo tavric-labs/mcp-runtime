@@ -183,6 +183,35 @@ flowchart TB
 
 Keep shared behavior in `pkg/` only when multiple binaries or services need it. CLI top-level command routing belongs in `internal/cli/root` and `internal/cli/<command>`; CLI-only shared infrastructure belongs in `internal/cli/core`; reconciliation behavior belongs in `internal/operator`; Kubernetes-facing MCPServer operations that are reused outside the operator belong in `pkg/controlplane`; rendered gateway policy evaluation belongs in `pkg/policy`; reusable event and storage contracts belong in `pkg/events` and `pkg/clickhouse`; shared pod hardening defaults belong in `pkg/kubeworkload`; runtime orchestration belongs in `services/runtime-api/internal/runtimeapi`; platform identity, team, key, and audit persistence belongs in `services/platform-api/internal/platformstore`; API principal context helpers belong in `services/platform-api/internal/apiauth`; HTTP service glue belongs near the service that owns the endpoint unless it is repeated across services.
 
+Shared gateway dependencies follow their owning domains:
+
+| Package | Responsibility |
+|---|---|
+| `pkg/identity` | Certificate/SPIFFE identity, credential-header contracts and OAuth protected-resource URLs |
+| `pkg/policy` | Policy documents, evaluation, enums/defaults and rendered policy ConfigMap naming |
+| `pkg/platforminventory` | Component placement, platform ports, namespaces and workload token audiences |
+| `pkg/publicroutes` | Public route validation and the default MCP route |
+| `pkg/events` | Platform event envelopes and the typed `MCPRequest` audit payload |
+| `pkg/sessionstate` | The platform-owned governance-session synchronization wire contract |
+
+The former `credentialheaders`, `oauthresource` and `mcpdefaults` packages are
+consolidated into these owners. Code can be split across files within one
+package; another package needs a distinct responsibility and a useful API.
+Consumer-owned interfaces stay beside the gateway code that uses them.
+This follows the Go team's [package naming guidance](https://go.dev/blog/package-names)
+and [module organization guidance](https://go.dev/doc/modules/layout), reviewed
+2026-10-25.
+
+MCP protocol revisions remain dated identifiers: the `2025-11-25` interaction
+model and the `2026-07-28` stateless model have different transport/lifecycle
+requirements. Runtime governance sessions are separate from MCP transport
+sessions. The gateway observation contract retains open RPC method names and
+distinguishes requests from notifications without retaining raw params.
+Full dual-revision conformance remains tracked in
+[#662](https://github.com/tavric-labs/mcp-runtime/issues/662). This refactor does
+not add draft MCP Events extension support. Platform audit events and
+`pkg/events` are separate from that proposed extension.
+
 ## Learning path
 
 1. Read [API types](api-types.md) first. The CRDs are the contract that every other subsystem follows.
