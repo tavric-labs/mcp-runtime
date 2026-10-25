@@ -143,7 +143,7 @@ func TestCallerCredentialHeadersAreStrippedWithoutBrokerOnDiscovery(t *testing.T
 	ex := newTestExchange(http.MethodPost, "/mcp", `{}`, nil)
 	ex.R.Header.Set(cb.HeaderPrefix+"Token", "forged")
 	ex.Inspection = inspectedRPC("tools/list", "", RPCRequest)
-	if !s.injectCredentials(&upstreamContext{R: ex.R, Inspection: ex.Inspection}) || ex.R.Header.Get(cb.HeaderPrefix+"Token") != "" {
+	if !s.injectCredentials(&upstreamContext{R: ex.R, Inspection: ex.Inspection, dispatchOutcome: &dispatchOutcome{}}) || ex.R.Header.Get(cb.HeaderPrefix+"Token") != "" {
 		t.Fatal("discovery retained a caller-injected credential")
 	}
 }

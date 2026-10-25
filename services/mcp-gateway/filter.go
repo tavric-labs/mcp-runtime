@@ -108,7 +108,7 @@ func permitRequest(request AuthorizedRequest, writer *statusRecorder) (Permitted
 	if request.RequestInput == nil || request.R == nil || writer == nil {
 		return PermittedRequest{}, denyResponse(policypkg.Deny(http.StatusInternalServerError, "invalid_dispatch", request.Decision.PolicyVersion))
 	}
-	return PermittedRequest{request: request, writer: writer, valid: true, outcome: &dispatchOutcome{decision: request.Decision}}, nil
+	return PermittedRequest{request: request, writer: writer, valid: true, outcome: &dispatchOutcome{Decision: request.Decision}}, nil
 }
 
 // Pipeline has a fixed security-sensitive order. Named, typed slots allow a
@@ -180,7 +180,7 @@ func (p Pipeline) Run(ex *Exchange) {
 			return response
 		}
 		defer func() {
-			ex.Decision, ex.Idempotency = permitted.outcome.decision, permitted.outcome.idempotency
+			ex.Decision, ex.Idempotency = permitted.outcome.Decision, permitted.outcome.Idempotency
 		}()
 		_, response = p.Upstream.Handle(permitted)
 		return response

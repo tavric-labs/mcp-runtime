@@ -10,20 +10,21 @@ import (
 // upstreamContext holds dispatch inputs and operational outcomes. Policy and
 // session snapshots remain read-only; pre-dispatch filters never receive it.
 type upstreamContext struct {
-	R           *http.Request
-	W           *statusRecorder
-	Inspection  rpcInspection
-	Policy      *policypkg.Document
-	Identity    identityContext
-	Decision    policypkg.Decision
-	Idempotency idempotencyAudit
+	R          *http.Request
+	W          *statusRecorder
+	Inspection rpcInspection
+	Policy     *policypkg.Document
+	Identity   identityContext
+	// dispatchOutcome is shared with the caller, so results are visible to
+	// observation without a copy-back, even if the proxy aborts by panicking.
+	*dispatchOutcome
 }
 
 // dispatchOutcome carries operational results back to observation even when a
 // streaming proxy aborts the response by panicking.
 type dispatchOutcome struct {
-	decision    policypkg.Decision
-	idempotency idempotencyAudit
+	Decision    policypkg.Decision
+	Idempotency idempotencyAudit
 }
 
 // upstreamFilter dispatches only a capability issued by the authorization gate.
@@ -32,10 +33,7 @@ func (s *gatewayServer) upstreamFilter(in PermittedRequest) (AuthorizedRequest, 
 	if !in.valid || in.writer == nil || in.outcome == nil || !request.Decision.Allowed {
 		return request, denyResponse(policypkg.Deny(http.StatusForbidden, "undecided", request.Decision.PolicyVersion))
 	}
-	ex := &upstreamContext{R: request.R, W: in.writer, Inspection: request.Inspection, Policy: request.Policy, Identity: request.Identity, Decision: request.Decision}
-	defer func() {
-		in.outcome.decision, in.outcome.idempotency = ex.Decision, ex.Idempotency
-	}()
+	ex := &upstreamContext{R: request.R, W: in.writer, Inspection: request.Inspection, Policy: request.Policy, Identity: request.Identity, dispatchOutcome: in.outcome}
 	if len(ex.R.Header.Values(idempotencyKeyHeader)) > 0 {
 		s.idempotentUpstream(ex)
 	} else {
