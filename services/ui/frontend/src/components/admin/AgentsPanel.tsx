@@ -15,9 +15,9 @@ import { SelectField, TextField } from "../../ui/Field";
 import { PageHeader } from "../../ui/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../ui/States";
 
-type AgentsPanelProps = { onSignIn: () => void; auth: AuthStatus; initialTeam?: string; initialAgent?: string; onTeamChange?: (team: string) => void; onAgentChange?: (agent: string) => void };
+type AgentsPanelProps = { onSignIn: () => void; auth: AuthStatus; initialTeam?: string; initialAgent?: string; onTeamChange?: (team: string) => void; onAgentChange?: (agent: string) => void; initialView?: string; onViewChange?: (view: string) => void };
 
-export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamChange, onAgentChange }: AgentsPanelProps) {
+export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamChange, onAgentChange, initialView, onViewChange }: AgentsPanelProps) {
   const platformAdmin = isAdmin(auth);
   const reload = useAdminReload();
   const teamsQuery = useTeams(true);
@@ -185,7 +185,7 @@ export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamC
 
   const hasNext = teamSlug === "*" ? (allPage + 1) * 100 < allAgents.length : Boolean(agentsQuery.data?.next_cursor);
 
-  if (selectedAgent) return <AgentDetailPanel id={selectedAgent} platformAdmin={platformAdmin} onBack={() => { setSelectedAgent(""); onAgentChange?.(""); }} />;
+  if (selectedAgent) return <AgentDetailPanel key={selectedAgent} initialView={initialView} onViewChange={onViewChange} id={selectedAgent} platformAdmin={platformAdmin} onBack={() => { setSelectedAgent(""); onAgentChange?.(""); }} />;
 
   return (
     <>

@@ -183,7 +183,7 @@ describe("access control workspace navigation", () => {
     renderApp();
     await user.click(await screen.findByTestId("workspace-tab-access"));
 
-    expect(await screen.findByTestId("grants-table")).toBeInTheDocument();
+    expect(await screen.findByTestId("grants-panel")).toBeInTheDocument();
     expect(window.location.hash).toBe("#/access");
   });
 
@@ -194,7 +194,7 @@ describe("access control workspace navigation", () => {
     renderApp();
     await user.click(await screen.findByTestId("workspace-tab-access"));
 
-    expect(await screen.findByTestId("grants-table")).toBeInTheDocument();
+    expect(await screen.findByTestId("grants-panel")).toBeInTheDocument();
   });
 
   it("hides Access control from a signed-out visitor", async () => {

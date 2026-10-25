@@ -73,6 +73,7 @@ describe("AgentsPanel", () => {
     await user.click(screen.getByTestId("agent-open"));
     expect(await screen.findByTestId("agent-detail")).toBeInTheDocument();
     expect(screen.queryByTestId("agent-grant-access")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Connect" }));
     expect(screen.getByText("Connect this agent")).toBeInTheDocument();
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/runtime/agents/agt_"))).toBe(true);
   });

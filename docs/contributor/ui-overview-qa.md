@@ -1,6 +1,7 @@
-# Platform overview and agent creation verification
+# Console UI verification
 
-Evidence for the console changes based on `492fc2fe`. Browser data is explicitly
+Evidence for the console changes based on `492fc2fe`, including the follow-up
+workspace, agent, analytics and access redesign. Browser data is explicitly
 fixture-backed: it verifies presentation and request contracts, not live server
 authorization. Chrome was driven through Playwright at 1440×900 and 390×900.
 
@@ -18,10 +19,21 @@ The regression suite also covers owner-only team choices, member and signed-out
 UI restrictions, exact create POST payload, cancel focus restoration, restart
 cancellation without mutation, audit-outage isolation and the former health URL.
 Axe reports no violations (including color contrast) on the overview in both
-themes at both viewports. All 26 browser tests, 278 frontend tests, the production
-build, UI service race tests, and the production dependency audit passed.
-The frontend suite was run with two workers after an initial unconstrained run
-hit catalog-test timeouts. No production dependency vulnerabilities were reported.
+themes at both viewports. The follow-up frontend suite passes all 283 tests
+across 32 files. It ran with one worker and a 30-second per-test limit because
+the loaded local machine produced timeouts with the default five-second limit.
+No production dependency vulnerabilities were reported by the production audit.
+
+All 41 browser workflows passed across the final runs, including workspace and
+agent tabs, analytics disclosure and text-spacing overrides, access empty
+states, role boundaries and confirmation cancellation. The first run passed 20
+before the temporary local runner's five-minute global timeout; 20 more passed
+on resume. One blank-page startup exceeded the five-second assertion limit and
+passed in an isolated retry with a 15-second assertion limit. The final Access
+and Analytics checks also passed after form-focus and trace-spacing changes.
+The production build and UI service race tests passed. See
+[the design review](ui-design-review.md) for research and follow-up screenshots.
+These fixture checks do not establish live policy enforcement.
 
 Live Kind browser verification is **BLOCKED**: the explicit `kind-mcp-runtime`
 API at its loopback endpoint timed out. There was no candidate cluster rollout,

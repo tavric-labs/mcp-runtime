@@ -88,7 +88,7 @@ describe("App", () => {
     });
     renderApp();
     expect(await screen.findByRole("heading", { name: "My workspace", level: 1 })).toBeInTheDocument();
-    expect(await screen.findByText("You are not a member of any team.")).toBeInTheDocument();
+    expect(await screen.findByText("No team memberships yet")).toBeInTheDocument();
     const user = userEvent.setup();
     await user.click(screen.getByTestId("workspace-tab-servers"));
     expect(window.location.hash).toBe("#/servers");

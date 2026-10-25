@@ -55,6 +55,13 @@ sessions. The creator is historical attribution; the owning team controls the
 agent. Session rows identify the delegating human and authorizing grant, with
 expiry and revocation state. Counts cover only sessions visible to your account.
 
+The **Access & sessions**, **Connect**, **Activity**, and **Certificates** tabs
+separate management from history. Tabs support arrow keys and retain the
+selected view in the URL (`view=connect`, `view=activity`, or
+`view=certificates`). **Connect agent** opens copyable sign-in and adapter
+commands with the full agent ID included. Expand **Agent lifecycle** to review
+deactivation or reactivation; changes still require confirmation.
+
 **Recorded certificate issuance** is separate from session counts because one
 session can receive several renewed certificates. The count covers recorded
 issuances in the last seven days; the table shows the latest 100 with human,
@@ -79,6 +86,15 @@ prompts or intent. Analytics failures are reported separately from directory,
 grant, session and certificate data.
 
 ## When to use this
+
+**Access control** separates grants from sessions. Search matches names,
+servers and subject identities within the selected namespace. Open a record's
+name to inspect it; use its **Actions** menu to disable a grant, change its mode,
+revoke linked sessions or revoke/restore an individual session. Changes require
+confirmation. Empty directories offer creation actions without empty table
+headers. Summary counts cover the namespace selection, while search filters
+the displayed records. Inactive grants include expired and disabled records;
+unavailable counts show a dash.
 
 To delegate through the dashboard, open **Access control**, select the resource
 namespace, create a grant, and choose **Delegate to another team**. Enter the

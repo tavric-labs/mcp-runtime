@@ -177,7 +177,7 @@ export function App() {
   } else if (route.workspace === "workspace") {
     content = <MyWorkspace auth={auth} onSignIn={handleSignIn} section={route.section} team={route.params.team} />;
   } else if (route.workspace === "agents") {
-    content = <AgentsPanel auth={auth} onSignIn={handleSignIn} initialTeam={route.params.team} initialAgent={route.params.agent} onTeamChange={(team) => setParams({ team })} onAgentChange={(agent) => setParams({ agent })} />;
+    content = <AgentsPanel auth={auth} onSignIn={handleSignIn} initialTeam={route.params.team} initialAgent={route.params.agent} initialView={route.params.view} onViewChange={view => setParams({ view })} onTeamChange={(team) => setParams({ team })} onAgentChange={(agent) => setParams({ agent, view: "" })} />;
   } else if (route.workspace === "access") {
     content = <AccessWorkspace auth={auth} onSignIn={handleSignIn} params={route.params} onClearReference={() => navigate({ workspace: "access" })} />;
   } else if (route.workspace === "activity") {

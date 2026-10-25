@@ -55,7 +55,7 @@ const usage = {
     },
   ],
 };
-function setup() {
+function setup(data = usage) {
   const fetchMock = vi.fn(
     async (input: RequestInfo | URL) =>
       ({
@@ -63,7 +63,7 @@ function setup() {
         status: 200,
         json: async () =>
           String(input).includes("/analytics/usage")
-            ? usage
+            ? data
             : {
                 teams: [
                   {
@@ -102,10 +102,10 @@ it("combines server, method and tool activity with reliability and trace links",
   expect(
     screen.queryByRole("heading", { name: "Tools", exact: true }),
   ).not.toBeInTheDocument();
-  expect(screen.getByTestId("analytics-reliability")).toHaveTextContent(
+  expect(screen.getByTestId("analytics-stats")).toHaveTextContent(
     "p95 latency",
   );
-  expect(screen.getByTestId("analytics-reliability")).toHaveTextContent(
+  expect(screen.getByTestId("analytics-stats")).toHaveTextContent(
     "14 ms",
   );
   expect(
@@ -125,6 +125,7 @@ it("queries the selected team, server, method and tool and clears dependent filt
   ).not.toBeInTheDocument();
   await user.selectOptions(screen.getByTestId("analytics-team"), "a");
   await user.selectOptions(screen.getByTestId("analytics-server"), "demo");
+  await user.click(screen.getByTestId("analytics-more"));
   await user.selectOptions(
     screen.getByTestId("analytics-method"),
     "tools/call",
@@ -170,6 +171,7 @@ it("applies the time range and HTTP outcome to the analytics query", async () =>
   const fetchMock = setup();
   await screen.findByTestId("analytics-requests-table");
   await user.selectOptions(screen.getByTestId("analytics-window"), "1");
+  await user.click(screen.getByTestId("analytics-more"));
   await user.selectOptions(screen.getByTestId("analytics-http-status"), "5xx");
   await waitFor(() =>
     expect(
@@ -184,4 +186,26 @@ it("applies the time range and HTTP outcome to the analytics query", async () =>
 it("never constructs links from arbitrary trace values", () => {
   expect(traceExploreURL("javascript:alert(1)")).toBeUndefined();
   expect(traceExploreURL("")).toBeUndefined();
+});
+
+it("keeps advanced filters out of the initial layout and retains their values when collapsed", async () => {
+  const user = userEvent.setup(); setup();
+  await screen.findByTestId("analytics-requests-table");
+  expect(screen.getByTestId("analytics-more")).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByTestId("analytics-method")).not.toBeInTheDocument();
+  await user.click(screen.getByTestId("analytics-more"));
+  await user.selectOptions(screen.getByTestId("analytics-http-status"), "5xx");
+  await user.click(screen.getByTestId("analytics-more"));
+  expect(screen.queryByTestId("analytics-http-status")).not.toBeInTheDocument();
+  expect(screen.getByTestId("analytics-more")).toHaveTextContent("1");
+  await user.click(screen.getByTestId("analytics-more"));
+  expect(screen.getByTestId("analytics-http-status")).toHaveValue("5xx");
+});
+
+it("does not invent a trend or deny rate when there are no requests", async () => {
+  setup({ ...usage, totals: { ...usage.totals, events: 0, allowed: 0, denied: 0 }, series: [], requests: [] });
+  expect(await screen.findByText("No gateway requests in this range")).toBeInTheDocument();
+  expect(screen.queryByTestId("usage-series")).not.toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Policy outcomes", exact: true })).toHaveTextContent("—deny rate");
+  expect(screen.queryByText("0%")).not.toBeInTheDocument();
 });

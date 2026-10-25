@@ -30,9 +30,10 @@ describe("My workspace", () => {
     expect(screen.getByText("Manageable by me: 1")).toBeInTheDocument();
     expect(screen.getByText(/Deployed by me: unavailable/)).toBeInTheDocument();
     expect(await screen.findByText("Team agent")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Acme team" })).toContainElement(screen.getByRole("link", { name: /Team agent/ }));
     expect(screen.queryByRole("link", { name: "Manage members" })).not.toBeInTheDocument();
     expect(await screen.findByTestId("workspace-activity-error")).toBeInTheDocument();
-    expect(screen.getAllByRole("heading", { name: "Acme" })).toHaveLength(2);
+    expect(screen.getAllByRole("heading", { name: "Acme" })).toHaveLength(1);
     expect(await axe(container, { rules: { "color-contrast": { enabled: false } } })).toHaveNoViolations();
   });
   it("offers owner membership management and keeps it separate from platform administration", async () => {

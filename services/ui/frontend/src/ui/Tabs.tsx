@@ -17,7 +17,7 @@ type TabsProps<T extends string> = {
 export function Tabs<T extends string>({ items, active, onSelect, label, testIdPrefix }: TabsProps<T>) {
   return (
     <div className="tabs" role="tablist" aria-label={label}>
-      {items.map((item) => (
+      {items.map((item, index) => (
         <button
           key={item.id}
           type="button"
@@ -29,6 +29,13 @@ export function Tabs<T extends string>({ items, active, onSelect, label, testIdP
           className="tab"
           data-testid={testIdPrefix ? `${testIdPrefix}-${item.id}` : undefined}
           onClick={() => onSelect(item.id)}
+          onKeyDown={event => {
+            const next = event.key === "ArrowRight" ? (index + 1) % items.length : event.key === "ArrowLeft" ? (index - 1 + items.length) % items.length : event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : -1;
+            if (next < 0) return;
+            event.preventDefault();
+            onSelect(items[next].id);
+            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+          }}
         >
           {item.label}
           {item.count === undefined ? null : <span className="tab-count">{item.count}</span>}

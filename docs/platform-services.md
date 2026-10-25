@@ -960,6 +960,11 @@ and the current human's sessions. The API derives these scopes from the
 resolved principal; administrator authority does not invent memberships or
 deployment history. **Deployed by me** remains unavailable because ownership
 labels are authorization metadata rather than immutable deployment actors.
+Each team appears once, with its membership role and permitted agents in the
+same roster. A separate column summarizes accessible servers and personal
+access, with direct links to namespace-qualified grants and sessions. Expired
+sessions retain their expiry state. The compact summary distinguishes catalog
+visibility from management permission; it does not infer deployment ownership.
 Each section loads independently, so an analytics outage does not hide teams.
 Recent activity is explicitly namespace-wide, rather than attributed to the
 signed-in user. Team owners can follow **Manage members** to
@@ -980,6 +985,15 @@ a page changes the main content without opening a second sidebar. Filtering
 includes individual page names and section headings; the active page is marked
 in the sidebar. On compact screens, the navigation menu contains the same
 sections and closes after a selection.
+
+Usage analytics presents the gateway request trend and policy outcomes below
+four primary filters and four headline metrics. **More filters** exposes MCP
+method, tool, policy version and HTTP outcome filters while preserving active
+values when collapsed. Request groups combine related server, method/tool,
+policy and trace information. Reliability and actor counts remain available
+without a grid of competing headline cards. A zero-request window has no
+calculated deny rate or invented trend. Gateway audit is independently loaded
+and remains separate from the usage filters.
 
 Managed Traefik v3 installation includes its matching CRDs and discovery RBAC:
 namespace-scoped EndpointSlice/ConfigMap watches, pod GET for OTel metadata,
