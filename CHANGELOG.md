@@ -7,6 +7,13 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-26
+
+Console, Grafana sign-in, credential connector and service-image security fixes.
+Existing installations must set `preserveLocationHeader: true` on the active
+Traefik `platform-admin-auth` middleware before rolling the UI. No database
+reset or MCP Auth release is required.
+
 ### Security
 
 - Service images (analytics-api, doctor-smoke, ingest, mcp-gateway, platform-api, processor, runtime-api, ui) now run on `distroless/static-debian12` instead of `base-debian12`. The services are statically linked, so the image no longer carries `libssl3` (CVE-2026-84782).
@@ -650,7 +657,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.11.1...v0.12.0
