@@ -141,7 +141,12 @@ Supported scenario selectors are `all`, `smoke-auth`, `governance`, `trust`,
 `adapter-proxy`, and `cli-platform`. The targeted PR-only selectors map to
 request-path surfaces: `api-platform` covers platform API auth, user, registry,
 team, runtime, deployment, and admin routes; `ui-auth` covers direct UI and
-gateway cookie auth/static routes; `adapter-proxy` covers platform-issued
+gateway cookie auth/static routes, including the real Traefik Grafana gate:
+signed-out HTML page requests must redirect through platform sign-in with the
+original trace query, authenticated administrators must reach Grafana's login,
+and API requests must retain JSON 401 responses. Frontend Playwright regressions
+also verify administrator return and non-administrator rejection after sign-in;
+these API fixtures complement the cluster path checks. `adapter-proxy` covers platform-issued
 adapter sessions plus the local adapter proxy MCP path; `cli-platform` covers
 the platform-backed CLI request flow.
 
