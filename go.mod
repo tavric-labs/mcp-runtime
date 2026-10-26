@@ -5,7 +5,7 @@ go 1.26.10
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.49.0
 	github.com/evanphx/json-patch/v5 v5.9.11
-	github.com/getkin/kin-openapi v0.151.0
+	github.com/getkin/kin-openapi v0.152.0
 	github.com/go-logr/logr v1.4.4
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/go-cmp v0.7.0
@@ -25,6 +25,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.58.0
+	golang.org/x/sys v0.49.0
 	golang.org/x/term v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.37.1
@@ -106,7 +107,6 @@ require (
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
