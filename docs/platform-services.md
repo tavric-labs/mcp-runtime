@@ -367,6 +367,10 @@ For local `setup --test-mode` clusters, setup seeds two email/password logins:
 After a complete setup with supported Cilium enforcement, the platform session
 signs the user into Grafana. Other providers retain admin-only Grafana with its
 existing login and admin forward-auth gate; its auth proxy stays disabled.
+Signed-out Grafana page navigations redirect to platform sign-in with a
+validated same-origin return path. After platform administrator sign-in, the
+browser returns to Grafana, where the separate Grafana login still applies.
+Denied API calls keep their JSON 401 response.
 Administration → Usage analytics opens `/grafana/explore`; admins retain access
 to Prometheus, Loki, and Tempo without tenant filters. Server cards link eligible
 viewers to the provisioned **MCP Server** dashboard. Panels 2–5 show one-hour

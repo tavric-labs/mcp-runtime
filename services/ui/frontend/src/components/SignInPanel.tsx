@@ -13,11 +13,12 @@ type SignInPanelProps = {
   onCancel?: () => void;
   error: string;
   busy: boolean;
+  description?: string;
 };
 
 type Mode = "account" | "api-key";
 
-export function SignInPanel({ onSubmit, onCancel, error, busy }: SignInPanelProps) {
+export function SignInPanel({ onSubmit, onCancel, error, busy, description }: SignInPanelProps) {
   const [mode, setMode] = useState<Mode>("account");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,7 +80,7 @@ export function SignInPanel({ onSubmit, onCancel, error, busy }: SignInPanelProp
       <div>
         <PageHeader
           title="Sign in to MCP Runtime"
-          description="The server catalog, tool governance data, and platform administration are scoped to your account."
+          description={description || "The server catalog, tool governance data, and platform administration are scoped to your account."}
         />
 
         <div className="signin-card">

@@ -50,7 +50,7 @@ func configuredLoginAttempts() auth.AttemptConfig {
 }
 
 func authServerForStore(store *session.Store) *auth.Server {
-	return &auth.Server{Store: store, Client: auth.Client{HTTP: authHTTPClient}, Attempts: loginAttempts, Hooks: &authLoginHooks, ForceSecureCookie: forceSecureCookie}
+	return &auth.Server{Store: store, Client: auth.Client{HTTP: authHTTPClient}, Attempts: loginAttempts, Hooks: &authLoginHooks, ForceSecureCookie: forceSecureCookie, PublicRoutes: configuredPublicRoutes()}
 }
 
 // main initializes and starts the MCP Runtime UI server.
