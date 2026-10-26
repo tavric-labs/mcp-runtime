@@ -983,10 +983,21 @@ logs too, particularly for OAuth and MCP transport failures.
 Read private operator credentials from `~/.mcpruntime/infra.env`:
 `GRAFANA_URL` identifies the endpoint, and the saved Secret entries ending in
 `GRAFANA_ADMIN_USER__BASE64` and `GRAFANA_ADMIN_PASSWORD__BASE64` contain
-Grafana credentials. Browser access also requires a signed-in platform admin
-session. API access needs an accepted platform admin `x-api-key` for the
+Grafana credentials. Opening a Grafana page while signed out redirects to
+platform sign-in and returns an administrator to the original Grafana page,
+including its trace query. Use a platform administrator account at this first
+step; enter the separate Grafana credentials at Grafana's login. A non-admin
+platform account stays on sign-in with an explanation. API access keeps its
+JSON 401 response and needs an accepted platform admin `x-api-key` for the
 ingress gate as well as Grafana authentication. Keep credentials in memory;
 never print them or put them in command arguments, tickets, or Buddy notes.
+
+The active Traefik `platform-admin-auth` forward-auth middleware must set
+`preserveLocationHeader: true`. Setup installs this in the active controller's
+`traefik-dynamic` ConfigMap, including `kube-system` for k3s. Existing installs
+must carry that setting before rolling out this UI fix: an image-only update
+does not reconcile an external controller's ConfigMap. Otherwise Traefik
+rewrites the relative sign-in Location to the internal UI service hostname.
 
 - **Metrics:** verify target health and freshness, request/error rates,
   latency, restarts, resource pressure, and collector/exporter failures.

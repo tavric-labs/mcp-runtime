@@ -16,7 +16,12 @@ api_key = os.environ["API_KEY"]
 platform_mode = os.environ["E2E_PLATFORM_MODE"]
 
 
-def request(url, *, method="GET", headers=None, body=None):
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def request(url, *, method="GET", headers=None, body=None, follow_redirects=True):
     headers = dict(headers or {})
     data = None
     if body is not None:
@@ -24,7 +29,8 @@ def request(url, *, method="GET", headers=None, body=None):
         headers.setdefault("content-type", "application/json")
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        opener = urllib.request.build_opener() if follow_redirects else urllib.request.build_opener(NoRedirect())
+        with opener.open(req, timeout=10) as resp:
             return resp.status, dict(resp.headers.items()), resp.read().decode()
     except urllib.error.HTTPError as exc:
         return exc.code, dict(exc.headers.items()), exc.read().decode()
@@ -108,6 +114,16 @@ def check_session_boundaries(base, label, login_body, cookie, cookie_headers):
 
 
 def check_ui_auth(base, label, *, include_observability=False):
+    if include_observability:
+        for destination in ("/grafana/login", "/grafana/explore?left=%7B%22trace%22%3A%22abc%22%7D"):
+            status, headers, body = request(f"{base}{destination}", headers={"Accept": "text/html"}, follow_redirects=False)
+            check(status == 303, f"{label} signed-out Grafana page redirects to sign-in", f"{label} Grafana navigation returned {status}: {body}")
+            location = headers.get("Location") or headers.get("location") or ""
+            parsed = urllib.parse.urlsplit(location)
+            check(not parsed.scheme and not parsed.netloc and parsed.path == "/", f"{label} Grafana sign-in stays on the platform origin", f"{label} unsafe sign-in redirect: {location}")
+            route, _, query = parsed.fragment.partition("?")
+            check(route == "/signin" and urllib.parse.parse_qs(query).get("return_to") == [destination], f"{label} Grafana sign-in preserves the requested page and trace query", f"{label} wrong Grafana sign-in destination: {location}")
+        expect_status(f"{base}/grafana/api/health", 401, headers={"Accept": "text/html"})
     expect_status(f"{base}/auth/status", 200, contains='"authenticated":false')
     expect_status(f"{base}/api/ui/v1/runtime/servers", 401, contains='"error":"unauthorized"')
     expect_status(f"{base}/api/ui/v1/runtime/adapter/sessions", 404, contains='"error":"not_found"')
@@ -133,6 +149,7 @@ def check_ui_auth(base, label, *, include_observability=False):
     check("Bearer " not in proxy_body, f"{label} session proxy omitted bearer token", f"{label} session proxy leaked bearer")
     check_session_boundaries(base, label, login_body, cookie, cookie_headers)
     if include_observability:
+        expect_status(f"{base}/grafana/login", 200, headers={**cookie_headers, "Accept": "text/html"}, contains="Grafana")
         expect_status(f"{base}/grafana/api/health", 200, headers=cookie_headers, contains="database")
         expect_status(f"{base}/prometheus/-/healthy", 404, headers=cookie_headers)
     logout = expect_json(f"{base}/auth/logout", method="POST", headers=cookie_headers)
@@ -189,6 +206,8 @@ for route in (
     "gateway:/api/ui/v1/runtime/servers",
     "gateway:/api/v1/runtime/adapter/sessions",
     "gateway:/grafana/api/health",
+    "gateway:/grafana/login (signed-out browser redirect; signed-in admin allowed)",
+    "gateway:/grafana/explore (preserved sign-in return query)",
     "gateway:/prometheus/-/healthy (hidden)",
 ):
     print(f"  {route}")

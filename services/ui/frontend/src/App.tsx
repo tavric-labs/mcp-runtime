@@ -13,6 +13,7 @@ import { AccessWorkspace } from "./components/access/AccessWorkspace";
 import { adminSection } from "./components/admin/adminSections";
 import { visibleWorkspaceTabs } from "./components/WorkspaceNavigation";
 import { useHashRoute } from "./routing/useHashRoute";
+import { grafanaReturnPath } from "./routing/grafanaReturn";
 import type { WorkspaceId } from "./routing/route";
 import { login, logout, readAuthStatus, type LoginInput } from "./api/auth";
 import { isAdmin, type AuthStatus } from "./api/types";
@@ -45,6 +46,7 @@ function loginErrorMessage(err: unknown): string {
 export function App() {
   const queryClient = useQueryClient();
   const { route, navigate, setParams } = useHashRoute();
+  const grafanaReturn = route.workspace === "signin" ? grafanaReturnPath(route.params.return_to) : "";
   const [auth, setAuth] = useState<AuthStatus>({ authenticated: false });
   const [authReady, setAuthReady] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
@@ -120,6 +122,14 @@ export function App() {
         const status = await login(input);
         queryClient.clear();
         setAuth(status);
+        if (grafanaReturn) {
+          if (isAdmin(status)) {
+            window.location.assign(grafanaReturn);
+          } else {
+            setLoginError("This account is not a platform administrator. Sign in with an administrator account to open Grafana.");
+          }
+          return;
+        }
         navigate({ workspace: "servers" }, { replace: true });
       } catch (err) {
         setLoginError(loginErrorMessage(err));
@@ -127,7 +137,7 @@ export function App() {
         setAuthBusy(false);
       }
     },
-    [queryClient, navigate]
+    [queryClient, navigate, grafanaReturn]
   );
 
   const handleSignOut = useCallback(async () => {
@@ -164,6 +174,7 @@ export function App() {
         onCancel={() => navigate({ workspace: "servers" })}
         error={loginError}
         busy={authBusy}
+        description={grafanaReturn ? "Sign in with a platform administrator account to open Grafana. Grafana has a separate login after this step." : undefined}
       />
     );
   } else if (route.workspace === "admin") {

@@ -3334,6 +3334,9 @@ func TestEnsureRepoManagedTraefikMiddlewareResourcesAppliesMiddlewareSupportToRe
 		body := string(data)
 		if strings.Contains(body, "name: traefik-dynamic") && strings.Contains(body, "namespace: traefik") {
 			hasDynamicApply = true
+			if !strings.Contains(body, "preserveLocationHeader: true") {
+				t.Fatal("Grafana sign-in redirects must keep their relative public Location header")
+			}
 		}
 		if strings.Contains(body, "name: traefik-plugin-pii-redactor") && strings.Contains(body, "namespace: traefik") {
 			hasPluginApply = true
@@ -3401,6 +3404,9 @@ func TestEnsureRepoManagedTraefikMiddlewareResourcesAppliesMiddlewareSupportToEx
 		body := string(data)
 		if strings.Contains(body, "name: traefik-dynamic") && strings.Contains(body, "namespace: kube-system") {
 			hasDynamicApply = true
+			if !strings.Contains(body, "preserveLocationHeader: true") {
+				t.Fatal("external Traefik must preserve the public Grafana sign-in redirect")
+			}
 		}
 		if strings.Contains(body, "name: traefik-plugin-pii-redactor") && strings.Contains(body, "namespace: kube-system") {
 			hasPluginApply = true
