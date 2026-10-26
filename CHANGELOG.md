@@ -28,6 +28,10 @@ reset or MCP Auth release is required.
 - My workspace groups each team with its agents, agent details provide shareable connection/activity/certificate tabs, and Usage analytics prioritizes traffic and policy outcomes with expandable advanced filters and clearer request groups. Access control separates record actions from status, labels subject identities, guides empty directories and distinguishes inactive from unavailable counts. Shared form, table and section spacing is more readable on desktop and mobile ([#859](https://github.com/tavric-labs/mcp-runtime/pull/859)).
 - `cluster mcp-auth-connector apply` keeps `gateway-login-*` connectors that the supplied file does not mention. The hosted release deploy merges those entries before refreshing Keycloak, so an mcp-auth image rollout no longer removes the credential gateway's resource login and exits.
 
+### Changed
+
+- Dependency maintenance updates `kin-openapi` to 0.152.0, AWS SDK configuration and Secrets Manager modules to 1.33.10 and 1.50.6, and the pinned `docker/login-action` to 4.7.0. Service module files stay aligned with the root OpenAPI dependency so image builds remain reproducible ([#865](https://github.com/tavric-labs/mcp-runtime/pull/865), [#866](https://github.com/tavric-labs/mcp-runtime/pull/866), [#867](https://github.com/tavric-labs/mcp-runtime/pull/867)).
+
 ## [0.13.0] - 2026-10-24
 
 Optional credential gateway for header-mode servers. `mcp-runtime update` applies the new MCPServer field with this release. Resource logins need mcp-auth 0.7.0, rolled separately with `mcp-runtime update --only mcp-auth`. No database reset or fresh setup is required. Submitted headers stay in the gateway's memory on one replica, and those sessions are not platform users.
