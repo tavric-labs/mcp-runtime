@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.WORKSPACE_PLAYWRIGHT_MODULE || 'playwright');
 const { serverListStartedByClick, menuServerListFailure } = require('./workspace_browser_menu.cjs');
+const { workspaceTeam, verifyWorkspaceMemberships, openWorkspaceScope, platformMetric, verifyPlatformTotals } = require('./workspace_browser_views.cjs');
 
 async function verifiedCertificatePin(base, caPEM) {
   if (base.protocol === 'http:') return [];
@@ -48,7 +49,7 @@ async function main() {
   try {
     for (const name of ['member', 'owner', 'admin']) {
       const identity = fixture.roles[name]; assert(identity && identity.email && identity.password, 'missing role fixture: ' + name);
-      const context = await browser.newContext({ viewport: { width: 1100, height: 800 } });
+      const context = await browser.newContext({ viewport: { width: 1100, height: 800 }, locale: 'en-US' });
       const page = await context.newPage();
       page.setDefaultTimeout(25000);
       const evidence = { network: [], console: [], pageErrors: [], injected: [], blockedOrigins: [], publicAssetOrigins: [] };
@@ -136,15 +137,16 @@ async function main() {
       const servers = (await json('/api/ui/v1/runtime/workspace/servers')).servers;
       await page.getByText('Accessible to me: ' + servers.length, { exact: true }).waitFor();
       await page.getByText('Manageable by me: ' + servers.filter(server => server.can_manage).length, { exact: true }).waitFor();
-      for (const team of teams) await section('workspace-teams-title').getByRole('heading', { name: team.name, exact: true }).waitFor();
-      check(teams.length === await section('workspace-teams-title').locator('.overview-card').count(), name + ': rendered memberships match personal API rows');
+      await verifyWorkspaceMemberships(page, teams);
+      check(true, name + ': rendered memberships match personal API rows');
       check(servers.every(server => typeof server.can_manage === 'boolean'), name + ': accessible and manageable counts match API authority');
-      await page.getByText(/Deployed by me: unavailable\./).waitFor();
+      await openWorkspaceScope(page);
       check(true, name + ': historical deployment attribution stays explicit');
       if (name !== 'admin') {
         const membership = teams.find(team => team.slug === identity.teamSlug);
         check(membership && membership.role === name, name + ': fixture role comes from real membership');
-        await page.getByText('Gateway activity across your user and team namespaces in the last seven days. These are not exclusively your actions.').waitFor();
+        await page.getByText('Gateway activity across your namespaces in the last 7 days.', { exact: true }).waitFor();
+        await page.getByText(/Namespace activity may include other team members’ actions\./).waitFor();
       }
       await waitForApiIdle();
       const clickAt = Date.now();
@@ -175,7 +177,7 @@ async function main() {
       }
       if (name === 'owner') {
         const ownedTeam = teams.find(team => team.slug === identity.teamSlug);
-        await section('workspace-teams-title').locator('.overview-card').filter({ has: page.getByRole('heading', { name: ownedTeam.name, exact: true }) }).getByRole('link', { name: 'Manage members', exact: true }).click();
+        await workspaceTeam(page, ownedTeam).getByRole('link', { name: 'Manage members', exact: true }).click();
         await page.getByRole('heading', { name: 'Team management', exact: true }).waitFor();
         await page.getByTestId('teams-table').waitFor();
         await page.getByTestId('team-members-table').waitFor();
@@ -199,29 +201,26 @@ async function main() {
         await page.getByTestId('team-select-input').selectOption(allTeams[0].slug);
         await verifyTeamDirectory(allTeams[0]);
         await go('#/workspace');
+        await openWorkspaceScope(page);
         await page.getByText(/Administrator authority is platform-wide/).waitFor();
-        await page.locator('.notice').filter({ hasText: 'Administrator authority is platform-wide' }).getByRole('link', { name: 'Platform overview', exact: true }).click();
+        await page.getByRole('link', { name: 'Platform overview', exact: true }).first().click();
         await page.getByRole('heading', { name: 'Platform overview', exact: true }).waitFor();
         const directory = await json('/api/ui/v1/admin/overview/directory');
-        const counts = { Teams: directory.teams, Users: directory.users, Agents: directory.agents, 'Active sessions': directory.active_sessions };
-        for (const [label, value] of Object.entries(counts)) {
-          assert(Number.isInteger(value) && value >= 0, 'invalid directory count');
-          const card = section('overview-counts-title').locator('.overview-card').filter({ has: page.getByRole('link', { name: label, exact: true }) });
-          await card.locator('dd').filter({ hasText: new RegExp('^' + value + '$') }).waitFor();
-        }
+        const counts = { Teams: directory.teams, Users: directory.users, 'Agent identities': directory.agents, 'Active sessions': directory.active_sessions };
+        await verifyPlatformTotals(page, counts);
         evidence.counts = counts;
         check(true, 'admin: all rendered totals match authoritative directory API');
         const serverTotals = await json('/api/ui/v1/admin/overview/servers');
-        const serverCount = section('overview-counts-title').locator('p').filter({ hasText: /^Servers:/ });
-        await serverCount.locator('strong').filter({ hasText: new RegExp('^' + serverTotals.servers + '$') }).waitFor();
+        const serverCount = platformMetric(page, 'Servers');
+        await serverCount.filter({ hasText: new RegExp('^' + serverTotals.servers.toLocaleString('en-US') + '$') }).waitFor();
         await page.screenshot({ path: path.join(output, 'admin-platform-overview.png'), fullPage: true });
         for (const [endpoint, testID] of [['/api/ui/v1/admin/overview/directory', 'overview-directory-error'], ['/api/ui/v1/admin/operations', 'overview-audit-error']]) {
           evidence.injected.push(endpoint);
           await page.route('**' + endpoint + '**', route => route.fulfill({ status: 503, json: { error: 'workspace QA injected section outage' } }));
           await page.reload(); await page.getByTestId(testID).waitFor();
           await page.getByRole('heading', { name: 'Platform health', exact: true }).waitFor();
-          await serverCount.locator('strong').filter({ hasText: new RegExp('^' + serverTotals.servers + '$') }).waitFor();
-          if (endpoint.includes('operations')) for (const [label, value] of Object.entries(counts)) await section('overview-counts-title').locator('.overview-card').filter({ has: page.getByRole('link', { name: label, exact: true }) }).locator('dd').filter({ hasText: new RegExp('^' + value + '$') }).waitFor();
+          await serverCount.filter({ hasText: new RegExp('^' + serverTotals.servers.toLocaleString('en-US') + '$') }).waitFor();
+          if (endpoint.includes('operations')) await verifyPlatformTotals(page, counts);
           check(true, 'admin: isolated ' + testID + ' preserves unaffected sections');
           await page.unrouteAll({ behavior: 'wait' });
         }

@@ -7,6 +7,13 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-26
+
+Console, Grafana sign-in, credential connector and service-image security fixes.
+Existing installations must set `preserveLocationHeader: true` on the active
+Traefik `platform-admin-auth` middleware before rolling the UI. No database
+reset or MCP Auth release is required.
+
 ### Security
 
 - Service images (analytics-api, doctor-smoke, ingest, mcp-gateway, platform-api, processor, runtime-api, ui) now run on `distroless/static-debian12` instead of `base-debian12`. The services are statically linked, so the image no longer carries `libssl3` (CVE-2026-84782).
@@ -20,6 +27,11 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 - My workspace groups each team with its agents, agent details provide shareable connection/activity/certificate tabs, and Usage analytics prioritizes traffic and policy outcomes with expandable advanced filters and clearer request groups. Access control separates record actions from status, labels subject identities, guides empty directories and distinguishes inactive from unavailable counts. Shared form, table and section spacing is more readable on desktop and mobile ([#859](https://github.com/tavric-labs/mcp-runtime/pull/859)).
 - `cluster mcp-auth-connector apply` keeps `gateway-login-*` connectors that the supplied file does not mention. The hosted release deploy merges those entries before refreshing Keycloak, so an mcp-auth image rollout no longer removes the credential gateway's resource login and exits.
+- Release regression checks follow the current console's team regions, scope disclosures and platform metrics while retaining role/count and partial-failure assertions. The concurrent sign-in test fixture uses an atomic call counter to eliminate its intermittent data race.
+
+### Changed
+
+- Dependency maintenance updates `kin-openapi` to 0.152.0, AWS SDK configuration and Secrets Manager modules to 1.33.10 and 1.50.6, and the pinned `docker/login-action` to 4.7.0. Service module files stay aligned with the root OpenAPI dependency so image builds remain reproducible ([#865](https://github.com/tavric-labs/mcp-runtime/pull/865), [#866](https://github.com/tavric-labs/mcp-runtime/pull/866), [#867](https://github.com/tavric-labs/mcp-runtime/pull/867)).
 
 ## [0.13.0] - 2026-10-24
 
@@ -650,7 +662,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.11.1...v0.12.0
