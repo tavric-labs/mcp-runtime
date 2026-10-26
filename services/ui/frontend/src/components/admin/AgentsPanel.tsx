@@ -127,7 +127,17 @@ export function AgentsPanel({ onSignIn, auth, initialTeam, initialAgent, onTeamC
       setError("Choose a team and enter an agent name from 1 to 64 characters.");
       return;
     }
-    void runAction(`Agent “${name}” created.`, async () => { setCreatedAgent(await createTeamAgent(identityTeam.slug, name)); });
+    void runAction(`Agent “${name}” created.`, async () => {
+      const agent = await createTeamAgent(identityTeam.slug, name);
+      setCreatedAgent(agent);
+      // Keep the new agent visible: a list scoped to another team would not contain it.
+      if (teamSlug !== "*" && teamSlug !== identityTeam.slug) {
+        setTeamSlug(identityTeam.slug);
+        onTeamChange?.(identityTeam.slug);
+        setCursors([]);
+        setAllPage(0);
+      }
+    });
   }
 
   function submitRename(event: FormEvent<HTMLFormElement>) {

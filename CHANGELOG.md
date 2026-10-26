@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Security
+
+- The console's one-click client install links and prompts (Claude Code, Codex, Cursor, VS Code) are rebuilt from the published HTTP `url` and string `headers` only. A server-published entry can no longer carry a `command`, `args` or `env` into an install action.
+
 ### Fixed
 
 - The console exposes **Create agent identity** from the all-team Agents directory, with an explicit owning-team selector for administrators and team owners. Platform overview now includes component health, Grafana and confirmed maintenance actions in one page, with clearer resource totals, deployment issues, audit activity and responsive status colors ([#859](https://github.com/tavric-labs/mcp-runtime/pull/859)).

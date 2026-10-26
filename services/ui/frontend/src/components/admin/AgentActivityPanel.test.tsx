@@ -29,4 +29,13 @@ describe("AgentActivityPanel", () => {
     expect(screen.queryByText("9,999")).not.toBeInTheDocument();
     expect(screen.queryByRole("group",{name:"Agent tool call totals"})).not.toBeInTheDocument();
   });
+  it("renders identical recent events as separate rows", async () => {
+    const event = { timestamp: "2026-10-25T05:00:00Z", namespace: "ns", server: "srv", tool_name: "echo", decision: "allow", session: "s1" };
+    vi.stubGlobal("fetch",vi.fn(async()=>({ok:true,status:200,json:async()=>({filters:{agent_id:"agent-one"},totals:{events:2},requests:[],recent:[event,event]})})));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<AppProviders><AgentActivityPanel agentID="agent-one" platformAdmin={false} /></AppProviders>);
+    const table = await screen.findByTestId("agent-recent-calls");
+    expect(table.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+  });
 });

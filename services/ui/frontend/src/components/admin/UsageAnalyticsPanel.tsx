@@ -12,7 +12,7 @@ import { Icon } from "../../ui/Icon";
 import { UsageSeries } from "../usage/UsageSeries";
 import { GatewayAuditPanel } from "./GatewayAuditPanel";
 import { formatAbsolute, formatTimestamp } from "../../lib/format";
-import { useAdminReload, useTeams, useUsage } from "../../hooks/useAdminData";
+import { USAGE_REFRESH_MS, useAdminReload, useTeams, useUsage } from "../../hooks/useAdminData";
 import type {
   RequestUsage,
   UsageFilterParams,
@@ -166,7 +166,7 @@ export function UsageAnalyticsPanel({ onSignIn }: Props) {
           <TextField label="Find a team" name="analytics-team-search" autoComplete="off" type="search" value={teamSearch} onChange={e => setTeamSearch(e.target.value)} placeholder="Team name or slug…" data-testid="analytics-team-search" />
           <SelectField label="Team" value={filters.team_id || ""} options={[{ value: "", label: teamsQuery.isPending ? "Loading teams…" : "All teams" }, ...matchingTeams.map(team => ({ value: team.id, label: team.name || team.slug }))]} disabled={teamsQuery.isPending || !!teamsQuery.error} onChange={e => setFilters(current => ({ ...current, team_id: e.target.value, server: "", rpc_method: "", tool_name: "" }))} data-testid="analytics-team" />
         </div> : null}
-        <div className="analytics-filter-actions"><Button variant="secondary" size="sm" icon="filter" aria-expanded={moreFilters} aria-controls={moreFilters ? "analytics-advanced-filters" : undefined} onClick={() => setMoreFilters(current => !current)} data-testid="analytics-more">More filters{advancedCount ? ` (${advancedCount})` : ""}</Button><Button variant="ghost" size="sm" onClick={reset} data-testid="analytics-clear">Reset filters</Button><span className="analytics-refresh-note"><span aria-hidden="true" /> Updates every 15 seconds</span></div>
+        <div className="analytics-filter-actions"><Button variant="secondary" size="sm" icon="filter" aria-expanded={moreFilters} aria-controls={moreFilters ? "analytics-advanced-filters" : undefined} onClick={() => setMoreFilters(current => !current)} data-testid="analytics-more">More filters{advancedCount ? ` (${advancedCount})` : ""}</Button><Button variant="ghost" size="sm" onClick={reset} data-testid="analytics-clear">Reset filters</Button><span className="analytics-refresh-note"><span aria-hidden="true" /> Updates every {USAGE_REFRESH_MS / 1000} seconds</span></div>
         {moreFilters ? <div className="analytics-advanced-filters" id="analytics-advanced-filters">
           <SelectField label="MCP method" value={filters.rpc_method || ""} options={options(facets?.methods || [], "All methods", filters.rpc_method)} onChange={e => setFilters(current => ({ ...current, rpc_method: e.target.value, tool_name: "" }))} data-testid="analytics-method" />
           <SelectField label="Tool" value={filters.tool_name || ""} options={options(facets?.tools || [], "All tools", filters.tool_name)} disabled={!!filters.rpc_method && filters.rpc_method !== "tools/call"} onChange={e => setFilters(current => ({ ...current, tool_name: e.target.value, rpc_method: e.target.value ? "tools/call" : current.rpc_method }))} data-testid="analytics-tool" />

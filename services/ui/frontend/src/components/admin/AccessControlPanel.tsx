@@ -11,6 +11,7 @@ import { FilterBar, FilterSummary, type FilterChip } from "../../ui/FilterBar";
 import { Icon } from "../../ui/Icon";
 import { EmptyState } from "../../ui/States";
 import { PageHeader } from "../../ui/PageHeader";
+import { RowActions } from "../../ui/RowActions";
 import { expiryState, formatAbsolute, formatTimestamp } from "../../lib/format";
 import { useAdminReload, useGrants, useSessions } from "../../hooks/useAdminData";
 import { useCatalog } from "../../hooks/useCatalog";
@@ -231,6 +232,8 @@ export function AccessControlPanel({
     const entries = [["Human", subject?.humanID], ["Agent", subject?.agentID], ["Team", subject?.teamID]].filter(([, value]) => value);
     return entries.length ? <dl className="access-subject">{entries.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> : <span className="muted">Unreported subject</span>;
   }
+  // The ask* handlers only capture stable state setters and the reload callback, so they stay
+  // correct for the memoized columns.
   const grantColumns = useMemo(() => buildColumns<GrantSummary>([
     { id: "name", header: "Grant", rowHeader: true, sortValue: grant => grant.name, cell: grant => <><button type="button" className="link-button" data-testid="grant-drilldown" onClick={() => onSelect({ kind: "grant", item: grant })}>{grant.name}</button><span className="cell-detail">{grant.namespace}</span></> },
     { id: "server", header: "Server", sortValue: grant => grant.serverRef?.name || "", cell: grant => grant.serverRef?.name || "—" },
@@ -238,11 +241,11 @@ export function AccessControlPanel({
     { id: "limits", header: "Access limits", cell: grant => <><span>{grant.maxTrust || "Unreported"} trust ceiling</span><span className="cell-detail">{(grant.allowedSideEffects || []).join(", ") || "No side effects reported"}</span></> },
     { id: "expires", header: "Expires", sortValue: grant => grant.expiresAt || "", cell: grant => grant.expiresAt ? formatTimestamp(grant.expiresAt) : "No expiry" },
     { id: "status", header: "Status", sortValue: grant => grantStatus(grant).label, cell: grant => <><StatusBadge tone={grantStatus(grant).tone}>{grantStatus(grant).label}</StatusBadge><span className="cell-detail">Mode: {grant.mode || "enforce"}</span></> },
-    { id: "actions", header: "Actions", cell: grant => canManage ? <details className="access-row-actions"><summary aria-label={`Actions for grant ${grant.name}`}>Actions <Icon name="chevronDown" size={14} /></summary><div>
+    { id: "actions", header: "Actions", cell: grant => canManage ? <RowActions label={`Actions for grant ${grant.name}`}>
       <Button variant="ghost" size="sm" data-testid="grant-toggle" busy={busyKey === `grant:${accessKey(grant)}`} onClick={() => askToggleGrant(grant)}>{grant.disabled ? "Enable" : "Disable"}</Button>
       <Button variant="ghost" size="sm" data-testid="grant-mode-toggle" busy={busyKey === `mode:${accessKey(grant)}`} onClick={() => askChangeGrantMode(grant)}>{grant.mode === "monitor" ? "Enforce" : "Monitor"}</Button>
       <Button variant="danger-outline" size="sm" data-testid="grant-revoke-sessions" busy={busyKey === `grant-sessions:${accessKey(grant)}`} onClick={() => askRevokeGrantSessions(grant)}>Revoke sessions</Button>
-    </div></details> : null },
+    </RowActions> : null },
   ]).filter(column => canManage || column.id !== "actions"), [busyKey, onSelect, canManage]);
   const sessionColumns = useMemo(() => buildColumns<SessionSummary>([
     { id: "name", header: "Session", rowHeader: true, sortValue: session => session.name, cell: session => <><button type="button" className="link-button" data-testid="session-drilldown" onClick={() => onSelect({ kind: "session", item: session })}>{session.name}</button><span className="cell-detail">{session.namespace}</span></> },
@@ -251,7 +254,7 @@ export function AccessControlPanel({
     { id: "trust", header: "Consented trust", sortValue: session => session.consentedTrust || "", cell: session => session.consentedTrust || "—" },
     { id: "expires", header: "Expires", sortValue: session => Date.parse(session.expiresAt || "") || 0, cell: session => <span title={formatAbsolute(session.expiresAt)}>{expiryText(session)}</span> },
     { id: "status", header: "Status", cell: session => { const state = sessionState(session); return <StatusBadge tone={state.tone}>{state.label}</StatusBadge>; } },
-    { id: "actions", header: "Actions", cell: session => canManage ? <details className="access-row-actions"><summary aria-label={`Actions for session ${session.name}`}>Actions <Icon name="chevronDown" size={14} /></summary><div><Button variant={session.revoked ? "secondary" : "danger-outline"} size="sm" data-testid="session-toggle" busy={busyKey === `session:${accessKey(session)}`} onClick={() => askToggleSession(session)}>{session.revoked ? "Restore" : "Revoke"}</Button></div></details> : null },
+    { id: "actions", header: "Actions", cell: session => canManage ? <RowActions label={`Actions for session ${session.name}`}><Button variant={session.revoked ? "secondary" : "danger-outline"} size="sm" data-testid="session-toggle" busy={busyKey === `session:${accessKey(session)}`} onClick={() => askToggleSession(session)}>{session.revoked ? "Restore" : "Revoke"}</Button></RowActions> : null },
   ]).filter(column => canManage || column.id !== "actions"), [busyKey, onSelect, canManage]);
 
   const chips: FilterChip[] = [];

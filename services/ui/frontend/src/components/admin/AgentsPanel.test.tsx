@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentsPanel } from "./AgentsPanel";
 import { AppProviders } from "../../providers/AppProviders";
 
-function setup(options: { role?: "admin" | "user"; teamRole?: "owner" | "member"; accessNamespace?: string; initialTeam?: string } = {}) {
+function setup(options: { role?: "admin" | "user"; teamRole?: "owner" | "member"; accessNamespace?: string; initialTeam?: string; secondTeam?: boolean } = {}) {
   let status = "active";
   const agent = () => ({ id: "agt_01arz3ndektsv4rrffq69g5fav", team_id: "team-acme", team_slug: "acme", name: "Ops Agent", status });
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes("/user/analytics/usage")) return { ok: true, status: 200, json: async () => ({ filters: { agent_id: "agt_01arz3ndektsv4rrffq69g5fav" }, totals: { events: 0, allowed: 0, denied: 0 }, recent: [], requests: [] }) } as unknown as Response;
     if (url.endsWith("/runtime/teams")) {
-      return { ok: true, status: 200, json: async () => ({ teams: [{ id: "team-acme", slug: "acme", name: "Acme", namespace: "mcp-team-acme", role: options.teamRole || "owner" }] }) } as unknown as Response;
+      return { ok: true, status: 200, json: async () => ({ teams: [{ id: "team-acme", slug: "acme", name: "Acme", namespace: "mcp-team-acme", role: options.teamRole || "owner" }, ...(options.secondTeam ? [{ id: "team-beta", slug: "beta", name: "Beta", namespace: "mcp-team-beta", role: "owner" }] : [])] }) } as unknown as Response;
     }
     if (url.endsWith("/runtime/agents/agt_01arz3ndektsv4rrffq69g5fav") && (!init?.method || init.method === "GET")) {
       const namespace = options.accessNamespace;
@@ -23,6 +23,9 @@ function setup(options: { role?: "admin" | "user"; teamRole?: "owner" | "member"
     if (url.includes("/runtime/tools")) return { ok: true, status: 200, json: async () => ({ tools: [] }) } as unknown as Response;
     if (url.includes("/runtime/teams/acme/agents") && (!init?.method || init.method === "GET")) {
       return { ok: true, status: 200, json: async () => ({ agents: [agent()] }) } as unknown as Response;
+    }
+    if (url.includes("/runtime/teams/beta/agents")) {
+      return { ok: true, status: init?.method === "POST" ? 201 : 200, json: async () => init?.method === "POST" ? ({ agent: { ...agent(), team_id: "team-beta", team_slug: "beta" } }) : ({ agents: [] }) } as unknown as Response;
     }
     if (url.endsWith("/runtime/teams/acme/agents") && init?.method === "POST") {
       return { ok: true, status: 201, json: async () => ({ agent: agent() }) } as unknown as Response;
@@ -103,5 +106,16 @@ describe("AgentsPanel", () => {
     expect(screen.getByTestId("agent-team-select")).toHaveValue("acme");
     rerender("*");
     await waitFor(() => expect(screen.getByTestId("agent-team-select")).toHaveValue("*"));
+  });
+  it("switches the list to the team that owns a newly created agent", async () => {
+    const user = userEvent.setup();
+    setup({ initialTeam: "acme", secondTeam: true });
+    await screen.findByText("Ops Agent");
+    await user.click(screen.getByRole("button", { name: "Create agent identity" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: /Identity team/ }), "beta");
+    await user.type(screen.getByTestId("agent-create-name"), "Beta Agent");
+    await user.click(screen.getByTestId("agent-create-submit"));
+    await screen.findByTestId("agent-action-notice");
+    expect(screen.getByTestId("agent-team-select")).toHaveValue("beta");
   });
 });
