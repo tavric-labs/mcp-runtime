@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -25,7 +26,7 @@ type harness struct {
 	t     *testing.T
 	p     *LoginProvider
 	now   time.Time
-	calls int
+	calls atomic.Int64
 }
 
 func newHarness(t *testing.T) *harness {
@@ -35,7 +36,7 @@ func newHarness(t *testing.T) *harness {
 		Fields: []FormField{{Name: "username", Label: "Username"}, {Name: "api_token", Label: "Token", Secret: true}},
 		Now:    func() time.Time { return h.now },
 		Authenticate: func(_ context.Context, v map[string]string) (string, error) {
-			h.calls++
+			h.calls.Add(1)
 			switch v["api_token"] {
 			case "good":
 				return "sub-" + v["username"], nil
@@ -213,8 +214,8 @@ func TestApproveRejectsForgedOrUnboundSubmissions(t *testing.T) {
 			t.Errorf("%s: status %d", name, w.Code)
 		}
 	}
-	if h.calls != 0 {
-		t.Fatalf("the upstream was asked %d times for forged submissions", h.calls)
+	if h.calls.Load() != 0 {
+		t.Fatalf("the upstream was asked %d times for forged submissions", h.calls.Load())
 	}
 }
 
@@ -239,8 +240,8 @@ func TestUnavailableUpstreamAndMissingFields(t *testing.T) {
 	if w := h.approve(request, csrf, cookie, origin, map[string]string{"username": "a", "api_token": "down"}); w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "temporarily unavailable") {
 		t.Fatalf("unavailable upstream: %d", w.Code)
 	}
-	calls := h.calls
-	if w := h.approve(request, csrf, cookie, origin, map[string]string{"username": "a"}); w.Code != http.StatusUnauthorized || h.calls != calls {
+	calls := h.calls.Load()
+	if w := h.approve(request, csrf, cookie, origin, map[string]string{"username": "a"}); w.Code != http.StatusUnauthorized || h.calls.Load() != calls {
 		t.Fatalf("a missing field reached the upstream or was accepted: %d", w.Code)
 	}
 }

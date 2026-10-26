@@ -63,6 +63,12 @@ using the runner's public CA bundle, then pins that verified certificate for
 Chromium. A browser run against mocked APIs is driver development evidence,
 not real-platform acceptance.
 
+The workspace driver shares its membership-region, scope-disclosure and
+platform-metric checks with frontend Playwright regressions through
+`test/e2e/workspace_browser_views.cjs`. Keep these checks aligned with the
+rendered console when changing layouts; they must still compare real API
+authority and counts during the staging run.
+
 Adapter fixtures rotate their own server namespace pull credential using
 `registry enable-auth --pull-namespace` after the fixture deployments exist,
 so the broker grants their exact repositories. They never reuse another
