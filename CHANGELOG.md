@@ -27,6 +27,7 @@ reset or MCP Auth release is required.
 
 - My workspace groups each team with its agents, agent details provide shareable connection/activity/certificate tabs, and Usage analytics prioritizes traffic and policy outcomes with expandable advanced filters and clearer request groups. Access control separates record actions from status, labels subject identities, guides empty directories and distinguishes inactive from unavailable counts. Shared form, table and section spacing is more readable on desktop and mobile ([#859](https://github.com/tavric-labs/mcp-runtime/pull/859)).
 - `cluster mcp-auth-connector apply` keeps `gateway-login-*` connectors that the supplied file does not mention. The hosted release deploy merges those entries before refreshing Keycloak, so an mcp-auth image rollout no longer removes the credential gateway's resource login and exits.
+- Release regression checks follow the current console's team regions, scope disclosures and platform metrics while retaining role/count and partial-failure assertions. The concurrent sign-in test fixture uses an atomic call counter to eliminate its intermittent data race.
 
 ### Changed
 
