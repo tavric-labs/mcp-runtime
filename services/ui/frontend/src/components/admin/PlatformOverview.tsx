@@ -1,39 +1,66 @@
 import { useQuery } from "@tanstack/react-query";
 import { readOverviewDirectory, readOverviewServers } from "../../api/workspace";
-import { listComponents, readOperations } from "../../api/admin";
+import { readOperations } from "../../api/admin";
+import { useAdminReload } from "../../hooks/useAdminData";
+import { formatTimestamp } from "../../lib/format";
 import { AsyncSection } from "./AsyncSection";
+import { PlatformHealthPanel } from "./PlatformHealthPanel";
+import { StatusBadge, outcomeTone } from "../../ui/Badge";
+import { Button, ButtonLink } from "../../ui/Button";
+import { MetricGrid } from "../../ui/MetricCard";
 import { PageHeader } from "../../ui/PageHeader";
+import { Icon } from "../../ui/Icon";
 
 export function PlatformOverview({ onSignIn }: { onSignIn: () => void }) {
   const directory = useQuery({ queryKey: ["admin", "overview", "directory"], queryFn: readOverviewDirectory });
   const servers = useQuery({ queryKey: ["admin", "overview", "servers"], queryFn: readOverviewServers });
-  const health = useQuery({ queryKey: ["admin", "overview", "health"], queryFn: listComponents });
   const operations = useQuery({ queryKey: ["admin", "overview", "audit"], queryFn: () => readOperations({ limit: "8" }) });
-  return <>
-    <PageHeader title="Platform overview" description="Platform-wide resources, deployment failures, health, and administrative audit changes." />
-    <p><a href="#/workspace">My workspace</a> shows your personal membership separately from administrator authority.</p>
-    <section className="section" aria-labelledby="overview-counts-title"><h2 id="overview-counts-title">Platform-wide totals</h2>
+  const reload = useAdminReload();
+  const totals = directory.isError ? undefined : directory.data;
+  const fleet = servers.isError ? undefined : servers.data;
+
+  return <div className="platform-overview">
+    <PageHeader title="Platform overview" breadcrumb={[{ label: "Administration" }, { label: "Overview" }]}
+      description="Resources, deployment issues, and service health across the platform."
+      actions={<Button variant="secondary" icon="refresh" onClick={reload} busy={directory.isFetching || servers.isFetching || operations.isFetching} data-testid="platform-refresh">Refresh overview</Button>} />
+    <section className="section" aria-labelledby="overview-resources-title">
+      <div className="overview-section-head"><div><h2 id="overview-resources-title">Platform resources</h2><p className="section-note">Platform-wide totals. Your memberships are in <a href="#/workspace">My workspace</a>.</p></div></div>
+      <MetricGrid label="Platform-wide totals" metrics={[
+        { label: "Teams", value: totals?.teams, icon: "users" },
+        { label: "Users", value: totals?.users, icon: "user" },
+        { label: "Agent identities", value: totals?.agents, icon: "shield" },
+        { label: "Active sessions", value: totals?.active_sessions, icon: "key" },
+        { label: "Servers", value: fleet?.servers, icon: "server" },
+      ]} />
       <AsyncSection query={directory} loadingLabel="Loading directory totals…" errorTitle="Directory totals are unavailable." onRetry={() => void directory.refetch()} onSignIn={onSignIn} testId="overview-directory">
-        <dl className="overview-grid">{directory.data ? [
-          ["Teams", directory.data.teams, "#/admin/teams"], ["Users", directory.data.users, "#/admin/operations"],
-          ["Agents", directory.data.agents, "#/agents"], ["Active sessions", directory.data.active_sessions, "#/access"],
-        ].map(([label, count, href]) => <div className="overview-card" key={label}><dt><a href={String(href)}>{label}</a></dt><dd>{count}</dd></div>) : null}</dl>
-        <p>Directory totals include non-deleted teams/users and all agents of current teams. Active sessions exclude revoked, expired, retired-server and inactive-agent sessions.</p>
+        <div className="inline-actions">
+          <ButtonLink size="sm" href="#/admin/teams">Manage teams</ButtonLink>
+          <ButtonLink size="sm" href="#/agents">Manage agent identities</ButtonLink>
+          <ButtonLink size="sm" href="#/access">Manage access</ButtonLink>
+          <ButtonLink size="sm" href="#/servers">Open server catalog</ButtonLink>
+        </div>
       </AsyncSection>
-      <AsyncSection query={servers} loadingLabel="Loading server totals…" errorTitle="Server totals are unavailable." onRetry={() => void servers.refetch()} onSignIn={onSignIn} testId="overview-servers">
-        <p>Servers: <strong>{servers.data?.servers}</strong> · <a href="#/servers">Open server catalog</a></p>
-        <h3>Deployment failures</h3>{servers.data?.failures.length ? <ul>{servers.data.failures.map(item => <li key={`${item.namespace}/${item.name}`}><a href={`#/servers?namespace=${encodeURIComponent(item.namespace)}&server=${encodeURIComponent(`${item.namespace}/${item.name}`)}`}>{item.namespace}/{item.name}</a> · {item.status}</li>)}</ul> : <p>No reported deployment failures.</p>}
+      <details className="overview-count-details"><summary>What these totals include</summary><p>Non-deleted teams and users, and all agents of current teams. Active sessions exclude revoked, expired, retired-server and inactive-agent sessions.</p></details>
+    </section>
+    <section className="section" aria-labelledby="overview-deployments-title">
+      <h2 id="overview-deployments-title">Deployment issues</h2>
+      <AsyncSection query={servers} loadingLabel="Loading server health…" errorTitle="Server totals and deployment issues are unavailable." onRetry={() => void servers.refetch()} onSignIn={onSignIn} testId="overview-servers">
+        {fleet?.failures.length ? <ul className="overview-issue-list">{fleet.failures.map(item => <li key={`${item.namespace}/${item.name}`}>
+          <div><Icon name="alert" /><a href={`#/servers?namespace=${encodeURIComponent(item.namespace)}&server=${encodeURIComponent(`${item.namespace}/${item.name}`)}`}>{item.namespace}/{item.name}</a></div>
+          <StatusBadge tone="attention">{item.status || "Unknown"}</StatusBadge>
+        </li>)}</ul> : <p className="overview-clear"><Icon name="check" /> No reported deployment failures.</p>}
       </AsyncSection>
     </section>
-    <section className="section" aria-labelledby="overview-health-title"><h2 id="overview-health-title">Platform health</h2>
-      <AsyncSection query={health} loadingLabel="Loading health…" errorTitle="Platform health is unavailable." onRetry={() => void health.refetch()} onSignIn={onSignIn} testId="overview-health">
-        {health.data?.length ? <ul>{health.data.map(item => <li key={item.key}>{item.display} · {item.status} {item.ready}</li>)}</ul> : <p>No platform components reported.</p>}
-      </AsyncSection><a href="#/admin/platform">Inspect component health</a>
-    </section>
-    <section className="section" aria-labelledby="overview-audit-title"><h2 id="overview-audit-title">Recent administrative audit changes</h2><p>Recent platform audit records, including administration and resource management by authorized users.</p>
+    <section className="section" aria-labelledby="overview-health-title"><PlatformHealthPanel onSignIn={onSignIn} /></section>
+    <section className="section" aria-labelledby="overview-audit-title">
+      <div className="overview-section-head"><div><h2 id="overview-audit-title">Recent administrative activity</h2><p className="section-note">The latest eight audit records from across the platform.</p></div><ButtonLink size="sm" href="#/admin/operations">View audit trail</ButtonLink></div>
       <AsyncSection query={operations} loadingLabel="Loading audit changes…" errorTitle="Audit changes are unavailable." onRetry={() => void operations.refetch()} onSignIn={onSignIn} testId="overview-audit">
-        {operations.data?.audit_logs.length ? <ul className="overview-resource-list">{operations.data.audit_logs.slice(0, 8).map((item, index) => <li key={`${item.created_at}:${index}`}>{item.created_at} · {item.action} · {item.resource} · {item.status}</li>)}</ul> : <p>No recent administrative audit records.</p>}
-      </AsyncSection><a href="#/admin/operations">Open Operations audit trail</a> · <a href="#/admin/analytics">Open Usage analytics</a>
+        {operations.data?.audit_logs.length ? <ul className="overview-audit-list">{operations.data.audit_logs.slice(0, 8).map((item, index) => <li key={`${item.created_at}:${index}`}>
+          <div><strong>{item.action}</strong><span>{item.resource}</span></div>
+          <time dateTime={item.created_at}>{formatTimestamp(item.created_at)}</time>
+          <StatusBadge tone={outcomeTone(item.status)}>{item.status || "Unknown"}</StatusBadge>
+        </li>)}</ul> : <p className="section-note">No recent administrative audit records.</p>}
+      </AsyncSection>
     </section>
-  </>;
+  </div>;
 }

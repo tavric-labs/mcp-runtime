@@ -9,8 +9,9 @@ import { DataTable, buildColumns } from "../../ui/DataTable";
 import { SelectField, TextField } from "../../ui/Field";
 import { FilterBar, FilterSummary, type FilterChip } from "../../ui/FilterBar";
 import { Icon } from "../../ui/Icon";
-import { MetricGrid } from "../../ui/MetricCard";
+import { EmptyState } from "../../ui/States";
 import { PageHeader } from "../../ui/PageHeader";
+import { RowActions } from "../../ui/RowActions";
 import { expiryState, formatAbsolute, formatTimestamp } from "../../lib/format";
 import { useAdminReload, useGrants, useSessions } from "../../hooks/useAdminData";
 import { useCatalog } from "../../hooks/useCatalog";
@@ -138,6 +139,8 @@ export function AccessControlPanel({
     matches([session.name, session.namespace, session.serverRef?.name, subjectLabel(session.subject)])
   );
 
+  const grantsLoaded = grantsQuery.isSuccess;
+  const sessionsLoaded = sessionsQuery.isSuccess;
   const activeGrants = grants.filter((grant) => grantStatus(grant).label === "Active").length;
   const activeSessions = sessions.filter((session) => sessionState(session).label === "Active").length;
   const namespaceOptions = useMemo(() => {
@@ -225,175 +228,34 @@ export function AccessControlPanel({
     });
   }
 
-  const grantColumns = useMemo(
-    () =>
-      buildColumns<GrantSummary>([
-        {
-          id: "name",
-          header: "Grant",
-          width: "16%",
-          rowHeader: true,
-          sortValue: (grant) => grant.name,
-          cell: (grant) => (
-            <>
-              <button
-                type="button"
-                className="link-button"
-                data-testid="grant-drilldown"
-                onClick={() => onSelect({ kind: "grant", item: grant })}
-              >
-                {grant.name}
-              </button>
-              <span className="cell-detail">{grant.namespace}</span>
-            </>
-          ),
-        },
-        {
-          id: "server",
-          header: "Server",
-          width: "16%",
-          sortValue: (grant) => grant.serverRef?.name || "",
-          cell: (grant) => grant.serverRef?.name || "—",
-        },
-        { id: "subject", header: "Subject", width: "24%", cell: (grant) => subjectLabel(grant.subject) },
-        {
-          id: "mode",
-          header: "Mode",
-          cell: (grant) => <div className="cell-actions">
-            <span>{grant.mode || "enforce"}</span>
-            {canManage ? <Button variant="ghost" size="sm" data-testid="grant-mode-toggle" busy={busyKey === `mode:${accessKey(grant)}`} onClick={() => askChangeGrantMode(grant)}>
-              {grant.mode === "monitor" ? "Enforce" : "Monitor"}
-            </Button> : null}
-          </div>,
-        },
-        {
-          id: "trust",
-          header: "Trust ceiling",
-          width: "11%",
-          sortValue: (grant) => grant.maxTrust || "",
-          cell: (grant) => grant.maxTrust || "—",
-        },
-        {
-          id: "effects",
-          header: "Side effects",
-          width: "10%",
-          cell: (grant) => (grant.allowedSideEffects || []).join(", ") || "—",
-        },
-        {
-          id: "expires",
-          header: "Expires",
-          width: "11%",
-          sortValue: (grant) => grant.expiresAt || "",
-          cell: (grant) => (grant.expiresAt ? formatTimestamp(grant.expiresAt) : "No expiry"),
-        },
-        {
-          id: "status",
-          header: "Status",
-          width: "12%",
-          sortValue: (grant) => grantStatus(grant).label,
-          cell: (grant) => (
-            <div className="cell-actions">
-              <StatusBadge tone={grantStatus(grant).tone}>
-                {grantStatus(grant).label}
-              </StatusBadge>
-              {canManage ? <Button
-                variant="ghost"
-                size="sm"
-                data-testid="grant-toggle"
-                busy={busyKey === `grant:${accessKey(grant)}`}
-                onClick={() => askToggleGrant(grant)}
-              >
-                {grant.disabled ? "Enable" : "Disable"}
-              </Button> : null}
-              {canManage ? <Button
-                variant="ghost"
-                size="sm"
-                data-testid="grant-revoke-sessions"
-                busy={busyKey === `grant-sessions:${accessKey(grant)}`}
-                onClick={() => askRevokeGrantSessions(grant)}
-              >
-                Revoke sessions
-              </Button> : null}
-            </div>
-          ),
-        },
-      ]),
-    // askToggleGrant and onSelect close over current state.
-    [busyKey, onSelect]
-  );
-
-  const sessionColumns = useMemo(
-    () =>
-      buildColumns<SessionSummary>([
-        {
-          id: "name",
-          header: "Session",
-          width: "20%",
-          rowHeader: true,
-          sortValue: (session) => session.name,
-          cell: (session) => (
-            <>
-              <button
-                type="button"
-                className="link-button"
-                data-testid="session-drilldown"
-                onClick={() => onSelect({ kind: "session", item: session })}
-              >
-                {session.name}
-              </button>
-              <span className="cell-detail">{session.namespace}</span>
-            </>
-          ),
-        },
-        {
-          id: "server",
-          header: "Server",
-          width: "16%",
-          sortValue: (session) => session.serverRef?.name || "",
-          cell: (session) => session.serverRef?.name || "—",
-        },
-        { id: "subject", header: "Subject", width: "22%", cell: (session) => subjectLabel(session.subject) },
-        {
-          id: "trust",
-          header: "Consented trust",
-          width: "14%",
-          sortValue: (session) => session.consentedTrust || "",
-          cell: (session) => session.consentedTrust || "—",
-        },
-        {
-          id: "expires",
-          header: "Expires",
-          width: "14%",
-          sortValue: (session) => Date.parse(session.expiresAt || "") || 0,
-          cell: (session) => (
-            <span title={formatAbsolute(session.expiresAt)}>{expiryText(session)}</span>
-          ),
-        },
-        {
-          id: "status",
-          header: "Status",
-          width: "14%",
-          cell: (session) => {
-            const state = sessionState(session);
-            return (
-              <div className="cell-actions">
-                <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
-                {canManage ? <Button
-                  variant="ghost"
-                  size="sm"
-                  data-testid="session-toggle"
-                  busy={busyKey === `session:${accessKey(session)}`}
-                  onClick={() => askToggleSession(session)}
-                >
-                  {session.revoked ? "Restore" : "Revoke"}
-                </Button> : null}
-              </div>
-            );
-          },
-        },
-      ]),
-    [busyKey, onSelect]
-  );
+  function subjectCell(subject: GrantSummary["subject"]) {
+    const entries = [["Human", subject?.humanID], ["Agent", subject?.agentID], ["Team", subject?.teamID]].filter(([, value]) => value);
+    return entries.length ? <dl className="access-subject">{entries.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> : <span className="muted">Unreported subject</span>;
+  }
+  // The ask* handlers only capture stable state setters and the reload callback, so they stay
+  // correct for the memoized columns.
+  const grantColumns = useMemo(() => buildColumns<GrantSummary>([
+    { id: "name", header: "Grant", rowHeader: true, sortValue: grant => grant.name, cell: grant => <><button type="button" className="link-button" data-testid="grant-drilldown" onClick={() => onSelect({ kind: "grant", item: grant })}>{grant.name}</button><span className="cell-detail">{grant.namespace}</span></> },
+    { id: "server", header: "Server", sortValue: grant => grant.serverRef?.name || "", cell: grant => grant.serverRef?.name || "—" },
+    { id: "subject", header: "Subject", cell: grant => subjectCell(grant.subject) },
+    { id: "limits", header: "Access limits", cell: grant => <><span>{grant.maxTrust || "Unreported"} trust ceiling</span><span className="cell-detail">{(grant.allowedSideEffects || []).join(", ") || "No side effects reported"}</span></> },
+    { id: "expires", header: "Expires", sortValue: grant => grant.expiresAt || "", cell: grant => grant.expiresAt ? formatTimestamp(grant.expiresAt) : "No expiry" },
+    { id: "status", header: "Status", sortValue: grant => grantStatus(grant).label, cell: grant => <><StatusBadge tone={grantStatus(grant).tone}>{grantStatus(grant).label}</StatusBadge><span className="cell-detail">Mode: {grant.mode || "enforce"}</span></> },
+    { id: "actions", header: "Actions", cell: grant => canManage ? <RowActions label={`Actions for grant ${grant.name}`}>
+      <Button variant="ghost" size="sm" data-testid="grant-toggle" busy={busyKey === `grant:${accessKey(grant)}`} onClick={() => askToggleGrant(grant)}>{grant.disabled ? "Enable" : "Disable"}</Button>
+      <Button variant="ghost" size="sm" data-testid="grant-mode-toggle" busy={busyKey === `mode:${accessKey(grant)}`} onClick={() => askChangeGrantMode(grant)}>{grant.mode === "monitor" ? "Enforce" : "Monitor"}</Button>
+      <Button variant="danger-outline" size="sm" data-testid="grant-revoke-sessions" busy={busyKey === `grant-sessions:${accessKey(grant)}`} onClick={() => askRevokeGrantSessions(grant)}>Revoke sessions</Button>
+    </RowActions> : null },
+  ]).filter(column => canManage || column.id !== "actions"), [busyKey, onSelect, canManage]);
+  const sessionColumns = useMemo(() => buildColumns<SessionSummary>([
+    { id: "name", header: "Session", rowHeader: true, sortValue: session => session.name, cell: session => <><button type="button" className="link-button" data-testid="session-drilldown" onClick={() => onSelect({ kind: "session", item: session })}>{session.name}</button><span className="cell-detail">{session.namespace}</span></> },
+    { id: "server", header: "Server", sortValue: session => session.serverRef?.name || "", cell: session => session.serverRef?.name || "—" },
+    { id: "subject", header: "Subject", cell: session => subjectCell(session.subject) },
+    { id: "trust", header: "Consented trust", sortValue: session => session.consentedTrust || "", cell: session => session.consentedTrust || "—" },
+    { id: "expires", header: "Expires", sortValue: session => Date.parse(session.expiresAt || "") || 0, cell: session => <span title={formatAbsolute(session.expiresAt)}>{expiryText(session)}</span> },
+    { id: "status", header: "Status", cell: session => { const state = sessionState(session); return <StatusBadge tone={state.tone}>{state.label}</StatusBadge>; } },
+    { id: "actions", header: "Actions", cell: session => canManage ? <RowActions label={`Actions for session ${session.name}`}><Button variant={session.revoked ? "secondary" : "danger-outline"} size="sm" data-testid="session-toggle" busy={busyKey === `session:${accessKey(session)}`} onClick={() => askToggleSession(session)}>{session.revoked ? "Restore" : "Revoke"}</Button></RowActions> : null },
+  ]).filter(column => canManage || column.id !== "actions"), [busyKey, onSelect, canManage]);
 
   const chips: FilterChip[] = [];
   if (filter.trim()) {
@@ -409,10 +271,10 @@ export function AccessControlPanel({
   }
 
   return (
-    <>
+    <div className="access-page">
       <PageHeader
         title="Access control"
-        description="Grants and agent sessions enforced by the MCP gateway. Select one to trace the decisions it produced."
+        description="Manage server permissions and inspect the sessions issued under them."
         actions={
           <>
             <Button variant="secondary" icon="refresh" onClick={reload} data-testid="access-refresh">
@@ -444,34 +306,23 @@ export function AccessControlPanel({
         }
       />
 
-      <MetricGrid
-        label="Access control summary"
-        testId="access-stats"
-        metrics={[
-          { label: "Active grants", value: activeGrants, icon: "shield" },
-          {
-            label: "Disabled grants",
-            value: grants.length - activeGrants,
-            icon: "close",
-            tone: grants.length - activeGrants > 0 ? "warning" : "default",
-          },
-          { label: "Active sessions", value: activeSessions, icon: "clock" },
-          {
-            label: "Revoked or expired",
-            value: sessions.length - activeSessions,
-            icon: "alert",
-            tone: sessions.length - activeSessions > 0 ? "warning" : "default",
-          },
-        ]}
-      />
-
+      <p className="access-introduction"><Icon name="shield" /> Grants define permission. Sessions use that permission for a bounded period.</p>
+      <div role="group" aria-label="Access control summary" data-testid="access-stats"><dl className="access-summary">{[
+        { label: "Active grants", value: grantsLoaded ? activeGrants : undefined },
+        { label: "Inactive grants", value: grantsLoaded ? grants.length - activeGrants : undefined },
+        { label: "Active sessions", value: sessionsLoaded ? activeSessions : undefined },
+        { label: "Other sessions", value: sessionsLoaded ? sessions.length - activeSessions : undefined },
+      ].map(metric => <div key={metric.label}><dt>{metric.label}</dt><dd>{metric.value === undefined ? "—" : metric.value.toLocaleString()}</dd></div>)}</dl></div>
+      <section className="access-filter-panel" aria-label="Access record filters">
       <FilterBar label="Filter access records">
         <TextField
           label="Search"
           type="search"
           fieldClassName="grow"
           leadingIcon
-          placeholder="Name, server, or subject"
+          placeholder="Name, server, human, agent, or team…"
+          name="access-search"
+          autoComplete="off"
           value={filter}
           data-testid="access-filter"
           onChange={(event) => setFilter(event.target.value)}
@@ -480,7 +331,7 @@ export function AccessControlPanel({
           label="Namespace"
           value={namespace}
           data-testid="access-namespace"
-          hint="Scopes the reads below."
+          hint="Records are stored and managed within a namespace."
           options={[
             { value: "", label: "All namespaces" },
             ...namespaceOptions.map((ns) => ({ value: ns, label: ns })),
@@ -491,13 +342,15 @@ export function AccessControlPanel({
 
       <FilterSummary
         chips={chips}
-        count={`${visibleGrants.length} grants · ${visibleSessions.length} sessions`}
+        count={`${grantsLoaded ? `${visibleGrants.length} ${visibleGrants.length === 1 ? "grant" : "grants"}` : grantsQuery.isPending ? "Loading grants…" : "Grant count unavailable"}, ${sessionsLoaded ? `${visibleSessions.length} ${visibleSessions.length === 1 ? "session" : "sessions"}` : sessionsQuery.isPending ? "loading sessions…" : "session count unavailable"}`}
         onClear={() => {
           setFilter("");
           onNamespaceChange("");
         }}
         testId="access-summary"
       />
+      </section>
+      {!canManage ? <p className="access-readonly"><Icon name="info" /> View-only access. A team owner or platform administrator can change permissions.</p> : null}
 
       {actionNotice ? (
         <p className="notice notice-success" role="status" data-testid="access-action-notice">
@@ -574,9 +427,9 @@ export function AccessControlPanel({
         />
       ) : null}
 
-      <section className="section">
-        <div className="section-head">
-          <h2 className="section-title" id="grants-title">
+      <section className="access-directory" aria-labelledby="grants-title" data-testid="grants-panel">
+        <div className="access-directory-head">
+          <h2 id="grants-title">
             Access grants
           </h2>
           <p className="section-note">What a subject is allowed to do on a server.</p>
@@ -589,24 +442,24 @@ export function AccessControlPanel({
           onSignIn={onSignIn}
           testId="grants"
         >
-          <DataTable
+          {grants.length ? <DataTable
             columns={grantColumns}
             rows={visibleGrants}
             rowKey={accessKey}
             caption="Access grants with server, subject, trust ceiling, allowed side effects, and status."
-            regionLabel="Access grants"
+            regionLabel="Grant directory table"
             testId="grants-table"
-            minWidth={1200}
+            minWidth={canManage ? 1050 : 900}
             emptyMessage={
               grants.length === 0 ? "No access grants found." : "No grants match this filter."
             }
-          />
+          /> : <EmptyState icon="shield" title="No access grants yet" detail={canManage ? "Create a grant to define which human, agent or team can use a server, with explicit trust and side-effect limits." : "A team owner can grant access to a server. Granted permissions will appear here."} action={canManage ? <Button variant="primary" icon="plus" onClick={() => { setSessionDraft(null); setGrantDraft(current => current || emptyGrantDraft(namespace)); }}>Create a grant</Button> : undefined} testId="grants-empty" />}
         </AsyncSection>
       </section>
 
-      <section className="section">
-        <div className="section-head">
-          <h2 className="section-title" id="sessions-title">
+      <section className="access-directory" aria-labelledby="sessions-title" data-testid="sessions-panel">
+        <div className="access-directory-head">
+          <h2 id="sessions-title">
             Agent sessions
           </h2>
           <p className="section-note">What an agent consented to for a bounded period.</p>
@@ -619,20 +472,21 @@ export function AccessControlPanel({
           onSignIn={onSignIn}
           testId="sessions"
         >
-          <DataTable
+          {sessions.length ? <DataTable
             columns={sessionColumns}
             rows={visibleSessions}
             rowKey={accessKey}
             caption="Agent sessions with server, subject, consented trust, expiry, and status."
-            regionLabel="Agent sessions"
+            regionLabel="Session directory table"
             testId="sessions-table"
-            minWidth={1100}
+            minWidth={canManage ? 1000 : 850}
             emptyMessage={
               sessions.length === 0 ? "No agent sessions found." : "No sessions match this filter."
             }
-          />
+          /> : <EmptyState icon="key" title="No agent sessions yet" detail="A session records the identity, server, consented trust and expiry used for a connection. Create an access grant first, then connect an agent or issue a session." action={canManage ? <Button variant="secondary" icon="plus" onClick={() => { setGrantDraft(null); setSessionDraft(current => current || emptySessionDraft(namespace)); }}>Create a session</Button> : undefined} testId="sessions-empty" />}
         </AsyncSection>
       </section>
+      <details className="access-explanation"><summary>How grants and sessions work together</summary><p>Grants set a server’s permitted subjects, trust ceiling and side effects. Sessions record consent for a particular identity and period. Active counts exclude expired or unreadable expiry values; inactive grants include disabled and expired records. Other sessions include revoked, expired and unknown-expiry records. Open a record to inspect its gateway decisions.</p></details>
 
       {confirm ? (
         <ConfirmDialog
@@ -644,6 +498,6 @@ export function AccessControlPanel({
           cancelTestId="access-confirm-cancel"
         />
       ) : null}
-    </>
+    </div>
   );
 }

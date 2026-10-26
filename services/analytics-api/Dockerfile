@@ -15,7 +15,7 @@ ARG TARGETARCH
 RUN cd services/analytics-api && \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/analytics-api .
 
-FROM gcr.io/distroless/base-debian12
+FROM gcr.io/distroless/static-debian12
 WORKDIR /app
 COPY --from=build --chown=65532:65532 /out/analytics-api /app/analytics-api
 EXPOSE 8085 9095

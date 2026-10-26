@@ -13,9 +13,17 @@ it("uses authoritative totals above list page limits and keeps health visible wh
     return { ok: status < 400, status, json: async () => body, text: async () => JSON.stringify(body) } as Response;
   }));
   render(<AppProviders><PlatformOverview onSignIn={vi.fn()} /></AppProviders>);
-  expect(await screen.findByText("1234")).toBeInTheDocument();
+  expect(await screen.findByText("1,234")).toBeInTheDocument();
   expect(screen.getByText("543")).toBeInTheDocument();
   expect(await screen.findByRole("link", { name: "team/broken" })).toHaveAttribute("href", "#/servers?namespace=team&server=team%2Fbroken");
   expect(await screen.findByText(/Runtime API/)).toBeInTheDocument();
   expect(await screen.findByTestId("overview-audit-error")).toBeInTheDocument();
+});
+
+it("includes component management and observability on the overview", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ components: [], audit_logs: [], failures: [], teams: 0, users: 0, agents: 0, active_sessions: 0, servers: 0 }) })));
+  render(<AppProviders><PlatformOverview onSignIn={vi.fn()} /></AppProviders>);
+  expect(await screen.findByTestId("platform-empty")).toBeInTheDocument();
+  expect(screen.getByTestId("grafana-link")).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 });

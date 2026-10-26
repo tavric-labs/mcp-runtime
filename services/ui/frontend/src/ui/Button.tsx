@@ -1,4 +1,4 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode, Ref } from "react";
 
 import { Icon, type IconName } from "./Icon";
 
@@ -26,7 +26,7 @@ function classes({ variant = "secondary", size = "md", block }: CommonProps, ext
     .join(" ");
 }
 
-type ButtonProps = CommonProps & ButtonHTMLAttributes<HTMLButtonElement>;
+type ButtonProps = CommonProps & ButtonHTMLAttributes<HTMLButtonElement> & { ref?: Ref<HTMLButtonElement> };
 
 export function Button({
   variant,

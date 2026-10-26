@@ -4,3 +4,9 @@
 @import "./base.css";
 @import "./components.css";
 @import "./app.css";
+
+@import "./workspaces.css";
+
+@import "./analytics.css";
+
+@import "./access.css";

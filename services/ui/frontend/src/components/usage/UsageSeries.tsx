@@ -153,6 +153,7 @@ export function UsageSeries({
               {timeLabel(ordered[i].bucket)}
             </text>
           ))}
+          <polygon points={`${left},${height - bottom} ${line} ${x(last)},${height - bottom}`} className="series-area" aria-hidden="true" />
           <polyline points={line} className="series-line" fill="none" />
           {ordered.map((point, index) => (
             <circle

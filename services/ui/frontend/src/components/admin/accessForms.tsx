@@ -456,6 +456,7 @@ export function GrantForm({
         <div className="form-grid">
           <TextField
             label="Grant name"
+            autoFocus
             value={draft.name}
             required
             error={errors.name}
@@ -656,6 +657,7 @@ export function SessionForm({
         <div className="form-grid">
           <TextField
             label="Session name"
+            autoFocus
             value={draft.name}
             required
             error={errors.name}

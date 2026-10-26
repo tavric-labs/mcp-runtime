@@ -116,12 +116,15 @@ export function useOperations(enabled: boolean, filters: OperationsFilters) {
   });
 }
 
+/** How often the usage analytics poll the service. The panel copy derives from this. */
+export const USAGE_REFRESH_MS = 15_000;
+
 export function useUsage(enabled: boolean, limit: string, filters: UsageFilterParams = {}) {
   return useQuery({
     queryKey: [ADMIN_QUERY_KEY, "usage", limit, filters],
     queryFn: () => listUsage(limit, filters),
     enabled,
-    refetchInterval: 15_000,
+    refetchInterval: USAGE_REFRESH_MS,
   });
 }
 

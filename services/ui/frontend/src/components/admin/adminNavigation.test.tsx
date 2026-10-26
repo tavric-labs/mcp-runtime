@@ -16,6 +16,8 @@ const CATALOG: Record<string, unknown> = {
   "/runtime/sessions": { sessions: [] },
   "/runtime/teams": { teams: [] },
   "/runtime/components": { components: [] },
+  "/admin/overview/directory": { teams: 0, users: 0, agents: 0, active_sessions: 0 },
+  "/admin/overview/servers": { servers: 0, failures: [] },
   "/admin/operations": { users: [], audit_logs: [], images: [] },
 };
 
@@ -71,7 +73,7 @@ describe("admin workspace navigation", () => {
     await user.click(tab);
     expect(await screen.findByTestId("teams-table")).toBeInTheDocument();
     const primary = screen.getByRole("navigation", { name: "Primary", exact: true });
-    for (const section of ["teams", "operations", "platform", "analytics"]) {
+    for (const section of ["overview", "teams", "operations", "analytics"]) {
       expect(primary).toContainElement(screen.getByTestId(`admin-section-${section}`));
     }
     expect(screen.queryByRole("navigation", { name: "Administration sections" })).not.toBeInTheDocument();
@@ -82,11 +84,11 @@ describe("admin workspace navigation", () => {
     stub("admin");
     renderApp();
     await screen.findByTestId("admin-section-teams");
-    await user.type(screen.getByRole("searchbox", { name: "Filter navigation" }), "health");
+    await user.type(screen.getByRole("searchbox", { name: "Filter navigation" }), "overview");
     expect(screen.queryByTestId("admin-section-teams")).not.toBeInTheDocument();
-    await user.click(screen.getByTestId("admin-section-platform"));
-    expect(window.location.hash).toBe("#/admin/platform");
-    expect(screen.getByTestId("admin-section-platform")).toHaveAttribute("aria-current", "page");
+    await user.click(screen.getByTestId("admin-section-overview"));
+    expect(window.location.hash).toBe("#/admin/overview");
+    expect(screen.getByTestId("admin-section-overview")).toHaveAttribute("aria-current", "page");
     expect(await screen.findByTestId("platform-empty")).toBeInTheDocument();
     await user.clear(screen.getByRole("searchbox", { name: "Filter navigation" }));
     await user.click(screen.getByTestId("admin-section-operations"));
@@ -100,8 +102,8 @@ describe("admin workspace navigation", () => {
     renderApp();
     await screen.findByTestId("admin-section-teams");
     await user.click(screen.getByTestId("nav-toggle"));
-    await user.click(screen.getByTestId("mobile-admin-section-platform"));
-    expect(window.location.hash).toBe("#/admin/platform");
+    await user.click(screen.getByTestId("mobile-admin-section-overview"));
+    expect(window.location.hash).toBe("#/admin/overview");
     expect(screen.getByTestId("nav-toggle")).toHaveAttribute("aria-expanded", "false");
   });
 
@@ -181,7 +183,7 @@ describe("access control workspace navigation", () => {
     renderApp();
     await user.click(await screen.findByTestId("workspace-tab-access"));
 
-    expect(await screen.findByTestId("grants-table")).toBeInTheDocument();
+    expect(await screen.findByTestId("grants-panel")).toBeInTheDocument();
     expect(window.location.hash).toBe("#/access");
   });
 
@@ -192,7 +194,7 @@ describe("access control workspace navigation", () => {
     renderApp();
     await user.click(await screen.findByTestId("workspace-tab-access"));
 
-    expect(await screen.findByTestId("grants-table")).toBeInTheDocument();
+    expect(await screen.findByTestId("grants-panel")).toBeInTheDocument();
   });
 
   it("hides Access control from a signed-out visitor", async () => {

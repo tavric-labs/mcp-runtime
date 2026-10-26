@@ -24,7 +24,7 @@ ARG TARGETARCH
 RUN cd services/ui && \
     mkdir -p /out && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/ui .
 
-FROM gcr.io/distroless/base-debian12
+FROM gcr.io/distroless/static-debian12
 WORKDIR /app
 COPY --from=build --chown=65532:65532 /out/ui /app/ui
 EXPOSE 8082

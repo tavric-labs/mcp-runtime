@@ -10,6 +10,8 @@ import { SelectField } from "../../ui/Field";
 import { ErrorState, LoadingState } from "../../ui/States";
 import { ADMIN_QUERY_KEY } from "../../hooks/useAdminData";
 
+type RecentRow = RecentActivity & { rowId: number };
+
 export function AgentActivityPanel({ agentID, platformAdmin }: { agentID: string; platformAdmin: boolean }) {
   const [hours, setHours] = useState("168");
   const query = useQuery({ queryKey: [ADMIN_QUERY_KEY, "agent-mcp-activity", agentID, hours, platformAdmin], queryFn: () => readAgentUsage(agentID, Number(hours)) });
@@ -22,7 +24,7 @@ export function AgentActivityPanel({ agentID, platformAdmin }: { agentID: string
     { id: "last", header: "Last seen", cell: row => formatTimestamp(row.last_seen) },
     { id: "trace", header: "Latest trace ID", cell: row => <span className="copy-value">{row.trace_id || "Unreported"}</span> },
   ]);
-  const recentColumns = buildColumns<RecentActivity>([
+  const recentColumns = buildColumns<RecentRow>([
     { id: "when", header: "Time", rowHeader: true, cell: row => formatTimestamp(row.timestamp) },
     { id: "tool", header: "Tool", cell: row => row.tool_name || "Unknown tool" },
     { id: "server", header: "Server", cell: row => `${row.namespace || "?"}/${row.server || "?"}` },
@@ -30,7 +32,8 @@ export function AgentActivityPanel({ agentID, platformAdmin }: { agentID: string
     { id: "session", header: "Session", cell: row => row.session_id || "Unreported" },
     { id: "decision", header: "Gateway decision", cell: row => row.decision || "Unreported" },
   ]);
-  const recent = query.data?.recent ?? [];
+  // Events carry no id and can repeat verbatim, so the row key is the position.
+  const recent = (query.data?.recent ?? []).map((row, rowId) => ({ ...row, rowId }));
   const lastSeen = recent.reduce((last, row) => row.timestamp > last ? row.timestamp : last, "");
   return <section className="section" aria-label="Agent MCP activity" data-testid="agent-mcp-activity">
     <h2 className="section-title">MCP tool activity</h2>
@@ -49,7 +52,7 @@ export function AgentActivityPanel({ agentID, platformAdmin }: { agentID: string
       <p>Last observed tool call: {lastSeen ? formatTimestamp(lastSeen) : "None recorded in this window"}.</p>
       <p className="section-note">Allowed is a gateway policy decision, not proof the tool succeeded. MCP errors can use HTTP 200. Totals cover the selected window; each table shows at most 50 rows.</p>
       <DataTable columns={columns} rows={query.data?.requests ?? []} rowKey={row => JSON.stringify([row.namespace, row.server, row.rpc_method, row.tool_name, row.decision, row.policy_version])} caption="Tool calls grouped by server, tool and gateway decision." regionLabel="Agent tool call groups" testId="agent-tool-calls" emptyMessage="No tool calls recorded in this window." />
-      <DataTable columns={recentColumns} rows={recent} rowKey={row => JSON.stringify(row)} caption="Recent tool calls and their human and session attribution." regionLabel="Recent agent tool calls" testId="agent-recent-calls" emptyMessage="No recent tool calls recorded." />
+      <DataTable columns={recentColumns} rows={recent} rowKey={row => String(row.rowId)} caption="Recent tool calls and their human and session attribution." regionLabel="Recent agent tool calls" testId="agent-recent-calls" emptyMessage="No recent tool calls recorded." />
     </>}
   </section>;
 }

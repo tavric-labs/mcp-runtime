@@ -16,7 +16,7 @@ body,
 body {
   font-family: var(--font-sans);
   font-size: var(--fs-body);
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--text);
   /* Two wide, low-opacity brand washes over the canvas colour. They sit far
      behind every surface, so no text contrast depends on them. */

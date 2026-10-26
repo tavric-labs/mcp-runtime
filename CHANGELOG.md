@@ -7,8 +7,16 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Security
+
+- Service images (analytics-api, doctor-smoke, ingest, mcp-gateway, platform-api, processor, runtime-api, ui) now run on `distroless/static-debian12` instead of `base-debian12`. The services are statically linked, so the image no longer carries `libssl3` (CVE-2026-84782).
+- The console's one-click client install links and prompts (Claude Code, Codex, Cursor, VS Code) are rebuilt from the published HTTP `url` and string `headers` only. A server-published entry can no longer carry a `command`, `args` or `env` into an install action.
+
 ### Fixed
 
+- The console exposes **Create agent identity** from the all-team Agents directory, with an explicit owning-team selector for administrators and team owners. Platform overview now includes component health, Grafana and confirmed maintenance actions in one page, with clearer resource totals, deployment issues, audit activity and responsive status colors ([#859](https://github.com/tavric-labs/mcp-runtime/pull/859)).
+
+- My workspace groups each team with its agents, agent details provide shareable connection/activity/certificate tabs, and Usage analytics prioritizes traffic and policy outcomes with expandable advanced filters and clearer request groups. Access control separates record actions from status, labels subject identities, guides empty directories and distinguishes inactive from unavailable counts. Shared form, table and section spacing is more readable on desktop and mobile ([#859](https://github.com/tavric-labs/mcp-runtime/pull/859)).
 - `cluster mcp-auth-connector apply` keeps `gateway-login-*` connectors that the supplied file does not mention. The hosted release deploy merges those entries before refreshing Keycloak, so an mcp-auth image rollout no longer removes the credential gateway's resource login and exits.
 
 ## [0.13.0] - 2026-10-24

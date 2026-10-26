@@ -63,7 +63,9 @@ test("agent ownership, certificate issuance and exact-agent tool activity remain
   await page.goto("/#/agents?team=b&agent=agt-b");
   await expect(page.getByText("creator-user", { exact: true })).toBeVisible();
   await expect(page.getByRole("group", { name: "Visible session lifecycle" })).toContainText("Visible sessions issued0");
+  await page.getByRole("tab", { name: "Certificates", exact: true }).click();
   await expect(page.getByRole("group", { name: "Recorded certificates", exact: true })).toContainText("2");
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(page.getByRole("group", { name: "Agent tool call totals" })).toContainText("12");
   expect(activityQueries[0].get("agent_id")).toBe("agt-b");
   expect(activityQueries[0].get("rpc_method")).toBe("tools/call");
@@ -89,6 +91,7 @@ test("deactivation previews impact and exposes partial failures with final state
   await fixture(page, true);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/#/agents?team=b&agent=agt-b");
+  await page.getByText("Agent lifecycle", { exact: true }).click();
   await page.getByRole("button", { name: "Deactivate agent", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toContainText("1 visible active sessions");
   await page.getByTestId("agent-confirm-yes").click();

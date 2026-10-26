@@ -35,6 +35,18 @@ The source-of-truth data plane is:
   claims, or from the
   session named by a verified adapter certificate.
 
+## Create an agent identity in the console
+
+Open **Agents** → **Create agent identity**. Choose the owning team, enter a
+name (1–64 characters), and select **Create agent**. This action is available
+from **All teams** as well as a team-filtered directory. Platform administrators
+can choose any team; team owners can choose only teams they own. Members have
+read access. If no team exists, administrators must create one in **Teams** first.
+
+The platform generates the immutable agent ID. Open the created agent to grant
+access and follow its client connection steps. Creating an identity does not
+issue a session or grant access automatically.
+
 ## Inspect an agent's ownership and activity
 
 Open **Agents** and select an agent. The detail view shows its owning team,
@@ -42,6 +54,13 @@ creator's recorded user ID, creation/update times, applicable grants and visible
 sessions. The creator is historical attribution; the owning team controls the
 agent. Session rows identify the delegating human and authorizing grant, with
 expiry and revocation state. Counts cover only sessions visible to your account.
+
+The **Access & sessions**, **Connect**, **Activity**, and **Certificates** tabs
+separate management from history. Tabs support arrow keys and retain the
+selected view in the URL (`view=connect`, `view=activity`, or
+`view=certificates`). **Connect agent** opens copyable sign-in and adapter
+commands with the full agent ID included. Expand **Agent lifecycle** to review
+deactivation or reactivation; changes still require confirmation.
 
 **Recorded certificate issuance** is separate from session counts because one
 session can receive several renewed certificates. The count covers recorded
@@ -67,6 +86,15 @@ prompts or intent. Analytics failures are reported separately from directory,
 grant, session and certificate data.
 
 ## When to use this
+
+**Access control** separates grants from sessions. Search matches names,
+servers and subject identities within the selected namespace. Open a record's
+name to inspect it; use its **Actions** menu to disable a grant, change its mode,
+revoke linked sessions or revoke/restore an individual session. Changes require
+confirmation. Empty directories offer creation actions without empty table
+headers. Summary counts cover the namespace selection, while search filters
+the displayed records. Inactive grants include expired and disabled records;
+unavailable counts show a dash.
 
 To delegate through the dashboard, open **Access control**, select the resource
 namespace, create a grant, and choose **Delegate to another team**. Enter the

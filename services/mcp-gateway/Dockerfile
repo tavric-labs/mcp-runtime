@@ -19,7 +19,7 @@ ARG TARGETARCH
 RUN cd services/mcp-gateway && \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/mcp-gateway .
 
-FROM gcr.io/distroless/base-debian12
+FROM gcr.io/distroless/static-debian12
 WORKDIR /app
 COPY --from=build --chown=65532:65532 /out/mcp-gateway /app/mcp-gateway
 EXPOSE 8091

@@ -1,0 +1,93 @@
+/* Traffic first; advanced query controls and supporting evidence follow it. */
+.analytics-page { min-width: 0; }
+.analytics-page h2 { font-size: 19px; letter-spacing: -0.3px; text-wrap: balance; }
+.analytics-filter-panel { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.analytics-page .filter-bar { display: block; margin: 0; }
+.analytics-primary-filters, .analytics-advanced-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.analytics-page .filter-bar .field { min-width: 0; }
+.analytics-filter-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.analytics-refresh-note { display: inline-flex; gap: 8px; align-items: center; margin-left: auto; color: var(--text-secondary); font-size: 12px; }
+.analytics-refresh-note > span { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+.analytics-advanced-filters, .analytics-team-filters { padding-top: 24px; margin-top: 24px; border-top: 1px solid var(--border); }
+.analytics-team-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 680px; gap: 24px; }
+.analytics-context { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; margin: 28px 0 16px; font-size: 12px; color: var(--text-secondary); }
+.analytics-context > span:first-child { color: var(--text); font-weight: 500; }
+.analytics-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.analytics-kpi { min-width: 0; padding: 24px; border-right: 1px solid var(--border); }
+.analytics-kpi:last-child { border-right: 0; }
+.analytics-kpi dt { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.analytics-kpi dd { display: grid; gap: 8px; margin: 14px 0 0; }
+.analytics-kpi strong { font-size: clamp(28px, 2.8vw, 38px); font-weight: 600; line-height: 1.2; letter-spacing: -1px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.analytics-kpi dd > span { color: var(--text-tertiary); font-size: 12px; line-height: 1.6; }
+.analytics-kpi-success strong { color: var(--success); }
+.analytics-kpi-danger strong { color: var(--danger); }
+.analytics-insights { display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(260px, 1fr); gap: 24px; margin-top: 24px; }
+.analytics-chart-panel, .analytics-policy-panel { min-width: 0; padding: 24px; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; }
+.analytics-chart-panel .usage-series { border: 0; padding: 0; }
+.analytics-chart-panel .section-head { gap: 16px; margin-bottom: 24px; }
+.analytics-page .section-title::before { display: none; }
+.analytics-chart-panel .section-note { margin-top: 8px; line-height: 1.7; max-width: 62ch; }
+.analytics-chart-panel .usage-series-scroll { background: transparent; border: 0; border-radius: 0; }
+.analytics-chart-panel .usage-series-chart { height: 260px; }
+.analytics-chart-panel .series-line { stroke-width: 3; }
+.analytics-chart-panel .series-area { fill: var(--accent-soft); }
+.analytics-chart-panel .state { margin-top: 20px; background: var(--surface-sunken); border-style: dashed; box-shadow: none; }
+.analytics-policy-panel > p { margin-top: 8px; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+.analytics-deny-rate { display: flex; align-items: baseline; gap: 12px; margin: 24px 0 20px; }
+.analytics-deny-rate strong { font-size: 36px; line-height: 1; font-weight: 600; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.analytics-deny-rate > span { color: var(--text-secondary); font-size: 13px; }
+.analytics-decision-track { height: 10px; display: flex; overflow: hidden; border-radius: 5px; background: var(--neutral-soft); }
+.analytics-decision-track > span { height: 100%; }
+.decision-segment-success, .decision-dot-success { background: var(--success); }
+.decision-segment-danger, .decision-dot-danger { background: var(--danger); }
+.decision-segment-neutral, .decision-dot-neutral { background: var(--text-tertiary); }
+.analytics-decision-list { display: grid; gap: 14px; margin-top: 20px; }
+.analytics-decision-list > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 13px; }
+.analytics-decision-list dt { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+.analytics-decision-list dt > span { height: 7px; width: 7px; border-radius: 50%; }
+.analytics-decision-list dd { font-weight: 600; font-variant-numeric: tabular-nums; }
+.analytics-policy-panel .analytics-policy-note { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; }
+.analytics-reliability { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; padding: 24px; margin: 24px 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.analytics-reliability dt { color: var(--text-tertiary); font-size: 12px; }
+.analytics-reliability dd { font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.analytics-requests-panel { padding: 24px; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; }
+.analytics-section-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.analytics-section-head p { color: var(--text-secondary); margin-top: 8px; font-size: 13px; line-height: 1.7; max-width: 65ch; }
+.analytics-section-head > .field { width: 140px; }
+.analytics-trace-link { display: inline-flex; align-items: center; gap: 6px; color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
+.analytics-requests-panel time { display: block; }
+.analytics-callers-panel { padding: 20px 24px; margin-top: 24px; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; }
+.analytics-callers-panel summary { cursor: pointer; font-weight: 600; }
+.analytics-callers-panel summary > span { color: var(--text-secondary); font-size: 12px; font-weight: 400; margin-left: 12px; }
+.analytics-callers-panel .table-region { margin-top: 24px; }
+.analytics-data-note { margin-top: 20px; font-size: 12px; color: var(--text-secondary); line-height: 1.7; }
+.analytics-data-note summary { padding-block: 8px; cursor: pointer; }
+.analytics-data-note p { max-width: 85ch; margin-top: 8px; }
+.analytics-audit { margin-top: 32px; padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.analytics-audit .section { margin: 0; }
+.analytics-audit .section-note { margin-top: 8px; }
+@media (max-width: 1100px) {
+  .analytics-insights { grid-template-columns: minmax(0, 1fr); }
+  .analytics-policy-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; }
+  .analytics-policy-panel > p { grid-column: 1; }
+  .analytics-policy-panel .analytics-deny-rate { grid-column: 1; }
+  .analytics-policy-panel .analytics-decision-track { grid-column: 2; grid-row: 1; align-self: center; }
+  .analytics-policy-panel .analytics-decision-list { grid-column: 2; grid-row: 2 / 4; }
+  .analytics-policy-panel .analytics-policy-note { grid-column: 1 / -1; }
+}
+@media (max-width: 680px) {
+  .analytics-filter-panel, .analytics-chart-panel, .analytics-policy-panel, .analytics-requests-panel, .analytics-audit { padding: 20px; }
+  .analytics-primary-filters, .analytics-advanced-filters, .analytics-team-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; }
+  .analytics-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analytics-kpi { padding: 20px; }
+  .analytics-kpi:nth-child(2) { border-right: 0; }
+  .analytics-kpi:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+  .analytics-kpi dt { font-size: 12px; gap: 6px; }
+  .analytics-kpi strong { font-size: 28px; }
+  .analytics-reliability { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 20px; gap: 24px 16px; }
+  .analytics-policy-panel { display: block; }
+  .analytics-chart-panel .usage-series-chart { height: 230px; }
+  .analytics-refresh-note { margin: 4px 0 0; width: 100%; }
+  .analytics-context > span:last-child { display: none; }
+  .analytics-callers-panel summary > span { display: block; margin: 8px 0 0 16px; }
+}

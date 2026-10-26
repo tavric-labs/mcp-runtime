@@ -387,7 +387,7 @@ back/forward work. Drive coverage from these URLs rather than clicking through:
 | `#/servers?tool=<ns>/<server>/<tool>` | Tool inspector open |
 | `#/activity` | Tenant activity |
 | `#/keys` | Personal API keys |
-| `#/access` `#/admin/teams` `#/admin/operations` `#/admin/platform` `#/admin/analytics` | Administration sections |
+| `#/access` `#/admin/teams` `#/admin/operations` `#/admin/overview` `#/admin/analytics` | Administration sections |
 | `#/signin` | Sign-in |
 
 Things that changed and will break an older script:
@@ -406,9 +406,14 @@ Things that changed and will break an older script:
   after selecting a section. Check active state, filtering, and role visibility.
 - Operations is tabbed: `operations-tab-users|audit|images`. Only the active
   tab's table is in the DOM.
-- Platform health is a card grid (`platform-components`, `platform-component`),
-  not `platform-table`. `restart-all` sits in a separated disruptive-actions
-  area.
+- Platform overview combines totals, deployment issues, recent audit activity, and
+  component health. There is one sidebar entry (`admin-section-overview`);
+  `#/admin/platform` resolves to the overview through the unknown-section fallback.
+- In Agents, **Create agent identity** opens a form with its own owning-team
+  selector, including when the directory filter is **All teams**. Check admin,
+  owner, member, empty-team, validation, error/retry, cancel and success cases.
+- Platform health within the overview is a card grid (`platform-components`, `platform-component`),
+  not `platform-table`. `restart-all` sits in the expandable **Platform maintenance** area.
 - The tool catalog paginates at 25 rows: `tool-table-next-page`,
   `tool-table-prev-page`, `tool-table-pagination-status`.
 - Server and tool search are separate and scoped: `server-search` matches server
@@ -431,3 +436,26 @@ locally and point the Vite dev server at it — the full recipe is in
 Repeated scripted sign-ins trip the UI login rate limiter (429). Raise
 `UI_LOGIN_RATE_CAPACITY` on the local candidate process, or sign in once per
 browser context and reuse it.
+
+### Workspace, agent detail, analytics, and access design regressions
+
+- `#/workspace`: one team roster per actual membership, with scoped agents in
+  the same card; summary counts distinguish catalog visibility and management.
+  Access links are namespace-qualified and past sessions read Expired.
+- Agent details use `agent-tab-access|connect|activity|certificates` and
+  `view=connect|activity|certificates` URLs. Keyboard arrows select and focus
+  tabs. Activity is fetched only when opened. Check full stable ID wrapping,
+  copyable commands, empty grants/sessions, and unavailable certificate history.
+  Expand **Agent lifecycle** before the deactivation/reactivation action.
+- Analytics keeps time/scope/server/decision visible; `analytics-more` reveals
+  method/tool/policy/HTTP outcome. Check retained hidden filter values, dependent
+  resets, team query scope, seven-column requests, trace links, zero-request
+  states and independent gateway audit after usage failure.
+- Access uses `grants-panel`/`sessions-panel` and guided `grants-empty`/
+  `sessions-empty` states. Expand **Actions for grant <name>** or **Actions for
+  session <name>** before row management controls. Verify confirmation cancel
+  makes no write, permission changes expose the correct actions, subject parts
+  are labeled, expired grants count as inactive, and failed totals stay unknown.
+- `workspace-design.pw.ts`, `analytics-design.pw.ts` and `access-design.pw.ts` cover both themes at
+  1440px and 390px. Analytics also applies user text-spacing overrides. Shared
+  control/field/table spacing requires the existing teams/access/install suites.

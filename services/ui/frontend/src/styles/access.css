@@ -1,0 +1,51 @@
+/* Permissions and issued sessions remain separate, with actions out of the reading path. */
+.access-page { min-width: 0; }
+.access-introduction { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 24px; color: var(--text-secondary); font-size: 13px; line-height: 1.7; max-width: 80ch; }
+.access-introduction .icon { margin-top: 3px; color: var(--accent); flex-shrink: 0; }
+.access-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid var(--border); padding: 24px 0; margin-bottom: 28px; }
+.access-summary > div { padding: 0 24px; border-left: 1px solid var(--border); min-width: 0; }
+.access-summary > div:first-child { border-left: 0; padding-left: 0; }
+.access-summary dt { font-size: 12px; color: var(--text-secondary); }
+.access-summary dd { font-size: 28px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; margin-top: 8px; }
+.access-filter-panel { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 28px; }
+.access-filter-panel .filter-bar { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(200px, 1fr); align-items: start; gap: 24px; margin-bottom: 16px; }
+.access-filter-panel .filter-bar .field, .access-filter-panel .field.grow { min-width: 0; max-width: none; }
+.access-filter-panel .filter-summary { margin: 0; gap: 12px; }
+.access-readonly { display: flex; gap: 10px; align-items: flex-start; color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; max-width: 80ch; }
+.access-readonly .icon { flex-shrink: 0; margin-top: 3px; }
+.access-directory { padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-bottom: 24px; min-width: 0; }
+.access-directory-head { display: grid; gap: 8px; margin-bottom: 24px; }
+.access-directory-head h2 { font-size: 20px; letter-spacing: -0.3px; }
+.access-directory-head .section-note { margin: 0; line-height: 1.7; }
+.access-directory > .state:not(.state-error) { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px 16px; padding: 24px; background: var(--surface-sunken); border: 0; box-shadow: none; }
+.access-directory > .state:not(.state-error) .state-icon { grid-row: 1 / 4; margin: 0; }
+.access-directory > .state:not(.state-error) .state-title, .access-directory > .state:not(.state-error) .state-detail, .access-directory > .state:not(.state-error) .state-actions { grid-column: 2; }
+.access-directory .state-detail { max-width: 70ch; font-size: 13px; line-height: 1.75; }
+.access-subject { display: grid; gap: 8px; min-width: 130px; }
+.access-subject > div { display: grid; gap: 2px; }
+.access-subject dt { font-size: 11px; font-weight: 400; color: var(--text-tertiary); }
+.access-subject dd { margin: 0; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.access-row-actions { min-width: 120px; }
+.access-row-actions summary { display: inline-flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--text-secondary); padding: 6px 10px; min-height: 36px; border: 1px solid var(--border-strong); border-radius: 6px; }
+.access-row-actions summary::-webkit-details-marker { display: none; }
+.access-row-actions summary:hover { background: var(--surface-hover); color: var(--text); }
+.access-row-actions[open] summary { color: var(--accent); border-color: var(--accent-line); }
+.access-row-actions > div { display: grid; gap: 8px; margin-top: 10px; }
+.access-row-actions .btn { justify-content: flex-start; white-space: normal; min-width: 0; }
+.access-page > .form-panel { padding: 28px; border-radius: 12px; margin-bottom: 28px; }
+.access-page .form-panel-title { font-size: 20px; margin-bottom: 28px; }
+.access-page .form-fieldset { margin-bottom: 28px; }
+.access-page .form-fieldset > legend { font-size: 13px; letter-spacing: normal; text-transform: none; margin-bottom: 16px; }
+.access-explanation { font-size: 12px; color: var(--text-secondary); line-height: 1.75; margin-top: 20px; }
+.access-explanation summary { padding-block: 8px; cursor: pointer; }
+.access-explanation p { max-width: 85ch; margin-top: 8px; }
+@media (max-width: 680px) {
+  .access-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 0; }
+  .access-summary > div { padding-inline: 16px; }
+  .access-summary > div:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .access-filter-panel, .access-directory, .access-page > .form-panel { padding: 20px; }
+  .access-filter-panel .filter-bar { grid-template-columns: minmax(0, 1fr); }
+  .access-directory > .state:not(.state-error) { padding: 20px; grid-template-columns: minmax(0, 1fr); }
+  .access-directory > .state:not(.state-error) .state-icon { grid-row: auto; }
+  .access-directory > .state:not(.state-error) .state-title, .access-directory > .state:not(.state-error) .state-detail, .access-directory > .state:not(.state-error) .state-actions { grid-column: 1; }
+}

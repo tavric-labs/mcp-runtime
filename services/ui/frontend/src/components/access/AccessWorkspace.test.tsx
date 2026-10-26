@@ -220,7 +220,8 @@ describe("AccessWorkspace reads", () => {
     renderAccess(ADMIN);
     const table = await screen.findByTestId("grants-table");
 
-    expect(within(table).getByText("alice@example.com / acme")).toBeInTheDocument();
+    expect(within(table).getByText("alice@example.com")).toBeInTheDocument();
+    expect(within(table).getByText("acme", { exact: true })).toBeInTheDocument();
     expect(within(table).getByText("Disabled")).toBeInTheDocument();
     expect(screen.getByTestId("access-stats")).toHaveTextContent("1");
     expect(
@@ -253,8 +254,8 @@ describe("AccessWorkspace reads", () => {
 
     renderAccess(ADMIN);
 
-    expect(await screen.findByTestId("grants-table-empty")).toHaveTextContent(
-      "No access grants found."
+    expect(await screen.findByTestId("grants-empty")).toHaveTextContent(
+      "No access grants yet"
     );
   });
 
@@ -285,6 +286,7 @@ describe("AccessWorkspace mutations", () => {
     const fetchMock = stubAccessApi();
     renderAccess(ADMIN);
     await screen.findByTestId("grants-table");
+    await user.click(screen.getByLabelText("Actions for grant acme-readonly"));
     await user.click(screen.getAllByTestId("grant-mode-toggle")[0]);
     expect(await screen.findByTestId("access-confirm")).toHaveTextContent('Set grant "acme-readonly" to monitor?');
     expect(fetchMock.mock.calls.filter((call) => (call[1] as RequestInit)?.method)).toHaveLength(0);
@@ -303,6 +305,7 @@ describe("AccessWorkspace mutations", () => {
     renderAccess(ADMIN);
     await screen.findByTestId("grants-table");
 
+    await user.click(screen.getByLabelText("Actions for grant acme-readonly"));
     await user.click(screen.getAllByTestId("grant-toggle")[0]);
     const dialog = await screen.findByTestId("access-confirm");
     expect(dialog).toHaveTextContent('Disable grant "acme-readonly"?');
@@ -323,6 +326,7 @@ describe("AccessWorkspace mutations", () => {
     renderAccess(ADMIN);
     await screen.findByTestId("grants-table");
 
+    await user.click(screen.getByLabelText("Actions for session sess-1"));
     await user.click(screen.getAllByTestId("session-toggle")[0]);
     await screen.findByTestId("access-confirm");
     await user.click(screen.getByTestId("access-confirm-cancel"));
@@ -333,6 +337,17 @@ describe("AccessWorkspace mutations", () => {
 });
 
 describe("AccessWorkspace drill-down", () => {
+  it("moves focus into each newly opened creation form", async () => {
+    const user = userEvent.setup();
+    stubAccessApi();
+    renderAccess(ADMIN);
+    await screen.findByTestId("grants-table");
+    await user.click(screen.getByTestId("grant-create-toggle"));
+    expect(screen.getByTestId("grant-name")).toHaveFocus();
+    await user.click(screen.getByTestId("session-create-toggle"));
+    expect(screen.getByTestId("session-name")).toHaveFocus();
+  });
+
   it("opens a grant detail and returns via the back path", async () => {
     const user = userEvent.setup();
     stubAccessApi();
@@ -414,4 +429,20 @@ describe("AccessWorkspace accessibility", () => {
 
     expect(await axe(container, AXE_OPTIONS)).toHaveNoViolations();
   });
+});
+
+it("keeps failed grant totals unavailable while session totals remain visible", async () => {
+  stubAccessApi({ "/runtime/grants": { status: 503, body: { error: "unavailable" } } });
+  renderAccess(ADMIN);
+  await screen.findByTestId("grants-error");
+  const summary = screen.getByTestId("access-stats");
+  expect(within(summary).getByText("Inactive grants").nextElementSibling).toHaveTextContent("—");
+  expect(within(summary).getByText("Active sessions").nextElementSibling).toHaveTextContent("1");
+});
+
+it("shows owner row actions after team permissions load", async () => {
+  stubAccessApi({ "/runtime/teams": { body: { teams: [{ id: "acme", slug: "acme", namespace: "mcp-team-acme", role: "owner" }] } } });
+  renderAccess(TENANT);
+  await screen.findByTestId("grants-table");
+  expect(await screen.findByLabelText("Actions for grant acme-readonly")).toBeInTheDocument();
 });
