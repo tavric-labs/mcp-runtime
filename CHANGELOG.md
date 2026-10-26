@@ -14,7 +14,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Fixed
 
-- Opening Grafana while signed out now guides browsers through platform administrator sign-in and returns them to the requested Grafana page, preserving trace links. The form explains the separate platform and Grafana credentials; denied API requests still return JSON 401 ([#862](https://github.com/tavric-labs/mcp-runtime/issues/862)).
+- Opening Grafana while signed out now guides browsers through platform administrator sign-in and returns them to the requested Grafana page, preserving trace links. The form explains the separate platform and Grafana credentials; denied API requests still return JSON 401. Existing installs must also set `preserveLocationHeader: true` on the active Traefik `platform-admin-auth` middleware before the UI rollout; image-only updates do not reconcile an external controller's ConfigMap ([#862](https://github.com/tavric-labs/mcp-runtime/issues/862)).
 
 - The console exposes **Create agent identity** from the all-team Agents directory, with an explicit owning-team selector for administrators and team owners. Platform overview now includes component health, Grafana and confirmed maintenance actions in one page, with clearer resource totals, deployment issues, audit activity and responsive status colors ([#859](https://github.com/tavric-labs/mcp-runtime/pull/859)).
 

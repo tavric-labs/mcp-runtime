@@ -992,6 +992,13 @@ JSON 401 response and needs an accepted platform admin `x-api-key` for the
 ingress gate as well as Grafana authentication. Keep credentials in memory;
 never print them or put them in command arguments, tickets, or Buddy notes.
 
+The active Traefik `platform-admin-auth` forward-auth middleware must set
+`preserveLocationHeader: true`. Setup installs this in the active controller's
+`traefik-dynamic` ConfigMap, including `kube-system` for k3s. Existing installs
+must carry that setting before rolling out this UI fix: an image-only update
+does not reconcile an external controller's ConfigMap. Otherwise Traefik
+rewrites the relative sign-in Location to the internal UI service hostname.
+
 - **Metrics:** verify target health and freshness, request/error rates,
   latency, restarts, resource pressure, and collector/exporter failures.
   Confirm that the affected service actually has a scrape target.

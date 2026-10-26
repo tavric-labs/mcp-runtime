@@ -144,8 +144,12 @@ team, runtime, deployment, and admin routes; `ui-auth` covers direct UI and
 gateway cookie auth/static routes, including the real Traefik Grafana gate:
 signed-out HTML page requests must redirect through platform sign-in with the
 original trace query, authenticated administrators must reach Grafana's login,
-and API requests must retain JSON 401 responses. Frontend Playwright regressions
-also verify administrator return and non-administrator rejection after sign-in;
+and API requests must retain JSON 401 responses. The cluster check inspects the
+redirect Location: Traefik's forward-auth middleware needs
+`preserveLocationHeader: true` to avoid an internal-service redirect. The setup
+unit tests cover both managed and external controller manifests.
+Frontend Playwright regressions also verify administrator return and
+non-administrator rejection after sign-in;
 these API fixtures complement the cluster path checks. `adapter-proxy` covers platform-issued
 adapter sessions plus the local adapter proxy MCP path; `cli-platform` covers
 the platform-backed CLI request flow.
