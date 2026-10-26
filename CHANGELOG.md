@@ -9,6 +9,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Security
 
+- Service images (analytics-api, doctor-smoke, ingest, mcp-gateway, platform-api, processor, runtime-api, ui) now run on `distroless/static-debian12` instead of `base-debian12`. The services are statically linked, so the image no longer carries `libssl3` (CVE-2026-84782).
 - The console's one-click client install links and prompts (Claude Code, Codex, Cursor, VS Code) are rebuilt from the published HTTP `url` and string `headers` only. A server-published entry can no longer carry a `command`, `args` or `env` into an install action.
 
 ### Fixed

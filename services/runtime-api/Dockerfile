@@ -15,7 +15,7 @@ ARG TARGETARCH
 RUN cd services/runtime-api && \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/runtime-api .
 
-FROM gcr.io/distroless/base-debian12
+FROM gcr.io/distroless/static-debian12
 WORKDIR /app
 COPY --from=build --chown=65532:65532 /out/runtime-api /app/runtime-api
 EXPOSE 8084 9094
