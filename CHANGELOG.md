@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- The MCP gateway now rejects an adapter-certificate session whose static policy binding carries a malformed `expires_at` with `401 session_expired`, as the policy evaluator already did. Previously the authentication stage treated it as non-expiring, so non-tool traffic was authenticated with such a session; tool calls were already denied. Well-formed, blank and absent expiries are unchanged ([#861](https://github.com/tavric-labs/mcp-runtime/issues/861)).
+
 ## [0.13.1] - 2026-10-26
 
 Console, Grafana sign-in, credential connector and service-image security fixes.
