@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Changed
+
+- QA E2E failures now upload redacted, size-capped logs from every pod in the platform namespaces (`pod-logs/<namespace>/<pod>.log`, plus `<pod>.previous.log` for restarted containers in the run artifact), so a 5xx such as `query_failed` or a crash loop carries its backend error. Collection is bounded to 30 pods per namespace and 150 seconds. No deployment or fresh-setup change is required.
+
 ### Fixed
 
 - The MCP gateway now rejects an adapter-certificate session whose static policy binding carries a malformed `expires_at` with `401 session_expired`, as the policy evaluator already did. Previously the authentication stage treated it as non-expiring, so non-tool traffic was authenticated with such a session; tool calls were already denied. Well-formed, blank and absent expiries are unchanged ([#861](https://github.com/tavric-labs/mcp-runtime/issues/861)).
