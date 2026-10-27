@@ -13,17 +13,17 @@ import (
 	"mcp-runtime-api/internal/k8sstore"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 )
 
 type overviewIdentityStub struct {
 	identityStore
-	counts internalapi.OverviewCounts
+	counts apiwire.OverviewCounts
 }
 
-func (s overviewIdentityStub) OverviewCounts(context.Context) (internalapi.OverviewCounts, error) {
+func (s overviewIdentityStub) OverviewCounts(context.Context) (apiwire.OverviewCounts, error) {
 	return s.counts, nil
 }
 
@@ -41,7 +41,7 @@ func TestWorkspaceMembershipDoesNotExpandAdminAuthority(t *testing.T) {
 }
 
 func TestOverviewEnforcesAdminForDirectRequestsAndUsesTotals(t *testing.T) {
-	s := &RuntimeServer{identity: overviewIdentityStub{counts: internalapi.OverviewCounts{Teams: 321, Users: 1234, Agents: 999, ActiveSessions: 543}}}
+	s := &RuntimeServer{identity: overviewIdentityStub{counts: apiwire.OverviewCounts{Teams: 321, Users: 1234, Agents: 999, ActiveSessions: 543}}}
 	for _, handle := range []http.HandlerFunc{s.HandleOverviewDirectory, s.HandleOverviewServers} {
 		for _, role := range []string{"", roleUser} {
 			r := httptest.NewRequest(http.MethodGet, "/admin/overview/directory", nil)
@@ -61,7 +61,7 @@ func TestOverviewEnforcesAdminForDirectRequestsAndUsesTotals(t *testing.T) {
 	r = r.WithContext(withPrincipal(r.Context(), principal{Role: roleAdmin}))
 	w := httptest.NewRecorder()
 	s.HandleOverviewDirectory(w, r)
-	var counts internalapi.OverviewCounts
+	var counts apiwire.OverviewCounts
 	if err := json.Unmarshal(w.Body.Bytes(), &counts); err != nil {
 		t.Fatal(err)
 	}

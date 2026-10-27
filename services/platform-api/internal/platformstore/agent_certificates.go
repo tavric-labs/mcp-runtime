@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 )
 
 // AgentCertificates reads recorded issuance independently of directory/session
 // data. humanID is an exact visibility constraint, not a search expression.
-func (s *Store) AgentCertificates(ctx context.Context, agentID, humanID string) (internalapi.CertificateActivity, error) {
+func (s *Store) AgentCertificates(ctx context.Context, agentID, humanID string) (apiwire.CertificateActivity, error) {
 	until := time.Now().UTC()
-	out := internalapi.CertificateActivity{Since: until.Add(-7 * 24 * time.Hour), Until: until, Recent: []internalapi.CertificateIssuance{}}
+	out := apiwire.CertificateActivity{Since: until.Add(-7 * 24 * time.Hour), Until: until, Recent: []apiwire.CertificateIssuance{}}
 	rows, err := s.db.QueryContext(ctx, agentCertificateQuery, agentID, out.Since, out.Until, humanID)
 	if err != nil {
 		return out, err
@@ -25,7 +25,7 @@ func (s *Store) AgentCertificates(ctx context.Context, agentID, humanID string) 
 		if err := rows.Scan(&raw, &issuedAt, &out.Recorded); err != nil {
 			return out, err
 		}
-		var item internalapi.CertificateIssuance
+		var item apiwire.CertificateIssuance
 		if err := json.Unmarshal([]byte(raw), &item); err != nil {
 			return out, fmt.Errorf("invalid recorded certificate metadata")
 		}

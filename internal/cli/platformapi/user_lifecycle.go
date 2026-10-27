@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"strings"
 
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 )
 
-func (c *PlatformClient) DeactivateUser(ctx context.Context, userID string) (internalapi.UserDeactivationResult, error) {
-	var out internalapi.UserDeactivationResult
+func (c *PlatformClient) DeactivateUser(ctx context.Context, userID string) (apiwire.UserDeactivationResult, error) {
+	var out apiwire.UserDeactivationResult
 	resp, err := c.do(ctx, http.MethodPost, "/users/"+url.PathEscape(strings.TrimSpace(userID))+"/deactivate", "", nil)
 	if err != nil {
 		return out, err

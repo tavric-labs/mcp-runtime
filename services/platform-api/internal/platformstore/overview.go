@@ -2,14 +2,14 @@ package platformstore
 
 import (
 	"context"
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 )
 
 // OverviewCounts reads all totals in one database snapshot. Deleted teams/users,
 // retired server sessions, expired sessions and sessions of inactive agents do
 // not count as active resources.
-func (s *Store) OverviewCounts(ctx context.Context) (internalapi.OverviewCounts, error) {
-	var out internalapi.OverviewCounts
+func (s *Store) OverviewCounts(ctx context.Context) (apiwire.OverviewCounts, error) {
+	var out apiwire.OverviewCounts
 	err := s.db.QueryRowContext(ctx, `SELECT
  (SELECT COUNT(*) FROM teams WHERE deleted_at IS NULL),
  (SELECT COUNT(*) FROM users WHERE deleted_at IS NULL),

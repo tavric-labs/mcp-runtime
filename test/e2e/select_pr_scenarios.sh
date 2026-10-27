@@ -264,7 +264,7 @@ classify_path() {
       add_scenario "ui-auth"
       return
       ;;
-    pkg/apikit/*|pkg/internalapi/*|pkg/topology/scope.go|pkg/registrypush/*)
+    pkg/apikit/*|pkg/apiwire/*|pkg/topology/scope.go|pkg/registrypush/*)
       # Shared HTTP, DTO, publish-scope and registry-push code under the APIs.
       add_scenario "api-platform"
       return

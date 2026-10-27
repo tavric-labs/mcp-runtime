@@ -1,9 +1,9 @@
-// Package internalapi holds shared request/response DTOs for platform-api
+// Package apiwire holds shared request/response DTOs for platform-api
 // endpoints, including the /internal/* endpoints and the team-membership and
 // user-deactivation records the CLI and runtime-api also consume. Provider and
 // consumer services import these structs so field renames become compile
 // errors across the split.
-package internalapi
+package apiwire
 
 import (
 	"time"

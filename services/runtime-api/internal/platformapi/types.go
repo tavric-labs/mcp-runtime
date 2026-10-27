@@ -3,20 +3,20 @@ package platformapi
 import (
 	"time"
 
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 )
 
 // Team is a managed platform team and its Kubernetes namespace.
-type Team = internalapi.Team
+type Team = apiwire.Team
 
-type Agent = internalapi.Agent
-type AgentPage = internalapi.AgentPage
+type Agent = apiwire.Agent
+type AgentPage = apiwire.AgentPage
 
 // TeamMembership is the platform team membership API contract.
-type TeamMembership = internalapi.TeamMembership
+type TeamMembership = apiwire.TeamMembership
 
 // User is a platform user record returned by identity APIs.
-type User = internalapi.User
+type User = apiwire.User
 
 // APIKeySummary is the non-secret metadata for a user API key.
 type APIKeySummary struct {
@@ -29,7 +29,7 @@ type APIKeySummary struct {
 }
 
 // AuditEvent is the write-side platform audit envelope.
-type AuditEvent = internalapi.AuditEvent
+type AuditEvent = apiwire.AuditEvent
 
 // OperationsFilter constrains platform operations and activity queries.
 type OperationsFilter struct {

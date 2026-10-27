@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 )
 
 type Team struct {
@@ -29,7 +29,7 @@ type PlatformUser struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-type TeamMembership = internalapi.TeamMembership
+type TeamMembership = apiwire.TeamMembership
 
 type teamsResponse struct {
 	Teams []Team `json:"teams"`

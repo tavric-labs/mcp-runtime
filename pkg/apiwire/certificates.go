@@ -1,4 +1,4 @@
-package internalapi
+package apiwire
 
 import "time"
 

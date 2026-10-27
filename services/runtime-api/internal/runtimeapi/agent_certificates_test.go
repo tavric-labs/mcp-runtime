@@ -17,7 +17,7 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"mcp-runtime-api/internal/k8sstore"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 )
 
 type certificateIdentity struct {
@@ -27,9 +27,9 @@ type certificateIdentity struct {
 	err    error
 }
 
-func (s *certificateIdentity) AgentCertificates(_ context.Context, _ string, human string) (internalapi.CertificateActivity, error) {
+func (s *certificateIdentity) AgentCertificates(_ context.Context, _ string, human string) (apiwire.CertificateActivity, error) {
 	s.called, s.human = true, human
-	return internalapi.CertificateActivity{Recorded: 3, Recent: []internalapi.CertificateIssuance{}}, s.err
+	return apiwire.CertificateActivity{Recorded: 3, Recent: []apiwire.CertificateIssuance{}}, s.err
 }
 
 func TestAgentCertificateHistoryVisibilityAndIndependentFailure(t *testing.T) {

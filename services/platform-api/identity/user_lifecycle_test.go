@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"mcp-platform-api/internal/platformstore"
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 	"mcp-runtime/pkg/platformauth"
 )
 
@@ -19,10 +19,10 @@ type lifecycleStoreStub struct {
 	event platformstore.AuditEvent
 }
 
-func (s *lifecycleStoreStub) DeactivateUser(_ context.Context, id, actor string, event platformstore.AuditEvent) (internalapi.UserDeactivationResult, error) {
+func (s *lifecycleStoreStub) DeactivateUser(_ context.Context, id, actor string, event platformstore.AuditEvent) (apiwire.UserDeactivationResult, error) {
 	s.calls++
 	s.event = event
-	return internalapi.UserDeactivationResult{UserID: id, Status: "deactivated", RevokedSessions: 2}, s.err
+	return apiwire.UserDeactivationResult{UserID: id, Status: "deactivated", RevokedSessions: 2}, s.err
 }
 func (s *lifecycleStoreStub) WriteAudit(_ context.Context, event platformstore.AuditEvent) {
 	s.event = event

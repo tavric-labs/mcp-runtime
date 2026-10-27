@@ -19,8 +19,8 @@ import (
 
 	"mcp-runtime-api/internal/k8sstore"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/apiwire"
 	"mcp-runtime/pkg/identity"
-	"mcp-runtime/pkg/internalapi"
 )
 
 const adapterCertificateRequestMaxBytes = 64 << 10
@@ -201,14 +201,14 @@ func (s *AccessService) recordCertificateIssuance(r *http.Request, p principal, 
 	})
 }
 
-func certificateIssuanceMetadata(certificate, namespace, session, server, human string) (internalapi.CertificateIssuance, error) {
+func certificateIssuanceMetadata(certificate, namespace, session, server, human string) (apiwire.CertificateIssuance, error) {
 	block, _ := pem.Decode([]byte(certificate))
 	if block == nil {
-		return internalapi.CertificateIssuance{}, fmt.Errorf("certificate metadata unavailable")
+		return apiwire.CertificateIssuance{}, fmt.Errorf("certificate metadata unavailable")
 	}
 	leaf, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return internalapi.CertificateIssuance{}, fmt.Errorf("certificate metadata unavailable")
+		return apiwire.CertificateIssuance{}, fmt.Errorf("certificate metadata unavailable")
 	}
 	spiffe := ""
 	for _, uri := range leaf.URIs {
@@ -217,7 +217,7 @@ func certificateIssuanceMetadata(certificate, namespace, session, server, human 
 			break
 		}
 	}
-	return internalapi.CertificateIssuance{Namespace: namespace, Session: session, Server: server, HumanID: human,
+	return apiwire.CertificateIssuance{Namespace: namespace, Session: session, Server: server, HumanID: human,
 		Serial: leaf.SerialNumber.Text(16), Fingerprint: fmt.Sprintf("%x", sha256.Sum256(leaf.Raw)),
 		SPIFFEID: spiffe, NotBefore: leaf.NotBefore.UTC(), NotAfter: leaf.NotAfter.UTC()}, nil
 }

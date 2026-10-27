@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apiwire"
 	"mcp-runtime/pkg/platformauth"
 	"mcp-runtime/pkg/topology"
 )
@@ -104,7 +104,7 @@ type AgentPage struct {
 }
 
 // TeamMembership is the platform team membership API contract.
-type TeamMembership = internalapi.TeamMembership
+type TeamMembership = apiwire.TeamMembership
 
 // APIKeySummary is the non-secret metadata for a user API key or registry credential.
 type APIKeySummary struct {
