@@ -11,19 +11,9 @@ import (
 )
 
 // undocumentedRoutes is the backlog of public routes that openapi.yaml does not
-// describe yet. A new route must be documented when it is added; an entry here
-// that gets documented must be removed, so the list only shrinks.
-var undocumentedRoutes = []string{
-	"/api/v1/admin/audit",
-	"/api/v1/admin/namespaces",
-	"/api/v1/auth/oidc",
-	"/api/v1/auth/signup",
-	"/api/v1/registry/authz",
-	"/api/v1/user/activity/image-publish",
-	"/api/v1/user/registry-credentials",
-	"/api/v1/user/registry-credentials/",
-	"/api/v1/users",
-}
+// describe. It is empty: a new route must be documented when it is added. An
+// entry that gets documented must be removed, so the list only shrinks.
+var undocumentedRoutes = []string{}
 
 func routeDocumented(specPaths []string, pattern string) bool {
 	if !strings.HasSuffix(pattern, "/") {

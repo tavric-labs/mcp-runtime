@@ -42,8 +42,8 @@ func TestUserAPIKeysAreServedByPlatformAPI(t *testing.T) {
 	}
 
 	rec = serveUserKeyRequest(srv, http.MethodPost, "/api/v1/user/api-keys", `{"name":"ci"}`)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("create status = %d body = %s, want 200", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create status = %d body = %s, want 201", rec.Code, rec.Body.String())
 	}
 	for _, field := range []string{`"key"`, `"api_key"`, `"one_time_key"`} {
 		if !strings.Contains(rec.Body.String(), field) {
@@ -55,9 +55,10 @@ func TestUserAPIKeysAreServedByPlatformAPI(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("revoke status = %d body = %s, want 200", rec.Code, rec.Body.String())
 	}
+	// DELETE is the only revoke form; there is no POST action alias.
 	rec = serveUserKeyRequest(srv, http.MethodPost, "/api/v1/user/api-keys/uk_1/revoke", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("POST revoke status = %d body = %s, want 200", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST revoke status = %d body = %s, want 405", rec.Code, rec.Body.String())
 	}
 	rec = serveUserKeyRequest(srv, http.MethodGet, "/api/v1/user/api-keys/uk_1", "")
 	if rec.Code != http.StatusMethodNotAllowed {

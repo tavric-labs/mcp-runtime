@@ -194,6 +194,7 @@ check(
 expect_json(f"{api_base}/user/api-keys", headers=user_headers)
 created_user_key = expect_json(
     f"{api_base}/user/api-keys",
+    status=201,
     method="POST",
     headers=user_headers,
     body={"name": f"e2e-key-{suffix}"},
