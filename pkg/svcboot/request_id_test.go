@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"mcp-runtime/pkg/httpx"
 )
 
 var generatedRequestID = regexp.MustCompile(`^[0-9a-f]{32}$`)
@@ -25,9 +27,10 @@ func TestWithRequestID(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var seen string
+			var seen, seenContext string
 			handler := WithRequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				seen = r.Header.Get("X-Request-Id")
+				seen = r.Header.Get(httpx.RequestIDHeader)
+				seenContext = httpx.RequestID(r.Context())
 				w.WriteHeader(http.StatusNoContent)
 			}))
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -37,9 +40,9 @@ func TestWithRequestID(t *testing.T) {
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
 
-			got := rec.Header().Get("X-Request-Id")
-			if got == "" || got != seen {
-				t.Fatalf("response id %q, handler saw %q; want one shared id", got, seen)
+			got := rec.Header().Get(httpx.RequestIDHeader)
+			if got == "" || got != seen || got != seenContext {
+				t.Fatalf("response id %q, header %q, context %q; want one shared id", got, seen, seenContext)
 			}
 			if tc.keep && got != tc.incoming {
 				t.Fatalf("id = %q, want the client's %q", got, tc.incoming)

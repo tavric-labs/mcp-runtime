@@ -193,10 +193,13 @@ paths:
               properties:
                 email: {type: string}
                 password: {type: string}
-                role: {type: string}
+                role:
+                  type: string
+                  description: Optional. Omitted or user creates a regular account. admin is accepted only when the caller is already an administrator.
       responses:
         "201": {description: "Account created; response carries access_token, token_type and expires_in", content: {application/json: {schema: {type: object}}}}
         "400": {description: "invalid request body", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "403": {description: "role admin requires an administrator", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
         "409": {description: "email already registered", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
   /api/v1/auth/oidc:
     x-audience: platform

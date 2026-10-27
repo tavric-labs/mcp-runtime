@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"mcp-runtime/pkg/httpx"
 )
 
 func TestSetAgentStatusUsesIdentityActionRoute(t *testing.T) {
@@ -70,5 +72,30 @@ func TestSetAgentStatusRejectsUnknownStatus(t *testing.T) {
 	}
 	if called {
 		t.Fatal("SetAgentStatus() made an HTTP request for an unsupported status")
+	}
+}
+
+func TestWriteAuditSendsRequestIDFromContext(t *testing.T) {
+	var got string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var event AuditEvent
+		if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+			t.Errorf("decode audit body: %v", err)
+		}
+		got = event.RequestID
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	client := &Client{BaseURL: server.URL, Token: "internal-token"}
+	ctx := httpx.ContextWithRequestID(context.Background(), "req-from-runtime")
+	client.WriteAudit(ctx, AuditEvent{Action: "grant.create", Resource: "grant-1", Status: "success"})
+	if got != "req-from-runtime" {
+		t.Fatalf("request_id = %q, want req-from-runtime", got)
+	}
+
+	client.WriteAudit(ctx, AuditEvent{Action: "grant.create", Resource: "grant-1", Status: "success", RequestID: "already-set"})
+	if got != "already-set" {
+		t.Fatalf("request_id = %q, want the id the caller already set", got)
 	}
 }

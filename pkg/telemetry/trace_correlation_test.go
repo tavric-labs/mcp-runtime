@@ -158,6 +158,31 @@ func TestLogRequestsUsesRouteTemplateAndOmitsPrivateRequest(t *testing.T) {
 			t.Errorf("log leaked %q", secret)
 		}
 	}
+	if !strings.Contains(line, `request_id=""`) {
+		t.Errorf("log %q missing an empty request_id", line)
+	}
+}
+
+func TestLogRequestsRecordsAWellFormedRequestID(t *testing.T) {
+	buf := captureLog(t)
+	handler := LogRequests(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/user/api-keys", nil)
+	req.Header.Set("X-Request-Id", "client-req_42.a")
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if !strings.Contains(buf.String(), `request_id="client-req_42.a"`) {
+		t.Fatalf("log %q missing the request id", buf.String())
+	}
+
+	buf.Reset()
+	bad := httptest.NewRequest(http.MethodPost, "/api/v1/user/api-keys", nil)
+	bad.Header["X-Request-Id"] = []string{"bad id\r\nX-Injected: 1"}
+	handler.ServeHTTP(httptest.NewRecorder(), bad)
+	line := buf.String()
+	if strings.Contains(line, "X-Injected") || !strings.Contains(line, `request_id=""`) {
+		t.Fatalf("log %q kept an unsafe request id", line)
+	}
 }
 
 func TestLogRequestsQuietHealthyProbesAndVisibleFailures(t *testing.T) {

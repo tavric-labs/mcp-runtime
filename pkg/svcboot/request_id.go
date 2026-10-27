@@ -4,27 +4,24 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
-	"regexp"
+
+	"mcp-runtime/pkg/httpx"
 )
-
-const requestIDHeader = "X-Request-Id"
-
-var wellFormedRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
 
 // WithRequestID gives every request an identifier and returns it in the
 // X-Request-Id response header. A well-formed identifier from the caller is kept
 // so a trace can span services; anything else is replaced, never echoed, so the
-// header cannot carry injected data. The identifier is also set on the request,
-// which is where handlers and audit events read it.
+// header cannot carry injected data. The same identifier is stored on the
+// request context, which is where audit writes and access logs read it.
 func WithRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := r.Header.Get(requestIDHeader)
-		if !wellFormedRequestID.MatchString(id) {
+		id := r.Header.Get(httpx.RequestIDHeader)
+		if !httpx.ValidRequestID(id) {
 			id = newRequestID()
 		}
-		r.Header.Set(requestIDHeader, id)
-		w.Header().Set(requestIDHeader, id)
-		next.ServeHTTP(w, r)
+		r.Header.Set(httpx.RequestIDHeader, id)
+		w.Header().Set(httpx.RequestIDHeader, id)
+		next.ServeHTTP(w, r.WithContext(httpx.ContextWithRequestID(r.Context(), id)))
 	})
 }
 
