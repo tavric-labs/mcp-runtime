@@ -1,4 +1,4 @@
-package certauth
+package identity
 
 import (
 	"crypto/ecdsa"

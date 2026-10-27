@@ -1,4 +1,4 @@
-package certauth
+package identity
 
 import (
 	"context"
@@ -17,8 +17,6 @@ import (
 	"net/url"
 	"testing"
 	"time"
-
-	"mcp-runtime/pkg/identity"
 )
 
 const benchmarkSessionURI = "spiffe://benchmark.test/ns/team/session/benchmark-session"
@@ -80,7 +78,7 @@ func BenchmarkSessionCertificateChain(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if _, err := leaf.Verify(opts); err != nil || !identity.CertificateHasURI(leaf, benchmarkSessionURI) {
+		if _, err := leaf.Verify(opts); err != nil || !CertificateHasURI(leaf, benchmarkSessionURI) {
 			b.Fatalf("session certificate verification: %v", err)
 		}
 	}
@@ -95,7 +93,7 @@ func BenchmarkSessionMTLSTransport(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			serverCert, clientCert, roots, _ := benchmarkCertificates(b)
 			server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 || !identity.CertificateHasURI(r.TLS.PeerCertificates[0], benchmarkSessionURI) {
+				if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 || !CertificateHasURI(r.TLS.PeerCertificates[0], benchmarkSessionURI) {
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}

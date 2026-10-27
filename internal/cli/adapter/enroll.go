@@ -14,7 +14,7 @@ import (
 	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/identity"
 )
 
 func newEnrollCmd(_ *core.Runtime) *cobra.Command {
@@ -72,7 +72,7 @@ func enrollAdapterCertificate(ctx context.Context, client *platformapi.PlatformC
 		{"ca.crt", cred.CABundle, 0o644},
 	}
 	for _, file := range files {
-		if err := certauth.WritePrivateFile(dir, file.name, file.data, file.mode); err != nil {
+		if err := identity.WritePrivateFile(dir, file.name, file.data, file.mode); err != nil {
 			return fmt.Errorf("write %s: %w", file.name, err)
 		}
 	}

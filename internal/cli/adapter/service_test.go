@@ -17,7 +17,7 @@ import (
 
 	"mcp-runtime/internal/adapterd"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/identity"
 )
 
 type serverMetadataStub struct {
@@ -117,7 +117,7 @@ func TestServiceRenewalCertificateLifetime(t *testing.T) {
 				}
 				certificate := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 				if !tc.wantError {
-					if err := certauth.ValidateIssuedCertificatePEM(certificate, block.Bytes, expected, time.Until(expiry), time.Now()); err != nil {
+					if err := identity.ValidateIssuedCertificatePEM(certificate, block.Bytes, expected, time.Until(expiry), time.Now()); err != nil {
 						t.Errorf("backend rejects valid fixture: %v", err)
 					}
 				}

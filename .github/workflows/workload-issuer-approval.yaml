@@ -6,7 +6,7 @@ on:
       - config/cert-manager/approval-policies.yaml
       - hack/qa/approval-policy-rehearsal.sh
       - hack/qa/approvalpolicy/**
-      - pkg/certauth/**
+      - pkg/identity/**
       - .github/workflows/workload-issuer-approval.yaml
   workflow_dispatch:
 

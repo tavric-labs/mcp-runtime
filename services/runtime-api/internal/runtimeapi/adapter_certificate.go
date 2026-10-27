@@ -19,7 +19,6 @@ import (
 
 	"mcp-runtime-api/internal/k8sstore"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/certauth"
 	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/internalapi"
 )
@@ -140,7 +139,7 @@ func (s *AccessService) HandleAdapterCertificate(w http.ResponseWriter, r *http.
 	}
 
 	expectedSPIFFEID := identity.SessionSPIFFEID(trustDomain, req.Namespace, req.Session)
-	csrDER, err := certauth.ValidateCSRPEM(req.CSR, expectedSPIFFEID)
+	csrDER, err := identity.ValidateCSRPEM(req.CSR, expectedSPIFFEID)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return
@@ -278,7 +277,7 @@ func (s *AccessService) issueSessionCertificateDER(
 	// Defense in depth: never hand back a certificate the workload issuer
 	// signed with a different identity, key, usage, or lifetime than the
 	// session-bound CSR we submitted, whatever the issuer's approval policy.
-	if err := certauth.ValidateIssuedCertificatePEM(certificate, csrDER, expectedSPIFFEID, duration, time.Now()); err != nil {
+	if err := identity.ValidateIssuedCertificatePEM(certificate, csrDER, expectedSPIFFEID, duration, time.Now()); err != nil {
 		return "", "", fmt.Errorf("reject issued certificate: %w", err)
 	}
 	return certificate, caBundle, nil

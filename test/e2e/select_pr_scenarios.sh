@@ -153,7 +153,7 @@ classify_path() {
       add_scenario "cli-platform"
       return
       ;;
-    internal/operator/mtls*|internal/cli/certmanager/*|traefik-plugins/spiffe-identity/*|config/cert-manager/*|pkg/identity/*|pkg/certauth/*)
+    internal/operator/mtls*|internal/cli/certmanager/*|traefik-plugins/spiffe-identity/*|config/cert-manager/*|pkg/identity/*)
       # Certificate enrollment. The runner adds the oauth scenario because
       # those assertions live in that block.
       add_scenario "adapter-certificates"

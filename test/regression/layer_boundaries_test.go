@@ -59,7 +59,7 @@ var pkgLayers = map[string]layer{
 
 	// Support: HTTP, telemetry and bootstrap shared by services.
 	"apikit": support, "authgateway": support,
-	"certauth": support, "clickhouse": support, "internalapi": support,
+	"clickhouse": support, "internalapi": support,
 	"platformauth": support, "svcboot": support, "telemetry": support,
 	"telemetry/kafkatrace": support,
 

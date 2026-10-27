@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/identity"
 )
 
 func TestAdapterCommandRegistersSupportedCommands(t *testing.T) {
@@ -98,7 +98,7 @@ func TestEnsureScopedCertDirStaysUnderConfig(t *testing.T) {
 func TestWriteCredentialFileUsesOutputRoot(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := certauth.WritePrivateFile(dir, "client.key", []byte("secret"), 0o600); err != nil {
+	if err := identity.WritePrivateFile(dir, "client.key", []byte("secret"), 0o600); err != nil {
 		t.Fatalf("WritePrivateFile() error = %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "client.key"))
@@ -108,7 +108,7 @@ func TestWriteCredentialFileUsesOutputRoot(t *testing.T) {
 	if string(data) != "secret" {
 		t.Fatalf("credential data = %q, want secret", string(data))
 	}
-	if err := certauth.WritePrivateFile(dir, "../escape", []byte("nope"), 0o600); err == nil {
+	if err := identity.WritePrivateFile(dir, "../escape", []byte("nope"), 0o600); err == nil {
 		t.Fatal("WritePrivateFile() allowed path traversal")
 	}
 }

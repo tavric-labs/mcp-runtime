@@ -15,7 +15,7 @@ import (
 
 	"mcp-runtime-api/internal/k8sstore"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/k8sclient"
 )
 
@@ -41,7 +41,7 @@ func TestHandleAdapterCertificateRefusesRevokedSession(t *testing.T) {
 	audit := &fakeAuditWriter{}
 	svc := &AccessService{audit: audit, k8sClients: &k8sclient.Clients{Dynamic: dyn}, accessMgr: k8sstore.NewManager(dyn, nil)}
 
-	_, csrPEM, _, err := certauth.BuildSessionCSR("cluster.local", "mcp-team-acme", "adapter-1")
+	_, csrPEM, _, err := identity.BuildSessionCSR("cluster.local", "mcp-team-acme", "adapter-1")
 	if err != nil {
 		t.Fatalf("BuildSessionCSR: %v", err)
 	}

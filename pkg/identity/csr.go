@@ -1,6 +1,4 @@
-// Package certauth provides shared certificate signing request helpers for
-// session-bound mTLS credentials issued by the platform API and adapter CLI.
-package certauth
+package identity
 
 import (
 	"crypto"
@@ -16,8 +14,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"mcp-runtime/pkg/identity"
 )
 
 // BuildSessionCSR generates a fresh P-256 key and a CSR whose only SAN is the
@@ -27,7 +23,7 @@ func BuildSessionCSR(trustDomain, namespace, sessionName string) (keyPEM, csrPEM
 	if trustDomain == "" {
 		return nil, nil, "", fmt.Errorf("trust domain must not be empty")
 	}
-	spiffeID = identity.SessionSPIFFEID(trustDomain, namespace, sessionName)
+	spiffeID = SessionSPIFFEID(trustDomain, namespace, sessionName)
 	spiffe, err := url.Parse(spiffeID)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("parse session SPIFFE URI: %w", err)
@@ -125,7 +121,7 @@ const certExpirySkew = 5 * time.Minute
 
 // crypto/x509 intentionally ignores GeneralName types such as otherName and
 // directoryName in its convenience SAN fields. Check the signed extension so
-// an apparently single-URI identity cannot carry an additional hidden identity.
+// an apparently single-URI identity cannot carry an additional hidden
 func validateSessionSAN(extensions []pkix.Extension, expected string) error {
 	var count int
 	for _, extension := range extensions {
