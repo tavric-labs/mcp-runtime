@@ -113,7 +113,16 @@ Collection uses only the explicit E2E kubeconfig after confirming its
 collection-gap files. Failed setup also captures redacted platform workload
 status and warning events before teardown, including in the scoped Cilium
 workflow. It also retains only allowlisted runtime initialization error lines,
-with credentials redacted. The fake-tool regression
+with credentials redacted. Any failed E2E run additionally saves the last 15
+minutes (200 lines) of the log of every pod in the platform namespaces
+(`mcp-runtime`, `mcp-platform`, `mcp-observability`, `mcp-log-collector`,
+`registry`, `traefik`, `cert-manager` and the `mcp-servers*` namespaces) as
+`pod-logs/<namespace>/<pod>.log`, plus `<pod>.previous.log` for a pod whose
+container restarted. Pods are discovered, so a new service is covered without
+an edit, and an API `query_failed` response comes with the backend error. The
+same redaction and size cap apply; collection is limited to 30 pods per
+namespace and 150 seconds, and a namespace that cannot be read is recorded in
+`pod-logs/<namespace>/_pods.txt`. The fake-tool regression
 `bash test/e2e/rollout_diagnostics_test.sh` checks failure preservation,
 redaction, and collection before cleanup without contacting a cluster.
 
