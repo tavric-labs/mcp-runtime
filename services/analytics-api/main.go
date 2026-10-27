@@ -70,17 +70,14 @@ func main() {
 			},
 		},
 		events: analytics.NewHandler(&clickhousepkg.Client{Conn: conn, DBName: dbName}),
-		authentic: platformauth.Authenticator{
-			Principals:     &platformauth.HTTPUserKeyResolver{BaseURL: platformAPIURL, Token: internalToken},
-			Secret:         jwtSecret,
+		authentic: platformauth.NewAudienceAuthenticator(platformauth.AudienceConfig{
 			Audience:       platformauth.AudienceAnalytics,
+			Secret:         jwtSecret,
+			PlatformAPIURL: platformAPIURL,
+			InternalToken:  internalToken,
 			ServiceAPIKeys: serviceAPIKeysFromEnv(),
 			AdminAPIKeys:   adminAPIKeysFromEnv(),
-			UserKeyResolver: &platformauth.HTTPUserKeyResolver{
-				BaseURL: platformAPIURL,
-				Token:   internalToken,
-			},
-		},
+		}),
 	}
 
 	mux := http.NewServeMux()

@@ -74,18 +74,15 @@ func main() {
 	srv := &server{
 		runtime:  runtimeServer,
 		platform: platformClient,
-		authentic: platformauth.Authenticator{
-			Principals:     &platformauth.HTTPUserKeyResolver{BaseURL: platformAPIURL, Token: internalToken},
-			Secret:         jwtSecret,
+		authentic: platformauth.NewAudienceAuthenticator(platformauth.AudienceConfig{
 			Audience:       platformauth.AudienceRuntime,
+			Secret:         jwtSecret,
+			PlatformAPIURL: platformAPIURL,
+			InternalToken:  internalToken,
 			ServiceAPIKeys: apiKeys,
 			AdminAPIKeys:   adminAPIKeysFromEnv(),
-			UserKeyResolver: &platformauth.HTTPUserKeyResolver{
-				BaseURL: platformAPIURL,
-				Token:   internalToken,
-			},
 			PublicFallback: runtimeapi.PublicCatalogFallback,
-		},
+		}),
 	}
 	if !runtimeServer.KubernetesAvailable() {
 		srv.runtimeInit = "kubernetes client not available"

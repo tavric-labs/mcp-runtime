@@ -617,6 +617,12 @@ replaces the upstream bearer with a single-audience token valid for at most
 60 seconds, capped by the source token's expiry. Direct runtime/analytics API
 calls reject the login token. Each API rejects expired or multi-audience JWTs;
 an exchanged token cannot authenticate to another API or be exchanged again.
+Runtime-api and analytics-api verify that token locally and do not call
+platform-api to re-read the account on each request, because the exchange
+refreshed it moments earlier for that same request. A deactivated account or
+changed membership therefore takes effect at the next exchange, and a token
+already minted stays valid for at most those 60 seconds. User API keys are
+still resolved by platform-api on every call so a revoked key fails at once.
 
 The internal `/internal/auth/exchange/runtime` and
 `/internal/auth/exchange/analytics` handlers authenticate the platform user
