@@ -237,6 +237,27 @@ instrumentation stay free of exporters, Prometheus and Kafka; policy stays
 free of service infrastructure; and the gateway stays free of Kubernetes and
 Kafka clients. Run it through the isolated test wrapper in `test/regression`.
 
+Shared `pkg/` packages follow a four-layer dependency rule. A package may import
+its own layer or a lower one, never a higher one.
+
+| Layer | Packages | Rule |
+|---|---|---|
+| Composers | `services/*`, `cmd/*`, `internal/*` (runtime-api, platform-api, operator, CLI) | Wire everything together; change most often |
+| Adapters | `k8sclient`, `kubeworkload`, `registrypush`, `controlplane`, `platformstack`, `operatorutil`, `resourcehistory`, `workloadidentity` | The only layer that imports Kubernetes libraries |
+| Domain | `policy`, `access`, `sessionstate`, `metadata`, `platformmode` | Rules and models; no Kubernetes or service infrastructure |
+| Leaves | `identity`, `events`, `credentialbroker`, `envcfg`, `httpx`, `publishscope`, `platforminventory` and similar | Import only other leaves; most stable |
+
+Support packages (`apihttp`, `platformauth`, `telemetry`, `svcboot`, `clickhouse`)
+sit beside the domain and never import adapters. The `mcp-gateway` may use
+`policy`, `events` and `credentialbroker` but must not import an adapter.
+`TestSharedPackageLayerDesign` enforces this and fails for an unclassified new
+package. `pkg/access` and `pkg/metadata` still import Kubernetes libraries
+directly; they are pinned in `k8sInDomain` and may only be removed from it as
+each is split into a pure package and a Kubernetes store. Platform-specific
+logic belongs in platform-api; runtime-api stays the Kubernetes-manipulation
+service. Moving existing runtime-api handlers is tracked separately because it
+changes the API between the two services.
+
 MCP protocol revisions remain dated identifiers: the `2025-11-25` interaction
 model and the `2026-07-28` stateless model have different transport/lifecycle
 requirements. Runtime governance sessions are separate from MCP transport

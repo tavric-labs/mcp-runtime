@@ -49,10 +49,15 @@ func TestSharedInfrastructureDependencyBoundaries(t *testing.T) {
 			},
 		},
 		{
-			name:      "gateway does not depend on Kubernetes clients or Kafka",
-			dir:       filepath.Join(root, "services/mcp-gateway"),
-			packages:  []string{"."},
-			forbidden: []string{"github.com/segmentio/kafka-go", "k8s.io/", "sigs.k8s.io/"},
+			name:     "gateway does not depend on Kubernetes clients, adapters or Kafka",
+			dir:      filepath.Join(root, "services/mcp-gateway"),
+			packages: []string{"."},
+			forbidden: []string{
+				"github.com/segmentio/kafka-go", "k8s.io/", "sigs.k8s.io/",
+				"mcp-runtime/pkg/controlplane", "mcp-runtime/pkg/k8sclient", "mcp-runtime/pkg/kubeworkload",
+				"mcp-runtime/pkg/operatorutil", "mcp-runtime/pkg/platformstack", "mcp-runtime/pkg/registrypush",
+				"mcp-runtime/pkg/resourcehistory", "mcp-runtime/pkg/workloadidentity",
+			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
