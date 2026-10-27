@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	"mcp-runtime/pkg/access/k8sstore"
 )
@@ -69,7 +69,7 @@ func TestCrossTeamGrantEndpointMembershipExpiryAndDirectoryStatus(t *testing.T) 
 			scheme := runtime.NewScheme()
 			_ = mcpv1alpha1.AddToScheme(scheme)
 			manager := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "server", Namespace: "team-a"}, Spec: mcpv1alpha1.MCPServerSpec{TeamID: "team-a"}}), nil)
-			server := &RuntimeServer{accessMgr: manager, identity: &platformclient.Client{BaseURL: directory.URL, Token: "service", HTTP: directory.Client()}}
+			server := &RuntimeServer{accessMgr: manager, identity: &platformapi.Client{BaseURL: directory.URL, Token: "service", HTTP: directory.Client()}}
 			body := map[string]any{"name": "delegation", "namespace": "team-a", "serverRef": map[string]string{"name": "server"}, "subject": map[string]string{"humanID": "user-b", "agentID": "agt_01arz3ndektsv4rrffq69g5fav", "teamID": "team-b"}, "maxTrust": "low", "allowedSideEffects": []string{"read"}}
 			if !tc.missingExpiry {
 				ttl := 30 * time.Minute

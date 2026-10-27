@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime-api/internal/runtimeapi"
 	"mcp-runtime/pkg/metadata"
 )
 
 type Dependencies struct {
-	Platform  *platformclient.Client
+	Platform  *platformapi.Client
 	Runtime   *runtimeapi.RuntimeServer
 	WriteJSON func(http.ResponseWriter, int, any)
 }
@@ -60,25 +60,25 @@ func HandleOperations(w http.ResponseWriter, r *http.Request, deps Dependencies)
 	})
 }
 
-func adminOperationsFilterFromRequest(r *http.Request) (platformclient.OperationsFilter, error) {
+func adminOperationsFilterFromRequest(r *http.Request) (platformapi.OperationsFilter, error) {
 	user := strings.TrimSpace(r.URL.Query().Get("user"))
-	filter := platformclient.OperationsFilter{
+	filter := platformapi.OperationsFilter{
 		User:       user,
 		UserSearch: strings.ToLower(user),
 		Limit:      clampInt(queryInt(r, "limit", 50), 1, 200),
 	}
 	since, err := parseOptionalTimeQuery(r, "since", false)
 	if err != nil {
-		return platformclient.OperationsFilter{}, err
+		return platformapi.OperationsFilter{}, err
 	}
 	until, err := parseOptionalTimeQuery(r, "until", true)
 	if err != nil {
-		return platformclient.OperationsFilter{}, err
+		return platformapi.OperationsFilter{}, err
 	}
 	filter.Since = since
 	filter.Until = until
 	if !filter.Since.IsZero() && !filter.Until.IsZero() && filter.Since.After(filter.Until) {
-		return platformclient.OperationsFilter{}, errInvalidTimeRange
+		return platformapi.OperationsFilter{}, errInvalidTimeRange
 	}
 	return filter, nil
 }
@@ -108,8 +108,8 @@ func parseOptionalTimeQuery(r *http.Request, key string, endOfDay bool) (time.Ti
 	return time.Time{}, adminFilterError(key + " must be RFC3339 or YYYY-MM-DD")
 }
 
-func adminOperationsFilterResponseFor(filter platformclient.OperationsFilter) platformclient.OperationsFilterResponse {
-	out := platformclient.OperationsFilterResponse{
+func adminOperationsFilterResponseFor(filter platformapi.OperationsFilter) platformapi.OperationsFilterResponse {
+	out := platformapi.OperationsFilterResponse{
 		User:  filter.User,
 		Limit: filter.Limit,
 	}
@@ -122,7 +122,7 @@ func adminOperationsFilterResponseFor(filter platformclient.OperationsFilter) pl
 	return out
 }
 
-func mergeDeploymentImageActivity(items []platformclient.ImageActivity, deployments []map[string]any, filter platformclient.OperationsFilter) []platformclient.ImageActivity {
+func mergeDeploymentImageActivity(items []platformapi.ImageActivity, deployments []map[string]any, filter platformapi.OperationsFilter) []platformapi.ImageActivity {
 	limit := operationsLimit(filter)
 	if len(items) >= limit {
 		return sanitizeImageActivity(items[:limit])
@@ -150,7 +150,7 @@ func mergeDeploymentImageActivity(items []platformclient.ImageActivity, deployme
 			continue
 		}
 		seen[key] = struct{}{}
-		items = append(items, platformclient.ImageActivity{
+		items = append(items, platformapi.ImageActivity{
 			UserID:           userID,
 			Namespace:        namespace,
 			ImageRef:         imageRef,
@@ -168,7 +168,7 @@ func mergeDeploymentImageActivity(items []platformclient.ImageActivity, deployme
 	return sanitizeImageActivity(items)
 }
 
-func filterDeploymentsForOperations(deployments []map[string]any, filter platformclient.OperationsFilter) []map[string]any {
+func filterDeploymentsForOperations(deployments []map[string]any, filter platformapi.OperationsFilter) []map[string]any {
 	limit := operationsLimit(filter)
 	out := make([]map[string]any, 0, min(len(deployments), limit))
 	for _, deployment := range deployments {
@@ -188,7 +188,7 @@ func filterDeploymentsForOperations(deployments []map[string]any, filter platfor
 	return sanitizeDeploymentSummaries(out)
 }
 
-func matchesOperationsFilter(filter platformclient.OperationsFilter, timestamp time.Time, values ...string) bool {
+func matchesOperationsFilter(filter platformapi.OperationsFilter, timestamp time.Time, values ...string) bool {
 	if !filter.Since.IsZero() && !timestamp.IsZero() && timestamp.Before(filter.Since) {
 		return false
 	}
@@ -207,22 +207,22 @@ func matchesOperationsFilter(filter platformclient.OperationsFilter, timestamp t
 	return false
 }
 
-func adminOperationsUserSearch(filter platformclient.OperationsFilter) string {
+func adminOperationsUserSearch(filter platformapi.OperationsFilter) string {
 	if filter.UserSearch != "" {
 		return filter.UserSearch
 	}
 	return strings.ToLower(strings.TrimSpace(filter.User))
 }
 
-func operationsLimit(filter platformclient.OperationsFilter) int {
+func operationsLimit(filter platformapi.OperationsFilter) int {
 	if filter.Limit <= 0 {
 		return 50
 	}
 	return filter.Limit
 }
 
-func sanitizeImageActivity(items []platformclient.ImageActivity) []platformclient.ImageActivity {
-	out := make([]platformclient.ImageActivity, 0, len(items))
+func sanitizeImageActivity(items []platformapi.ImageActivity) []platformapi.ImageActivity {
+	out := make([]platformapi.ImageActivity, 0, len(items))
 	for _, item := range items {
 		item.ImageRef = metadata.DisplayImageReference(item.ImageRef)
 		item.SourceImage = metadata.DisplayImageReference(item.SourceImage)

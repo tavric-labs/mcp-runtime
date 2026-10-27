@@ -13,7 +13,7 @@ import (
 
 	"mcp-runtime-api/admin"
 	"mcp-runtime-api/deployments"
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime-api/internal/platforminternal"
 	"mcp-runtime-api/internal/runtimeapi"
 	runtimehandlers "mcp-runtime-api/runtime"
@@ -77,7 +77,7 @@ func (s *server) registerRoutes(mux *http.ServeMux) {
 
 type runtimeRoutes struct {
 	runtime   *runtimeapi.RuntimeServer
-	platform  *platformclient.Client
+	platform  *platformapi.Client
 	auth      func(http.Handler) http.Handler
 	adminOnly func(http.Handler) http.Handler
 	mount     func(string, http.Handler)
@@ -276,8 +276,8 @@ func (rr runtimeRoutes) handleUserAPIKeyItem(w http.ResponseWriter, r *http.Requ
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"key": key})
 }
 
-func platformAuditEvent(p platformauth.Principal, action, resource, status, message string, r *http.Request) platformclient.AuditEvent {
-	return platformclient.AuditEvent{
+func platformAuditEvent(p platformauth.Principal, action, resource, status, message string, r *http.Request) platformapi.AuditEvent {
+	return platformapi.AuditEvent{
 		UserID:       p.UserID(),
 		Action:       action,
 		Resource:     resource,

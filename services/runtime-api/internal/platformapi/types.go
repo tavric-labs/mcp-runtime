@@ -1,4 +1,4 @@
-package platformclient
+package platformapi
 
 import (
 	"time"

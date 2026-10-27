@@ -146,7 +146,7 @@ export KUBECONFIG=$(mktemp)
 cd services/platform-api
 go test -race -count=1 ./...
 cd ../runtime-api
-go test -race -count=1 ./internal/platformclient
+go test -race -count=1 ./internal/platformapi
 ```
 
 The platform persistence tests cover snapshots with 3,001 sessions, retention

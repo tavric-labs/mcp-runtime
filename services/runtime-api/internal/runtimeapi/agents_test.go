@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 	mcpaccess "mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/access/k8sstore"
 )
@@ -20,26 +20,26 @@ import (
 type agentIdentityStub struct {
 	identityStore
 	created bool
-	agent   platformclient.Agent
+	agent   platformapi.Agent
 }
 
 type missingAgentIdentityStub struct{ agentIdentityStub }
 
-func (missingAgentIdentityStub) GetAgent(context.Context, string) (platformclient.Agent, bool, error) {
-	return platformclient.Agent{}, false, nil
+func (missingAgentIdentityStub) GetAgent(context.Context, string) (platformapi.Agent, bool, error) {
+	return platformapi.Agent{}, false, nil
 }
 
 func (agentIdentityStub) Configured() bool { return true }
-func (s *agentIdentityStub) CreateAgent(_ context.Context, slug, name, createdBy string) (platformclient.Agent, error) {
+func (s *agentIdentityStub) CreateAgent(_ context.Context, slug, name, createdBy string) (platformapi.Agent, error) {
 	s.created = true
-	return platformclient.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", TeamSlug: slug, Name: name, Status: "active", CreatedBy: createdBy}, nil
+	return platformapi.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", TeamSlug: slug, Name: name, Status: "active", CreatedBy: createdBy}, nil
 }
-func (agentIdentityStub) ListAgents(_ context.Context, slug, status, query, cursor string, limit int) (platformclient.AgentPage, error) {
-	return platformclient.AgentPage{Agents: []platformclient.Agent{{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", TeamSlug: slug, Status: "active"}}}, nil
+func (agentIdentityStub) ListAgents(_ context.Context, slug, status, query, cursor string, limit int) (platformapi.AgentPage, error) {
+	return platformapi.AgentPage{Agents: []platformapi.Agent{{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", TeamSlug: slug, Status: "active"}}}, nil
 }
-func (s *agentIdentityStub) GetAgent(_ context.Context, id string) (platformclient.Agent, bool, error) {
+func (s *agentIdentityStub) GetAgent(_ context.Context, id string) (platformapi.Agent, bool, error) {
 	if s.agent.ID == "" {
-		return platformclient.Agent{ID: id, TeamID: "team-id", TeamSlug: "core", Status: "active"}, true, nil
+		return platformapi.Agent{ID: id, TeamID: "team-id", TeamSlug: "core", Status: "active"}, true, nil
 	}
 	return s.agent, true, nil
 }
@@ -66,7 +66,7 @@ func TestRequireActiveAgent(t *testing.T) {
 			}
 		})
 	}
-	store.agent = platformclient.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", Status: "inactive"}
+	store.agent = platformapi.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", Status: "inactive"}
 	if err := requireActiveAgent(t.Context(), store, store.agent.ID, store.agent.TeamID); !errors.Is(err, errAgentNotActive) {
 		t.Fatalf("inactive agent error = %v, want %v", err, errAgentNotActive)
 	}
@@ -124,7 +124,7 @@ func TestDeactivateAgentRevokesOnlyMatchingSessionsAndAuditsEach(t *testing.T) {
 	audit := &auditCollector{}
 	server := &RuntimeServer{accessMgr: k8sstore.NewManager(dyn, nil), audit: audit}
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/runtime/agents/agent-a/deactivate", nil)
-	if err := server.revokeAgentSessions(request.Context(), request, principal{Role: roleAdmin, Subject: "admin-id"}, platformclient.Agent{ID: "agent-a", TeamID: "team-a"}); err != nil {
+	if err := server.revokeAgentSessions(request.Context(), request, principal{Role: roleAdmin, Subject: "admin-id"}, platformapi.Agent{ID: "agent-a", TeamID: "team-a"}); err != nil {
 		t.Fatal(err)
 	}
 	match, err := server.accessMgr.GetSession(request.Context(), "match", "ns-a")
@@ -203,7 +203,7 @@ func TestAgentDirectoryTeamMemberCanList(t *testing.T) {
 
 func TestAgentAccessSnapshotHidesOtherUsersAndTeams(t *testing.T) {
 	viewer := principal{Role: roleUser, Subject: "user-one", Teams: []principalTeam{{ID: "team-one", Slug: "one", Role: teamRoleMember}}}
-	agent := platformclient.Agent{ID: "agent-one", TeamID: "team-one", Status: "active"}
+	agent := platformapi.Agent{ID: "agent-one", TeamID: "team-one", Status: "active"}
 	snapshot := agentAccessSnapshot{principal: viewer, grants: []k8sstore.MCPAccessGrant{
 		{Spec: mcpaccess.MCPAccessGrantSpec{Subject: mcpaccess.SubjectRef{TeamID: "team-one", AgentID: "agent-one", HumanID: "user-two"}}},
 		{Spec: mcpaccess.MCPAccessGrantSpec{Subject: mcpaccess.SubjectRef{TeamID: "team-two", AgentID: "agent-one"}}},
@@ -223,7 +223,7 @@ func TestAgentAccessSnapshotHidesOtherUsersAndTeams(t *testing.T) {
 
 func TestAgentAccessSnapshotMemberSeesApplicableGrantAndOwnSession(t *testing.T) {
 	viewer := principal{Role: roleUser, Subject: "user-one", Teams: []principalTeam{{ID: "team-one", Slug: "one", Role: teamRoleMember}}}
-	agent := platformclient.Agent{ID: "agent-one", TeamID: "team-one", Status: "active"}
+	agent := platformapi.Agent{ID: "agent-one", TeamID: "team-one", Status: "active"}
 	snapshot := agentAccessSnapshot{principal: viewer,
 		grants: []k8sstore.MCPAccessGrant{
 			{Spec: mcpaccess.MCPAccessGrantSpec{Subject: mcpaccess.SubjectRef{TeamID: "team-one", AgentID: "agent-one"}}},
@@ -254,7 +254,7 @@ func TestAgentDetailRejectsUnrelatedDirectRequests(t *testing.T) {
 		{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessSessionResource}: "MCPAgentSessionList",
 	}
 	server := &RuntimeServer{
-		identity:  &agentIdentityStub{agent: platformclient.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", TeamSlug: "core", Status: "active"}},
+		identity:  &agentIdentityStub{agent: platformapi.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", TeamSlug: "core", Status: "active"}},
 		accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds), nil),
 	}
 	path := "/api/v1/runtime/agents/agt_01arz3ndektsv4rrffq69g5fav"

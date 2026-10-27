@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 )
 
 func TestDelegationRecipientsRequiresResourceManagementBeforeDirectory(t *testing.T) {
 	reads := 0
 	directory := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reads++; http.Error(w, "unexpected directory read", 500) }))
 	defer directory.Close()
-	s := &RuntimeServer{identity: &platformclient.Client{BaseURL: directory.URL, Token: "service", HTTP: directory.Client()}}
+	s := &RuntimeServer{identity: &platformapi.Client{BaseURL: directory.URL, Token: "service", HTTP: directory.Client()}}
 	for _, p := range []principal{
 		{Role: roleUser, Subject: "member", Namespace: "mcp-team-a", Teams: []principalTeam{{ID: "team-a", Slug: "a", Namespace: "mcp-team-a", Role: teamRoleMember}}},
 		{Role: roleUser, Subject: "owner-b", Namespace: "mcp-team-b", Teams: []principalTeam{{ID: "team-b", Slug: "b", Namespace: "mcp-team-b", Role: teamRoleOwner}}},
@@ -52,7 +52,7 @@ func TestDelegationRecipientsExactTeamMinimalFieldsAndPagination(t *testing.T) {
 		}
 	}))
 	defer directory.Close()
-	s := &RuntimeServer{identity: &platformclient.Client{BaseURL: directory.URL, Token: "service", HTTP: directory.Client()}}
+	s := &RuntimeServer{identity: &platformapi.Client{BaseURL: directory.URL, Token: "service", HTTP: directory.Client()}}
 	p := principal{Role: roleUser, Subject: "owner-a", Namespace: "mcp-team-a", Teams: []principalTeam{{ID: "team-a", Slug: "a", Namespace: "mcp-team-a", Role: teamRoleOwner}}}
 	get := func(query string) delegationRecipients {
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/runtime/delegation-recipients?namespace=mcp-team-a&team=known-b&limit=1"+query, nil)

@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime/pkg/apihttp"
 	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/httpx"
@@ -34,19 +34,19 @@ const (
 type Principal = platformauth.Principal
 type principal = platformauth.Principal
 type principalTeam = platformauth.PrincipalTeam
-type teamRecord = platformclient.Team
-type teamMembershipRecord = platformclient.TeamMembership
-type auditEvent = platformclient.AuditEvent
-type userAPIKeySummary = platformclient.APIKeySummary
+type teamRecord = platformapi.Team
+type teamMembershipRecord = platformapi.TeamMembership
+type auditEvent = platformapi.AuditEvent
+type userAPIKeySummary = platformapi.APIKeySummary
 
 type identityStore interface {
 	ListTeams(ctx context.Context) ([]teamRecord, error)
 	GetTeamBySlug(ctx context.Context, slug string) (teamRecord, bool, error)
-	CreateAgent(ctx context.Context, teamSlug, name, createdBy string) (platformclient.Agent, error)
-	ListAgents(ctx context.Context, teamSlug, status, q, cursor string, limit int) (platformclient.AgentPage, error)
-	GetAgent(ctx context.Context, id string) (platformclient.Agent, bool, error)
-	RenameAgent(ctx context.Context, id, name string) (platformclient.Agent, error)
-	SetAgentStatus(ctx context.Context, id, status, actorID string) (platformclient.Agent, error)
+	CreateAgent(ctx context.Context, teamSlug, name, createdBy string) (platformapi.Agent, error)
+	ListAgents(ctx context.Context, teamSlug, status, q, cursor string, limit int) (platformapi.AgentPage, error)
+	GetAgent(ctx context.Context, id string) (platformapi.Agent, bool, error)
+	RenameAgent(ctx context.Context, id, name string) (platformapi.Agent, error)
+	SetAgentStatus(ctx context.Context, id, status, actorID string) (platformapi.Agent, error)
 	CreateTeam(ctx context.Context, slug, name, createdByUserID string) (teamRecord, error)
 	DeleteTeamBySlug(ctx context.Context, slug string) error
 	ListNamespaces(ctx context.Context) ([]map[string]any, error)
@@ -54,8 +54,8 @@ type identityStore interface {
 	ListTeamMemberships(ctx context.Context, teamSlug string) ([]teamMembershipRecord, error)
 	UpsertTeamMembership(ctx context.Context, teamSlug, userID, role string) (teamMembershipRecord, error)
 	DeleteTeamMembership(ctx context.Context, teamSlug, userID string) error
-	CreatePasswordUser(ctx context.Context, email, password, role string) (platformclient.User, error)
-	CreateTeamUser(ctx context.Context, teamSlug, email, password, role string) (platformclient.User, teamMembershipRecord, error)
+	CreatePasswordUser(ctx context.Context, email, password, role string) (platformapi.User, error)
+	CreateTeamUser(ctx context.Context, teamSlug, email, password, role string) (platformapi.User, teamMembershipRecord, error)
 	Configured() bool
 }
 

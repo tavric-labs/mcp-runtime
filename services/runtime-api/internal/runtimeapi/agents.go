@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 	mcpaccess "mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/httpx"
@@ -52,7 +52,7 @@ func (s *RuntimeServer) HandleRuntimeTeamAgents(w http.ResponseWriter, r *http.R
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
 		page, err := s.identity.ListAgents(ctx, teamSlug, status, r.URL.Query().Get("q"), r.URL.Query().Get("cursor"), limit)
-		if errors.Is(err, platformclient.ErrTeamNotFound) || errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, platformapi.ErrTeamNotFound) || errors.Is(err, sql.ErrNoRows) {
 			writeAPIError(w, http.StatusNotFound, "team not found")
 			return
 		}
@@ -67,7 +67,7 @@ func (s *RuntimeServer) HandleRuntimeTeamAgents(w http.ResponseWriter, r *http.R
 				return
 			}
 			for attempts := 0; attempts < 100; attempts++ {
-				visible := make([]platformclient.Agent, 0, len(page.Agents))
+				visible := make([]platformapi.Agent, 0, len(page.Agents))
 				for _, agent := range page.Agents {
 					if access.canUse(agent) {
 						visible = append(visible, agent)
@@ -266,7 +266,7 @@ func (s *RuntimeServer) agentAccessForPrincipal(ctx context.Context, p principal
 	return result, nil
 }
 
-func (a agentAccessSnapshot) canUse(agent platformclient.Agent) bool {
+func (a agentAccessSnapshot) canUse(agent platformapi.Agent) bool {
 	if agent.Status != "active" {
 		return false
 	}
@@ -286,7 +286,7 @@ func (a agentAccessSnapshot) canUse(agent platformclient.Agent) bool {
 	return false
 }
 
-func (a agentAccessSnapshot) grantMatches(grant k8sstore.MCPAccessGrant, agent platformclient.Agent, manager bool) bool {
+func (a agentAccessSnapshot) grantMatches(grant k8sstore.MCPAccessGrant, agent platformapi.Agent, manager bool) bool {
 	subject := grant.Spec.Subject
 	if string(subject.TeamID) != agent.TeamID || (subject.AgentID != "" && string(subject.AgentID) != agent.ID) {
 		return false
@@ -294,7 +294,7 @@ func (a agentAccessSnapshot) grantMatches(grant k8sstore.MCPAccessGrant, agent p
 	return manager || subject.HumanID == "" || string(subject.HumanID) == a.principal.UserID()
 }
 
-func (a agentAccessSnapshot) sessionMatches(session k8sstore.MCPAgentSession, agent platformclient.Agent, manager bool) bool {
+func (a agentAccessSnapshot) sessionMatches(session k8sstore.MCPAgentSession, agent platformapi.Agent, manager bool) bool {
 	subject := session.Spec.Subject
 	if string(subject.TeamID) != agent.TeamID || string(subject.AgentID) != agent.ID {
 		return false
@@ -302,7 +302,7 @@ func (a agentAccessSnapshot) sessionMatches(session k8sstore.MCPAgentSession, ag
 	return manager || (subject.HumanID != "" && string(subject.HumanID) == a.principal.UserID())
 }
 
-func (a agentAccessSnapshot) forAgent(agent platformclient.Agent, manager bool) ([]mcpaccess.GrantSummary, []mcpaccess.SessionSummary) {
+func (a agentAccessSnapshot) forAgent(agent platformapi.Agent, manager bool) ([]mcpaccess.GrantSummary, []mcpaccess.SessionSummary) {
 	grants := []mcpaccess.GrantSummary{}
 	sessions := []mcpaccess.SessionSummary{}
 	for _, grant := range a.grants {
@@ -318,7 +318,7 @@ func (a agentAccessSnapshot) forAgent(agent platformclient.Agent, manager bool) 
 	return grants, sessions
 }
 
-func (s *RuntimeServer) revokeAgentSessions(ctx context.Context, r *http.Request, p principal, item platformclient.Agent) error {
+func (s *RuntimeServer) revokeAgentSessions(ctx context.Context, r *http.Request, p principal, item platformapi.Agent) error {
 	if s.accessMgr == nil {
 		return errors.New("kubernetes unavailable")
 	}
@@ -341,7 +341,7 @@ func (s *RuntimeServer) revokeAgentSessions(ctx context.Context, r *http.Request
 	return nil
 }
 
-func (s *RuntimeServer) auditAgent(r *http.Request, p principal, item platformclient.Agent, action string) {
+func (s *RuntimeServer) auditAgent(r *http.Request, p principal, item platformapi.Agent, action string) {
 	message, _ := json.Marshal(map[string]string{"actor_id": p.UserID(), "agent_id": item.ID, "team_id": item.TeamID, "action": action})
 	s.writeAudit(r.Context(), auditEvent{UserID: p.UserID(), Action: action, Resource: "agent", Status: "success",
 		Message: string(message), AgentID: item.ID, TeamID: item.TeamID, ActorIP: requestIP(r),
@@ -350,13 +350,13 @@ func (s *RuntimeServer) auditAgent(r *http.Request, p principal, item platformcl
 
 func writeAgentError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, sql.ErrNoRows), errors.Is(err, platformclient.ErrAgentNotFound):
+	case errors.Is(err, sql.ErrNoRows), errors.Is(err, platformapi.ErrAgentNotFound):
 		writeAPIError(w, http.StatusNotFound, "agent not found")
-	case errors.Is(err, platformclient.ErrTeamNotFound):
+	case errors.Is(err, platformapi.ErrTeamNotFound):
 		writeAPIError(w, http.StatusNotFound, "team not found")
-	case errors.Is(err, platformclient.ErrAgentNameTaken):
+	case errors.Is(err, platformapi.ErrAgentNameTaken):
 		writeAPIError(w, http.StatusConflict, "an agent with this name already exists in the team")
-	case errors.Is(err, platformclient.ErrInvalidAgentName):
+	case errors.Is(err, platformapi.ErrInvalidAgentName):
 		writeAPIError(w, http.StatusBadRequest, "agent name must contain 1 to 64 characters")
 	default:
 		writeAPIError(w, http.StatusInternalServerError, "agent operation failed")
