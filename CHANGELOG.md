@@ -11,6 +11,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 - runtime-api and analytics-api no longer call platform-api to re-read the account on every request. Platform-api's token exchange already refreshes the account and memberships immediately before it mints the 60-second, single-audience token, so the services verify that token locally. A deactivated account or changed membership takes effect at the next exchange, and an already minted token stays valid for at most 60 seconds. User API keys are still checked by platform-api on every call, so a revoked key fails at once. No setup or data change is required.
 
+### Fixed
+
+- The MCP gateway now rejects an adapter-certificate session whose static policy binding carries a malformed `expires_at` with `401 session_expired`, as the policy evaluator already did. Previously the authentication stage treated it as non-expiring, so non-tool traffic was authenticated with such a session; tool calls were already denied. Well-formed, blank and absent expiries are unchanged ([#861](https://github.com/tavric-labs/mcp-runtime/issues/861)).
+
 ## [0.13.1] - 2026-10-26
 
 Console, Grafana sign-in, credential connector and service-image security fixes.

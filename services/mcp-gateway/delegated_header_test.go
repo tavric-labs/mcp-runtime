@@ -66,8 +66,8 @@ func TestDelegatedHeaderForwardsConfiguredCredentialsAndStripsIdentity(t *testin
 	if got := ex.authenticate(s); got != nil {
 		t.Fatalf("authFilter = %v", got)
 	}
-	if ex.Identity.HumanID != "" || ex.Identity.AgentID != "" {
-		t.Fatalf("identity = %#v, want unverified", ex.Identity)
+	if ex.Identity().HumanID != "" || ex.Identity().AgentID != "" {
+		t.Fatalf("identity = %#v, want unverified", ex.Identity())
 	}
 	if got := ex.authorize(s); got != nil {
 		t.Fatalf("authz = %#v", ex.Decision)
@@ -81,7 +81,7 @@ func TestDelegatedHeaderForwardsConfiguredCredentialsAndStripsIdentity(t *testin
 	if ex.W.status != http.StatusOK {
 		t.Fatalf("status = %d", ex.W.status)
 	}
-	payload := auditPayloadForTest(s, ex.R, ex.OriginalPath, "tools/call", "list_projects", ex.Identity, doc, ex.Decision, ex.W.status, 1, 1)
+	payload := auditPayloadForTest(s, ex.R, ex.OriginalPath, "tools/call", "list_projects", ex.Identity(), doc, ex.Decision, ex.W.status, 1, 1)
 	encoded := strings.ToLower(strings.Join([]string{
 		payload.Reason, payload.AuthDelegation, payload.CallerIdentity, payload.HumanID,
 	}, " "))

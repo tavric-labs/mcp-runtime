@@ -22,24 +22,6 @@ type identityContext struct {
 	Session   *policypkg.Binding
 }
 
-// policySnapshot is the atomically-swapped view of the active gateway policy.
-// A snapshot only ever holds a complete, validated policy (the last-known-good
-// document); an invalid reload never replaces Policy and instead records its
-// failure in Err while leaving the rest of the snapshot intact.
-type policySnapshot struct {
-	Policy   *policypkg.Document
-	Revision string
-	LoadedAt time.Time
-	// Err holds the most recent reload error for observability. It does not
-	// imply the active Policy is unusable: on a failed reload the previous
-	// known-good Policy is retained and Err describes why the update was
-	// rejected.
-	Err error
-	// Ready is true once a valid policy snapshot has been activated. It stays
-	// true across subsequent failed reloads (last-known-good is retained).
-	Ready bool
-}
-
 type oauthProvider struct {
 	verifier *mcpauth.JWTVerifier
 }

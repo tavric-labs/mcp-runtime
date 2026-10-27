@@ -13,79 +13,85 @@ import (
 // authFilter establishes identity from OAuth and/or verified adapter certificates.
 // Terminal outputs retain trusted partial identity for denial audit.
 func (s *gatewayServer) authFilter(in PolicyRequest) (AuthenticatedRequest, *FilterResponse) {
-	ex := AuthenticatedRequest{PolicyRequest: in, CallerKind: CallerAnonymous}
-	version := policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(ex.Policy), s.defaultPolicyVersion)
+	caller := anonymousCaller()
+	version := policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(in.Policy), s.defaultPolicyVersion)
+	authenticated := func() AuthenticatedRequest { return AuthenticatedRequest{PolicyRequest: in, Caller: caller} }
 	deny := func(err error) (AuthenticatedRequest, *FilterResponse) {
-		return ex, denyResponse(authenticationDecision(err, version))
+		return authenticated(), denyResponse(authenticationDecision(err, version))
 	}
-	if ex.Policy == nil {
+	// denyActor keeps a verified actor for denial audit without making it a
+	// usable session or carrying its bearer token.
+	denyActor := func(actor identityContext, err error) (AuthenticatedRequest, *FilterResponse) {
+		caller = rejectedCaller(actor)
+		return deny(err)
+	}
+	if in.Policy == nil {
 		return deny(errSessionUnavailable)
 	}
-	if policypkg.UsesDelegatedHeaders(ex.Policy) {
-		ex.CallerKind = CallerDelegated
-		credentials, err := identity.NewCredentialPolicy(ex.Policy.Auth.Headers, ex.Policy.Auth.CredentialPresence)
+	if policypkg.UsesDelegatedHeaders(in.Policy) {
+		caller = delegatedCaller()
+		credentials, err := identity.NewCredentialPolicy(in.Policy.Auth.Headers, in.Policy.Auth.CredentialPresence)
 		if err != nil {
 			return deny(&authenticationFailure{status: http.StatusUnauthorized, reason: string(identity.ErrInvalidCredentialConfig)})
 		}
-		if err := credentials.Check(ex.R.Header); err != nil {
+		if err := credentials.Check(in.R.Header); err != nil {
 			return deny(&authenticationFailure{status: http.StatusUnauthorized, reason: err.Error()})
 		}
-		return ex, nil
+		return authenticated(), nil
 	}
 	var certificateIdentity *identityContext
-	if ex.Policy.Auth != nil && strings.TrimSpace(ex.Policy.Auth.TrustDomain) != "" &&
-		strings.TrimSpace(ex.R.Header.Get(s.verifiedSPIFFEHeaderName())) != "" {
-		verifiedIdentity, err := s.authenticateAdapterCertificate(ex.R, ex.Policy)
+	if in.Policy.Auth != nil && strings.TrimSpace(in.Policy.Auth.TrustDomain) != "" &&
+		strings.TrimSpace(in.R.Header.Get(s.verifiedSPIFFEHeaderName())) != "" {
+		verifiedIdentity, err := s.authenticateAdapterCertificate(in.R, in.Policy)
 		if err != nil {
 			// A known revoked/expired binding identifies the actor for audit,
 			// while the terminal failure prevents using it as an active session.
-			ex.Identity = verifiedIdentity
-			if verifiedIdentity.Session != nil {
-				ex.CallerKind = CallerCertificate
-			}
-			return deny(err)
+			return denyActor(verifiedIdentity, err)
 		}
 		certificateIdentity = &verifiedIdentity
 	}
-	if !policypkg.PolicyUsesOAuth(ex.Policy) {
+	if !policypkg.PolicyUsesOAuth(in.Policy) {
 		if certificateIdentity != nil {
-			ex.Identity, ex.CallerKind = *certificateIdentity, CallerCertificate
+			caller = certificateCaller(*certificateIdentity, "")
 		}
-		return ex, nil
+		return authenticated(), nil
 	}
 	var subjectTeam policypkg.TeamID
 	if certificateIdentity != nil {
 		subjectTeam = certificateIdentity.TeamID
 	}
-	credentials, err := s.oauthAuthenticator().Authenticate(ex.R, ex.Policy, subjectTeam)
+	credentials, err := s.oauthAuthenticator().Authenticate(in.R, in.Policy, subjectTeam)
 	reason := ""
 	if err != nil {
 		reason = authenticationDecision(err, version).Reason
 	}
-	s.metrics.recordOAuthOutcome(s.metricScope(ex.Policy), err == nil, reason)
+	s.metrics.recordOAuthOutcome(s.metricScope(in.Policy), err == nil, reason)
 	if err != nil {
 		return deny(err)
 	}
-	ex.Identity, ex.OAuthToken, ex.CallerKind = credentials.Identity, credentials.Token, CallerOAuth
 	if certificateIdentity != nil {
 		if reason := certificateOAuthMismatch(*certificateIdentity, credentials.Identity); reason != "" {
-			return deny(&authenticationFailure{status: http.StatusUnauthorized, reason: reason})
+			return denyActor(credentials.Identity, &authenticationFailure{status: http.StatusUnauthorized, reason: reason})
 		}
-		ex.Identity, ex.CallerKind = *certificateIdentity, CallerCertificate
-	} else if ex.Identity.SessionID != "" && ex.Policy.Session != nil && ex.Policy.Session.Store == "platform" && (ex.Inspection.IsToolCall() || ex.Inspection.Indeterminate()) {
-		binding, err := s.sessionReader().Lookup(ex.R.Context(), SessionRef{Namespace: ex.Policy.Server.Namespace, ID: ex.Identity.SessionID}, s.currentTime())
+		caller = certificateCaller(*certificateIdentity, credentials.Token)
+		return authenticated(), nil
+	}
+	caller = oauthCaller(credentials.Identity, credentials.Token)
+	actor := credentials.Identity
+	if actor.SessionID != "" && in.Policy.Session != nil && in.Policy.Session.Store == "platform" && in.Inspection.RequiresAuthorization() {
+		binding, err := s.sessionReader().Lookup(in.R.Context(), SessionRef{Namespace: in.Policy.Server.Namespace, ID: actor.SessionID}, s.currentTime())
 		if err == nil {
-			err = validateSessionBinding(binding, ex.Identity, s.currentTime())
+			err = validateSessionBinding(binding, actor, s.currentTime())
 		}
 		if err != nil {
-			if !ex.Policy.Session.Required && !errors.Is(err, errSessionUnavailable) {
-				return ex, nil
+			if !in.Policy.Session.Required && !errors.Is(err, errSessionUnavailable) {
+				return authenticated(), nil
 			}
-			return deny(err)
+			return denyActor(actor, err)
 		}
-		ex.Identity.Session = binding
+		caller = caller.withSession(binding)
 	}
-	return ex, nil
+	return authenticated(), nil
 }
 
 // validateSessionBinding is pure: identity matching and lifetime checks use an
@@ -94,12 +100,12 @@ func validateSessionBinding(binding *policypkg.Binding, actor identityContext, n
 	if binding == nil {
 		return errSessionUnavailable
 	}
-	// A malformed expiry is treated as no expiry, as the gateway always has.
-	deadline, _ := parseDeadline(strings.TrimSpace(binding.ExpiresAt))
+	// A malformed expiry is treated as expired, matching pkg/policy's evaluator.
+	deadline, deadlineErr := parseDeadline(strings.TrimSpace(binding.ExpiresAt))
 	switch {
 	case binding.Revoked:
 		return errSessionRevoked
-	case deadline.expired(now):
+	case deadlineErr != nil || deadline.expired(now):
 		return errSessionExpired
 	case binding.HumanID != "" && binding.HumanID != actor.HumanID,
 		binding.AgentID != "" && binding.AgentID != actor.AgentID,
@@ -163,14 +169,17 @@ func (s *gatewayServer) authenticateAdapterCertificate(r *http.Request, policy *
 	if rawID == "" {
 		return identityContext{}, errMissingVerifiedIdentity
 	}
-	namespace, sessionID, ok := identity.ParseSessionSPIFFE(rawID, policy.Auth.TrustDomain)
+	rawNamespace, rawSessionID, ok := identity.ParseSessionSPIFFE(rawID, policy.Auth.TrustDomain)
 	if !ok {
 		return identityContext{}, errInvalidSPIFFE
 	}
+	// One qualified reference carries the namespace and session ID together,
+	// so they cannot be swapped or matched independently.
+	ref := SessionRef{Namespace: policypkg.Namespace(rawNamespace), ID: policypkg.SessionID(rawSessionID)}
 
 	bindings := policy.Sessions
 	if policy.Session != nil && policy.Session.Store == "platform" {
-		binding, err := s.sessionReader().Lookup(r.Context(), SessionRef{Namespace: policypkg.Namespace(namespace), ID: policypkg.SessionID(sessionID)}, s.currentTime())
+		binding, err := s.sessionReader().Lookup(r.Context(), ref, s.currentTime())
 		if err != nil {
 			return identityContext{}, err
 		}
@@ -180,7 +189,7 @@ func (s *gatewayServer) authenticateAdapterCertificate(r *http.Request, policy *
 		bindings = []policypkg.Binding{*binding}
 	}
 	for _, binding := range bindings {
-		if string(binding.Namespace) != namespace || string(binding.Name) != sessionID {
+		if binding.Namespace != ref.Namespace || binding.Name != ref.ID {
 			continue
 		}
 		boundIdentity := identityContext{HumanID: binding.HumanID, AgentID: binding.AgentID, TeamID: binding.TeamID, SessionID: binding.Name, Session: &binding}

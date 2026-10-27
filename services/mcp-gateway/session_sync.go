@@ -44,13 +44,20 @@ func (c *gatewaySessionSync) invalidate() {
 	c.mu.Unlock()
 }
 
+// freshLocked is the single freshness rule, evaluated at an explicit instant:
+// fresh from the last successful sync through the end of the stale window
+// (inclusive), never before a first sync. The caller holds c.mu.
+func (c *gatewaySessionSync) freshLocked(now time.Time) bool {
+	return !c.lastSync.IsZero() && now.Sub(c.lastSync) <= c.staleWindow
+}
+
 func (c *gatewaySessionSync) Fresh(now time.Time) bool {
 	if c == nil {
 		return false
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return !c.lastSync.IsZero() && now.Sub(c.lastSync) <= c.staleWindow
+	return c.freshLocked(now)
 }
 
 func (c *gatewaySessionSync) getJSON(ctx context.Context, path string, out any) error {
@@ -200,7 +207,7 @@ func (c *gatewaySessionSync) Lookup(ctx context.Context, ref SessionRef, now tim
 		return nil, errSessionUnavailable
 	}
 	c.mu.RLock()
-	fresh := !c.lastSync.IsZero() && now.Sub(c.lastSync) <= c.staleWindow
+	fresh := c.freshLocked(now)
 	row, found := c.sessions[ref.key()]
 	c.mu.RUnlock()
 	if !fresh {

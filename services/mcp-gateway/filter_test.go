@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	policypkg "mcp-runtime/pkg/policy"
 )
@@ -66,17 +67,17 @@ func TestPipelineStopsAfterTerminalResponse(t *testing.T) {
 					if in.Policy != policy || in.PolicyErr != policyErr {
 						t.Fatal("snapshot did not cross authentication boundary")
 					}
-					return AuthenticatedRequest{PolicyRequest: in, Identity: identity}, finish(2)
+					return AuthenticatedRequest{PolicyRequest: in, Caller: verifiedTestCaller(identity)}, finish(2)
 				}),
-				Authz: FilterFunc[AuthenticatedRequest, AuthorizedRequest](func(in AuthenticatedRequest) (AuthorizedRequest, *FilterResponse) {
-					if in.Identity != identity || in.Policy != policy {
+				Authz: FilterFunc[AuthenticatedRequest, EvaluatedRequest](func(in AuthenticatedRequest) (EvaluatedRequest, *FilterResponse) {
+					if in.Identity() != identity || in.Policy != policy {
 						t.Fatal("identity or snapshot changed before authorization")
 					}
-					return AuthorizedRequest{AuthenticatedRequest: in, Decision: policypkg.Allow("allowed", "test")}, finish(3)
+					return EvaluatedRequest{AuthenticatedRequest: in, Decision: policypkg.Allow("allowed", "test")}, finish(3)
 				}),
-				Upstream: FilterFunc[PermittedRequest, AuthorizedRequest](func(permitted PermittedRequest) (AuthorizedRequest, *FilterResponse) {
+				Upstream: FilterFunc[PermittedRequest, EvaluatedRequest](func(permitted PermittedRequest) (EvaluatedRequest, *FilterResponse) {
 					in := permitted.request
-					if !in.Decision.Allowed || in.Identity != identity || in.Policy != policy {
+					if !in.Decision.Allowed || in.Identity() != identity || in.Policy != policy {
 						t.Fatal("authorization state did not cross upstream boundary")
 					}
 					return in, finish(4)
@@ -131,13 +132,13 @@ func TestPolicySnapshotSurvivesReloadDuringRequest(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	original := testPolicy()
-	s.snapshotPolicy(policySnapshot{Policy: original, Ready: true})
+	s.snapshotPolicy(readySnapshot(original, time.Time{}))
 	pipeline := s.buildPipeline()
 	pipeline.Auth = FilterFunc[PolicyRequest, AuthenticatedRequest](func(in PolicyRequest) (AuthenticatedRequest, *FilterResponse) {
-		s.snapshotPolicy(policySnapshot{Policy: &policypkg.Document{}, Ready: true})
+		s.snapshotPolicy(readySnapshot(&policypkg.Document{}, time.Time{}))
 		return AuthenticatedRequest{PolicyRequest: in}, nil
 	})
-	pipeline.Upstream = FilterFunc[PermittedRequest, AuthorizedRequest](func(permitted PermittedRequest) (AuthorizedRequest, *FilterResponse) {
+	pipeline.Upstream = FilterFunc[PermittedRequest, EvaluatedRequest](func(permitted PermittedRequest) (EvaluatedRequest, *FilterResponse) {
 		in := permitted.request
 		if in.Policy != original || !in.Decision.Allowed {
 			t.Fatal("request used the replacement policy snapshot")
