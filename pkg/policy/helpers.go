@@ -1,4 +1,3 @@
-// Package policy provides helper functions for working with policy documents.
 package policy
 
 import (

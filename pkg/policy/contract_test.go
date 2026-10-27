@@ -1,5 +1,3 @@
-// Package policy provides contract tests ensuring compatibility between
-// operator-rendered policy and proxy-consumed policy.
 package policy
 
 import (

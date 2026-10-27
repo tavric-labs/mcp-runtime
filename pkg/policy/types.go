@@ -1,6 +1,3 @@
-// Package policy provides shared gateway policy types used by both the operator
-// and the MCP proxy. This ensures contract compatibility between the operator-rendered
-// policy and the proxy-consumed policy.
 package policy
 
 import "strings"

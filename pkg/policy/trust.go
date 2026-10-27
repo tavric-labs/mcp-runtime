@@ -1,4 +1,3 @@
-// Package policy provides trust level utilities for policy enforcement.
 package policy
 
 import "strings"

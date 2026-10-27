@@ -77,7 +77,7 @@ flowchart LR
 | Shared policy and events | `pkg/policy/`, `pkg/events/`, `pkg/clickhouse/` | Gateway policy contracts/evaluation plus event envelopes and ClickHouse query/insert helpers. |
 | Shared infrastructure and workload helpers | `pkg/envcfg/`, `pkg/httpx/`, `pkg/transport/`, `pkg/telemetry/`, `pkg/svcboot/`, `pkg/kubeworkload/` | Configuration, HTTP primitives, transport support, observability, service startup and restricted Kubernetes workload defaults. |
 | API service internals | `services/runtime-api/internal/runtimeapi/`, `services/platform-api/internal/platformstore/`, `pkg/apikit/`, `pkg/platformauth/`, `pkg/apiwire/` | Split API modules: runtime HTTP/Kubernetes orchestration, platform Postgres persistence, shared HTTP contract helpers. |
-| Metadata helpers | [`metadata.md`](metadata.md) | Covers `.mcp` metadata loading, host resolution, and CRD generation helpers. |
+| Server blueprint | [`blueprint.md`](blueprint.md) | Covers `.mcp` definition loading and defaults; hostname resolution lives in `pkg/topology` and CRD generation in `internal/cli/server/crdgen`. |
 | Manifests and examples | [`config-and-examples.md`](config-and-examples.md) | Explains Kustomize overlays, registry/ingress config, and example MCP servers. |
 | Tests | [`testing.md`](testing.md) | Maps unit, golden, integration, and QA E2E coverage. |
 
@@ -153,7 +153,7 @@ flowchart TB
     CLIAdapter[internal/cli/adapter] --> AgentAdapter[internal/agentadapter]
     CLIRoot --> CLICommands[CLI command packages]
     CLICommands --> CLICore[internal/cli/core]
-    CLICommands --> Metadata[pkg/blueprint]
+    CLICommands --> Blueprint[pkg/blueprint]
     CLICommands --> Manifest[internal/cli/manifest]
     CLICommands --> K8sClient[pkg/k8sclient]
     CLICommands --> Access[pkg/access]
@@ -183,10 +183,47 @@ flowchart TB
     ClickHouse --> Events
     ControlPlane --> API
     ControlPlane --> K8sClient
-    Metadata --> API
+    Blueprint --> API
 ```
 
 Keep shared behavior in `pkg/` only when multiple binaries or services need it. CLI top-level command routing belongs in `internal/cli/root` and `internal/cli/<command>`; CLI-only shared infrastructure belongs in `internal/cli/core`; reconciliation behavior belongs in `internal/operator`; Kubernetes-facing MCPServer operations that are reused outside the operator belong in `pkg/controlplane`; rendered gateway policy evaluation belongs in `pkg/policy`; reusable event and storage contracts belong in `pkg/events` and `pkg/clickhouse`; shared pod hardening defaults belong in `pkg/kubeworkload`; runtime orchestration belongs in `services/runtime-api/internal/runtimeapi`; platform identity, team, key, and audit persistence belongs in `services/platform-api/internal/platformstore`; API principal context helpers belong in `services/platform-api/internal/apiauth`; HTTP service glue belongs near the service that owns the endpoint unless it is repeated across services.
+
+### What lives in `pkg/`
+
+`pkg/` holds only code that more than one Go module needs (the root module and
+each `services/*` module are separate modules). Code with a single consumer
+lives in that consumer's `internal/` tree. Each package's `doc.go` is the
+authoritative description; this table is the map.
+
+| Package | Layer | What it does |
+|---|---|---|
+| `access` | domain | Kubernetes-free model of grants and agent sessions: specs, requests, summaries and validation |
+| `apikit` | support | API conventions: typed errors and error envelope, pagination, query and body helpers |
+| `apiwire` | support | Request and response types for platform-api endpoints shared across modules |
+| `authgateway` | support | Deployment contract of the optional credential gateway |
+| `authzmatrix` | leaf | Authn/authz expectation matrix and role credentials for conformance tests |
+| `blueprint` | domain | The `.mcp` server definition: schema, defaults, validation and loader |
+| `clickhouse` | support | Analytics store client, event model and dashboard queries |
+| `controlplane` | adapter | List, apply and report on MCPServer resources and their Deployments |
+| `credentialbroker` | leaf | Metadata-only credential contract and gateway resolution interface |
+| `envcfg` | leaf | Environment parsing with explicit fallbacks |
+| `events` | leaf | Platform event envelope and the `MCPRequest` audit payload |
+| `httpx` | leaf | Standard-library JSON response, path and request-ID primitives |
+| `identity` | leaf | SPIFFE session identities, certificate and CSR helpers, credential and OAuth contracts |
+| `k8sclient` | adapter | Kubernetes client wrapper, apply helpers, readiness and certificate checks |
+| `kubeworkload` | adapter | Restricted workload security defaults, NetworkPolicy and egress CIDRs |
+| `oidcdiscovery` | leaf | OIDC issuer metadata and signing-key location validation |
+| `openapi` | leaf | Load, serve and validate OpenAPI specs |
+| `platformauth` | support | Platform JWTs, principals, token exchange and API-key resolution |
+| `policy` | domain | Gateway policy document, compilation and authorization decisions |
+| `registryauth` | leaf | Short-lived registry access tokens |
+| `registrypush` | adapter | Push a Docker archive into the in-cluster registry through a helper Pod |
+| `resourcehistory` | adapter | Bounded, authenticated infrastructure samples for admin sizing reports |
+| `sessionstate` | domain | Platform-owned session synchronization contract for gateways |
+| `svcboot` | support | Service startup: server, request IDs, metrics, tracing, key lists |
+| `telemetry` | support | Tracing, correlated logs and HTTP request metrics |
+| `topology` | leaf | Platform layout: components, namespaces, mode, scopes, routes, hosts and registry rewriting |
+| `transport/httptrace`, `transport/tlsconfig` | leaf | Instrument existing HTTP clients; load TLS trust and certificates |
 
 Shared gateway dependencies follow their owning domains:
 
@@ -242,21 +279,21 @@ its own layer or a lower one, never a higher one.
 | Layer | Packages | Rule |
 |---|---|---|
 | Composers | `services/*`, `cmd/*`, `internal/*` (runtime-api, platform-api, operator, CLI) | Wire everything together; change most often |
-| Adapters | `k8sclient`, `kubeworkload`, `registrypush`, `controlplane`, `platformstack`, `operatorutil`, `resourcehistory`, `workloadidentity`, `metadata/crdgen`, `access/k8sstore` | The only layer that imports Kubernetes libraries |
-| Domain | `policy`, `access`, `sessionstate`, `metadata` | Rules and models; no Kubernetes or service infrastructure |
+| Adapters | `k8sclient`, `kubeworkload`, `registrypush`, `controlplane`, `resourcehistory` | The only layer that imports Kubernetes libraries |
+| Domain | `policy`, `access`, `sessionstate`, `blueprint` | Rules and models; no Kubernetes or service infrastructure |
 | Leaves | `identity`, `events`, `credentialbroker`, `envcfg`, `httpx`, `topology` and similar | Import only other leaves; most stable |
 
 Support packages (`apikit`, `platformauth`, `telemetry`, `svcboot`, `clickhouse`)
 sit beside the domain and never import adapters. The `mcp-gateway` may use
 `policy`, `events` and `credentialbroker` but must not import an adapter.
 `TestSharedPackageLayerDesign` enforces this and fails for an unclassified new
-package. `pkg/blueprint` is Kubernetes-free: only the MCPServer CRD rendering
-lives in the `metadata/crdgen` adapter. `pkg/access` is Kubernetes-free too: it
+package. `pkg/blueprint` is Kubernetes-free: the MCPServer CRD rendering
+lives in `internal/cli/server/crdgen`, which only the CLI uses. `pkg/access` is Kubernetes-free too: it
 holds the grant and session specs, request contracts and validation, with its own
 `access.Time` and `access.Condition` that marshal exactly like `metav1.Time` and
 `metav1.Condition`. The Kubernetes object envelopes (`MCPAccessGrant`,
 `MCPAgentSession` and their lists), the dynamic-client `Manager` and the
-unstructured converters live in the `access/k8sstore` adapter. The only
+unstructured converters live in `services/runtime-api/internal/k8sstore`, which only the runtime API uses. The only
 Kubernetes import the lower layers keep is the generic field-path validation
 helper, named in `k8sHelperPackages`; `k8sInDomain` is empty and a new entry
 needs a written justification. Platform-specific
