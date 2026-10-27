@@ -89,6 +89,13 @@ if label == "runtime-init-logs":
             rows.append(message.rstrip())
     print("\n".join(rows) if rows else "collection_gap: no runtime initialization failure was logged")
     raise SystemExit(0)
+if label in ("service-logs", "service-logs-previous"):
+    text = sys.stdin.read()
+    sys.stdout.write(text if text.strip() else "collection_gap: no service log lines were available\n")
+    raise SystemExit(0)
+if label == "pod-names":
+    sys.stdout.write(sys.stdin.read())
+    raise SystemExit(0)
 if label in ("operator-logs", "gateway-logs"):
     allowed = ("ts", "time", "timestamp", "level", "logger", "msg", "error", "name", "namespace", "controller", "reconcileID", "generation", "port")
     rows, skipped = [], 0
@@ -227,6 +234,71 @@ e2e_collect_setup_diagnostics() {
   done
   e2e_diag_capture "runtime-init-logs" "${directory}/setup-runtime-init.log" \
     logs -n mcp-platform -l app=mcp-runtime-api --all-containers=true --prefix=true --since=10m --tail=80
+  e2e_collect_pod_logs "${directory}"
+}
+
+# Namespaces whose pods run platform services. A failure in any of them is
+# diagnosed from the failing pod's own log: an API 5xx such as query_failed only
+# names the symptom, and the backend error is written by the service.
+E2E_DIAG_POD_LOG_NAMESPACES=(
+  mcp-runtime mcp-platform mcp-observability mcp-log-collector
+  registry traefik cert-manager mcp-servers mcp-servers-org mcp-servers-public
+)
+E2E_DIAG_MAX_PODS_PER_NAMESPACE=30
+# Total time for pod log collection; with the API server down every call waits
+# out its request timeout, which must not stall cleanup for minutes.
+E2E_DIAG_POD_LOG_BUDGET_SECONDS=${E2E_DIAG_POD_LOG_BUDGET_SECONDS:-150}
+
+# Capture the recent log of every pod in each platform namespace, plus the
+# previous container's log for pods that restarted (a crash loop's current log
+# is usually empty). Pods are discovered, not named, so a new service is covered
+# without an edit. Each file keeps the redactor and the size cap of
+# e2e_diag_capture, and the pod count per namespace is bounded.
+e2e_collect_pod_logs() {
+  local root="$1/pod-logs"
+  local namespace safe_namespace pods_file pod name count skipped started="${SECONDS}"
+  mkdir -p "${root}"
+  for namespace in "${E2E_DIAG_POD_LOG_NAMESPACES[@]}"; do
+    if (( SECONDS - started > E2E_DIAG_POD_LOG_BUDGET_SECONDS )); then
+      printf 'truncated: pod log collection stopped at %s after %ss\n' "${namespace}" "${E2E_DIAG_POD_LOG_BUDGET_SECONDS}" >"${root}/_truncated.txt"
+      return 0
+    fi
+    safe_namespace="$(e2e_diag_safe_name "${namespace}")"
+    mkdir -p "${root}/${safe_namespace}"
+    pods_file="${root}/${safe_namespace}/_pods.txt"
+    e2e_diag_capture "pod-names" "${pods_file}" get pods -n "${namespace}" -o name
+    if grep -q '^collection_gap:' "${pods_file}"; then
+      continue
+    fi
+    count=0
+    skipped=0
+    while IFS= read -r pod; do
+      [[ "${pod}" == pod/* ]] || continue
+      if (( SECONDS - started > E2E_DIAG_POD_LOG_BUDGET_SECONDS )); then
+        printf 'truncated: pod log collection stopped in %s after %ss\n' "${namespace}" "${E2E_DIAG_POD_LOG_BUDGET_SECONDS}" >"${root}/_truncated.txt"
+        return 0
+      fi
+      if (( count >= E2E_DIAG_MAX_PODS_PER_NAMESPACE )); then
+        skipped=$((skipped + 1))
+        continue
+      fi
+      count=$((count + 1))
+      name="$(e2e_diag_safe_name "${pod#pod/}")"
+      e2e_diag_capture "service-logs" "${root}/${safe_namespace}/${name}.log" \
+        logs -n "${namespace}" "${pod}" --all-containers=true --prefix=true --since=15m --tail=200
+      e2e_diag_capture "service-logs-previous" "${root}/${safe_namespace}/${name}.previous.log" \
+        logs -n "${namespace}" "${pod}" --all-containers=true --prefix=true --previous --tail=200
+      # A pod that never restarted has no previous container; that is the normal
+      # case, not a collection gap. Any other failure stays recorded.
+      if grep -q 'previous terminated container' "${root}/${safe_namespace}/${name}.previous.log"; then
+        rm -f "${root}/${safe_namespace}/${name}.previous.log"
+      fi
+    done <"${pods_file}"
+    if (( skipped > 0 )); then
+      printf 'truncated: %d more pods were not collected (limit %d per namespace)\n' \
+        "${skipped}" "${E2E_DIAG_MAX_PODS_PER_NAMESPACE}" >>"${pods_file}"
+    fi
+  done
 }
 
 rollout_status_with_logs() {
