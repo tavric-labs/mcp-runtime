@@ -1,4 +1,4 @@
-package metadata
+package blueprint
 
 import (
 	policypkg "mcp-runtime/pkg/policy"

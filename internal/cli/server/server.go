@@ -10,7 +10,7 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	registrycli "mcp-runtime/internal/cli/registry"
-	"mcp-runtime/pkg/metadata"
+	"mcp-runtime/pkg/blueprint"
 	"mcp-runtime/pkg/topology"
 )
 
@@ -93,8 +93,8 @@ For pushing MCP server images, use 'server push'.`,
 	initCmd.Flags().StringVar(&initImage, "image", "", "Container image repository (default: server name)")
 	initCmd.Flags().StringVar(&initTag, "tag", "latest", "Container image tag")
 	initCmd.Flags().StringVar(&initScope, "scope", "tenant", "Publish scope: tenant, org, or public")
-	initCmd.Flags().StringVar(&initPolicyMode, "policy-mode", string(metadata.PolicyModeAllowList), "Policy mode: allow-list or observe")
-	initCmd.Flags().StringVar(&initDefaultDecision, "default-decision", string(metadata.PolicyDecisionDeny), "Default policy decision: allow or deny")
+	initCmd.Flags().StringVar(&initPolicyMode, "policy-mode", string(blueprint.PolicyModeAllowList), "Policy mode: allow-list or observe")
+	initCmd.Flags().StringVar(&initDefaultDecision, "default-decision", string(blueprint.PolicyDecisionDeny), "Default policy decision: allow or deny")
 	initCmd.Flags().BoolVar(&initSessionRequired, "session-required", true, "Require adapter-issued agent sessions")
 	initCmd.Flags().Int32Var(&initPort, "port", defaultDeployPort(), "Container port")
 	initCmd.Flags().StringArrayVar(&initTools, "tool", nil, "Tool name to add with read side-effect metadata; repeat for multiple tools")

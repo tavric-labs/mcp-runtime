@@ -9,10 +9,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"mcp-runtime/pkg/metadata"
+	"mcp-runtime/pkg/blueprint"
 )
 
-// Environment names read by the registry-host helpers in pkg/metadata.
+// Environment names read by the registry-host helpers in pkg/blueprint.
 const (
 	envMCPRegistryPullHost    = "MCP_REGISTRY_PULL_HOST"
 	envMCPRegistryEndpoint    = "MCP_REGISTRY_ENDPOINT"
@@ -30,7 +30,7 @@ func TestGenerateCRD(t *testing.T) {
 		outputPath := filepath.Join(tmpDir, "test-server.yaml")
 
 		replicas := int32(2)
-		server := &metadata.ServerMetadata{
+		server := &blueprint.ServerMetadata{
 			Name:             "test-server",
 			Description:      "Test server for CRD generation.",
 			Image:            "my-image",
@@ -78,16 +78,16 @@ func TestGenerateCRD(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "resource-server.yaml")
 
-		server := &metadata.ServerMetadata{
+		server := &blueprint.ServerMetadata{
 			Name:      "resource-server",
 			Image:     "my-image",
 			Namespace: "default",
-			Resources: &metadata.ResourceRequirements{
-				Limits: &metadata.ResourceList{
+			Resources: &blueprint.ResourceRequirements{
+				Limits: &blueprint.ResourceList{
 					CPU:    "500m",
 					Memory: "512Mi",
 				},
-				Requests: &metadata.ResourceList{
+				Requests: &blueprint.ResourceList{
 					CPU:    "100m",
 					Memory: "128Mi",
 				},
@@ -115,11 +115,11 @@ func TestGenerateCRD(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "env-server.yaml")
 
-		server := &metadata.ServerMetadata{
+		server := &blueprint.ServerMetadata{
 			Name:      "env-server",
 			Image:     "my-image",
 			Namespace: "default",
-			EnvVars: []metadata.EnvVar{
+			EnvVars: []blueprint.EnvVar{
 				{Name: "DATABASE_URL", Value: "postgres://localhost"},
 				{Name: "LOG_LEVEL", Value: "debug"},
 			},
@@ -146,51 +146,51 @@ func TestGenerateCRD(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "gateway-server.yaml")
 
-		server := &metadata.ServerMetadata{
+		server := &blueprint.ServerMetadata{
 			Name:      "gateway-server",
 			Image:     "my-image",
 			Namespace: "default",
-			Gateway: &metadata.GatewayConfig{
+			Gateway: &blueprint.GatewayConfig{
 				Enabled:     boolPtr(true),
 				Image:       "example.com/mcp-gateway:latest",
 				Port:        8091,
 				UpstreamURL: "http://127.0.0.1:8088",
 				StripPrefix: "/gateway-server",
-				Resources: &metadata.ResourceRequirements{
-					Requests: &metadata.ResourceList{CPU: "5m", Memory: "32Mi"},
+				Resources: &blueprint.ResourceRequirements{
+					Requests: &blueprint.ResourceList{CPU: "5m", Memory: "32Mi"},
 				},
 			},
-			Auth: &metadata.AuthConfig{},
-			Policy: &metadata.PolicyConfig{
-				Mode:            metadata.PolicyMode("allow-list"),
-				DefaultDecision: metadata.PolicyDecision("deny"),
+			Auth: &blueprint.AuthConfig{},
+			Policy: &blueprint.PolicyConfig{
+				Mode:            blueprint.PolicyMode("allow-list"),
+				DefaultDecision: blueprint.PolicyDecision("deny"),
 			},
-			Session: &metadata.SessionConfig{
+			Session: &blueprint.SessionConfig{
 				Required: true,
 			},
-			Tools: []metadata.ToolConfig{
-				{Name: "delete_user", Description: "Delete a user from the backing system.", RequiredTrust: metadata.TrustLevel("high"), SideEffect: metadata.ToolSideEffect("destructive")},
+			Tools: []blueprint.ToolConfig{
+				{Name: "delete_user", Description: "Delete a user from the backing system.", RequiredTrust: blueprint.TrustLevel("high"), SideEffect: blueprint.ToolSideEffect("destructive")},
 			},
-			SecretEnvVars: []metadata.SecretEnvVar{
+			SecretEnvVars: []blueprint.SecretEnvVar{
 				{
 					Name: "OPENAI_API_KEY",
-					SecretKeyRef: &metadata.SecretKeyRef{
+					SecretKeyRef: &blueprint.SecretKeyRef{
 						Name: "provider-creds",
 						Key:  "openai",
 					},
 				},
 			},
-			Analytics: &metadata.AnalyticsConfig{
+			Analytics: &blueprint.AnalyticsConfig{
 				IngestURL: "http://analytics.default.svc/api/events",
 				Source:    "gateway-server",
 				EventType: "mcp.request",
-				APIKeySecretRef: &metadata.SecretKeyRef{
+				APIKeySecretRef: &blueprint.SecretKeyRef{
 					Name: "analytics-creds",
 					Key:  "api-key",
 				},
 			},
-			Rollout: &metadata.RolloutConfig{
-				Strategy:       metadata.RolloutStrategy("Canary"),
+			Rollout: &blueprint.RolloutConfig{
+				Strategy:       blueprint.RolloutStrategy("Canary"),
 				CanaryReplicas: int32Ptr(1),
 			},
 		}
@@ -273,7 +273,7 @@ func TestGenerateCRD(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "nested", "dirs", "server.yaml")
 
-		server := &metadata.ServerMetadata{
+		server := &blueprint.ServerMetadata{
 			Name:      "nested-server",
 			Image:     "my-image",
 			Namespace: "default",
@@ -298,9 +298,9 @@ func TestGenerateCRDsFromRegistry(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		replicas := int32(1)
-		registry := &metadata.RegistryFile{
+		registry := &blueprint.RegistryFile{
 			Version: "v1",
-			Servers: []metadata.ServerMetadata{
+			Servers: []blueprint.ServerMetadata{
 				{
 					Name:      "server-one",
 					Image:     "image-one",
@@ -342,9 +342,9 @@ func TestGenerateCRDsFromRegistry(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputDir := filepath.Join(tmpDir, "new-dir")
 
-		registry := &metadata.RegistryFile{
+		registry := &blueprint.RegistryFile{
 			Version: "v1",
-			Servers: []metadata.ServerMetadata{
+			Servers: []blueprint.ServerMetadata{
 				{Name: "test", Image: "test", Namespace: "default"},
 			},
 		}
@@ -362,9 +362,9 @@ func TestGenerateCRDsFromRegistry(t *testing.T) {
 	t.Run("handles empty registry", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		registry := &metadata.RegistryFile{
+		registry := &blueprint.RegistryFile{
 			Version: "v1",
-			Servers: []metadata.ServerMetadata{},
+			Servers: []blueprint.ServerMetadata{},
 		}
 
 		err := GenerateCRDsFromRegistry(registry, tmpDir)
@@ -479,7 +479,7 @@ func TestGenerateCRDRewritesImageWhenOnlyIngressHostSet(t *testing.T) {
 	}
 	t.Setenv(envMCPRegistryIngressHost, "registry.mcpruntime.org")
 
-	server := &metadata.ServerMetadata{
+	server := &blueprint.ServerMetadata{
 		Name:      "acme-tools",
 		Namespace: "mcp-team-acme",
 		Image:     "registry.mcpruntime.org/acme/acme-tools",
@@ -508,7 +508,7 @@ func TestGenerateCRDRewritesImageToPullHost(t *testing.T) {
 	t.Setenv(envMCPRegistryPullHost, "10.43.69.247:5000")
 	t.Setenv(envMCPRegistryIngressHost, "registry.mcpruntime.org")
 
-	server := &metadata.ServerMetadata{
+	server := &blueprint.ServerMetadata{
 		Name:      "acme-tools",
 		Namespace: "mcp-team-acme",
 		Image:     "registry.mcpruntime.org/acme/acme-tools",

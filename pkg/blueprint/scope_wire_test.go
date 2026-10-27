@@ -1,4 +1,4 @@
-package metadata
+package blueprint
 
 import (
 	"encoding/json"

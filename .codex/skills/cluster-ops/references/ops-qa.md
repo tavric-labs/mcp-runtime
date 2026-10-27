@@ -42,7 +42,7 @@ Mode dispatch by changed paths:
 |---|---|
 | `internal/operator/**`, `api/v1alpha1/**`, `config/crd/**` | Operator, CRD reconciliation, ingress, generated-file drift |
 | `cmd/operator/**`, `cmd/mcp-runtime/**`, `internal/cli/**` | CLI smoke, generated-file drift |
-| `internal/cli/setup/**`, `pkg/k8sclient/**`, `internal/cli/manifest/**`, `pkg/metadata/**` | Setup re-run, registry pulls, ingress, rollout |
+| `internal/cli/setup/**`, `pkg/k8sclient/**`, `internal/cli/manifest/**`, `pkg/blueprint/**` | Setup re-run, registry pulls, ingress, rollout |
 | `services/platform-api/**`, `services/runtime-api/**`, `services/analytics-api/**`, `services/ui/**`, `services/ingest/**`, `services/processor/**`, `services/mcp-gateway/**` | Service rollout matrix, gateway sidecar refresh |
 | `k8s/**`, `config/**` | Manifest re-apply + rollout |
 | `docs/**` only | Skip — not an operations regression surface |

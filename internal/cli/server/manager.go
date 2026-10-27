@@ -28,7 +28,7 @@ import (
 	"mcp-runtime/internal/cli/platformapi"
 	registrycli "mcp-runtime/internal/cli/registry"
 	"mcp-runtime/internal/cli/server/crdgen"
-	"mcp-runtime/pkg/metadata"
+	"mcp-runtime/pkg/blueprint"
 	policypkg "mcp-runtime/pkg/policy"
 )
 
@@ -71,8 +71,8 @@ func (m *ServerManager) requireKubectlForMutation() error {
 // returns its entries as written. Commands that rewrite .mcp metadata (init,
 // build image) must not persist loader defaults: they would stamp servers that
 // have no image with the registry.local placeholder, which no platform pulls.
-func loadMetadataForRewrite(path string) (*metadata.RegistryFile, error) {
-	if _, err := metadata.LoadFromFile(path); err != nil {
+func loadMetadataForRewrite(path string) (*blueprint.RegistryFile, error) {
+	if _, err := blueprint.LoadFromFile(path); err != nil {
 		return nil, err
 	}
 	// #nosec G304 -- path is the user-selected local .mcp metadata file.
@@ -80,7 +80,7 @@ func loadMetadataForRewrite(path string) (*metadata.RegistryFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
-	var registry metadata.RegistryFile
+	var registry blueprint.RegistryFile
 	if err := yaml.Unmarshal(raw, &registry); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
@@ -117,19 +117,19 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 	}
 	policyMode = strings.TrimSpace(policyMode)
 	if policyMode == "" {
-		policyMode = string(metadata.PolicyModeAllowList)
+		policyMode = string(blueprint.PolicyModeAllowList)
 	}
-	switch metadata.PolicyMode(policyMode) {
-	case metadata.PolicyModeAllowList, metadata.PolicyModeObserve:
+	switch blueprint.PolicyMode(policyMode) {
+	case blueprint.PolicyModeAllowList, blueprint.PolicyModeObserve:
 	default:
 		return core.NewWithBase(nil, fmt.Sprintf("invalid policy mode %q; must be allow-list or observe", policyMode))
 	}
 	defaultDecision = strings.TrimSpace(defaultDecision)
 	if defaultDecision == "" {
-		defaultDecision = string(metadata.PolicyDecisionDeny)
+		defaultDecision = string(blueprint.PolicyDecisionDeny)
 	}
-	switch metadata.PolicyDecision(defaultDecision) {
-	case metadata.PolicyDecisionAllow, metadata.PolicyDecisionDeny:
+	switch blueprint.PolicyDecision(defaultDecision) {
+	case blueprint.PolicyDecisionAllow, blueprint.PolicyDecisionDeny:
 	default:
 		return core.NewWithBase(nil, fmt.Sprintf("invalid default decision %q; must be allow or deny", defaultDecision))
 	}
@@ -137,7 +137,7 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 		port = defaultDeployPort()
 	}
 
-	registry := metadata.RegistryFile{Version: "v1"}
+	registry := blueprint.RegistryFile{Version: "v1"}
 	metadataPath := filepath.Join(metadataDir, "servers.yaml")
 	if _, err := os.Stat(metadataPath); err == nil {
 		existing, loadErr := loadMetadataForRewrite(metadataPath)
@@ -152,12 +152,12 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 		registry.Version = "v1"
 	}
 
-	var session *metadata.SessionConfig
+	var session *blueprint.SessionConfig
 	if sessionRequired {
-		session = &metadata.SessionConfig{Required: true}
+		session = &blueprint.SessionConfig{Required: true}
 	}
 
-	server := metadata.ServerMetadata{
+	server := blueprint.ServerMetadata{
 		Name:             name,
 		Description:      fmt.Sprintf("%s MCP server", name),
 		Image:            image,
@@ -168,12 +168,12 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 		Port:             port,
 		Tools:            nil,
 		Auth:             nil,
-		Policy: &metadata.PolicyConfig{
-			Mode:            metadata.PolicyMode(policyMode),
-			DefaultDecision: metadata.PolicyDecision(defaultDecision),
+		Policy: &blueprint.PolicyConfig{
+			Mode:            blueprint.PolicyMode(policyMode),
+			DefaultDecision: blueprint.PolicyDecision(defaultDecision),
 		},
 		Session: session,
-		Gateway: &metadata.GatewayConfig{
+		Gateway: &blueprint.GatewayConfig{
 			Enabled: boolPtr(true),
 		},
 	}
@@ -220,13 +220,13 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 	return nil
 }
 
-func initToolMetadata(tools, toolSpecs []string, toolRisk string) ([]metadata.ToolConfig, error) {
+func initToolMetadata(tools, toolSpecs []string, toolRisk string) ([]blueprint.ToolConfig, error) {
 	risk, err := normalizeMetadataRisk(toolRisk)
 	if err != nil {
 		return nil, err
 	}
 	seen := map[string]struct{}{}
-	out := make([]metadata.ToolConfig, 0, len(tools))
+	out := make([]blueprint.ToolConfig, 0, len(tools))
 	for _, tool := range tools {
 		tool = strings.TrimSpace(tool)
 		if tool == "" {
@@ -236,11 +236,11 @@ func initToolMetadata(tools, toolSpecs []string, toolRisk string) ([]metadata.To
 			continue
 		}
 		seen[tool] = struct{}{}
-		out = append(out, metadata.ToolConfig{
+		out = append(out, blueprint.ToolConfig{
 			Name:          tool,
 			Description:   fmt.Sprintf("%s tool", tool),
-			RequiredTrust: metadata.TrustLevelLow,
-			SideEffect:    metadata.ToolSideEffectRead,
+			RequiredTrust: blueprint.TrustLevelLow,
+			SideEffect:    blueprint.ToolSideEffectRead,
 			RiskLevel:     risk,
 		})
 	}
@@ -254,18 +254,18 @@ func initToolMetadata(tools, toolSpecs []string, toolRisk string) ([]metadata.To
 			return nil, core.NewWithBase(nil, fmt.Sprintf("unsupported tool spec %q (use name:low|medium|high:read|write|destructive)", spec))
 		}
 		name := strings.TrimSpace(parts[0])
-		trust := metadata.TrustLevel(strings.ToLower(strings.TrimSpace(parts[1])))
-		sideEffect := metadata.ToolSideEffect(strings.ToLower(strings.TrimSpace(parts[2])))
+		trust := blueprint.TrustLevel(strings.ToLower(strings.TrimSpace(parts[1])))
+		sideEffect := blueprint.ToolSideEffect(strings.ToLower(strings.TrimSpace(parts[2])))
 		if name == "" {
 			return nil, core.NewWithBase(nil, fmt.Sprintf("unsupported tool spec %q: tool name is required", spec))
 		}
 		switch trust {
-		case metadata.TrustLevelLow, metadata.TrustLevelMedium, metadata.TrustLevelHigh:
+		case blueprint.TrustLevelLow, blueprint.TrustLevelMedium, blueprint.TrustLevelHigh:
 		default:
 			return nil, core.NewWithBase(nil, fmt.Sprintf("unsupported tool spec %q: trust must be low, medium, or high", spec))
 		}
 		switch sideEffect {
-		case metadata.ToolSideEffectRead, metadata.ToolSideEffectWrite, metadata.ToolSideEffectDestructive:
+		case blueprint.ToolSideEffectRead, blueprint.ToolSideEffectWrite, blueprint.ToolSideEffectDestructive:
 		default:
 			return nil, core.NewWithBase(nil, fmt.Sprintf("unsupported tool spec %q: side effect must be read, write, or destructive", spec))
 		}
@@ -273,7 +273,7 @@ func initToolMetadata(tools, toolSpecs []string, toolRisk string) ([]metadata.To
 			return nil, core.NewWithBase(nil, fmt.Sprintf("duplicate tool metadata for %q", name))
 		}
 		seen[name] = struct{}{}
-		out = append(out, metadata.ToolConfig{
+		out = append(out, blueprint.ToolConfig{
 			Name:          name,
 			Description:   fmt.Sprintf("%s tool", name),
 			RequiredTrust: trust,
@@ -284,14 +284,14 @@ func initToolMetadata(tools, toolSpecs []string, toolRisk string) ([]metadata.To
 	return out, nil
 }
 
-func normalizeMetadataRisk(raw string) (metadata.ToolRiskLevel, error) {
+func normalizeMetadataRisk(raw string) (blueprint.ToolRiskLevel, error) {
 	raw = strings.ToLower(strings.TrimSpace(raw))
 	if raw == "" {
 		return "", nil
 	}
-	switch metadata.ToolRiskLevel(raw) {
-	case metadata.ToolRiskLevelLow, metadata.ToolRiskLevelMedium, metadata.ToolRiskLevelHigh:
-		return metadata.ToolRiskLevel(raw), nil
+	switch blueprint.ToolRiskLevel(raw) {
+	case blueprint.ToolRiskLevelLow, blueprint.ToolRiskLevelMedium, blueprint.ToolRiskLevelHigh:
+		return blueprint.ToolRiskLevel(raw), nil
 	default:
 		return "", core.NewWithBase(nil, fmt.Sprintf("invalid tool risk %q; must be low, medium, or high", raw))
 	}
@@ -979,7 +979,7 @@ func applyDeployMetadataDefaults(spec *mcpv1alpha1.MCPServerSpec, name, metadata
 		return nil
 	}
 
-	var selected *metadata.ServerMetadata
+	var selected *blueprint.ServerMetadata
 	for i := range registry.Servers {
 		if strings.TrimSpace(registry.Servers[i].Name) == name {
 			selected = &registry.Servers[i]
@@ -996,11 +996,11 @@ func applyDeployMetadataDefaults(spec *mcpv1alpha1.MCPServerSpec, name, metadata
 	return nil
 }
 
-func loadDeployMetadata(metadataFile, metadataDir string) (*metadata.RegistryFile, error) {
+func loadDeployMetadata(metadataFile, metadataDir string) (*blueprint.RegistryFile, error) {
 	metadataFile = strings.TrimSpace(metadataFile)
 	metadataDir = strings.TrimSpace(metadataDir)
 	if metadataFile != "" {
-		registry, err := metadata.LoadFromFile(metadataFile)
+		registry, err := blueprint.LoadFromFile(metadataFile)
 		if err != nil {
 			return nil, core.WrapWithBase(core.ErrLoadMetadataFailed, err, fmt.Sprintf("failed to load metadata file %q: %v", metadataFile, err))
 		}
@@ -1015,14 +1015,14 @@ func loadDeployMetadata(metadataFile, metadataDir string) (*metadata.RegistryFil
 		}
 		return nil, core.WrapWithBase(core.ErrLoadMetadataFailed, err, fmt.Sprintf("failed to inspect metadata directory %q: %v", metadataDir, err))
 	}
-	registry, err := metadata.LoadFromDirectory(metadataDir)
+	registry, err := blueprint.LoadFromDirectory(metadataDir)
 	if err != nil {
 		return nil, core.WrapWithBase(core.ErrLoadMetadataFailed, err, fmt.Sprintf("failed to load metadata directory %q: %v", metadataDir, err))
 	}
 	return registry, nil
 }
 
-func selectDeployMetadata(name, metadataFile, metadataDir string) (*metadata.ServerMetadata, error) {
+func selectDeployMetadata(name, metadataFile, metadataDir string) (*blueprint.ServerMetadata, error) {
 	registry, err := loadDeployMetadata(metadataFile, metadataDir)
 	if err != nil {
 		return nil, err
@@ -1041,7 +1041,7 @@ func selectDeployMetadata(name, metadataFile, metadataDir string) (*metadata.Ser
 	return nil, core.NewWithBase(nil, fmt.Sprintf("no metadata entry for server %q", name))
 }
 
-func mergeDeployMetadata(spec *mcpv1alpha1.MCPServerSpec, src *metadata.ServerMetadata) {
+func mergeDeployMetadata(spec *mcpv1alpha1.MCPServerSpec, src *blueprint.ServerMetadata) {
 	if strings.TrimSpace(spec.Image) == "" {
 		spec.Image = src.Image
 	}
@@ -1172,7 +1172,7 @@ func mergeDeployMetadata(spec *mcpv1alpha1.MCPServerSpec, src *metadata.ServerMe
 	}
 }
 
-func convertDeployInventory(items []metadata.InventoryItem) []mcpv1alpha1.InventoryItem {
+func convertDeployInventory(items []blueprint.InventoryItem) []mcpv1alpha1.InventoryItem {
 	if len(items) == 0 {
 		return nil
 	}
@@ -1187,7 +1187,7 @@ func convertDeployInventory(items []metadata.InventoryItem) []mcpv1alpha1.Invent
 	return out
 }
 
-func mergeDeployEnvVars(existing []mcpv1alpha1.EnvVar, items []metadata.EnvVar) []mcpv1alpha1.EnvVar {
+func mergeDeployEnvVars(existing []mcpv1alpha1.EnvVar, items []blueprint.EnvVar) []mcpv1alpha1.EnvVar {
 	out := append([]mcpv1alpha1.EnvVar(nil), existing...)
 	index := make(map[string]int, len(out))
 	for i, item := range out {
@@ -1204,7 +1204,7 @@ func mergeDeployEnvVars(existing []mcpv1alpha1.EnvVar, items []metadata.EnvVar) 
 	return out
 }
 
-func convertDeployResources(resources *metadata.ResourceRequirements) mcpv1alpha1.ResourceRequirements {
+func convertDeployResources(resources *blueprint.ResourceRequirements) mcpv1alpha1.ResourceRequirements {
 	if resources == nil {
 		return mcpv1alpha1.ResourceRequirements{}
 	}
@@ -1224,7 +1224,7 @@ func convertDeployResources(resources *metadata.ResourceRequirements) mcpv1alpha
 	return converted
 }
 
-func convertDeploySecretEnvVars(items []metadata.SecretEnvVar) []mcpv1alpha1.SecretEnvVar {
+func convertDeploySecretEnvVars(items []blueprint.SecretEnvVar) []mcpv1alpha1.SecretEnvVar {
 	if len(items) == 0 {
 		return nil
 	}

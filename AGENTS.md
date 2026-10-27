@@ -68,7 +68,7 @@ rollout order. Direct CSR tests do not count as CLI adapter enrollment acceptanc
 | Access / policy | `pkg/access/`, `pkg/policy/`, `pkg/sessionstate/`; platform-api owns Postgres sessions and the gateway sync contract |
 | Optional MCP Auth credential gateway | `pkg/authgateway/`, `internal/cli/cluster/auth_gateway.go`, bundled OAuth resource reconciliation; use the explicit admin `gateway apply` command and retain provider-neutral core boundaries. |
 | Credential sources / bindings | `pkg/credentialbroker/`, `services/platform-api/internal/credentialapi/`, platform store and `internal/cli/credential/`; [provider and delivery contract](docs/credential-broker.md). Keep values out of management surfaces and retain dedicated Pod identity, current session/tool/server checks and same-Pod delivery. |
-| Cluster / manifests / registry | `pkg/controlplane/`, `pkg/k8sclient/`, `pkg/kubeworkload/`, `internal/cli/manifest/`, `pkg/metadata/` |
+| Cluster / manifests / registry | `pkg/controlplane/`, `pkg/k8sclient/`, `pkg/kubeworkload/`, `internal/cli/manifest/`, `pkg/blueprint/` |
 | Platform / services | `services/runtime-api/internal/platformstack/`, `pkg/topology/`, `services/*` (separate modules where present) |
 | Samples / installation | `examples/`, `k8s/`, `config/` |
 | Integration / E2E | `test/integration/`, `test/e2e/`; `docs/contributor/staging-e2e.md` |

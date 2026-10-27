@@ -1,13 +1,13 @@
 # Metadata Package
 
-Package `pkg/metadata` supports the `.mcp` authoring flow. It loads lightweight
+Package `pkg/blueprint` supports the `.mcp` authoring flow. It loads lightweight
 server metadata files, applies defaults, resolves registry hosts, and renders
 `MCPServer` manifests.
 
 Refresh the package reference with:
 
 ```bash
-go doc -all ./pkg/metadata
+go doc -all ./pkg/blueprint
 ```
 
 ## Metadata Schema
@@ -73,7 +73,7 @@ such as `ghcr.io/owner/image` remain unchanged.
 `crdgen.GenerateCRD` (package `internal/cli/server/crdgen`) converts one `ServerMetadata`
 into an `MCPServer` YAML manifest. `crdgen.GenerateCRDsFromRegistry` writes one
 manifest per server to an output directory. The generator is the only part of the
-metadata code that imports Kubernetes types; `pkg/metadata` itself stays
+metadata code that imports Kubernetes types; `pkg/blueprint` itself stays
 Kubernetes-free and exports `PublishScopeLabels` and `ImageRefForClusterPull` for it.
 
 Generation should be deterministic:
@@ -87,15 +87,15 @@ Generation should be deterministic:
 
 When changing metadata behavior:
 
-1. Update `pkg/metadata` schema and generator mapping.
-2. Add or update fixtures in `pkg/metadata/testdata` when useful.
+1. Update `pkg/blueprint` schema and generator mapping.
+2. Add or update fixtures in `pkg/blueprint/testdata` when useful.
 3. Update user docs for `.mcp` authoring if the field is user-facing.
 4. Check examples that rely on generated manifests.
 
 Run:
 
 ```bash
-go test ./pkg/metadata/... -count=1
+go test ./pkg/blueprint/... -count=1
 go test ./internal/cli/server -run 'TestGenerate|TestBuild' -count=1
 ```
 

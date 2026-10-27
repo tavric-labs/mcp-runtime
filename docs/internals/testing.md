@@ -28,7 +28,7 @@ explicit isolated Kind kubeconfig from the contributor guide.
 | API types | `go test ./api/v1alpha1/... -count=1` | CRD structs, validation, deepcopy, scheme registration |
 | CLI | `go test ./internal/cli/... -count=1` | command routing, command behavior, setup planning, registry helpers, doctor checks |
 | Operator | `go test ./internal/operator/... -race -count=1` | reconciliation defaults, owned resources, status, registry/image behavior |
-| Metadata | `go test ./pkg/metadata/... -count=1` | `.mcp` loading, host resolution, manifest generation |
+| Metadata | `go test ./pkg/blueprint/... -count=1` | `.mcp` loading, host resolution, manifest generation |
 | Platform services | `go test -race -count=1 ./...` in each service module | API, UI, ingest, processor, proxy service logic |
 
 ### Gateway filter boundaries

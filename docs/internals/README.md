@@ -153,7 +153,7 @@ flowchart TB
     CLIAdapter[internal/cli/adapter] --> AgentAdapter[internal/agentadapter]
     CLIRoot --> CLICommands[CLI command packages]
     CLICommands --> CLICore[internal/cli/core]
-    CLICommands --> Metadata[pkg/metadata]
+    CLICommands --> Metadata[pkg/blueprint]
     CLICommands --> Manifest[internal/cli/manifest]
     CLICommands --> K8sClient[pkg/k8sclient]
     CLICommands --> Access[pkg/access]
@@ -250,7 +250,7 @@ Support packages (`apikit`, `platformauth`, `telemetry`, `svcboot`, `clickhouse`
 sit beside the domain and never import adapters. The `mcp-gateway` may use
 `policy`, `events` and `credentialbroker` but must not import an adapter.
 `TestSharedPackageLayerDesign` enforces this and fails for an unclassified new
-package. `pkg/metadata` is Kubernetes-free: only the MCPServer CRD rendering
+package. `pkg/blueprint` is Kubernetes-free: only the MCPServer CRD rendering
 lives in the `metadata/crdgen` adapter. `pkg/access` is Kubernetes-free too: it
 holds the grant and session specs, request contracts and validation, with its own
 `access.Time` and `access.Condition` that marshal exactly like `metav1.Time` and
@@ -299,7 +299,7 @@ workflows.
 |---|---|---|
 | Add or change a CLI flag | `internal/cli/root`, `internal/cli/<command>`, `internal/cli/core`, `cmd/mcp-runtime`, golden CLI tests | `go test ./internal/cli/... ./test/golden/... -count=1` |
 | Change a CRD field | `api/v1alpha1`, CRD YAML, operator reconciliation, docs/API reference | `go test ./api/v1alpha1/... ./internal/operator/... -count=1` |
-| Change generated manifests | `pkg/metadata`, `internal/cli/manifest`, `config/`, examples | targeted package tests plus manifest diff review |
+| Change generated manifests | `pkg/blueprint`, `internal/cli/manifest`, `config/`, examples | targeted package tests plus manifest diff review |
 | Change reconciliation behavior | `internal/operator`, API types, k8s helpers | `go test ./internal/operator/... -race -count=1` |
 | Change governance policy | `pkg/access`, `pkg/policy`, `services/runtime-api`, `services/mcp-gateway`, access CRDs | targeted package/service tests plus e2e policy scenario |
 | Change agent adapters | `internal/agentadapter`, `internal/cli/adapter`, `docs/connect-clients.md` | `go test ./internal/agentadapter ./internal/cli/adapter -count=1` |

@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/metadata"
+	"mcp-runtime/pkg/blueprint"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
 // GenerateCRD generates a Kubernetes CRD YAML file for a single server metadata entry at the given output path.
-func GenerateCRD(server *metadata.ServerMetadata, outputPath string) error {
+func GenerateCRD(server *blueprint.ServerMetadata, outputPath string) error {
 	// Convert metadata to CRD
 	mcpServer := &mcpv1alpha1.MCPServer{
 		TypeMeta: metav1.TypeMeta{
@@ -203,7 +203,7 @@ func GenerateCRD(server *metadata.ServerMetadata, outputPath string) error {
 	return nil
 }
 
-func convertInventoryItems(items []metadata.InventoryItem) []mcpv1alpha1.InventoryItem {
+func convertInventoryItems(items []blueprint.InventoryItem) []mcpv1alpha1.InventoryItem {
 	if len(items) == 0 {
 		return nil
 	}
@@ -224,7 +224,7 @@ func convertInventoryItems(items []metadata.InventoryItem) []mcpv1alpha1.Invento
 	return converted
 }
 
-func convertResourceRequirements(resources *metadata.ResourceRequirements) *mcpv1alpha1.ResourceRequirements {
+func convertResourceRequirements(resources *blueprint.ResourceRequirements) *mcpv1alpha1.ResourceRequirements {
 	if resources == nil {
 		return nil
 	}
@@ -245,7 +245,7 @@ func convertResourceRequirements(resources *metadata.ResourceRequirements) *mcpv
 }
 
 // GenerateCRDsFromRegistry renders CRD YAML files for every server in a registry into outputDir.
-func GenerateCRDsFromRegistry(registry *metadata.RegistryFile, outputDir string) error {
+func GenerateCRDsFromRegistry(registry *blueprint.RegistryFile, outputDir string) error {
 	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
