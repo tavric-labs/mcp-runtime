@@ -104,8 +104,6 @@ spec:
                   name: mcp-platform-api-credentials
                   key: INTERNAL_AUTH_TOKEN
                   optional: true
-            - name: RUNTIME_CONTROL_URL
-              value: "http://mcp-runtime-api.mcp-platform.svc.cluster.local:8084"
             - name: ADMIN_USERS
               valueFrom:
                 secretKeyRef:

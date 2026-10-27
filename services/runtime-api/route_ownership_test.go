@@ -28,6 +28,7 @@ func TestRouteOwnershipV1Only(t *testing.T) {
 		"/api/v1/auth/login",
 		"/api/v1/stats",
 		"/api/v1/admin/namespaces",
+		"/api/v1/user/api-keys",
 	} {
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))

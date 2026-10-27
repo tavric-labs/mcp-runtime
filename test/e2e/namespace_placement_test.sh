@@ -77,7 +77,6 @@ install_fake_kubectl() {
         *ANALYTICS_UPSTREAM*) printf '%s' 'http://mcp-analytics-api.mcp-observability.svc.cluster.local:8085' ;;
         *RUNTIME_UPSTREAM*) printf '%s' 'http://mcp-runtime-api.mcp-platform.svc.cluster.local:8084' ;;
         *API_UPSTREAM*) printf '%s' 'http://mcp-platform-api.mcp-platform.svc.cluster.local:8080' ;;
-        *RUNTIME_CONTROL_URL*) printf '%s' 'http://mcp-runtime-api.mcp-platform.svc.cluster.local:8084' ;;
         *PLATFORM_API_URL*) printf '%s' 'http://mcp-platform-api.mcp-platform.svc.cluster.local:8080' ;;
         *CLICKHOUSE_ADDR*) printf '%s' "clickhouse.mcp-observability.svc.cluster.local:${FAKE_CLICKHOUSE_PORT:-9000}" ;;
         *) printf '%s' 'wrong' ;;

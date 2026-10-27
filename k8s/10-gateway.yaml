@@ -787,9 +787,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: mcp-runtime-api
+                name: mcp-platform-api
                 port:
-                  number: 8084
+                  number: 8080
           - path: /api/v1/admin
             pathType: Prefix
             backend:

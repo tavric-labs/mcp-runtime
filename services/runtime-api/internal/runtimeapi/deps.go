@@ -37,7 +37,6 @@ type principalTeam = platformauth.PrincipalTeam
 type teamRecord = platformapi.Team
 type teamMembershipRecord = platformapi.TeamMembership
 type auditEvent = platformapi.AuditEvent
-type userAPIKeySummary = platformapi.APIKeySummary
 
 type identityStore interface {
 	ListTeams(ctx context.Context) ([]teamRecord, error)

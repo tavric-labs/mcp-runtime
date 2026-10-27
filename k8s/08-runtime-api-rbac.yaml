@@ -252,10 +252,6 @@ rules:
     verbs: ["create"]
   - apiGroups: [""]
     resources: ["secrets"]
-    resourceNames: ["mcp-user-api-keys"]
-    verbs: ["get", "update", "patch"]
-  - apiGroups: [""]
-    resources: ["secrets"]
     resourceNames: ["mcp-runtime-api-credentials"]
     verbs: ["get"]
 ---

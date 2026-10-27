@@ -2,19 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
-	"os"
-	"strings"
 	"time"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"mcp-runtime-api/admin"
 	"mcp-runtime-api/deployments"
 	"mcp-runtime-api/internal/platformapi"
-	"mcp-runtime-api/internal/platforminternal"
 	"mcp-runtime-api/internal/runtimeapi"
 	runtimehandlers "mcp-runtime-api/runtime"
 	"mcp-runtime/pkg/apihttp"
@@ -26,12 +20,6 @@ import (
 func (s *server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/ready", s.handleReady)
-
-	platforminternal.Handler{
-		Runtime:  s.runtime,
-		Platform: s.platform,
-		Token:    strings.TrimSpace(os.Getenv("INTERNAL_AUTH_TOKEN")),
-	}.Register(mux)
 
 	auth := s.authentic.Middleware
 	adminOnly := func(h http.Handler) http.Handler {
@@ -185,8 +173,6 @@ func (rr runtimeRoutes) registerRoutes(mux *http.ServeMux) {
 	rr.mount("/runtime/sessions/", rr.auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		runtimehandlers.HandleSessionItemPath(accessService, w, r)
 	})))
-	rr.mount("/user/api-keys", rr.auth(http.HandlerFunc(rr.handleUserAPIKeys)))
-	rr.mount("/user/api-keys/", rr.auth(http.HandlerFunc(rr.handleUserAPIKeyItem)))
 }
 
 func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -207,107 +193,4 @@ func (s *server) handleReady(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
-}
-
-func (rr runtimeRoutes) handleUserAPIKeys(w http.ResponseWriter, r *http.Request) {
-	p, ok := platformauth.FromContext(r.Context())
-	if !ok || p.UserID() == "" {
-		apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "unauthorized")
-		return
-	}
-	switch r.Method {
-	case http.MethodGet:
-		keys, err := rr.runtime.ListUserAPIKeys(r.Context(), p.UserID())
-		if err != nil {
-			apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to list user api keys")
-			return
-		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"keys": keys})
-	case http.MethodPost:
-		var req struct {
-			Name string `json:"name"`
-		}
-		r.Body = http.MaxBytesReader(w, r.Body, 8*1024)
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
-			return
-		}
-		key, cleartext, err := rr.runtime.CreateUserAPIKey(r.Context(), p.UserID(), req.Name)
-		if err != nil {
-			rr.platform.WriteAudit(r.Context(), platformAuditEvent(p, "api_key_create", strings.TrimSpace(req.Name), "error", err.Error(), r))
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, err.Error())
-			return
-		}
-		rr.platform.WriteAudit(r.Context(), platformAuditEvent(p, "api_key_create", key.ID, "success", "", r))
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"key": key, "api_key": cleartext, "one_time_key": cleartext})
-	default:
-		w.Header().Set("allow", "GET, POST")
-		apihttp.WriteEnvelope(w, http.StatusMethodNotAllowed, apihttp.CodeMethodNotAllowed, "method not allowed")
-	}
-}
-
-func (rr runtimeRoutes) handleUserAPIKeyItem(w http.ResponseWriter, r *http.Request) {
-	p, ok := platformauth.FromContext(r.Context())
-	if !ok || p.UserID() == "" {
-		apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "unauthorized")
-		return
-	}
-	keyID, allowed, valid := parseUserAPIKeyItemPath(r.Method, r.URL.Path)
-	if !allowed {
-		w.Header().Set("allow", "DELETE, POST")
-		apihttp.WriteEnvelope(w, http.StatusMethodNotAllowed, apihttp.CodeMethodNotAllowed, "method not allowed")
-		return
-	}
-	if !valid {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid key path")
-		return
-	}
-	key, err := rr.runtime.RevokeUserAPIKey(r.Context(), p.UserID(), keyID)
-	if err != nil {
-		rr.platform.WriteAudit(r.Context(), platformAuditEvent(p, "api_key_revoke", keyID, "error", err.Error(), r))
-		if apierrors.IsNotFound(err) {
-			apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "key not found")
-			return
-		}
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to revoke key")
-		return
-	}
-	rr.platform.WriteAudit(r.Context(), platformAuditEvent(p, "api_key_revoke", key.ID, "success", "", r))
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"key": key})
-}
-
-func platformAuditEvent(p platformauth.Principal, action, resource, status, message string, r *http.Request) platformapi.AuditEvent {
-	return platformapi.AuditEvent{
-		UserID:       p.UserID(),
-		Action:       action,
-		Resource:     resource,
-		Namespace:    p.Namespace,
-		Status:       status,
-		Message:      message,
-		ActorIP:      platformauth.RequestIP(r),
-		Source:       platformauth.AuditSource(r, p),
-		AuthIdentity: platformauth.AuditIdentityLabel(p),
-	}
-}
-
-func parseUserAPIKeyItemPath(method, path string) (keyID string, allowed bool, valid bool) {
-	const prefix = "/api/v1/user/api-keys/"
-	if strings.HasPrefix(path, prefix) {
-		path = strings.TrimPrefix(path, prefix)
-	}
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	switch method {
-	case http.MethodDelete:
-		if len(parts) != 1 || parts[0] == "" {
-			return "", true, false
-		}
-		return parts[0], true, true
-	case http.MethodPost:
-		if len(parts) != 2 || parts[0] == "" || parts[1] != "revoke" {
-			return "", true, false
-		}
-		return parts[0], true, true
-	default:
-		return "", false, false
-	}
 }

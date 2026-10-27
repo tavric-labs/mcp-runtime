@@ -175,6 +175,9 @@ func HandleUserAPIKeys(w http.ResponseWriter, r *http.Request, deps Dependencies
 			httperrors.QueryFailed(w, "failed to list user api keys")
 			return
 		}
+		if keys == nil {
+			keys = []platformstore.APIKeySummary{}
+		}
 		deps.WriteJSON(w, http.StatusOK, map[string]any{"keys": keys})
 	case http.MethodPost:
 		var req struct {
@@ -387,7 +390,7 @@ func RegistryCredentialUsername(p apiauth.Principal) string {
 }
 
 func parseUserAPIKeyItemPath(method, path string) (keyID string, allowed bool, valid bool) {
-	parts := strings.Split(strings.Trim(strings.TrimPrefix(path, "/api/user/api-keys/"), "/"), "/")
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(path, "/api/v1/user/api-keys/"), "/"), "/")
 	switch method {
 	case http.MethodDelete:
 		if len(parts) != 1 || parts[0] == "" {

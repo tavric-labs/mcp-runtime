@@ -14,8 +14,8 @@ Traefik ingress (`internal/cli/setup/ingressmanifest/paths.go`, `k8s/10-gateway.
 
 | Service | Deployment | Owns (prefix examples) |
 |---|---|---|
-| **platform-api** | `mcp-platform-api` | `/api/v1/auth/*`, `/api/v1/users`, `/api/v1/registry/authz`, `/api/v1/user/registry-credentials`, `/api/v1/user/activity/*`, `/api/v1/admin/namespaces`, `/api/v1/admin/audit` |
-| **runtime-api** | `mcp-runtime-api` | `/api/v1/runtime/*`, `/api/v1/deployments`, `/api/v1/dashboard/*`, `/api/v1/user/api-keys`, `/api/v1/admin/deployments`, `/api/v1/admin/operations` |
+| **platform-api** | `mcp-platform-api` | `/api/v1/auth/*`, `/api/v1/users`, `/api/v1/registry/authz`, `/api/v1/user/api-keys`, `/api/v1/user/registry-credentials`, `/api/v1/user/activity/*`, `/api/v1/admin/namespaces`, `/api/v1/admin/audit` |
+| **runtime-api** | `mcp-runtime-api` | `/api/v1/runtime/*`, `/api/v1/deployments`, `/api/v1/dashboard/*`, `/api/v1/admin/deployments`, `/api/v1/admin/operations` |
 | **analytics-api** | `mcp-analytics-api` | `/api/v1/events`, `/api/v1/stats`, `/api/v1/sources`, `/api/v1/event-types`, `/api/v1/analytics/*`, `/api/v1/user/analytics/*` |
 
 Platform login (`POST /api/v1/auth/login`) issues JWTs whose `aud` claim includes `platform-api`, `runtime-api`, and `analytics-api` so one bearer token works across the split surface (`pkg/platformauth`).
@@ -611,9 +611,9 @@ GET  /api/v1/admin/namespaces             # Admin-only namespace inventory
 GET  /api/v1/admin/deployments            # Admin-only deployment inventory
 GET  /api/v1/admin/audit                  # Admin-only audit timeline; supports user/since/until/limit
 GET  /api/v1/admin/operations             # Admin-only user, image, deployment, and timeline view
-GET  /api/v1/user/api-keys                # List caller-owned API keys
-POST /api/v1/user/api-keys                # Create caller-owned API key
-DELETE /api/v1/user/api-keys/{id}         # Revoke caller-owned API key
+GET  /api/v1/user/api-keys                # platform-api: list caller-owned API keys
+POST /api/v1/user/api-keys                # platform-api: create caller-owned API key
+DELETE /api/v1/user/api-keys/{id}         # platform-api: revoke caller-owned API key
 GET  /api/v1/user/analytics/usage         # User/team-scoped MCP server analytics
 GET  /api/v1/user/registry-credentials    # List caller-owned registry credentials
 POST /api/v1/user/registry-credentials    # Create a registry credential

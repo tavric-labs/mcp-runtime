@@ -97,6 +97,8 @@ func TestAuthzMatrixCoversRegisteredRoutes(t *testing.T) {
 		"/api/v1/auth/signup",
 		"/api/v1/users",
 		"/api/v1/auth/me",
+		"/api/v1/user/api-keys",
+		"/api/v1/user/api-keys/",
 		"/api/v1/user/registry-credentials",
 		"/api/v1/user/registry-credentials/",
 		"/api/v1/user/activity/image-publish",

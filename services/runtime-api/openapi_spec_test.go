@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"mcp-runtime-api/internal/platforminternal"
 	"mcp-runtime-api/internal/runtimeapi"
 	"mcp-runtime/pkg/openapi"
 	"mcp-runtime/pkg/platformauth"
@@ -51,25 +49,6 @@ func TestPublicProbesDoNotExposeInitializationErrors(t *testing.T) {
 		if body := response.Body.String(); strings.Contains(body, detail) || strings.Contains(body, "runtime_error") || strings.Contains(body, "runtime_initialized") {
 			t.Fatalf("%s exposed initialization details: %s", path, body)
 		}
-	}
-}
-
-func TestInternalAuthResolveUnauthorizedMatchesOpenAPISpec(t *testing.T) {
-	doc, err := openapi.Load(openAPISpec)
-	if err != nil {
-		t.Fatalf("Load(openAPISpec) error = %v", err)
-	}
-
-	mux := http.NewServeMux()
-	platforminternal.Handler{Token: "internal-token"}.Register(mux)
-
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/internal/auth/resolve", bytes.NewBufferString(`{"api_key":"key"}`)))
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("/internal/auth/resolve status = %d, want %d", rec.Code, http.StatusUnauthorized)
-	}
-	if err := openapi.ValidateResponse(doc, http.MethodPost, "/internal/auth/resolve", rec.Code, rec.Body.Bytes(), "application/json"); err != nil {
-		t.Fatalf("ValidateResponse(/internal/auth/resolve) error = %v", err)
 	}
 }
 

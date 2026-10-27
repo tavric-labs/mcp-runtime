@@ -138,14 +138,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	// User API keys live in this service's Postgres store; there is no other
+	// place to resolve them.
 	var userResolver platformauth.UserKeyResolver
 	if store != nil {
-		userResolver = platformauth.ChainUserKeyResolvers(
-			storeAPIKeyResolver{store: store},
-			runtimeControlUserKeyResolver(),
-		)
-	} else {
-		userResolver = runtimeControlUserKeyResolver()
+		userResolver = storeAPIKeyResolver{store: store}
 	}
 	server.authentic = platformauth.Authenticator{
 		Principals:      storeAPIKeyResolver{store: store},
@@ -216,21 +213,6 @@ func (r storeAPIKeyResolver) PrincipalForUserID(ctx context.Context, userID stri
 		return platformauth.Principal{}, fmt.Errorf("platform identity database unavailable")
 	}
 	return r.store.PrincipalForUserID(ctx, userID)
-}
-
-func runtimeControlUserKeyResolver() platformauth.UserKeyResolver {
-	baseURL := strings.TrimSpace(os.Getenv("RUNTIME_CONTROL_URL"))
-	if baseURL == "" {
-		baseURL = "http://mcp-runtime-api.mcp-platform.svc.cluster.local:8084"
-	}
-	token := strings.TrimSpace(os.Getenv("INTERNAL_AUTH_TOKEN"))
-	if token == "" {
-		return nil
-	}
-	return &platformauth.HTTPUserKeyResolver{
-		BaseURL: baseURL,
-		Token:   token,
-	}
 }
 
 func (s *apiServer) oidcVerifier() platformauth.OIDCVerifier {
