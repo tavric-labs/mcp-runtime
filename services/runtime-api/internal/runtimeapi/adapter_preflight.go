@@ -20,8 +20,8 @@ import (
 
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platforminventory"
 	"mcp-runtime/pkg/sessionstate"
+	"mcp-runtime/pkg/topology"
 )
 
 var clusterIssuerGVR = schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "clusterissuers"}
@@ -238,7 +238,7 @@ func (s *AccessService) adapterCertificateReadiness(ctx context.Context, namespa
 
 func (s *AccessService) adapterOperatorConfig(ctx context.Context) (map[string]string, error) {
 	resource := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	obj, err := s.k8sClients.Dynamic.Resource(resource).Namespace(platforminventory.OperatorNamespace).Get(ctx, "mcp-runtime-operator-controller-manager", metav1.GetOptions{})
+	obj, err := s.k8sClients.Dynamic.Resource(resource).Namespace(topology.OperatorNamespace).Get(ctx, "mcp-runtime-operator-controller-manager", metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("operator workload identity configuration is unavailable")
 	}

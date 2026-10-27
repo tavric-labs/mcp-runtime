@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"strconv"
 	"strings"
@@ -203,11 +203,11 @@ func RunAdminRegistryPush(ctx context.Context, mgr *RegistryManager, image, regi
 	}
 
 	var platformClient *platformapi.PlatformClient
-	normalizedScope, err := platforminventory.NormalizeScope(scope)
+	normalizedScope, err := topology.NormalizeScope(scope)
 	if err != nil {
 		return err
 	}
-	if normalizedScope == platforminventory.ScopeTenant {
+	if normalizedScope == topology.ScopeTenant {
 		platformClient, err = platformapi.NewPlatformClient()
 		if err != nil {
 			return fmt.Errorf("tenant scope requires platform credentials: %w", err)
@@ -264,8 +264,8 @@ func adminPushPullRef(target, publicHost string) (string, bool) {
 	return publicHost + "/" + rest, true
 }
 
-func buildRegistryPushTarget(ctx context.Context, mgr *RegistryManager, platformClient *platformapi.PlatformClient, image, registryURL, name, scope, mode string) (string, platforminventory.Scope, error) {
-	normalizedScope, err := platforminventory.NormalizeScope(scope)
+func buildRegistryPushTarget(ctx context.Context, mgr *RegistryManager, platformClient *platformapi.PlatformClient, image, registryURL, name, scope, mode string) (string, topology.Scope, error) {
+	normalizedScope, err := topology.NormalizeScope(scope)
 	if err != nil {
 		return "", "", err
 	}
@@ -318,15 +318,15 @@ func requireAdminClusterAccess(mgr *RegistryManager) error {
 }
 
 // ScopedRegistryRepository applies the repository prefix implied by a publish scope.
-func ScopedRegistryRepository(ctx context.Context, client *platformapi.PlatformClient, repo string, scope platforminventory.Scope) (string, error) {
+func ScopedRegistryRepository(ctx context.Context, client *platformapi.PlatformClient, repo string, scope topology.Scope) (string, error) {
 	repo = strings.Trim(repo, "/")
 	if scope == "" || repo == "" {
 		return repo, nil
 	}
-	if alias, ok := platforminventory.ScopeRegistryAlias(scope); ok {
+	if alias, ok := topology.ScopeRegistryAlias(scope); ok {
 		return prefixRepositoryScope(repo, alias), nil
 	}
-	if scope != platforminventory.ScopeTenant {
+	if scope != topology.ScopeTenant {
 		return repo, nil
 	}
 	if client == nil {

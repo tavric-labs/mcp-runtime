@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -69,7 +69,7 @@ func TestInitServerCreatesMetadata(t *testing.T) {
 		t.Fatalf("registry = %#v", registry)
 	}
 	server := registry.Servers[0]
-	if server.Name != "payments" || server.Image != "payments" || server.ImageTag != "v1" || server.Scope != platforminventory.Scope("tenant") {
+	if server.Name != "payments" || server.Image != "payments" || server.ImageTag != "v1" || server.Scope != topology.Scope("tenant") {
 		t.Fatalf("server metadata = %#v", server)
 	}
 	if server.Route != "/payments/mcp" || server.PublicPathPrefix != "payments" || server.Port != 8088 {
@@ -166,8 +166,8 @@ servers:
 	if err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
-	if strings.Contains(string(data), platforminventory.DefaultRegistryHost) {
-		t.Fatalf("init persisted the %s placeholder:\n%s", platforminventory.DefaultRegistryHost, data)
+	if strings.Contains(string(data), topology.DefaultRegistryHost) {
+		t.Fatalf("init persisted the %s placeholder:\n%s", topology.DefaultRegistryHost, data)
 	}
 	registry, err := metadata.LoadFromFile(path)
 	if err != nil {

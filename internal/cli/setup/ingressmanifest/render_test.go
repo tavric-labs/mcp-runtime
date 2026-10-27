@@ -1,7 +1,7 @@
 package ingressmanifest_test
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"strings"
 	"testing"
 
@@ -15,7 +15,7 @@ const (
 
 func TestSingleHostnameCustomRoutes(t *testing.T) {
 	got := ingressmanifest.RenderPlatformUIIngress("customer.example.com", "", true, testPlatformNS, testObservabilityNS,
-		platforminventory.Routes{Platform: "/console", Grafana: "/monitoring", Docs: "/help", Registry: "/images"})
+		topology.Routes{Platform: "/console", Grafana: "/monitoring", Docs: "/help", Registry: "/images"})
 	for _, route := range []string{"/console", "/monitoring", "/help", "/images", "/api/v1/auth"} {
 		if !strings.Contains(got, "- path: "+route+"\n") {
 			t.Errorf("missing route %s", route)

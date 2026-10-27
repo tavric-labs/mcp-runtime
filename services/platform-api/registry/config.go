@@ -1,10 +1,10 @@
 package registry
 
-import "mcp-runtime/pkg/platforminventory"
+import "mcp-runtime/pkg/topology"
 
 // NewAuthzConfigFromEnv builds registry authorization from the shared mode rules.
 func NewAuthzConfigFromEnv() *AuthzConfig {
-	mode := platforminventory.ModeFromEnv()
+	mode := topology.ModeFromEnv()
 	catalogNamespaces := make(map[string]struct{})
 	for _, namespace := range mode.CatalogNamespaces() {
 		catalogNamespaces[namespace] = struct{}{}

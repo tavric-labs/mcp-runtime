@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 func checkClusterImageArchitecture(kubectl core.KubectlRunner) DoctorCheck {
@@ -105,7 +105,7 @@ func checkStorageClassReadiness(kubectl core.KubectlRunner) DoctorCheck {
 }
 
 func checkPlatformSecretConsumerFreshness(kubectl core.KubectlRunner) DoctorCheck {
-	namespace, secretName, ok := platforminventory.CredentialPlacement("API_KEYS")
+	namespace, secretName, ok := topology.CredentialPlacement("API_KEYS")
 	if !ok {
 		return DoctorCheck{Name: "platform secret consumer freshness", OK: false, Detail: "API_KEYS has no credential owner", Remedy: "restore the platform credential catalog"}
 	}
@@ -150,7 +150,7 @@ func checkPlatformSecretConsumerFreshness(kubectl core.KubectlRunner) DoctorChec
 }
 
 func checkPlatformOIDCConfiguration(kubectl core.KubectlRunner) DoctorCheck {
-	configName := platforminventory.SharedConfigName
+	configName := topology.SharedConfigName
 	raw, err := readKubectlOutput(kubectl, []string{"get", "configmap", configName, "-n", componentNamespace("platform-api"), "-o", "json"})
 	if err != nil {
 		return DoctorCheck{Name: "platform OIDC configuration", OK: true, Detail: configName + " not found; skipping OIDC configuration check"}

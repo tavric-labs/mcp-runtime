@@ -17,8 +17,8 @@ import (
 	"mcp-runtime/pkg/access/specvalidation"
 	"mcp-runtime/pkg/credentialbroker"
 	"mcp-runtime/pkg/identity"
-	"mcp-runtime/pkg/platforminventory"
 	policypkg "mcp-runtime/pkg/policy"
+	"mcp-runtime/pkg/topology"
 )
 
 var (
@@ -31,10 +31,10 @@ var (
 const (
 	defaultImageTag          = "latest"
 	defaultReplicas          = int32(1)
-	defaultPort              = int32(platforminventory.MCPServerPort)
+	defaultPort              = int32(topology.MCPServerPort)
 	defaultServicePort       = int32(80)
 	defaultIngressClass      = "traefik"
-	defaultGatewayPort       = int32(platforminventory.MCPGatewayPort)
+	defaultGatewayPort       = int32(topology.MCPGatewayPort)
 	defaultToolRequiredTrust = "low"
 
 	defaultAuthTokenHeader = identity.AuthTokenHeader
@@ -59,7 +59,7 @@ func defaultIngressPathFromName(name string) string {
 	if strings.TrimSpace(name) == "" {
 		return ""
 	}
-	return platforminventory.DefaultMCPPath(strings.TrimSpace(name))
+	return topology.DefaultMCPPath(strings.TrimSpace(name))
 }
 
 func defaultPublicPathPrefixFromName(name string) string {

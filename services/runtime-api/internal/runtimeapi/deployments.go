@@ -27,7 +27,7 @@ import (
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 const (
@@ -37,7 +37,7 @@ const (
 	platformTeamSlugLabel   = "mcpruntime.org/team-slug"
 	platformScopeLabel      = "mcpruntime.org/scope"
 	createdByLabel          = "created-by"
-	defaultDeployPort       = int32(platforminventory.MCPServerPort)
+	defaultDeployPort       = int32(topology.MCPServerPort)
 	restrictedRunAsUser     = kubeworkload.RestrictedRunAsUser
 	traefikWatchRoleName    = k8sprovision.TraefikWatchRoleName
 	registryNamespace       = k8sprovision.RegistryNamespace
@@ -537,12 +537,12 @@ func (s *DeploymentService) ensureNamespaceRegistryPullSecret(ctx context.Contex
 }
 
 func registryPullSecretHost() string {
-	if host := normalizeImageRegistryHost(platforminventory.ResolveRegistryHost()); host != "" && host != "registry.local" && host != "localhost" {
+	if host := normalizeImageRegistryHost(topology.ResolveRegistryHost()); host != "" && host != "registry.local" && host != "localhost" {
 		return host
 	}
 	// Keep the secret useful when a public registry override is a local
 	// placeholder but an explicit internal endpoint is configured.
-	if host := normalizeImageRegistryHost(platforminventory.ResolveRegistryEndpoint()); host != "" && host != "registry.local" && host != "localhost" {
+	if host := normalizeImageRegistryHost(topology.ResolveRegistryEndpoint()); host != "" && host != "registry.local" && host != "localhost" {
 		return host
 	}
 	return ""
@@ -823,7 +823,7 @@ func defaultImageRepositoryScope(namespace, teamSlug string) string {
 		return teamSlug
 	}
 	if scope, ok := catalogScopeForNamespace(namespace); ok {
-		alias, _ := platforminventory.ScopeRegistryAlias(scope)
+		alias, _ := topology.ScopeRegistryAlias(scope)
 		return alias
 	}
 	return strings.TrimSpace(namespace)
@@ -839,7 +839,7 @@ func allowedImageRepositoryScopes(namespace, teamSlug string) []string {
 		values = append(values, expected)
 	}
 	if scope, ok := catalogScopeForNamespace(namespace); ok {
-		alias, _ := platforminventory.ScopeRegistryAlias(scope)
+		alias, _ := topology.ScopeRegistryAlias(scope)
 		values = append(values, alias)
 	}
 	return dedupeNonEmptyStrings(values)

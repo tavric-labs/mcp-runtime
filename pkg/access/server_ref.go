@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // DefaultMCPResourceNamespace is used when a ServerReference or access resource omits a namespace.
-const DefaultMCPResourceNamespace = platforminventory.MCPServersNamespace
+const DefaultMCPResourceNamespace = topology.MCPServersNamespace
 
 // ServerRetiringAnnotation prevents issuing access or republishing a server
 // while a failed retirement is awaiting a retry.

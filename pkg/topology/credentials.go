@@ -1,4 +1,4 @@
-package platforminventory
+package topology
 
 // CredentialSet defines the exact keys delivered to its consumers. Shared keys
 // have one authoritative set; setup synchronizes only explicitly listed copies.

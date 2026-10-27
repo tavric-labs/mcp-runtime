@@ -1,4 +1,4 @@
-package platforminventory
+package topology
 
 const (
 	// DefaultRegistryHost names the registry used when none is configured.

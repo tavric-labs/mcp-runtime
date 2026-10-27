@@ -1,7 +1,7 @@
 // Package operator provides the Kubernetes operator for MCPServer resources.
 package operator
 
-import "mcp-runtime/pkg/platforminventory"
+import "mcp-runtime/pkg/topology"
 
 // Resource defaults for MCPServer deployments.
 const (
@@ -20,9 +20,9 @@ const (
 	// DefaultReplicas is the default number of replicas.
 	DefaultReplicas = 1
 	// DefaultPort is the default container port.
-	DefaultPort = platforminventory.MCPServerPort
+	DefaultPort = topology.MCPServerPort
 	// DefaultGatewayPort is the default container port for the MCP proxy sidecar.
-	DefaultGatewayPort = platforminventory.MCPGatewayPort
+	DefaultGatewayPort = topology.MCPGatewayPort
 	// DefaultGatewayMetricsPort is the default Prometheus scrape port for the MCP gateway sidecar.
 	DefaultGatewayMetricsPort = 9103
 	// DefaultServicePort is the default service port.
@@ -76,7 +76,7 @@ const (
 	// token a gateway sidecar presents to mcp-ingest. Ingest validates it with
 	// TokenReview, so no Secret has to cross from mcp-observability into the
 	// server namespace. It must match INGEST_SA_TOKEN_AUDIENCE in k8s/06-ingest.yaml.
-	analyticsTokenAudience = platforminventory.AnalyticsTokenAudience
+	analyticsTokenAudience = topology.AnalyticsTokenAudience
 	// analyticsTokenVolumeName and analyticsTokenMountDir locate the projected token.
 	// #nosec G101 -- volume name and mount path only; no secret value is embedded.
 	analyticsTokenVolumeName = "analytics-token"        // #nosec G101 -- volume name, not a credential

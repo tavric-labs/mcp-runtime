@@ -3,7 +3,7 @@ package admin
 import (
 	"fmt"
 	"mcp-runtime/pkg/apikit"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"strings"
 	"time"
@@ -253,8 +253,8 @@ func operationsLimit(filter platformstore.OperationsFilter) int {
 func sanitizeImageActivity(items []platformstore.ImageActivity) []platformstore.ImageActivity {
 	out := make([]platformstore.ImageActivity, 0, len(items))
 	for _, item := range items {
-		item.ImageRef = platforminventory.DisplayImageReference(item.ImageRef)
-		item.SourceImage = platforminventory.DisplayImageReference(item.SourceImage)
+		item.ImageRef = topology.DisplayImageReference(item.ImageRef)
+		item.SourceImage = topology.DisplayImageReference(item.SourceImage)
 		out = append(out, item)
 	}
 	return out
@@ -268,7 +268,7 @@ func sanitizeDeploymentSummaries(items []map[string]any) []map[string]any {
 			copyItem[k] = v
 		}
 		if imageRef, ok := copyItem["image"].(string); ok {
-			copyItem["image"] = platforminventory.DisplayImageReference(imageRef)
+			copyItem["image"] = topology.DisplayImageReference(imageRef)
 		}
 		out = append(out, copyItem)
 	}

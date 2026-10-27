@@ -3,7 +3,7 @@ package usage
 import (
 	"context"
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"sort"
 	"strconv"
@@ -60,14 +60,14 @@ func validateUsageFilters(r *http.Request) error {
 	return nil
 }
 
-func catalogScopeNamespaces(scope platforminventory.Scope) []string {
-	names := platforminventory.ModePublic.CatalogNamespacesForScope(scope)
-	names = append(names, platforminventory.ModeFromEnv().CatalogNamespacesForScope(scope)...)
-	if scope == platforminventory.ScopePublic {
-		names = append(names, platforminventory.DefaultPublicCatalogNamespace)
+func catalogScopeNamespaces(scope topology.Scope) []string {
+	names := topology.ModePublic.CatalogNamespacesForScope(scope)
+	names = append(names, topology.ModeFromEnv().CatalogNamespacesForScope(scope)...)
+	if scope == topology.ScopePublic {
+		names = append(names, topology.DefaultPublicCatalogNamespace)
 	}
-	if scope == platforminventory.ScopeOrg {
-		names = append(names, platforminventory.DefaultOrgCatalogNamespace)
+	if scope == topology.ScopeOrg {
+		names = append(names, topology.DefaultOrgCatalogNamespace)
 	}
 	return dedupeStrings(names)
 }
@@ -98,11 +98,11 @@ func appendRequestFilters(scope QueryScope, conditions []string, args []any) ([]
 	}
 	switch scope.Scope {
 	case "public", "org":
-		names := catalogScopeNamespaces(platforminventory.Scope(scope.Scope))
+		names := catalogScopeNamespaces(topology.Scope(scope.Scope))
 		conditions = append(conditions, "namespace IN "+sqlPlaceholders(len(names)))
 		args = appendStringArgs(args, names)
 	case "tenant":
-		names := dedupeStrings(append(catalogScopeNamespaces(platforminventory.ScopePublic), catalogScopeNamespaces(platforminventory.ScopeOrg)...))
+		names := dedupeStrings(append(catalogScopeNamespaces(topology.ScopePublic), catalogScopeNamespaces(topology.ScopeOrg)...))
 		conditions = append(conditions, "namespace NOT IN "+sqlPlaceholders(len(names)), "(team_id != '' OR startsWith(namespace, 'mcp-team-'))")
 		args = appendStringArgs(args, names)
 	}

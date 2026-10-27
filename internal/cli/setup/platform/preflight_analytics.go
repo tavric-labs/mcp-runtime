@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"strings"
 )
 
@@ -40,7 +40,7 @@ func checkPostgresPasswordSync(ctx context.Context, clients *k8sclient.Clients) 
 		return nil // Postgres not running yet
 	}
 
-	dsnNamespace, dsnSecret, ok := platforminventory.CredentialPlacement("POSTGRES_DSN")
+	dsnNamespace, dsnSecret, ok := topology.CredentialPlacement("POSTGRES_DSN")
 	if !ok {
 		return nil
 	}

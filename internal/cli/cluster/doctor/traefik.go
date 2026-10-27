@@ -3,7 +3,7 @@ package doctor
 import (
 	"context"
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"strconv"
 	"strings"
@@ -368,11 +368,11 @@ func isMCPRuntimeIngress(status doctorIngressStatus) bool {
 }
 
 func doctorConfiguredIngressHosts() (platform, registry, mcp string, configured bool) {
-	platform = strings.TrimSpace(platforminventory.ResolvePlatformIngressHost())
-	registry = strings.TrimSpace(platforminventory.ResolveRegistryHost())
-	mcp = strings.TrimSpace(platforminventory.ResolveMcpIngressHost())
+	platform = strings.TrimSpace(topology.ResolvePlatformIngressHost())
+	registry = strings.TrimSpace(topology.ResolveRegistryHost())
+	mcp = strings.TrimSpace(topology.ResolveMcpIngressHost())
 	configured = doctorPublicIngressHostConfigExplicitlySet()
-	if !configured && registry == platforminventory.DefaultRegistryHost {
+	if !configured && registry == topology.DefaultRegistryHost {
 		registry = ""
 	}
 	return platform, registry, mcp, configured

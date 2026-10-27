@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 func bundleValues(t *testing.T, manifest string) map[string]map[string]string {
@@ -38,7 +38,7 @@ func bundleValues(t *testing.T, manifest string) map[string]map[string]string {
 
 func TestCredentialBundleCopiesOnlyConsumerKeys(t *testing.T) {
 	values := map[string]string{}
-	for _, set := range platforminventory.CredentialSets() {
+	for _, set := range topology.CredentialSets() {
 		for _, key := range set.Keys {
 			values[key] = "value-" + key
 		}
@@ -52,7 +52,7 @@ func TestCredentialBundleCopiesOnlyConsumerKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	objects := bundleValues(t, rendered)
-	for _, set := range platforminventory.CredentialSets() {
+	for _, set := range topology.CredentialSets() {
 		got := objects[set.Name]
 		if len(got) != len(set.Keys) {
 			t.Fatalf("%s has excess/missing keys", set.Name)
@@ -151,7 +151,7 @@ func TestCredentialBundleReadFailureDoesNotGenerateReplacement(t *testing.T) {
 
 func TestWorkloadSecretReferencesMatchConsumerAllowlists(t *testing.T) {
 	allowed := map[string]map[string]bool{}
-	for _, set := range platforminventory.CredentialSets() {
+	for _, set := range topology.CredentialSets() {
 		allowed[set.Name] = map[string]bool{}
 		for _, key := range set.Keys {
 			allowed[set.Name][key] = true

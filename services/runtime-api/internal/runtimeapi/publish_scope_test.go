@@ -1,7 +1,7 @@
 package runtimeapi
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"strings"
 	"testing"
 )
@@ -12,15 +12,15 @@ func TestPublishScopeConsistentAcrossPushAndDeploy(t *testing.T) {
 	admin := principal{Role: roleAdmin}
 	cases := []struct {
 		mode    string
-		scope   platforminventory.Scope
+		scope   topology.Scope
 		enabled bool
 	}{
-		{mode: "org", scope: platforminventory.ScopeOrg, enabled: true},
-		{mode: "org", scope: platforminventory.ScopePublic, enabled: false},
-		{mode: "public", scope: platforminventory.ScopePublic, enabled: true},
-		{mode: "public", scope: platforminventory.ScopeOrg, enabled: true},
-		{mode: "org", scope: platforminventory.ScopeTenant, enabled: true},
-		{mode: "public", scope: platforminventory.ScopeTenant, enabled: true},
+		{mode: "org", scope: topology.ScopeOrg, enabled: true},
+		{mode: "org", scope: topology.ScopePublic, enabled: false},
+		{mode: "public", scope: topology.ScopePublic, enabled: true},
+		{mode: "public", scope: topology.ScopeOrg, enabled: true},
+		{mode: "org", scope: topology.ScopeTenant, enabled: true},
+		{mode: "public", scope: topology.ScopeTenant, enabled: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.mode+"/"+string(tc.scope), func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestPublishScopeConsistentAcrossPushAndDeploy(t *testing.T) {
 
 func TestPublishScopeEnabledErrorIsActionable(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
-	err := publishScopeEnabledError(platforminventory.ScopePublic)
+	err := publishScopeEnabledError(topology.ScopePublic)
 	if err == nil {
 		t.Fatal("expected public scope to be disabled in org mode")
 	}
@@ -55,7 +55,7 @@ func TestPublishScopeEnabledErrorIsActionable(t *testing.T) {
 			t.Fatalf("error %q does not mention %q", msg, want)
 		}
 	}
-	if err := publishScopeEnabledError(platforminventory.ScopeTenant); err != nil {
+	if err := publishScopeEnabledError(topology.ScopeTenant); err != nil {
 		t.Fatalf("tenant scope must always be enabled: %v", err)
 	}
 	if err := publishScopeEnabledError(""); err != nil {

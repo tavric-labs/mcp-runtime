@@ -10,8 +10,8 @@ import (
 
 	"mcp-runtime/pkg/credentialbroker"
 	"mcp-runtime/pkg/identity"
-	"mcp-runtime/pkg/platforminventory"
 	policypkg "mcp-runtime/pkg/policy"
+	"mcp-runtime/pkg/topology"
 )
 
 // LoadFromFile reads a single registry YAML file from disk and applies default values.
@@ -84,43 +84,43 @@ func setDefaults(server *ServerMetadata) error {
 			seen[name] = true
 		}
 	}
-	scope, err := platforminventory.NormalizeScope(string(server.Scope))
+	scope, err := topology.NormalizeScope(string(server.Scope))
 	if err != nil {
 		return err
 	}
 	server.Scope = scope
 
 	// Set default image if not provided (will be updated by build command).
-	// platforminventory.ResolveRegistryHost names the platform registry for docker push/build. Pipeline
+	// topology.ResolveRegistryHost names the platform registry for docker push/build. Pipeline
 	// generation rewrites unqualified or platform-registry MCPServer image refs to
-	// platforminventory.ResolveRegistryPullHost for kubelet pulls, while preserving external registries.
+	// topology.ResolveRegistryPullHost for kubelet pulls, while preserving external registries.
 	if server.Image == "" {
 		repository := server.Name
-		if alias, ok := platforminventory.ScopeRegistryAlias(scope); ok {
+		if alias, ok := topology.ScopeRegistryAlias(scope); ok {
 			repository = alias + "/" + repository
 		}
-		server.Image = fmt.Sprintf("%s/%s", platforminventory.ResolveRegistryHost(), repository)
+		server.Image = fmt.Sprintf("%s/%s", topology.ResolveRegistryHost(), repository)
 	}
 	if server.ImageTag == "" {
 		server.ImageTag = "latest"
 	}
 	if server.Route == "" {
-		server.Route = platforminventory.DefaultMCPPath(server.Name)
+		server.Route = topology.DefaultMCPPath(server.Name)
 	} else if server.Route[0] != '/' {
 		server.Route = "/" + server.Route
 	}
 	if server.Port == 0 {
-		server.Port = platforminventory.MCPServerPort
+		server.Port = topology.MCPServerPort
 	}
 	if server.Replicas == nil {
 		replicas := int32(1)
 		server.Replicas = &replicas
 	}
 	if server.Namespace == "" {
-		if namespace, ok := platforminventory.ScopeCatalogNamespace(scope); ok {
+		if namespace, ok := topology.ScopeCatalogNamespace(scope); ok {
 			server.Namespace = namespace
 		} else {
-			server.Namespace = platforminventory.MCPServersNamespace
+			server.Namespace = topology.MCPServersNamespace
 		}
 	}
 	if server.Auth != nil && strings.EqualFold(strings.TrimSpace(server.Auth.Mode), identity.AuthModeHeader) {
@@ -175,7 +175,7 @@ func setDefaults(server *ServerMetadata) error {
 	}
 	if server.Gateway != nil && GatewayIsEnabled(server.Gateway) {
 		if server.Gateway.Port == 0 {
-			server.Gateway.Port = platforminventory.MCPGatewayPort
+			server.Gateway.Port = topology.MCPGatewayPort
 		}
 		if server.Gateway.UpstreamURL == "" {
 			server.Gateway.UpstreamURL = fmt.Sprintf("http://127.0.0.1:%d", server.Port)

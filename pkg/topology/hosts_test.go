@@ -1,4 +1,4 @@
-package platforminventory
+package topology
 
 import (
 	"testing"

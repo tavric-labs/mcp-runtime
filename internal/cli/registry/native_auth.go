@@ -20,8 +20,8 @@ import (
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platforminventory"
 	"mcp-runtime/pkg/registryauth"
+	"mcp-runtime/pkg/topology"
 )
 
 const nativeSignerSecret = "mcp-registry-token-signer" // #nosec G101 -- Kubernetes Secret name, not credential material.
@@ -141,7 +141,7 @@ func configureNativeAuth(ctx context.Context, clients *k8sclient.Clients, api re
 	if err != nil {
 		return err
 	}
-	apiDeploy, err := cs.AppsV1().Deployments(platforminventory.PlatformNamespace).Get(ctx, "mcp-platform-api", metav1.GetOptions{})
+	apiDeploy, err := cs.AppsV1().Deployments(topology.PlatformNamespace).Get(ctx, "mcp-platform-api", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func configureNativeAuth(ctx context.Context, clients *k8sclient.Clients, api re
 	}
 	var targets []string
 	for _, ns := range namespaces.Items {
-		managed := strings.HasPrefix(ns.Name, "mcp-team-") || strings.HasPrefix(ns.Name, "mcp-servers") || ns.Name == platforminventory.PlatformNamespace || ns.Name == platforminventory.OperatorNamespace || ns.Name == platforminventory.ObservabilityNamespace || ns.Name == platforminventory.LogCollectorNamespace
+		managed := strings.HasPrefix(ns.Name, "mcp-team-") || strings.HasPrefix(ns.Name, "mcp-servers") || ns.Name == topology.PlatformNamespace || ns.Name == topology.OperatorNamespace || ns.Name == topology.ObservabilityNamespace || ns.Name == topology.LogCollectorNamespace
 		if managed && (len(opts.Namespaces) == 0 || selected[ns.Name]) {
 			targets = append(targets, ns.Name)
 			delete(selected, ns.Name)
@@ -375,13 +375,13 @@ func mountNativeSecret(spec *corev1.PodSpec, secret, name, path, containerName s
 }
 func nativeSecretMode() *int32 { mode := int32(0440); return &mode }
 func ensureRegistrySigningMaterial(ctx context.Context, cs kubernetes.Interface) ([]byte, []byte, error) {
-	secret, err := cs.CoreV1().Secrets(platforminventory.PlatformNamespace).Get(ctx, nativeSignerSecret, metav1.GetOptions{})
+	secret, err := cs.CoreV1().Secrets(topology.PlatformNamespace).Get(ctx, nativeSignerSecret, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		key, cert, err := registryauth.GenerateMaterial()
 		if err != nil {
 			return nil, nil, err
 		}
-		secret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: nativeSignerSecret, Namespace: platforminventory.PlatformNamespace, Labels: map[string]string{nativeManagedLabel: "signer"}}, Data: map[string][]byte{"signing.key": key, "signing.crt": cert}}
+		secret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: nativeSignerSecret, Namespace: topology.PlatformNamespace, Labels: map[string]string{nativeManagedLabel: "signer"}}, Data: map[string][]byte{"signing.key": key, "signing.crt": cert}}
 		secret, err = cs.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 		if err != nil {
 			return nil, nil, err
@@ -595,7 +595,7 @@ func installRegistryPublisherCredential(ctx context.Context, cs kubernetes.Inter
 }
 
 func enableRuntimeNativePulls(ctx context.Context, clients *k8sclient.Clients) error {
-	workload, err := clients.Clientset.AppsV1().Deployments(platforminventory.PlatformNamespace).Get(ctx, "mcp-runtime-api", metav1.GetOptions{})
+	workload, err := clients.Clientset.AppsV1().Deployments(topology.PlatformNamespace).Get(ctx, "mcp-runtime-api", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

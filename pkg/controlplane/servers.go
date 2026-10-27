@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -409,7 +409,7 @@ func PublicMCPEndpoint(mcpServer mcpv1alpha1.MCPServer) string {
 	}
 	host := strings.TrimSpace(mcpServer.Spec.IngressHost)
 	if host == "" {
-		host = platforminventory.ResolveMcpIngressHost()
+		host = topology.ResolveMcpIngressHost()
 	}
 	if host == "" {
 		return path

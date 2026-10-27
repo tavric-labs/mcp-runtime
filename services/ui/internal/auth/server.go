@@ -5,7 +5,7 @@ import (
 	"crypto/hmac"
 	"encoding/json"
 	"log"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 
 	"net/http"
 	"strings"
@@ -31,7 +31,7 @@ type Server struct {
 	Attempts          *AttemptTracker
 	Hooks             *Hooks
 	ForceSecureCookie bool
-	PublicRoutes      platforminventory.Routes
+	PublicRoutes      topology.Routes
 }
 
 const (

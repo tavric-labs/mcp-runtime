@@ -2,7 +2,7 @@
 package plan
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"strings"
 
 	"mcp-runtime/internal/cli/cluster"
@@ -117,7 +117,7 @@ type Plan struct {
 }
 
 func NormalizePlatformMode(mode string) (string, bool) {
-	normalized, ok := platforminventory.NormalizeMode(mode)
+	normalized, ok := topology.NormalizeMode(mode)
 	if !ok {
 		return "", false
 	}

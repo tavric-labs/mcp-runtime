@@ -13,13 +13,13 @@ import (
 	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 const (
 	roleAdmin               = platformauth.RoleAdmin
 	roleUser                = platformauth.RoleUser
-	sharedCatalogNamespace  = platforminventory.MCPServersNamespace
+	sharedCatalogNamespace  = topology.MCPServersNamespace
 	teamNamespacePrefix     = "mcp-team-"
 	teamRoleOwner           = "owner"
 	teamRoleMember          = "member"

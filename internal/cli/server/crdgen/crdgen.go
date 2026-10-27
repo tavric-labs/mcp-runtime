@@ -2,7 +2,7 @@ package crdgen
 
 import (
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"path/filepath"
 
@@ -30,7 +30,7 @@ func GenerateCRD(server *metadata.ServerMetadata, outputPath string) error {
 			CredentialBindings: append([]string(nil), server.CredentialBindings...),
 			Description:        server.Description,
 			TeamID:             server.TeamID,
-			Image:              platforminventory.ImageRefForClusterPull(server.Image),
+			Image:              topology.ImageRefForClusterPull(server.Image),
 			ImageTag:           server.ImageTag,
 			Port:               server.Port,
 			Replicas:           server.Replicas,
@@ -261,7 +261,7 @@ func GenerateCRDsFromRegistry(registry *metadata.RegistryFile, outputDir string)
 }
 
 // publishScopeLabels returns the labels that record a server's publish scope.
-func publishScopeLabels(scope platforminventory.Scope) map[string]string {
+func publishScopeLabels(scope topology.Scope) map[string]string {
 	if scope == "" {
 		return nil
 	}

@@ -944,7 +944,7 @@ mcp-runtime ops grafana check
 mcp-runtime ops grafana reset-admin-password --yes
 ```
 
-`ops events` lists Kubernetes events from `mcp-runtime`, `mcp-platform`, `mcp-observability`, and `mcp-log-collector`. Component logs, port-forward, and restart use the namespace from `pkg/platforminventory` for that component.
+`ops events` lists Kubernetes events from `mcp-runtime`, `mcp-platform`, `mcp-observability`, and `mcp-log-collector`. Component logs, port-forward, and restart use the namespace from `pkg/topology` for that component.
 Use `/api/v1/events` with query filters when you need the request/audit
 events emitted by `mcp-gateway`.
 

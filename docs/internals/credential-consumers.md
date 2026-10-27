@@ -1,6 +1,6 @@
 # Credential consumers
 
-`pkg/platforminventory.CredentialSets` is the allowlist of generated consumer
+`pkg/topology.CredentialSets` is the allowlist of generated consumer
 Secrets. `CredentialPlacement` returns the Secret name and namespace for a key.
 Setup reads and writes that owner object.
 

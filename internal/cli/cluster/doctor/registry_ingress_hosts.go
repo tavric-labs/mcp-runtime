@@ -7,7 +7,7 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 const registryIngressHostsCheckName = "registry Ingress hosts"
@@ -48,7 +48,7 @@ func checkRegistryIngressHosts(kubectl core.KubectlRunner) DoctorCheck {
 			tlsHosts = append(tlsHosts, strings.TrimSpace(h))
 		}
 	}
-	configName := platforminventory.SharedConfigName
+	configName := topology.SharedConfigName
 	configHost, _ := readKubectlOutput(kubectl, []string{"get", "configmap", configName, "-n", componentNamespace("platform-api"), "-o", "jsonpath={.data.MCP_REGISTRY_INGRESS_HOST}"})
 	configDomain, _ := readKubectlOutput(kubectl, []string{"get", "configmap", configName, "-n", componentNamespace("platform-api"), "-o", "jsonpath={.data.MCP_PLATFORM_DOMAIN}"})
 	return evaluateRegistryIngressHosts(ruleHosts, tlsHosts, strings.TrimSpace(configHost), strings.TrimSpace(configDomain))

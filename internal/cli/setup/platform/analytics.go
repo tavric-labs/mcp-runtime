@@ -33,7 +33,7 @@ import (
 	setupplan "mcp-runtime/internal/cli/setup/plan"
 	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1143,7 +1143,7 @@ func renderAnalyticsConfigManifestWithReaders(content, platformMode string, imag
 		manifest.Data = map[string]string{}
 	}
 
-	existingData, err := readConfigMap(core.ComponentNamespace("platform-api"), platforminventory.SharedConfigName)
+	existingData, err := readConfigMap(core.ComponentNamespace("platform-api"), topology.SharedConfigName)
 	if err != nil {
 		return "", err
 	}
@@ -1251,7 +1251,7 @@ func renderAnalyticsConfigManifestWithReaders(content, platformMode string, imag
 			manifest.Metadata = map[string]any{}
 		}
 		manifest.Metadata["namespace"] = namespace
-		manifest.Metadata["name"] = platforminventory.SharedConfigName
+		manifest.Metadata["name"] = topology.SharedConfigName
 		rendered, err := yaml.Marshal(manifest)
 		if err != nil {
 			return "", core.WrapWithBase(core.ErrSetupEncodeAnalyticsConfigManifestFailed, err, fmt.Sprintf("encode analytics config manifest: %v", err))
@@ -1369,7 +1369,7 @@ func renderAnalyticsSecretManifestClientGo() (string, error) {
 type analyticsSecretValueReader func(namespace, name, key string) (string, error)
 
 func ownedCredential(key string) (namespace, name string, err error) {
-	namespace, name, ok := platforminventory.CredentialPlacement(key)
+	namespace, name, ok := topology.CredentialPlacement(key)
 	if !ok {
 		return "", "", fmt.Errorf("credential %q has no owner", key)
 	}

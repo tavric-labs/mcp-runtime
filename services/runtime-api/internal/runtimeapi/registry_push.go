@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -105,7 +105,7 @@ func isNetTimeout(err error) bool {
 
 type registryPushRequest struct {
 	Target  string
-	Scope   platforminventory.Scope
+	Scope   topology.Scope
 	TarPath string
 }
 
@@ -278,7 +278,7 @@ func readRegistryPushRequestWithTimeout(r *http.Request, upload time.Duration) (
 				part.Close()
 				return registryPushRequest{}, fmt.Errorf("invalid scope field")
 			}
-			out.Scope, err = platforminventory.NormalizeScope(strings.TrimSpace(string(value)))
+			out.Scope, err = topology.NormalizeScope(strings.TrimSpace(string(value)))
 			if err != nil {
 				part.Close()
 				return registryPushRequest{}, err
@@ -323,7 +323,7 @@ func readRegistryPushRequestWithTimeout(r *http.Request, upload time.Duration) (
 	return out, nil
 }
 
-func registryPushAuthContext(target string, scope platforminventory.Scope, p principal) (namespace, teamSlug string, err error) {
+func registryPushAuthContext(target string, scope topology.Scope, p principal) (namespace, teamSlug string, err error) {
 	target = strings.TrimSpace(target)
 	if target == "" {
 		return "", "", fmt.Errorf("target is required")
@@ -337,16 +337,16 @@ func registryPushAuthContext(target string, scope platforminventory.Scope, p pri
 		return "", "", err
 	}
 	switch scope {
-	case platforminventory.ScopePublic:
+	case topology.ScopePublic:
 		if p.Role != roleAdmin && !sharedCatalogWritableForUsers() {
 			return "", "", fmt.Errorf("public catalog writes are restricted to admins")
 		}
-		return defaultCatalogNamespaceForScope(platforminventory.ScopePublic), "", nil
-	case platforminventory.ScopeOrg:
+		return defaultCatalogNamespaceForScope(topology.ScopePublic), "", nil
+	case topology.ScopeOrg:
 		if p.Role != roleAdmin && !sharedCatalogWritableForUsers() {
 			return "", "", fmt.Errorf("org catalog writes are restricted to admins")
 		}
-		return defaultCatalogNamespaceForScope(platforminventory.ScopeOrg), "", nil
+		return defaultCatalogNamespaceForScope(topology.ScopeOrg), "", nil
 	case "":
 		prefix, _, found := strings.Cut(repoPath, "/")
 		if !found || strings.TrimSpace(prefix) == "" {
@@ -364,7 +364,7 @@ func registryPushAuthContext(target string, scope platforminventory.Scope, p pri
 			}
 		}
 		return "", "", fmt.Errorf("repository must be scoped to one of your teams (%s)", strings.Join(quoteStrings(principalRegistryScopes(p)), " or "))
-	case platforminventory.ScopeTenant:
+	case topology.ScopeTenant:
 		prefix, _, found := strings.Cut(repoPath, "/")
 		if !found || strings.TrimSpace(prefix) == "" {
 			return "", "", fmt.Errorf("tenant registry pushes require a team-scoped repository path")
@@ -444,7 +444,7 @@ func registryPushInternalHostnames() []string {
 	if host := registryPullSecretHost(); host != "" {
 		hosts = append(hosts, host)
 	}
-	if host := platforminventory.ResolveRegistryHost(); host != "" && host != platforminventory.DefaultRegistryHost {
+	if host := topology.ResolveRegistryHost(); host != "" && host != topology.DefaultRegistryHost {
 		hosts = append(hosts, host)
 	}
 	seen := map[string]struct{}{}

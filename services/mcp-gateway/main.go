@@ -21,9 +21,9 @@ import (
 
 	"mcp-gateway/credential"
 	"mcp-runtime/pkg/envcfg"
-	"mcp-runtime/pkg/platforminventory"
 	"mcp-runtime/pkg/sessionstate"
 	"mcp-runtime/pkg/telemetry"
+	"mcp-runtime/pkg/topology"
 	"mcp-runtime/pkg/transport/tlsconfig"
 )
 
@@ -38,7 +38,7 @@ func main() {
 		}
 		return
 	}
-	port := envcfg.EnvOr("PORT", strconv.Itoa(platforminventory.MCPGatewayPort))
+	port := envcfg.EnvOr("PORT", strconv.Itoa(topology.MCPGatewayPort))
 	metricsPort := envcfg.EnvOr("METRICS_PORT", "9103")
 	upstream := envcfg.EnvOr("UPSTREAM_URL", "http://127.0.0.1:8090")
 	analyticsURL := strings.TrimSpace(os.Getenv("ANALYTICS_INGEST_URL"))

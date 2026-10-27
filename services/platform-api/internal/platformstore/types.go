@@ -6,7 +6,7 @@ import (
 
 	"mcp-runtime/pkg/internalapi"
 	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 
 const (
 	// SharedCatalogNamespace is the legacy shared MCP server catalog namespace.
-	SharedCatalogNamespace = platforminventory.MCPServersNamespace
+	SharedCatalogNamespace = topology.MCPServersNamespace
 	// TeamNamespacePrefix is prepended to normalized team slugs for managed namespaces.
 	TeamNamespacePrefix = "mcp-team-"
 	// TeamRoleOwner grants team administration privileges.

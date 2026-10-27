@@ -194,7 +194,7 @@ Shared gateway dependencies follow their owning domains:
 |---|---|
 | `pkg/identity` | Certificate/SPIFFE identity, credential-header contracts and OAuth protected-resource URLs |
 | `pkg/policy` | Policy documents, evaluation, enums/defaults and rendered policy ConfigMap naming |
-| `pkg/platforminventory` | Component placement, platform ports, namespaces and workload token audiences; the platform mode, publish scopes and catalog namespaces; public route validation and the default MCP route |
+| `pkg/topology` | Component placement, platform ports, namespaces and workload token audiences; the platform mode, publish scopes and catalog namespaces; public route validation and the default MCP route |
 | `pkg/events` | Platform event envelopes and the typed `MCPRequest` audit payload |
 | `pkg/sessionstate` | The platform-owned governance-session synchronization wire contract |
 
@@ -244,7 +244,7 @@ its own layer or a lower one, never a higher one.
 | Composers | `services/*`, `cmd/*`, `internal/*` (runtime-api, platform-api, operator, CLI) | Wire everything together; change most often |
 | Adapters | `k8sclient`, `kubeworkload`, `registrypush`, `controlplane`, `platformstack`, `operatorutil`, `resourcehistory`, `workloadidentity`, `metadata/crdgen`, `access/k8sstore` | The only layer that imports Kubernetes libraries |
 | Domain | `policy`, `access`, `sessionstate`, `metadata` | Rules and models; no Kubernetes or service infrastructure |
-| Leaves | `identity`, `events`, `credentialbroker`, `envcfg`, `httpx`, `platforminventory` and similar | Import only other leaves; most stable |
+| Leaves | `identity`, `events`, `credentialbroker`, `envcfg`, `httpx`, `topology` and similar | Import only other leaves; most stable |
 
 Support packages (`apikit`, `platformauth`, `telemetry`, `svcboot`, `clickhouse`)
 sit beside the domain and never import adapters. The `mcp-gateway` may use

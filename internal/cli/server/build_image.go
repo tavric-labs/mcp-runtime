@@ -10,7 +10,7 @@ package server
 import (
 	"context"
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,7 +115,7 @@ func metadataScopeForBuild(serverName, metadataFile, metadataDir string) (string
 	if err != nil || !ok {
 		return "", false
 	}
-	scope, err := platforminventory.NormalizeScope(string(server.Scope))
+	scope, err := topology.NormalizeScope(string(server.Scope))
 	if err != nil || scope == "" {
 		return "", false
 	}
@@ -130,11 +130,11 @@ func scopedRepositoryNameForBuild(ctx context.Context, serverName, metadataFile,
 	if !ok {
 		return serverName, nil
 	}
-	scope, err := platforminventory.NormalizeScope(string(server.Scope))
+	scope, err := topology.NormalizeScope(string(server.Scope))
 	if err != nil {
 		return serverName, nil
 	}
-	if scope == platforminventory.ScopeTenant {
+	if scope == topology.ScopeTenant {
 		repository := serverName
 		if image := strings.TrimSpace(server.Image); image != "" {
 			imageRepository, _ := ref.SplitImage(image)

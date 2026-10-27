@@ -2,7 +2,7 @@ package runtimeapi
 
 import (
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"strings"
 )
@@ -11,25 +11,25 @@ const (
 	platformModeOrg    = "org"
 	platformModePublic = "public"
 
-	defaultOrgCatalogNamespace    = platforminventory.DefaultOrgCatalogNamespace
-	defaultPublicCatalogNamespace = platforminventory.DefaultPublicCatalogNamespace
+	defaultOrgCatalogNamespace    = topology.DefaultOrgCatalogNamespace
+	defaultPublicCatalogNamespace = topology.DefaultPublicCatalogNamespace
 )
 
 // PlatformMode returns org or public, defaulting invalid or empty values to org.
 func PlatformMode() string {
-	return string(platforminventory.ModeFromEnv())
+	return string(topology.ModeFromEnv())
 }
 
 // enabledPublishScopes lists the publish scopes the configured platform mode
 // accepts. Org mode supports tenant/org; public mode supports all three scopes.
-func enabledPublishScopes() []platforminventory.Scope {
-	return platforminventory.ModeFromEnv().EnabledPublishScopes()
+func enabledPublishScopes() []topology.Scope {
+	return topology.ModeFromEnv().EnabledPublishScopes()
 }
 
 // publishScopeEnabledError returns an actionable error when scope is not
 // enabled by the platform mode. Registry push and server deploy share it so
 // an image can only be published to a scope it can also be deployed from.
-func publishScopeEnabledError(scope platforminventory.Scope) error {
+func publishScopeEnabledError(scope topology.Scope) error {
 	if scope == "" {
 		return nil
 	}
@@ -60,22 +60,22 @@ func sharedCatalogWritableForUsers() bool {
 }
 
 func modeCatalogNamespaces() []string {
-	return platforminventory.ModeFromEnv().CatalogNamespaces()
+	return topology.ModeFromEnv().CatalogNamespaces()
 }
 
 func defaultModeCatalogNamespace() string {
-	return platforminventory.ModeFromEnv().DefaultCatalogNamespace()
+	return topology.ModeFromEnv().DefaultCatalogNamespace()
 }
 
-func catalogNamespacesForScope(scope platforminventory.Scope) []string {
-	return platforminventory.ModeFromEnv().CatalogNamespacesForScope(scope)
+func catalogNamespacesForScope(scope topology.Scope) []string {
+	return topology.ModeFromEnv().CatalogNamespacesForScope(scope)
 }
 
-func catalogScopeForNamespace(namespace string) (platforminventory.Scope, bool) {
-	return platforminventory.ModeFromEnv().CatalogScope(namespace)
+func catalogScopeForNamespace(namespace string) (topology.Scope, bool) {
+	return topology.ModeFromEnv().CatalogScope(namespace)
 }
 
-func defaultCatalogNamespaceForScope(scope platforminventory.Scope) string {
+func defaultCatalogNamespaceForScope(scope topology.Scope) string {
 	if namespaces := catalogNamespacesForScope(scope); len(namespaces) > 0 {
 		return namespaces[0]
 	}
@@ -105,7 +105,7 @@ func isModeCatalogNamespace(namespace string) bool {
 
 func principalCanReadNamespace(p principal, namespace string) bool {
 	if p.AuthType == "public_catalog" {
-		return stringInSlice(strings.TrimSpace(namespace), catalogNamespacesForScope(platforminventory.ScopePublic))
+		return stringInSlice(strings.TrimSpace(namespace), catalogNamespacesForScope(topology.ScopePublic))
 	}
 	if sharedCatalogWritableForUsers() && isModeCatalogNamespace(namespace) {
 		return true
@@ -151,7 +151,7 @@ func principalCanPublishNamespace(p principal, namespace string) bool {
 
 func publishNamespacesForPrincipal(p principal) []string {
 	if p.AuthType == "public_catalog" {
-		return catalogNamespacesForScope(platforminventory.ScopePublic)
+		return catalogNamespacesForScope(topology.ScopePublic)
 	}
 	namespaces := make([]string, 0, len(p.AllowedNamespaces)+len(p.Teams)+3)
 	if sharedCatalogWritableForUsers() {
@@ -176,11 +176,11 @@ func publishNamespacesForPrincipal(p principal) []string {
 
 // PublicCatalogPrincipal returns the synthetic principal used for unauthenticated public catalog reads.
 func PublicCatalogPrincipal() Principal {
-	namespaces := catalogNamespacesForScope(platforminventory.ScopePublic)
+	namespaces := catalogNamespacesForScope(topology.ScopePublic)
 	return Principal{
 		Role:              roleUser,
 		Subject:           "public",
-		Namespace:         defaultCatalogNamespaceForScope(platforminventory.ScopePublic),
+		Namespace:         defaultCatalogNamespaceForScope(topology.ScopePublic),
 		AllowedNamespaces: namespaces,
 		AuthType:          "public_catalog",
 	}
@@ -198,7 +198,7 @@ func PublicCatalogFallback(r *http.Request) (Principal, bool) {
 	}
 	query := r.URL.Query()
 	if strings.TrimSpace(query.Get("namespace")) == "" {
-		query.Set("namespace", defaultCatalogNamespaceForScope(platforminventory.ScopePublic))
+		query.Set("namespace", defaultCatalogNamespaceForScope(topology.ScopePublic))
 		r.URL.RawQuery = query.Encode()
 	}
 	return PublicCatalogPrincipal(), true

@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"strconv"
 	"strings"
@@ -69,7 +69,7 @@ func main() {
 		Client:                           mgr.GetClient(),
 		APIReader:                        mgr.GetAPIReader(),
 		Scheme:                           mgr.GetScheme(),
-		DefaultIngressHost:               platforminventory.ResolveMcpIngressHost(),
+		DefaultIngressHost:               topology.ResolveMcpIngressHost(),
 		DefaultIngressEntryPoints:        strings.TrimSpace(os.Getenv("MCP_DEFAULT_INGRESS_ENTRYPOINTS")),
 		DefaultIngressTLS:                boolFromEnv(os.Getenv("MCP_DEFAULT_INGRESS_TLS")),
 		DefaultIngressTLSSecret:          strings.TrimSpace(os.Getenv("MCP_DEFAULT_INGRESS_TLS_SECRET")),
@@ -99,7 +99,7 @@ func main() {
 
 	if webhooksEnabledFromEnv(os.Getenv) {
 		mcpServerWebhookOptions := mcpv1alpha1.MCPServerDefaultOptions{
-			DefaultIngressHost:        platforminventory.ResolveMcpIngressHost(),
+			DefaultIngressHost:        topology.ResolveMcpIngressHost(),
 			DefaultIngressTLS:         boolFromEnv(os.Getenv("MCP_DEFAULT_INGRESS_TLS")),
 			DefaultAnalyticsIngestURL: analyticsIngestURLFromEnv(os.Getenv),
 			DefaultOAuthIssuerURL:     strings.TrimSpace(os.Getenv("MCP_AUTH_ISSUER_URL")),

@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"net/url"
 	"strings"
 
@@ -105,7 +105,7 @@ func PublicImageRefForSavedLogin(image string) (string, bool) {
 	if public == "" || strings.EqualFold(public, host) || isLocalOnlyRegistryHost(public) {
 		return image, false
 	}
-	rewritten, ok := platforminventory.RewriteImageRegistryHost(image, public)
+	rewritten, ok := topology.RewriteImageRegistryHost(image, public)
 	if !ok {
 		return image, false
 	}
@@ -114,7 +114,7 @@ func PublicImageRefForSavedLogin(image string) (string, bool) {
 
 func isLocalOnlyRegistryHost(host string) bool {
 	host = strings.ToLower(strings.TrimSpace(host))
-	if host == platforminventory.DefaultRegistryHost {
+	if host == topology.DefaultRegistryHost {
 		return true
 	}
 	name, _, _ := strings.Cut(host, ":")

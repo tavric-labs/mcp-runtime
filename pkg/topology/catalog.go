@@ -1,9 +1,9 @@
-// Package platforminventory defines component identity, ownership and placement,
+// Package topology defines component identity, ownership and placement,
 // the platform mode and publish scopes with the catalog namespaces they imply,
 // and the customer-facing public routes. It does not provision resources or
 // authorize requests; the mode and scope rules only name which namespaces are
 // catalogs, so every consumer agrees on which of them anonymous clients may read.
-package platforminventory
+package topology
 
 import (
 	"strings"

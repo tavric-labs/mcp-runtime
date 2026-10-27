@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 func guardClients(objs ...interface{}) *k8sclient.Clients {
@@ -51,7 +51,7 @@ func TestCheckClusterIdentity(t *testing.T) {
 }
 
 func authDeployment(image string) *appsv1.Deployment {
-	component, _ := platforminventory.Lookup("mcp-auth")
+	component, _ := topology.Lookup("mcp-auth")
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: component.Resource, Namespace: component.Namespace},
 		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{

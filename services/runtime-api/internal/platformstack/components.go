@@ -5,22 +5,22 @@ import (
 	"sort"
 	"strings"
 
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // Component and PortTarget retain the platform API's existing field names.
-type Component = platforminventory.Component
-type PortTarget = platforminventory.PortTarget
+type Component = topology.Component
+type PortTarget = topology.PortTarget
 
 const (
-	PlatformNamespace      = platforminventory.PlatformNamespace
-	ObservabilityNamespace = platforminventory.ObservabilityNamespace
-	LogCollectorNamespace  = platforminventory.LogCollectorNamespace
-	OperatorNamespace      = platforminventory.OperatorNamespace
+	PlatformNamespace      = topology.PlatformNamespace
+	ObservabilityNamespace = topology.ObservabilityNamespace
+	LogCollectorNamespace  = topology.LogCollectorNamespace
+	OperatorNamespace      = topology.OperatorNamespace
 )
 
 // Components preserves the historical public status and management surface.
-var Components = platforminventory.PlatformComponents(true)
+var Components = topology.PlatformComponents(true)
 
 // GetComponentKeys returns sorted list of all component keys.
 func GetComponentKeys() []string {

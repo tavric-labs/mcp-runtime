@@ -1,7 +1,7 @@
 package crdgen
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +25,7 @@ func TestGenerateCRD(t *testing.T) {
 	t.Run("generates valid CRD YAML", func(t *testing.T) {
 		clearRegistryImageEnv(t)
 		// Prevent registry host rewriting so we can test CRD field mapping in isolation.
-		t.Setenv(envMCPRegistryPullHost, platforminventory.DefaultRegistryHost)
+		t.Setenv(envMCPRegistryPullHost, topology.DefaultRegistryHost)
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "test-server.yaml")
 
@@ -41,7 +41,7 @@ func TestGenerateCRD(t *testing.T) {
 			Port:             9000,
 			Replicas:         &replicas,
 			Namespace:        "custom-ns",
-			Scope:            platforminventory.ScopeOrg,
+			Scope:            topology.ScopeOrg,
 			TeamID:           "team-custom",
 		}
 
@@ -294,7 +294,7 @@ func TestGenerateCRDsFromRegistry(t *testing.T) {
 	t.Run("generates CRDs for all servers", func(t *testing.T) {
 		clearRegistryImageEnv(t)
 		// Prevent registry host rewriting so we can test CRD field mapping in isolation.
-		t.Setenv(envMCPRegistryPullHost, platforminventory.DefaultRegistryHost)
+		t.Setenv(envMCPRegistryPullHost, topology.DefaultRegistryHost)
 		tmpDir := t.TempDir()
 
 		replicas := int32(1)

@@ -2,7 +2,7 @@ package runtimeapi
 
 import (
 	"bytes"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -20,7 +20,7 @@ func TestRegistryPushAuthContextTenantRequiresTeamScope(t *testing.T) {
 			Role:      "owner",
 		}},
 	}
-	_, _, err := registryPushAuthContext("registry.example.com/beta/demo:v1", platforminventory.ScopeTenant, p)
+	_, _, err := registryPushAuthContext("registry.example.com/beta/demo:v1", topology.ScopeTenant, p)
 	if err == nil {
 		t.Fatal("expected forbidden team scope")
 	}
@@ -36,7 +36,7 @@ func TestRegistryPushAuthContextTenantAllowsOwnedTeam(t *testing.T) {
 			Role:      "owner",
 		}},
 	}
-	namespace, teamSlug, err := registryPushAuthContext("registry.example.com/acme/demo:v1", platforminventory.ScopeTenant, p)
+	namespace, teamSlug, err := registryPushAuthContext("registry.example.com/acme/demo:v1", topology.ScopeTenant, p)
 	if err != nil {
 		t.Fatalf("registryPushAuthContext() error = %v", err)
 	}
@@ -58,7 +58,7 @@ func TestRegistryPushAuthContextEmptyScopeAllowsAdminUnscopedRepo(t *testing.T) 
 
 func TestRegistryPushAuthContextTenantStillRequiresScopedRepo(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
-	if _, _, err := registryPushAuthContext("registry.example.com/demo:v1", platforminventory.ScopeTenant, principal{Role: roleAdmin}); err == nil {
+	if _, _, err := registryPushAuthContext("registry.example.com/demo:v1", topology.ScopeTenant, principal{Role: roleAdmin}); err == nil {
 		t.Fatal("expected tenant scope to require a team-scoped repository")
 	}
 }
@@ -66,7 +66,7 @@ func TestRegistryPushAuthContextTenantStillRequiresScopedRepo(t *testing.T) {
 func TestRegistryPushAuthContextPublicRequiresCatalogWrite(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
 	p := principal{Role: roleUser}
-	if _, _, err := registryPushAuthContext("registry.example.com/public/demo:v1", platforminventory.ScopePublic, p); err == nil {
+	if _, _, err := registryPushAuthContext("registry.example.com/public/demo:v1", topology.ScopePublic, p); err == nil {
 		t.Fatal("expected public catalog write rejection in org mode")
 	}
 }
@@ -74,7 +74,7 @@ func TestRegistryPushAuthContextPublicRequiresCatalogWrite(t *testing.T) {
 func TestRegistryPushAuthContextPublicAllowsWhenCatalogWritable(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	p := principal{Role: roleUser, AllowedNamespaces: []string{defaultPublicCatalogNamespace}}
-	namespace, teamSlug, err := registryPushAuthContext("registry.example.com/public/demo:v1", platforminventory.ScopePublic, p)
+	namespace, teamSlug, err := registryPushAuthContext("registry.example.com/public/demo:v1", topology.ScopePublic, p)
 	if err != nil {
 		t.Fatalf("registryPushAuthContext() error = %v", err)
 	}
@@ -94,7 +94,7 @@ func TestValidateDeployImageRejectsCrossTeamPushTarget(t *testing.T) {
 		}},
 	}
 	target := "registry.example.com/beta/demo:v1"
-	namespace, teamSlug, err := registryPushAuthContext(target, platforminventory.ScopeTenant, p)
+	namespace, teamSlug, err := registryPushAuthContext(target, topology.ScopeTenant, p)
 	if err == nil {
 		t.Fatalf("expected auth context error, got namespace=%q teamSlug=%q", namespace, teamSlug)
 	}
@@ -161,7 +161,7 @@ func TestReadRegistryPushRequestRequiresMetadataBeforeImageUpload(t *testing.T) 
 	if err := writer.WriteField("target", "registry.example.com/acme/demo:v1"); err != nil {
 		t.Fatalf("WriteField(target) error = %v", err)
 	}
-	if err := writer.WriteField("scope", string(platforminventory.ScopeTenant)); err != nil {
+	if err := writer.WriteField("scope", string(topology.ScopeTenant)); err != nil {
 		t.Fatalf("WriteField(scope) error = %v", err)
 	}
 	if err := writer.Close(); err != nil {

@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"regexp"
 	"sort"
 	"strings"
@@ -213,7 +213,7 @@ func checkOperatorRegistryEndpoint(kubectl core.KubectlRunner) DoctorCheck {
 		return DoctorCheck{
 			Name:   "operator registry endpoint",
 			OK:     true,
-			Detail: fmt.Sprintf("MCP_REGISTRY_ENDPOINT not set; operator default is %s", platforminventory.ResolveRegistryPullHost()),
+			Detail: fmt.Sprintf("MCP_REGISTRY_ENDPOINT not set; operator default is %s", topology.ResolveRegistryPullHost()),
 		}
 	}
 	if ingressHost != "" && strings.EqualFold(endpoint, ingressHost) {

@@ -69,12 +69,12 @@ rollout order. Direct CSR tests do not count as CLI adapter enrollment acceptanc
 | Optional MCP Auth credential gateway | `pkg/authgateway/`, `internal/cli/cluster/auth_gateway.go`, bundled OAuth resource reconciliation; use the explicit admin `gateway apply` command and retain provider-neutral core boundaries. |
 | Credential sources / bindings | `pkg/credentialbroker/`, `services/platform-api/internal/credentialapi/`, platform store and `internal/cli/credential/`; [provider and delivery contract](docs/credential-broker.md). Keep values out of management surfaces and retain dedicated Pod identity, current session/tool/server checks and same-Pod delivery. |
 | Cluster / manifests / registry | `pkg/controlplane/`, `pkg/k8sclient/`, `pkg/kubeworkload/`, `internal/cli/manifest/`, `pkg/metadata/` |
-| Platform / services | `services/runtime-api/internal/platformstack/`, `pkg/platforminventory/`, `services/*` (separate modules where present) |
+| Platform / services | `services/runtime-api/internal/platformstack/`, `pkg/topology/`, `services/*` (separate modules where present) |
 | Samples / installation | `examples/`, `k8s/`, `config/` |
 | Integration / E2E | `test/integration/`, `test/e2e/`; `docs/contributor/staging-e2e.md` |
 | Automation / release manifest | `hack/README.md`, `hack/release/platformmanifest/` |
 
-Platform namespaces come from `pkg/platforminventory`; see `docs/namespaces.md`.
+Platform namespaces come from `pkg/topology`; see `docs/namespaces.md`.
 Admin resource history lives in `pkg/resourcehistory`; supported setup provisions
 public kubelet trust. Keep its exact projected-token audience/ServiceAccount
 boundary, node UID/address/TLS checks and missing-series semantics intact.
@@ -94,8 +94,8 @@ identity, revocation and database-restore contract.
 Platform modes are `org` (default) and `public`; publish scopes are `tenant`
 (a team), `org`, and `public`. Public mode accepts all three scopes, but
 anonymous catalog reads must remain limited to public namespaces. Shared mode
-and catalog-namespace rules live in `pkg/platforminventory`.
-Public paths are validated by `pkg/platforminventory`; see `docs/self-hosting.md` and
+and catalog-namespace rules live in `pkg/topology`.
+Public paths are validated by `pkg/topology`; see `docs/self-hosting.md` and
 `config/deployments/single-host.env.example`. Preserve platform API, registry,
 dashboard asset/session and MCP Auth discovery routes when changing prefixes.
 

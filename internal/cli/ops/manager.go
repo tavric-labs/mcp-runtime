@@ -12,7 +12,7 @@ import (
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/kubeerr"
 	"mcp-runtime/internal/cli/platformstatus"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // Manager operates the bundled platform stack via kubectl.
@@ -21,9 +21,9 @@ type Manager struct {
 	logger  *zap.Logger
 }
 
-type platformComponent = platforminventory.Component
+type platformComponent = topology.Component
 
-var platformComponents = platforminventory.PlatformComponents(false)
+var platformComponents = topology.PlatformComponents(false)
 
 // NewManager creates a Manager with explicit dependencies.
 func NewManager(kubectl *core.KubectlClient, logger *zap.Logger) *Manager {

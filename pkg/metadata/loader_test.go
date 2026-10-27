@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -325,11 +325,11 @@ func TestSetDefaults(t *testing.T) {
 			name: "applies-public-scope-defaults",
 			server: &ServerMetadata{
 				Name:  "public-server",
-				Scope: platforminventory.Scope("Public"),
+				Scope: topology.Scope("Public"),
 			},
 			want: &ServerMetadata{
 				Name:      "public-server",
-				Scope:     platforminventory.ScopePublic,
+				Scope:     topology.ScopePublic,
 				Image:     "registry.local/public/public-server",
 				ImageTag:  "latest",
 				Route:     "/public-server/mcp",
@@ -573,7 +573,7 @@ servers:
 }
 
 func TestSetDefaultsRejectsInvalidScope(t *testing.T) {
-	err := setDefaults(&ServerMetadata{Name: "bad-scope", Scope: platforminventory.Scope("internet")})
+	err := setDefaults(&ServerMetadata{Name: "bad-scope", Scope: topology.Scope("internet")})
 	if err == nil {
 		t.Fatal("expected invalid scope error")
 	}

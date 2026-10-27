@@ -5,7 +5,7 @@ A namespace groups related services and their configuration. `mcp-runtime
 setup` creates the platform namespaces; team workflows create separate
 namespaces for each team's servers.
 
-For contributors, `pkg/platforminventory` defines the component placement.
+For contributors, `pkg/topology` defines the component placement.
 Setup creates `mcp-platform` and `mcp-observability` before installing Traefik
 because its permissions refer to both namespaces.
 

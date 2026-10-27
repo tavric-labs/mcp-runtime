@@ -1,8 +1,8 @@
 package metadata
 
 import (
-	"mcp-runtime/pkg/platforminventory"
 	policypkg "mcp-runtime/pkg/policy"
+	"mcp-runtime/pkg/topology"
 )
 
 // +kubebuilder:validation:Enum=oauth
@@ -101,7 +101,7 @@ type ServerMetadata struct {
 	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 
 	// Scope selects a publish destination: tenant, org, or public.
-	Scope platforminventory.Scope `yaml:"scope,omitempty" json:"scope,omitempty"`
+	Scope topology.Scope `yaml:"scope,omitempty" json:"scope,omitempty"`
 
 	// TeamID is the stable platform team identifier that owns the server.
 	TeamID string `yaml:"teamID,omitempty" json:"teamID,omitempty"`

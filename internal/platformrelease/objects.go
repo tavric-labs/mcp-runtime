@@ -16,7 +16,7 @@ import (
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // ComponentWiring is the non-image pod configuration a release requires of a
@@ -137,7 +137,7 @@ func platformNamespaces() map[string]bool {
 			set[c.Namespace] = true
 		}
 	}
-	set[platforminventory.ObservabilityNamespace] = true
+	set[topology.ObservabilityNamespace] = true
 	return set
 }
 

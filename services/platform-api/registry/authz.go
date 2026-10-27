@@ -3,7 +3,7 @@ package registry
 import (
 	"context"
 	"log"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"net/url"
 	"strings"
@@ -183,12 +183,12 @@ func (cfg *AuthzConfig) catalogScopeWritable(scope string) bool {
 	}
 	scope = strings.TrimSpace(scope)
 	switch cfg.mode {
-	case string(platforminventory.ScopePublic):
-		if scope == platforminventory.PublicRegistryAlias || scope == platforminventory.OrgRegistryAlias {
+	case string(topology.ScopePublic):
+		if scope == topology.PublicRegistryAlias || scope == topology.OrgRegistryAlias {
 			return true
 		}
-	case string(platforminventory.ScopeOrg):
-		if scope == platforminventory.OrgRegistryAlias {
+	case string(topology.ScopeOrg):
+		if scope == topology.OrgRegistryAlias {
 			return true
 		}
 	default:
@@ -203,7 +203,7 @@ func (cfg *AuthzConfig) sharedCatalogWritableForUsers() bool {
 		return false
 	}
 	switch cfg.mode {
-	case string(platforminventory.ScopePublic), string(platforminventory.ScopeOrg):
+	case string(topology.ScopePublic), string(topology.ScopeOrg):
 		return true
 	default:
 		return false

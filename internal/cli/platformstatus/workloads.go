@@ -7,7 +7,7 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/kubeerr"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // PlatformWorkload identifies a namespaced workload for status tables.
@@ -26,7 +26,7 @@ func defaultPlatformStatusWorkloads() []PlatformWorkload {
 	keys := []string{"clickhouse", "kafka", "ingest", "processor", "platform-api", "runtime-api", "analytics-api", "ui", "gateway", "prometheus", "grafana", "otel-collector", "tempo", "loki", "promtail"}
 	out := make([]PlatformWorkload, 0, len(keys))
 	for _, key := range keys {
-		c, ok := platforminventory.Lookup(key)
+		c, ok := topology.Lookup(key)
 		if !ok {
 			panic("unknown status component: " + key)
 		}

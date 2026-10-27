@@ -128,7 +128,7 @@ classify_path() {
       add_scenario "adapter-proxy"
       return
       ;;
-    pkg/platforminventory/routes.go|pkg/platforminventory/mode.go)
+    pkg/topology/routes.go|pkg/topology/mode.go)
       # Public route and platform-mode config shared by setup, the UI and APIs.
       add_scenario "ui-auth"
       add_scenario "api-platform"
@@ -147,7 +147,7 @@ classify_path() {
       add_scenario "cli-platform"
       return
       ;;
-    pkg/policy/defaults.go|pkg/platforminventory/defaults.go)
+    pkg/policy/defaults.go|pkg/topology/defaults.go)
       add_scenario "governance"
       add_scenario "trust"
       add_scenario "cli-platform"
@@ -264,7 +264,7 @@ classify_path() {
       add_scenario "ui-auth"
       return
       ;;
-    pkg/apikit/*|pkg/internalapi/*|pkg/platforminventory/scope.go|pkg/registrypush/*)
+    pkg/apikit/*|pkg/internalapi/*|pkg/topology/scope.go|pkg/registrypush/*)
       # Shared HTTP, DTO, publish-scope and registry-push code under the APIs.
       add_scenario "api-platform"
       return

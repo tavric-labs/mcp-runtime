@@ -5,7 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"log"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"net"
 	"net/http"
 	"net/url"
@@ -194,20 +194,20 @@ func newMux(apiBase, apiUpstream, apiKey, apiKeys, adminAPIKeys string) (*http.S
 }
 
 func normalizedPlatformMode() string {
-	return string(platforminventory.ModeFromEnv())
+	return string(topology.ModeFromEnv())
 }
 
 func catalogNamespacesForMode(mode string) []string {
-	normalized, _ := platforminventory.NormalizeMode(mode)
-	if normalized == platforminventory.ModePublic {
+	normalized, _ := topology.NormalizeMode(mode)
+	if normalized == topology.ModePublic {
 		// This list powers anonymous proxy reads, so exclude org catalogs.
-		return normalized.CatalogNamespacesForScope(platforminventory.ScopePublic)
+		return normalized.CatalogNamespacesForScope(topology.ScopePublic)
 	}
 	return normalized.CatalogNamespaces()
 }
 
 func defaultCatalogNamespaceForMode(mode string) string {
-	normalized, _ := platforminventory.NormalizeMode(mode)
+	normalized, _ := topology.NormalizeMode(mode)
 	return normalized.DefaultCatalogNamespace()
 }
 
