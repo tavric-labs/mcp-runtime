@@ -9,17 +9,17 @@ import (
 	"go.uber.org/zap"
 
 	"mcp-runtime-api/internal/platformapi"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/topology"
 )
 
 const (
-	roleAdmin               = platformauth.RoleAdmin
-	roleUser                = platformauth.RoleUser
-	sharedCatalogNamespace  = platforminventory.MCPServersNamespace
+	roleAdmin               = passport.RoleAdmin
+	roleUser                = passport.RoleUser
+	sharedCatalogNamespace  = topology.MCPServersNamespace
 	teamNamespacePrefix     = "mcp-team-"
 	teamRoleOwner           = "owner"
 	teamRoleMember          = "member"
@@ -31,9 +31,9 @@ const (
 )
 
 // Principal is the authenticated platform identity contract shared by runtime handlers.
-type Principal = platformauth.Principal
-type principal = platformauth.Principal
-type principalTeam = platformauth.PrincipalTeam
+type Principal = passport.Principal
+type principal = passport.Principal
+type principalTeam = passport.PrincipalTeam
 type teamRecord = platformapi.Team
 type teamMembershipRecord = platformapi.TeamMembership
 type auditEvent = platformapi.AuditEvent
@@ -63,11 +63,11 @@ type auditWriter interface {
 }
 
 func principalFromContext(ctx context.Context) (principal, bool) {
-	return platformauth.FromContext(ctx)
+	return passport.FromContext(ctx)
 }
 
 func withPrincipal(ctx context.Context, p principal) context.Context {
-	return platformauth.WithPrincipal(ctx, p)
+	return passport.WithPrincipal(ctx, p)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
@@ -75,7 +75,7 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 
 func writeBodyDecodeError(w http.ResponseWriter, err error) {
-	apihttp.WriteBodyDecodeError(w, err)
+	apikit.WriteBodyDecodeError(w, err)
 }
 
 func writeAPIError(w http.ResponseWriter, status int, message string, cause ...error) {
@@ -83,63 +83,63 @@ func writeAPIError(w http.ResponseWriter, status int, message string, cause ...e
 }
 
 func writeAPIErrorCode(w http.ResponseWriter, status int, code, message string, cause ...error) {
-	apihttp.WriteError(w, zap.L(), newAPIError(status, code, message, cause...))
+	apikit.WriteError(w, zap.L(), newAPIError(status, code, message, cause...))
 }
 
 func stableCodeForStatus(status int) string {
 	switch status {
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
-		return apihttp.CodeInvalidRequestBody
+		return apikit.CodeInvalidRequestBody
 	case http.StatusUnauthorized:
-		return apihttp.CodeUnauthorized
+		return apikit.CodeUnauthorized
 	case http.StatusForbidden:
-		return apihttp.CodeForbidden
+		return apikit.CodeForbidden
 	case http.StatusNotFound:
-		return apihttp.CodeNotFound
+		return apikit.CodeNotFound
 	case http.StatusConflict:
-		return apihttp.CodeConflict
+		return apikit.CodeConflict
 	case http.StatusMethodNotAllowed:
-		return apihttp.CodeMethodNotAllowed
+		return apikit.CodeMethodNotAllowed
 	case http.StatusRequestEntityTooLarge:
-		return apihttp.CodeRequestTooLarge
+		return apikit.CodeRequestTooLarge
 	case http.StatusServiceUnavailable:
-		return apihttp.CodeKubernetesUnavailable
+		return apikit.CodeKubernetesUnavailable
 	default:
-		return apihttp.CodeInternalError
+		return apikit.CodeInternalError
 	}
 }
 
-func newAPIError(status int, code, message string, cause ...error) *apihttp.Error {
+func newAPIError(status int, code, message string, cause ...error) *apikit.Error {
 	switch status {
 	case http.StatusBadRequest:
-		return apihttp.BadRequest(code, message, cause...)
+		return apikit.BadRequest(code, message, cause...)
 	case http.StatusUnauthorized:
-		return apihttp.Unauthorized(message, cause...)
+		return apikit.Unauthorized(message, cause...)
 	case http.StatusForbidden:
-		return apihttp.Forbidden(message, cause...)
+		return apikit.Forbidden(message, cause...)
 	case http.StatusNotFound:
-		return apihttp.NotFound(message, cause...)
+		return apikit.NotFound(message, cause...)
 	case http.StatusConflict:
-		return apihttp.Conflict(message, cause...)
+		return apikit.Conflict(message, cause...)
 	case http.StatusInternalServerError:
-		return apihttp.Internal(message, cause...)
+		return apikit.Internal(message, cause...)
 	case http.StatusServiceUnavailable:
-		return apihttp.ServiceUnavailable(code, message, cause...)
+		return apikit.ServiceUnavailable(code, message, cause...)
 	default:
-		return &apihttp.Error{Status: status, Code: code, Message: message, Cause: errors.Join(cause...)}
+		return &apikit.Error{Status: status, Code: code, Message: message, Cause: errors.Join(cause...)}
 	}
 }
 
 func requestIP(r *http.Request) string {
-	return platformauth.RequestIP(r)
+	return passport.RequestIP(r)
 }
 
 func auditSource(r *http.Request, p principal) string {
-	return platformauth.AuditSource(r, p)
+	return passport.AuditSource(r, p)
 }
 
 func auditIdentityLabel(p principal) string {
-	return platformauth.AuditIdentityLabel(p)
+	return passport.AuditIdentityLabel(p)
 }
 
 func envOr(key, fallback string) string {

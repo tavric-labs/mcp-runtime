@@ -567,7 +567,7 @@ histogram_quantile(0.99, sum by (le, service, operation) (rate(mcp_request_durat
 | Service | Auth behavior |
 |---|---|
 | **platform-api** | `/health` and `/ready` are open (`/ready` returns `503` when Postgres is unreachable). Authenticated `/api/v1/*` identity, admin, and registry routes accept `x-api-key`, user-generated API keys, platform JWT bearer tokens (audience `platform-api`), or OIDC JWT bearer tokens when OIDC is configured. Only keys listed in `ADMIN_API_KEYS` get admin role. Registry forward-auth (`/api/v1/registry/authz`) keeps admin credentials global and allows normal user credentials only on repository paths scoped to the caller's team slug or team namespace. Token-gated `/internal/*` serves runtime-api and analytics-api. |
-| **runtime-api** | `/health` and `/ready` are open (`/ready` returns `503` until the Kubernetes client is available). `/api/v1/runtime/*`, `/api/v1/deployments`, and admin operations routes accept platform JWTs (audience `runtime-api`) or scoped API keys via `pkg/platformauth`. `/api/v1/dashboard/summary`, `/api/v1/runtime/components`, `/api/v1/runtime/actions/restart`, and the `/api/v1/admin/*` routes require the admin role. |
+| **runtime-api** | `/health` and `/ready` are open (`/ready` returns `503` until the Kubernetes client is available). `/api/v1/runtime/*`, `/api/v1/deployments`, and admin operations routes accept platform JWTs (audience `runtime-api`) or scoped API keys via `pkg/passport`. `/api/v1/dashboard/summary`, `/api/v1/runtime/components`, `/api/v1/runtime/actions/restart`, and the `/api/v1/admin/*` routes require the admin role. |
 | **analytics-api** | `/health` and `/ready` are open (`/ready` returns `503` when ClickHouse is unreachable). `/api/v1/events`, `/api/v1/stats`, `/api/v1/sources`, `/api/v1/event-types`, and `/api/v1/analytics/usage` require the admin role because they return unscoped cluster-wide data. `/api/v1/user/analytics/usage` is the non-admin path and is scoped to the caller's team namespaces. Both accept platform JWTs (audience `analytics-api`) or scoped API keys. |
 | **ui** | `/auth/login` creates an HttpOnly UI session from `api_key`, `id_token`, or `email`/`password`. Authenticated dashboard requests use same-origin allowlisted `/api/ui/v1/*` routes; the UI exchanges its stored platform bearer for the fixed destination audience or injects the stored API key, and never returns credentials to the browser. All other `/api/v1/*` calls go through Traefik ingress to the owning API service. `/auth/admin-check` accepts admin UI sessions or keys from `ADMIN_API_KEYS`; it falls back to `API_KEYS` only when the explicit legacy dev/test fallback is enabled. Allowlisted cookie-backed writes require the session CSRF token and origin validation before exchange. |
 | **ingest** | `/live`, `/ready`, and `/health` are open. `/events` accepts `x-api-key` from `INGEST_API_KEYS`, legacy `API_KEYS`, configured OIDC, or an approved projected ServiceAccount token. Projected-token callers' audit attribution is bound to the verified workload; service-key and OIDC callers keep their trusted contract. Verified identities are cached for up to 60 seconds. Missing authentication configuration refuses startup; the intake middleware also denies every request when unconfigured. |
@@ -600,7 +600,7 @@ operator-controlled service logs rather than unauthenticated probe responses.
 ### API services
 
 Traefik routes `/api/v1/*` by path prefix to three HTTP services. There is no `/api/*` compatibility
-layer. Each service publishes `GET /api/v1/openapi.yaml` and uses `pkg/apihttp`
+layer. Each service publishes `GET /api/v1/openapi.yaml` and uses `pkg/apikit`
 stable error envelopes.
 
 | Service | Deployment | Port / metrics | Owns |
@@ -609,7 +609,7 @@ stable error envelopes.
 | **runtime-api** | `mcp-runtime-api` | 8084 / 9094 | MCPServer governance, grants/sessions, deployments, dashboard summary |
 | **analytics-api** | `mcp-analytics-api` | 8085 / 9095 | ClickHouse events, stats, usage analytics |
 
-JWT `aud` values: `platform-api`, `runtime-api`, `analytics-api` (`pkg/platformauth`).
+JWT `aud` values: `platform-api`, `runtime-api`, `analytics-api` (`pkg/passport`).
 Password and OIDC login issue a token with only `aud: ["platform-api"]`.
 Clients keep sending that one token to the platform gateway. On runtime and
 analytics routes, Traefik calls a fixed-target platform exchange handler and
@@ -944,7 +944,7 @@ mcp-runtime ops grafana check
 mcp-runtime ops grafana reset-admin-password --yes
 ```
 
-`ops events` lists Kubernetes events from `mcp-runtime`, `mcp-platform`, `mcp-observability`, and `mcp-log-collector`. Component logs, port-forward, and restart use the namespace from `pkg/platforminventory` for that component.
+`ops events` lists Kubernetes events from `mcp-runtime`, `mcp-platform`, `mcp-observability`, and `mcp-log-collector`. Component logs, port-forward, and restart use the namespace from `pkg/topology` for that component.
 Use `/api/v1/events` with query filters when you need the request/audit
 events emitted by `mcp-gateway`.
 
@@ -952,7 +952,7 @@ See [CLI → ops](cli-reference.md#ops) for component keys and flag details.
 
 ## Repository structure note
 
-Services live in `services/`, manifests in `k8s/`, and shared libraries in `pkg/`. `pkg/access`, `pkg/policy`, `pkg/controlplane`, `pkg/events`, `pkg/clickhouse`, `pkg/envcfg`, `pkg/httpx`, `pkg/telemetry`, `pkg/transport`, `pkg/kubeworkload`, `pkg/platformstack`, and `pkg/k8sclient` are used by the CLI, operator, or platform services according to their ownership boundaries.
+Services live in `services/`, manifests in `k8s/`, and shared libraries in `pkg/`. `pkg/access`, `pkg/policy`, `pkg/controlplane`, `pkg/events`, `pkg/clickhouse`, `pkg/envcfg`, `pkg/httpx`, `pkg/telemetry`, `pkg/transport`, `pkg/kubeworkload`, and `pkg/k8sclient` are used by the CLI, operator, or platform services according to their ownership boundaries.
 
 ## Next
 

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/identity"
 )
 
 // issuedCredential is a platform-signed, session-bound mTLS credential. The
@@ -67,7 +67,7 @@ func issueAdapterCredential(ctx context.Context, client *platformapi.PlatformCli
 		return issuedCredential{}, cleanupFailedEnrollment(ctx, client, session, fmt.Errorf("configured trust domain %q does not match platform trust domain %q", trustDomain, session.TrustDomain))
 	}
 
-	keyPEM, csrPEM, _, err := certauth.BuildSessionCSR(trustDomain, session.Namespace, session.Name)
+	keyPEM, csrPEM, _, err := identity.BuildSessionCSR(trustDomain, session.Namespace, session.Name)
 	if err != nil {
 		return issuedCredential{}, cleanupFailedEnrollment(ctx, client, session, err)
 	}

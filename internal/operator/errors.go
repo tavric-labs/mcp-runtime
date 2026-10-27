@@ -3,7 +3,7 @@ package operator
 import (
 	"fmt"
 
-	"mcp-runtime/pkg/errx"
+	"mcp-runtime/internal/errx"
 
 	"github.com/go-logr/logr"
 )

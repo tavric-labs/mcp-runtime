@@ -3,12 +3,12 @@ package platformapi
 import (
 	"context"
 	"fmt"
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apikit"
 	"net/http"
 )
 
-func (c *Client) OverviewCounts(ctx context.Context) (internalapi.OverviewCounts, error) {
-	var out internalapi.OverviewCounts
+func (c *Client) OverviewCounts(ctx context.Context) (apikit.OverviewCounts, error) {
+	var out apikit.OverviewCounts
 	status, err := c.authorizedJSON(ctx, http.MethodGet, "/internal/operations/counts", nil, &out)
 	if err != nil {
 		return out, err

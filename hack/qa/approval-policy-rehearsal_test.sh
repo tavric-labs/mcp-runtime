@@ -19,6 +19,24 @@ for outcome in 'submit-failed: Pending' 'read-failed' 'Pending,Ready'; do
     exit 1
   fi
 done
+# shellcheck source=hack/qa/approvalpolicy/retry.sh
+source "$ROOT/hack/qa/approvalpolicy/retry.sh"
+# A webhook that is not serving yet must be retried, not fail the rehearsal.
+RETRY_DELAY=0
+attempts=0
+flaky_until_third() { attempts=$((attempts + 1)); [[ "$attempts" -ge 3 ]]; }
+retry_until 5 flaky_until_third || { echo "retry_until gave up before the command recovered" >&2; exit 1; }
+[[ "$attempts" == 3 ]] || { echo "retry_until ran $attempts attempts, want 3" >&2; exit 1; }
+# A command that never recovers must fail after exactly the attempt budget.
+attempts=0
+always_fails() { attempts=$((attempts + 1)); return 1; }
+if retry_until 4 always_fails; then echo "retry_until hid a permanent failure" >&2; exit 1; fi
+[[ "$attempts" == 4 ]] || { echo "retry_until made $attempts attempts, want 4" >&2; exit 1; }
+# The first success must stop the loop, and arguments must reach the command.
+attempts=0
+records_args() { attempts=$((attempts + 1)); [[ "$1 $2" == 'apply -f' ]]; }
+retry_until 3 records_args apply -f || { echo "retry_until dropped the command arguments" >&2; exit 1; }
+[[ "$attempts" == 1 ]] || { echo "retry_until retried after success" >&2; exit 1; }
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/bin"

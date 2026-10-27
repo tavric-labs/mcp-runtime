@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"mcp-runtime/internal/blueprint"
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/policy"
 )
 
@@ -119,7 +119,7 @@ Use --from-server to also verify tool names against a locally running MCP server
 }
 
 // validateServer checks a single ServerMetadata entry.
-func validateServer(srv metadata.ServerMetadata) []validateIssue {
+func validateServer(srv blueprint.ServerMetadata) []validateIssue {
 	var issues []validateIssue
 
 	if strings.TrimSpace(srv.Name) == "" {
@@ -146,7 +146,7 @@ func validateServer(srv metadata.ServerMetadata) []validateIssue {
 		seen[name] = i
 
 		switch tool.SideEffect {
-		case metadata.ToolSideEffectRead, metadata.ToolSideEffectWrite, metadata.ToolSideEffectDestructive:
+		case blueprint.ToolSideEffectRead, blueprint.ToolSideEffectWrite, blueprint.ToolSideEffectDestructive:
 		default:
 			issues = append(issues, validateIssue{
 				fatal:   true,
@@ -156,7 +156,7 @@ func validateServer(srv metadata.ServerMetadata) []validateIssue {
 		}
 
 		switch tool.RequiredTrust {
-		case metadata.TrustLevelLow, metadata.TrustLevelMedium, metadata.TrustLevelHigh, "":
+		case blueprint.TrustLevelLow, blueprint.TrustLevelMedium, blueprint.TrustLevelHigh, "":
 		default:
 			issues = append(issues, validateIssue{
 				fatal:   true,
@@ -166,7 +166,7 @@ func validateServer(srv metadata.ServerMetadata) []validateIssue {
 		}
 
 		switch tool.RiskLevel {
-		case metadata.ToolRiskLevelLow, metadata.ToolRiskLevelMedium, metadata.ToolRiskLevelHigh, "":
+		case blueprint.ToolRiskLevelLow, blueprint.ToolRiskLevelMedium, blueprint.ToolRiskLevelHigh, "":
 		default:
 			issues = append(issues, validateIssue{
 				fatal:   true,
@@ -178,7 +178,7 @@ func validateServer(srv metadata.ServerMetadata) []validateIssue {
 		if tool.RiskLevel != "" {
 			trust := string(tool.RequiredTrust)
 			if trust == "" {
-				trust = string(metadata.TrustLevelLow)
+				trust = string(blueprint.TrustLevelLow)
 			}
 			computed := policy.NormalizeRiskLevel("", trust, string(tool.SideEffect))
 			declared := strings.ToLower(string(tool.RiskLevel))
@@ -231,7 +231,7 @@ type grantYAML struct {
 // validateGrantFile reads an MCPAccessGrant YAML and checks that every tool
 // rule references a tool defined in the server metadata and that side effects
 // and trust levels are valid enum values.
-func validateGrantFile(path string, cfg *metadata.RegistryFile) ([]validateIssue, error) {
+func validateGrantFile(path string, cfg *blueprint.RegistryFile) ([]validateIssue, error) {
 	data, err := os.ReadFile(path) // #nosec G304 -- explicit CLI flag path
 	if err != nil {
 		return nil, err
@@ -258,8 +258,8 @@ func validateGrantFile(path string, cfg *metadata.RegistryFile) ([]validateIssue
 
 	// Validate maxTrust if set.
 	if t := strings.ToLower(strings.TrimSpace(grant.Spec.MaxTrust)); t != "" {
-		switch metadata.TrustLevel(t) {
-		case metadata.TrustLevelLow, metadata.TrustLevelMedium, metadata.TrustLevelHigh:
+		switch blueprint.TrustLevel(t) {
+		case blueprint.TrustLevelLow, blueprint.TrustLevelMedium, blueprint.TrustLevelHigh:
 		default:
 			issues = append(issues, validateIssue{
 				fatal:   true,
@@ -273,8 +273,8 @@ func validateGrantFile(path string, cfg *metadata.RegistryFile) ([]validateIssue
 	allowedEffects := map[string]struct{}{}
 	for _, e := range grant.Spec.AllowedSideEffects {
 		lower := strings.ToLower(strings.TrimSpace(e))
-		switch metadata.ToolSideEffect(lower) {
-		case metadata.ToolSideEffectRead, metadata.ToolSideEffectWrite, metadata.ToolSideEffectDestructive:
+		switch blueprint.ToolSideEffect(lower) {
+		case blueprint.ToolSideEffectRead, blueprint.ToolSideEffectWrite, blueprint.ToolSideEffectDestructive:
 			allowedEffects[lower] = struct{}{}
 		default:
 			issues = append(issues, validateIssue{
@@ -286,7 +286,7 @@ func validateGrantFile(path string, cfg *metadata.RegistryFile) ([]validateIssue
 	}
 
 	// Find the matching server in metadata.
-	var srv *metadata.ServerMetadata
+	var srv *blueprint.ServerMetadata
 	for i := range cfg.Servers {
 		if cfg.Servers[i].Name == serverName {
 			srv = &cfg.Servers[i]
@@ -303,7 +303,7 @@ func validateGrantFile(path string, cfg *metadata.RegistryFile) ([]validateIssue
 	}
 
 	// Build tool map from server metadata.
-	toolMap := map[string]metadata.ToolConfig{}
+	toolMap := map[string]blueprint.ToolConfig{}
 	for _, t := range srv.Tools {
 		toolMap[t.Name] = t
 	}
@@ -321,8 +321,8 @@ func validateGrantFile(path string, cfg *metadata.RegistryFile) ([]validateIssue
 		}
 		// Validate requiredTrust enum.
 		if t := strings.ToLower(strings.TrimSpace(rule.RequiredTrust)); t != "" {
-			switch metadata.TrustLevel(t) {
-			case metadata.TrustLevelLow, metadata.TrustLevelMedium, metadata.TrustLevelHigh:
+			switch blueprint.TrustLevel(t) {
+			case blueprint.TrustLevelLow, blueprint.TrustLevelMedium, blueprint.TrustLevelHigh:
 			default:
 				issues = append(issues, validateIssue{
 					fatal:   true,
@@ -386,7 +386,7 @@ type sessionYAML struct {
 }
 
 // validateSessionFile reads an MCPAgentSession YAML and checks basic consistency.
-func validateSessionFile(path string, cfg *metadata.RegistryFile) ([]validateIssue, error) {
+func validateSessionFile(path string, cfg *blueprint.RegistryFile) ([]validateIssue, error) {
 	data, err := os.ReadFile(path) // #nosec G304 -- explicit CLI flag path
 	if err != nil {
 		return nil, err
@@ -449,7 +449,7 @@ func validateSessionFile(path string, cfg *metadata.RegistryFile) ([]validateIss
 		found = true
 		// Guard nil policy — PolicyConfig is an embedded struct, not a pointer,
 		// but DefaultDecision may be the zero value "".
-		if srv.Policy.DefaultDecision == metadata.PolicyDecisionDeny && len(srv.Tools) == 0 {
+		if srv.Policy.DefaultDecision == blueprint.PolicyDecisionDeny && len(srv.Tools) == 0 {
 			issues = append(issues, validateIssue{
 				fatal:   false,
 				message: fmt.Sprintf("session %q: server %q has default-deny policy but no tools — all tool calls will be denied", name, serverName),
@@ -472,7 +472,7 @@ func validateSessionFile(path string, cfg *metadata.RegistryFile) ([]validateIss
 // checks that each tool in the metadata actually exists there. When
 // servers.yaml contains multiple servers the check is skipped for all but the
 // first one because --from-server points at a single endpoint.
-func validateToolsAgainstServer(rawURL string, cfg *metadata.RegistryFile) []validateIssue {
+func validateToolsAgainstServer(rawURL string, cfg *blueprint.RegistryFile) []validateIssue {
 	if len(cfg.Servers) == 0 {
 		return nil
 	}
@@ -530,16 +530,16 @@ func validateToolsAgainstServer(rawURL string, cfg *metadata.RegistryFile) []val
 	return issues
 }
 
-func loadMetadataForValidate(dir, file string) (*metadata.RegistryFile, string, error) {
+func loadMetadataForValidate(dir, file string) (*blueprint.RegistryFile, string, error) {
 	if file != "" {
-		cfg, err := metadata.LoadFromFile(file)
+		cfg, err := blueprint.LoadFromFile(file)
 		if err != nil {
 			return nil, "", err
 		}
 		return cfg, file, nil
 	}
 	path := filepath.Join(dir, "servers.yaml")
-	cfg, err := metadata.LoadFromFile(path)
+	cfg, err := blueprint.LoadFromFile(path)
 	if err != nil {
 		return nil, "", err
 	}
@@ -559,7 +559,7 @@ func riskRank(level string) int {
 	}
 }
 
-func joinToolNames(tools []metadata.ToolConfig) string {
+func joinToolNames(tools []blueprint.ToolConfig) string {
 	names := make([]string, len(tools))
 	for i, t := range tools {
 		names[i] = t.Name

@@ -22,6 +22,8 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=hack/qa/approvalpolicy/outcomes.sh
 source "$ROOT/hack/qa/approvalpolicy/outcomes.sh"
+# shellcheck source=hack/qa/approvalpolicy/retry.sh
+source "$ROOT/hack/qa/approvalpolicy/retry.sh"
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.21.2}"
 APPROVER_POLICY_VERSION="${APPROVER_POLICY_VERSION:-v0.28.0}"
 KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed}"
@@ -123,7 +125,8 @@ EOF
   step "installing approver-policy $APPROVER_POLICY_VERSION and the policies"
   helm upgrade --install approver-policy oci://quay.io/jetstack/charts/cert-manager-approver-policy --version "$APPROVER_POLICY_VERSION" \
     -n cert-manager --wait --timeout 10m >/dev/null || return 1
-  kubectl apply -f "$POLICIES" >/dev/null || return 1
+  # helm --wait returns when the Deployment is Ready, before its webhook serves.
+  retry_until 20 kubectl apply -f "$POLICIES" >/dev/null || return 1
   for policy in mcp-session-certificates mcp-workload-tls mcp-public-acme; do
     kubectl wait "certificaterequestpolicy/$policy" --for=condition=Ready --timeout=120s >/dev/null || return 1
   done

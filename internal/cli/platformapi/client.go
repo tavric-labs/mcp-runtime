@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/authfile"
+	"mcp-runtime/internal/cli/authfile"
 )
 
 const maxAPIBodyRead = 4 << 20

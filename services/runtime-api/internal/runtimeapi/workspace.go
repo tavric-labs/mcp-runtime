@@ -6,9 +6,9 @@ import (
 	"sort"
 	"time"
 
+	"mcp-runtime-api/internal/k8sstore"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/access/k8sstore"
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apikit"
 )
 
 // Personal workspace membership comes from the resolved principal, including
@@ -123,7 +123,7 @@ func (s *RuntimeServer) HandleOverviewDirectory(w http.ResponseWriter, r *http.R
 		return
 	}
 	store, ok := s.identity.(interface {
-		OverviewCounts(context.Context) (internalapi.OverviewCounts, error)
+		OverviewCounts(context.Context) (apikit.OverviewCounts, error)
 	})
 	if !ok {
 		writeAPIError(w, http.StatusServiceUnavailable, "directory counts unavailable")

@@ -24,12 +24,10 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	"mcp-runtime-api/internal/runtimeapi/k8sprovision"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/platforminventory"
-	"mcp-runtime/pkg/publishscope"
+	"mcp-runtime/pkg/topology"
 )
 
 const (
@@ -39,7 +37,7 @@ const (
 	platformTeamSlugLabel   = "mcpruntime.org/team-slug"
 	platformScopeLabel      = "mcpruntime.org/scope"
 	createdByLabel          = "created-by"
-	defaultDeployPort       = int32(platforminventory.MCPServerPort)
+	defaultDeployPort       = int32(topology.MCPServerPort)
 	restrictedRunAsUser     = kubeworkload.RestrictedRunAsUser
 	traefikWatchRoleName    = k8sprovision.TraefikWatchRoleName
 	registryNamespace       = k8sprovision.RegistryNamespace
@@ -270,7 +268,7 @@ func (s *DeploymentService) handleDeploymentApply(w http.ResponseWriter, r *http
 	if req.Version != "" && !strings.Contains(image[strings.LastIndex(image, "/")+1:], ":") {
 		if !deployImageTagPattern.MatchString(req.Version) {
 			s.writeAudit(r.Context(), deploymentAuditEvent(r, p, "deployment_apply", "denied", req.Name, namespace, req.Image, "version must be a valid image tag"))
-			writeAPIErrorCode(w, http.StatusBadRequest, apihttp.CodeInvalidVersionTag, "version must be a valid image tag")
+			writeAPIErrorCode(w, http.StatusBadRequest, apikit.CodeInvalidVersionTag, "version must be a valid image tag")
 			return
 		}
 		image += ":" + req.Version
@@ -539,12 +537,12 @@ func (s *DeploymentService) ensureNamespaceRegistryPullSecret(ctx context.Contex
 }
 
 func registryPullSecretHost() string {
-	if host := normalizeImageRegistryHost(metadata.ResolveRegistryHost()); host != "" && host != "registry.local" && host != "localhost" {
+	if host := normalizeImageRegistryHost(topology.ResolveRegistryHost()); host != "" && host != "registry.local" && host != "localhost" {
 		return host
 	}
 	// Keep the secret useful when a public registry override is a local
 	// placeholder but an explicit internal endpoint is configured.
-	if host := normalizeImageRegistryHost(metadata.ResolveRegistryEndpoint()); host != "" && host != "registry.local" && host != "localhost" {
+	if host := normalizeImageRegistryHost(topology.ResolveRegistryEndpoint()); host != "" && host != "registry.local" && host != "localhost" {
 		return host
 	}
 	return ""
@@ -825,7 +823,7 @@ func defaultImageRepositoryScope(namespace, teamSlug string) string {
 		return teamSlug
 	}
 	if scope, ok := catalogScopeForNamespace(namespace); ok {
-		alias, _ := publishscope.RegistryAlias(scope)
+		alias, _ := topology.ScopeRegistryAlias(scope)
 		return alias
 	}
 	return strings.TrimSpace(namespace)
@@ -841,7 +839,7 @@ func allowedImageRepositoryScopes(namespace, teamSlug string) []string {
 		values = append(values, expected)
 	}
 	if scope, ok := catalogScopeForNamespace(namespace); ok {
-		alias, _ := publishscope.RegistryAlias(scope)
+		alias, _ := topology.ScopeRegistryAlias(scope)
 		values = append(values, alias)
 	}
 	return dedupeNonEmptyStrings(values)

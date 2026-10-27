@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"os"
 	"sort"
@@ -16,16 +17,14 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"mcp-runtime-api/internal/k8sstore"
+	"mcp-runtime-api/internal/platformstack"
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/access/k8sstore"
 	chpkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/platformstack"
-	"mcp-runtime/pkg/publishscope"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -151,7 +150,7 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 		writeAPIError(w, http.StatusBadRequest, "name and spec.image are required")
 		return
 	}
-	scope, err := publishscope.Normalize(req.Scope)
+	scope, err := topology.NormalizeScope(req.Scope)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return
@@ -350,7 +349,7 @@ func serverApplyNamespaceEnsureError(p principal, namespace string, isTeamNamesp
 }
 
 func defaultRuntimeServerIngressHost() string {
-	return metadata.ResolveMcpIngressHost()
+	return topology.ResolveMcpIngressHost()
 }
 
 func (s *RuntimeServer) applyPublishedServerDefaults(ctx context.Context, namespace, name string, spec *mcpv1alpha1.MCPServerSpec) error {
@@ -492,7 +491,7 @@ func (s *RuntimeServer) defaultAnalyticsAPIKey(ctx context.Context) (string, err
 	return "", nil
 }
 
-func (s *RuntimeServer) scopedNamespaceForServerApply(ctx context.Context, requested string, scope publishscope.Scope) (string, error) {
+func (s *RuntimeServer) scopedNamespaceForServerApply(ctx context.Context, requested string, scope topology.Scope) (string, error) {
 	requested = strings.TrimSpace(requested)
 	if scope == "" {
 		return s.Access().scopedNamespaceForPrincipal(ctx, requested)
@@ -506,16 +505,16 @@ func (s *RuntimeServer) scopedNamespaceForServerApply(ctx context.Context, reque
 		return "", err
 	}
 	switch scope {
-	case publishscope.Public, publishscope.Org:
+	case topology.ScopePublic, topology.ScopeOrg:
 		return scopedModeCatalogNamespaceForApply(p, requested, scope)
-	case publishscope.Tenant:
+	case topology.ScopeTenant:
 		return scopedTenantNamespaceForApply(p, requested)
 	default:
 		return "", errors.New("invalid publish scope")
 	}
 }
 
-func scopedModeCatalogNamespaceForApply(p principal, requested string, scope publishscope.Scope) (string, error) {
+func scopedModeCatalogNamespaceForApply(p principal, requested string, scope topology.Scope) (string, error) {
 	namespace := defaultCatalogNamespaceForScope(scope)
 	if namespace == "" {
 		return "", errors.New("catalog namespace is not configured for scope")
@@ -563,7 +562,7 @@ func principalDefaultTeamNamespace(p principal) string {
 	return ""
 }
 
-func scopeLabelForNamespace(namespace string, scope publishscope.Scope) string {
+func scopeLabelForNamespace(namespace string, scope topology.Scope) string {
 	if scope != "" {
 		return string(scope)
 	}
@@ -571,7 +570,7 @@ func scopeLabelForNamespace(namespace string, scope publishscope.Scope) string {
 		return string(catalogScope)
 	}
 	if namespace != "" {
-		return string(publishscope.Tenant)
+		return string(topology.ScopeTenant)
 	}
 	return ""
 }
@@ -842,7 +841,7 @@ func connectServerEntry(endpoint string, info controlplane.ServerInfo) map[strin
 }
 
 func serverInfoWithAccessJSON(info controlplane.ServerInfo, r *http.Request) serverInfo {
-	info.Image = metadata.DisplayImageReference(info.Image)
+	info.Image = topology.DisplayImageReference(info.Image)
 	out := serverInfo{ServerInfo: info}
 	connectEndpoint := publicMCPConnectEndpoint(info.Endpoint, r)
 	if connectEndpoint != "" {

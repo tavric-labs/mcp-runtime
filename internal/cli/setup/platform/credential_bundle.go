@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gopkg.in/yaml.v3"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // Snapshot canonical owner objects once. A present-but-empty key is never
@@ -19,7 +19,7 @@ func renderCredentialBundleClientGo() (string, error) {
 		return "", err
 	}
 	snapshots := map[string]map[string]string{}
-	for _, set := range platforminventory.CredentialSets() {
+	for _, set := range topology.CredentialSets() {
 		secret, err := clients.Clientset.CoreV1().Secrets(set.Namespace()).Get(context.Background(), set.Name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			continue
@@ -38,7 +38,7 @@ func renderCredentialBundleClientGo() (string, error) {
 
 func renderCredentialBundleWithSnapshots(read analyticsSecretValueReader, snapshots map[string]map[string]string) (string, error) {
 	for _, key := range []string{"API_KEYS", "JWT_SECRET", "INTERNAL_AUTH_TOKEN", "POSTGRES_DSN", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "UI_API_KEY", "INGEST_API_KEYS", "GRAFANA_ADMIN_PASSWORD", "OAUTH_PRIVATE_KEY"} {
-		owner, _ := platforminventory.CredentialOwner(key)
+		owner, _ := topology.CredentialOwner(key)
 		values, ownerPresent := snapshots[owner]
 		if !ownerPresent {
 			continue
@@ -76,12 +76,12 @@ func splitCredentialManifest(legacy string) (string, error) {
 		return "", err
 	}
 	for key := range source.StringData {
-		if _, ok := platforminventory.CredentialOwner(key); !ok {
+		if _, ok := topology.CredentialOwner(key); !ok {
 			return "", fmt.Errorf("credential key %q has no declared owner", key)
 		}
 	}
 	var out bytes.Buffer
-	for i, set := range platforminventory.CredentialSets() {
+	for i, set := range topology.CredentialSets() {
 		if i > 0 {
 			out.WriteString("---\n")
 		}

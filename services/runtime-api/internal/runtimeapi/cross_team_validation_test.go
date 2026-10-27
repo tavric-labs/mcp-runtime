@@ -11,9 +11,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"mcp-runtime-api/internal/k8sstore"
 	"mcp-runtime-api/internal/platformapi"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/access/k8sstore"
 )
 
 func TestCrossTeamGrantEndpointMembershipExpiryAndDirectoryStatus(t *testing.T) {

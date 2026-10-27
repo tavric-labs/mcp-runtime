@@ -14,7 +14,7 @@ import (
 	"mcp-platform-api/internal/apiauth"
 	"mcp-platform-api/internal/httperrors"
 	"mcp-platform-api/internal/platformstore"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 )
 
 const imageActivityRequestMaxBytes = 16 * 1024
@@ -331,10 +331,10 @@ func writePasswordUserError(w http.ResponseWriter, err error) {
 	var input platformstore.UserInputError
 	switch {
 	case errors.Is(err, platformstore.ErrEmailAlreadyRegistered):
-		apihttp.WriteEnvelope(w, http.StatusConflict, apihttp.CodeConflict, platformstore.ErrEmailAlreadyRegistered.Error())
+		apikit.WriteEnvelope(w, http.StatusConflict, apikit.CodeConflict, platformstore.ErrEmailAlreadyRegistered.Error())
 	case errors.As(err, &input):
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, input.Error())
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, input.Error())
 	default:
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeInternalError, "failed to create user")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeInternalError, "failed to create user")
 	}
 }

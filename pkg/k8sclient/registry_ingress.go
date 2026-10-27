@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 const (
@@ -23,8 +23,8 @@ const (
 	// config/registry manifests.
 	RegistryPlaceholderHost = "registry.local"
 
-	platformConfigNamespace = platforminventory.PlatformNamespace
-	platformConfigName      = platforminventory.SharedConfigName
+	platformConfigNamespace = topology.PlatformNamespace
+	platformConfigName      = topology.SharedConfigName
 )
 
 // Registry public host sources, in precedence order.

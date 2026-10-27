@@ -8,9 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/platforminventory"
-	"mcp-runtime/pkg/publicroutes"
+	"mcp-runtime/pkg/topology"
 )
 
 // CLIConfig holds all CLI configuration loaded from environment variables.
@@ -34,7 +32,7 @@ type CLIConfig struct {
 	// PlatformIngressHost is the public dashboard UI host (e.g. platform.mcpruntime.com), from
 	// MCP_PLATFORM_INGRESS_HOST or platform.<MCP_PLATFORM_DOMAIN>. Empty falls back to path-based dev routing.
 	PlatformIngressHost string
-	PublicRoutes        publicroutes.Routes
+	PublicRoutes        topology.Routes
 	// RegistryClusterIssuerName is the cert-manager ClusterIssuer selected by
 	// setup --with-tls for TLS-rendered resources (e.g. platform UI ingress).
 	// The registry Secret itself is owned by an explicit registry-cert Certificate.
@@ -70,13 +68,13 @@ const (
 	defaultHelperPodTimeout    = 3 * time.Minute
 	defaultRegistryPort        = 5000
 	defaultKubernetesAPIPort   = 6443
-	defaultRegistryEndpoint    = "registry.local" // used by build paths; same default as metadata.DefaultRegistryHost
+	defaultRegistryEndpoint    = "registry.local" // used by build paths; same default as topology.DefaultRegistryHost
 	defaultRegistryIngressHost = "registry.local"
 	// Exported aliases for tests and subpackages (same values as above).
 	DefaultRegistryEndpoint    = defaultRegistryEndpoint
 	DefaultRegistryIngressHost = defaultRegistryIngressHost
 	defaultSkopeoImage         = "quay.io/skopeo/stable:v1.14"
-	defaultServerPort          = platforminventory.MCPServerPort
+	defaultServerPort          = topology.MCPServerPort
 )
 
 // DefaultCLIConfig is the global CLI configuration loaded at startup.
@@ -84,10 +82,10 @@ var DefaultCLIConfig = LoadCLIConfig()
 
 // LoadCLIConfig loads CLI configuration from environment variables.
 func LoadCLIConfig() *CLIConfig {
-	registryEndpoint := metadata.ResolveRegistryEndpoint()
-	registryIngressHost := metadata.ResolveRegistryHost()
-	mcpIngressHost := metadata.ResolveMcpIngressHost()
-	platformIngressHost := metadata.ResolvePlatformIngressHost()
+	registryEndpoint := topology.ResolveRegistryEndpoint()
+	registryIngressHost := topology.ResolveRegistryHost()
+	mcpIngressHost := topology.ResolveMcpIngressHost()
+	platformIngressHost := topology.ResolvePlatformIngressHost()
 	return &CLIConfig{
 		// Applies to core deployment waits and platform rollouts (ingest, Kafka, etc.).
 		DeploymentTimeout:           parseDurationEnv("MCP_DEPLOYMENT_TIMEOUT", defaultDeploymentTimeout),
@@ -99,7 +97,7 @@ func LoadCLIConfig() *CLIConfig {
 		RegistryIngressHost:         registryIngressHost,
 		McpIngressHost:              mcpIngressHost,
 		PlatformIngressHost:         platformIngressHost,
-		PublicRoutes:                publicroutes.Routes{Platform: os.Getenv("MCP_PLATFORM_PATH_PREFIX"), Grafana: os.Getenv("MCP_GRAFANA_PATH_PREFIX"), Docs: os.Getenv("MCP_DOCS_PATH"), DocsURL: os.Getenv("MCP_DOCS_URL"), Registry: os.Getenv("MCP_REGISTRY_PATH")}.WithDefaults(),
+		PublicRoutes:                topology.Routes{Platform: os.Getenv("MCP_PLATFORM_PATH_PREFIX"), Grafana: os.Getenv("MCP_GRAFANA_PATH_PREFIX"), Docs: os.Getenv("MCP_DOCS_PATH"), DocsURL: os.Getenv("MCP_DOCS_URL"), Registry: os.Getenv("MCP_REGISTRY_PATH")}.WithDefaults(),
 		SkopeoImage:                 getEnvOrDefault("MCP_SKOPEO_IMAGE", defaultSkopeoImage),
 		OperatorImage:               os.Getenv("MCP_OPERATOR_IMAGE"), // No default, empty means auto
 		GatewayProxyImage:           os.Getenv("MCP_GATEWAY_PROXY_IMAGE"),

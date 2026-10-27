@@ -18,7 +18,7 @@ Traefik ingress (`internal/cli/setup/ingressmanifest/paths.go`, `k8s/10-gateway.
 | **runtime-api** | `mcp-runtime-api` | `/api/v1/runtime/*`, `/api/v1/deployments`, `/api/v1/dashboard/*`, `/api/v1/admin/deployments`, `/api/v1/admin/operations` |
 | **analytics-api** | `mcp-analytics-api` | `/api/v1/events`, `/api/v1/stats`, `/api/v1/sources`, `/api/v1/event-types`, `/api/v1/analytics/*`, `/api/v1/user/analytics/*` |
 
-Platform login (`POST /api/v1/auth/login`) issues JWTs whose `aud` claim includes `platform-api`, `runtime-api`, and `analytics-api` so one bearer token works across the split surface (`pkg/platformauth`).
+Platform login (`POST /api/v1/auth/login`) issues JWTs whose `aud` claim includes `platform-api`, `runtime-api`, and `analytics-api` so one bearer token works across the split surface (`pkg/passport`).
 
 Each API service also serves unauthenticated `GET /health` and `GET /ready` outside `/api/v1`. `/ready` reports dependency health and returns `503` when it is missing: Postgres for platform-api, the Kubernetes client for runtime-api, and ClickHouse for analytics-api. The `mcp-gateway` sidecar has its own `/health`, `/ready`, `/config/status`, and `/metrics` endpoints; see [`docs/runtime-operations.md`](runtime-operations.md#gateway-policy-snapshots).
 

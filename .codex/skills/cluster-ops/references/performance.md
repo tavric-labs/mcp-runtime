@@ -41,7 +41,7 @@ comparison on the same host, Go version, GOMAXPROCS and fixture revision:
 
 ```bash
 export KUBECONFIG="$(mktemp)" GOMAXPROCS=4 GOFLAGS=-p=4
-hack/ci/go-test.sh . ./pkg/policy ./pkg/platformauth ./pkg/certauth \
+hack/ci/go-test.sh . ./pkg/policy ./pkg/passport ./pkg/identity \
   -run '^$' -bench 'Benchmark(Authorize|SessionLookup|VerifyPlatformBearer|SessionCertificateChain|SessionMTLSTransport)' \
   -benchmem -count=10 > before-root.txt
 hack/ci/go-test.sh services/mcp-gateway ./... -run '^$' \

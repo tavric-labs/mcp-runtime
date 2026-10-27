@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/authfile"
 )
 
 func TestListServersTeamFilter(t *testing.T) {

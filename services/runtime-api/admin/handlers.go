@@ -2,14 +2,14 @@ package admin
 
 import (
 	"fmt"
+	"mcp-runtime/pkg/apikit"
+	"mcp-runtime/pkg/topology"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime-api/internal/runtimeapi"
-	"mcp-runtime/pkg/metadata"
 )
 
 type Dependencies struct {
@@ -65,7 +65,7 @@ func adminOperationsFilterFromRequest(r *http.Request) (platformapi.OperationsFi
 	filter := platformapi.OperationsFilter{
 		User:       user,
 		UserSearch: strings.ToLower(user),
-		Limit:      clampInt(queryInt(r, "limit", 50), 1, 200),
+		Limit:      apikit.ClampInt(apikit.QueryIntOr(r, "limit", 50), 1, 200),
 	}
 	since, err := parseOptionalTimeQuery(r, "since", false)
 	if err != nil {
@@ -224,8 +224,8 @@ func operationsLimit(filter platformapi.OperationsFilter) int {
 func sanitizeImageActivity(items []platformapi.ImageActivity) []platformapi.ImageActivity {
 	out := make([]platformapi.ImageActivity, 0, len(items))
 	for _, item := range items {
-		item.ImageRef = metadata.DisplayImageReference(item.ImageRef)
-		item.SourceImage = metadata.DisplayImageReference(item.SourceImage)
+		item.ImageRef = topology.DisplayImageReference(item.ImageRef)
+		item.SourceImage = topology.DisplayImageReference(item.SourceImage)
 		out = append(out, item)
 	}
 	return out
@@ -239,7 +239,7 @@ func sanitizeDeploymentSummaries(items []map[string]any) []map[string]any {
 			copyItem[k] = v
 		}
 		if imageRef, ok := copyItem["image"].(string); ok {
-			copyItem["image"] = metadata.DisplayImageReference(imageRef)
+			copyItem["image"] = topology.DisplayImageReference(imageRef)
 		}
 		out = append(out, copyItem)
 	}
@@ -287,26 +287,4 @@ func min(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func queryInt(r *http.Request, key string, fallback int) int {
-	raw := strings.TrimSpace(r.URL.Query().Get(key))
-	if raw == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return fallback
-	}
-	return n
-}
-
-func clampInt(n, minValue, maxValue int) int {
-	if n < minValue {
-		return minValue
-	}
-	if n > maxValue {
-		return maxValue
-	}
-	return n
 }

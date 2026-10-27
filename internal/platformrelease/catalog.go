@@ -4,7 +4,7 @@
 package platformrelease
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"sort"
 )
 
@@ -68,7 +68,7 @@ type Component struct {
 func (c Component) HasWorkload() bool { return c.Deployment != "" }
 
 const (
-	nsRuntime = platforminventory.OperatorNamespace
+	nsRuntime = topology.OperatorNamespace
 
 	// OperatorDeployment is the operator controller-manager Deployment name.
 	OperatorDeployment = "mcp-runtime-operator-controller-manager"
@@ -102,7 +102,7 @@ var catalog = withInventoryPlacement([]Component{
 
 func withInventoryPlacement(components []Component) []Component {
 	for i := range components {
-		c, ok := platforminventory.Lookup(components[i].Name)
+		c, ok := topology.Lookup(components[i].Name)
 		if !ok {
 			panic("unknown release component: " + components[i].Name)
 		}

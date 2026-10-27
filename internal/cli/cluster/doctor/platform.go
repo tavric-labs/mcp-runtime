@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 func readOwnedSecret(kubectl core.KubectlRunner, key string) (name, value string, err error) {
-	namespace, name, ok := platforminventory.CredentialPlacement(key)
+	namespace, name, ok := topology.CredentialPlacement(key)
 	if !ok {
 		return "", "", fmt.Errorf("credential %q has no owner", key)
 	}

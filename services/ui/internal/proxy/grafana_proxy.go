@@ -10,7 +10,7 @@ import (
 
 	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-ui/internal/session"
 )
 
@@ -66,10 +66,10 @@ func NewGrafanaProxy(platformBase, runtimeBase *url.URL, store *session.Store, p
 		req.Header.Set("Accept", r.Header.Get("Accept"))
 		req.Header.Set("Content-Type", r.Header.Get("Content-Type"))
 		if auth != "" {
-			auth, err = platformauth.ExchangeBearer(r.Context(), httpClient, platformBase, auth, platformauth.AudienceRuntime)
+			auth, err = passport.ExchangeBearer(r.Context(), httpClient, platformBase, auth, passport.AudienceRuntime)
 			if err != nil {
 				status := http.StatusBadGateway
-				if errors.Is(err, platformauth.ErrExchangeUnauthorized) {
+				if errors.Is(err, passport.ErrExchangeUnauthorized) {
 					status = http.StatusUnauthorized
 				}
 				httpx.WriteJSON(w, status, map[string]string{"error": "token_exchange_failed"})

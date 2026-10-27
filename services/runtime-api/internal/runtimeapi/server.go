@@ -5,11 +5,11 @@ import (
 	"sync"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"mcp-runtime/pkg/access/k8sstore"
+	"mcp-runtime-api/internal/k8sstore"
+	"mcp-runtime-api/internal/platformstack"
 	chpkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platformstack"
 )
 
 // RuntimeServer composes runtime API dependencies for analytics, Kubernetes control-plane access, and platform identity.

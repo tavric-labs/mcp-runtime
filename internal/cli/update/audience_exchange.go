@@ -12,7 +12,7 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/setup/ingressmanifest"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func audienceMigrationRequired(detail string) error {
@@ -201,10 +201,10 @@ func validAudienceMiddlewares(raw, platformNS string) bool {
 	if yaml.Unmarshal([]byte(raw), &dynamic) != nil {
 		return false
 	}
-	for _, target := range []string{platformauth.AudienceRuntime, platformauth.AudienceAnalytics} {
+	for _, target := range []string{passport.AudienceRuntime, passport.AudienceAnalytics} {
 		name := strings.TrimSuffix(target, "-api")
 		auth := dynamic.HTTP.Middlewares[name+"-token-exchange"].ForwardAuth
-		if auth.Address != "http://mcp-platform-api."+platformNS+".svc.cluster.local:8080"+platformauth.ExchangePath(target) || auth.Trust || auth.Body || auth.PreserveMethod {
+		if auth.Address != "http://mcp-platform-api."+platformNS+".svc.cluster.local:8080"+passport.ExchangePath(target) || auth.Trust || auth.Body || auth.PreserveMethod {
 			return false
 		}
 		if !exchangeHeaderSet(auth.Request) || !exchangeHeaderSet(auth.Response) {

@@ -145,3 +145,8 @@ func APIKeySet(envValue string) map[string]struct{} {
 	}
 	return out
 }
+
+// APIKeysFromEnv reads a comma-separated API key list from the named variable.
+func APIKeysFromEnv(name string) map[string]struct{} {
+	return APIKeySet(envcfg.EnvOr(name, ""))
+}

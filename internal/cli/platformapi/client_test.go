@@ -13,7 +13,7 @@ import (
 	"time"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/authfile"
+	"mcp-runtime/internal/cli/authfile"
 )
 
 func TestApplyAccessFromYAMLFile_MultiDocument(t *testing.T) {

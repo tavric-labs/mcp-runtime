@@ -10,7 +10,7 @@ import (
 
 	"mcp-runtime/internal/adapterd"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/identity"
 )
 
 type renewedCredential struct {
@@ -28,7 +28,7 @@ func renewProfileCertificate(ctx context.Context, p adapterd.Profile, platformTo
 	if err != nil {
 		return renewedCredential{}, err
 	}
-	key, csr, _, err := certauth.BuildSessionCSR(p.TrustDomain, p.Namespace, p.Session)
+	key, csr, _, err := identity.BuildSessionCSR(p.TrustDomain, p.Namespace, p.Session)
 	if err != nil {
 		return renewedCredential{}, err
 	}
@@ -53,7 +53,7 @@ func renewProfileCertificate(ctx context.Context, p adapterd.Profile, platformTo
 	if block == nil {
 		return renewedCredential{}, errors.New("invalid generated certificate request")
 	}
-	if err := certauth.ValidateIssuedCertificatePEM(issued.Certificate, block.Bytes, expected, p.SessionExpires.Sub(now), now); err != nil {
+	if err := identity.ValidateIssuedCertificatePEM(issued.Certificate, block.Bytes, expected, p.SessionExpires.Sub(now), now); err != nil {
 		return renewedCredential{}, errors.New("issued certificate does not match the authorized session")
 	}
 	roots, err := x509.SystemCertPool()

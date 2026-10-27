@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func (s *Service) HandleAdminUsage(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func (s *Service) HandleUserUsage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
 		return
 	}
-	p, ok := platformauth.FromContext(r.Context())
+	p, ok := passport.FromContext(r.Context())
 	if !ok {
 		httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
@@ -55,7 +55,7 @@ func (s *Service) HandleUserUsage(w http.ResponseWriter, r *http.Request) {
 	scope := scopeFromRequest(r, windowDays, limit)
 
 	requestedNamespace := strings.TrimSpace(r.URL.Query().Get("namespace"))
-	if p.Role == platformauth.RoleAdmin {
+	if p.Role == passport.RoleAdmin {
 		applyAdminScopeFilters(r, &scope)
 	} else {
 		var principalScope PrincipalScope

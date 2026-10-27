@@ -10,24 +10,23 @@ import (
 
 	"mcp-platform-api/internal/httperrors"
 	"mcp-platform-api/internal/platformstore"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platform"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 type UserLifecycleStore interface {
-	DeactivateUser(context.Context, string, string, platformstore.AuditEvent) (platform.UserDeactivationResult, error)
+	DeactivateUser(context.Context, string, string, platformstore.AuditEvent) (apikit.UserDeactivationResult, error)
 	WriteAudit(context.Context, platformstore.AuditEvent)
 }
 
 func HandleUserLifecycle(w http.ResponseWriter, r *http.Request, store UserLifecycleStore) {
-	p, ok := platformauth.FromContext(r.Context())
+	p, ok := passport.FromContext(r.Context())
 	if !ok {
 		httperrors.Unauthorized(w)
 		return
 	}
-	if p.Role != platformauth.RoleAdmin {
+	if p.Role != passport.RoleAdmin {
 		httperrors.Forbidden(w, "administrator role required")
 		return
 	}
@@ -46,7 +45,7 @@ func HandleUserLifecycle(w http.ResponseWriter, r *http.Request, store UserLifec
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	event := platformstore.AuditEvent{UserID: p.UserID(), Action: "user_deactivate", Resource: parts[0], ActorIP: platformauth.RequestIP(r), Source: platformauth.AuditSource(r, p), AuthIdentity: platformauth.AuditIdentityLabel(p)}
+	event := platformstore.AuditEvent{UserID: p.UserID(), Action: "user_deactivate", Resource: parts[0], ActorIP: passport.RequestIP(r), Source: passport.AuditSource(r, p), AuthIdentity: passport.AuditIdentityLabel(p)}
 	out, err := store.DeactivateUser(ctx, parts[0], p.UserID(), event)
 	if err != nil {
 		event.Status = "error"
@@ -61,7 +60,7 @@ func HandleUserLifecycle(w http.ResponseWriter, r *http.Request, store UserLifec
 		case errors.Is(err, platformstore.ErrActorInactive):
 			httperrors.Forbidden(w, "administrator account is no longer active")
 		case errors.Is(err, platformstore.ErrSelfDeactivation), errors.Is(err, platformstore.ErrLastAdministrator), errors.Is(err, platformstore.ErrLastTeamOwner):
-			apihttp.WriteEnvelope(w, http.StatusConflict, apihttp.CodeConflict, err.Error())
+			apikit.WriteEnvelope(w, http.StatusConflict, apikit.CodeConflict, err.Error())
 		default:
 			httperrors.Internal(w, "account cleanup was not confirmed; retry the idempotent deactivation command")
 		}

@@ -3,14 +3,12 @@ package usage
 import (
 	"context"
 	"fmt"
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
-	"mcp-runtime/pkg/platformmode"
-	"mcp-runtime/pkg/publishscope"
 )
 
 // RequestUsage groups actual gateway events; no tool arguments or results are returned.
@@ -62,14 +60,14 @@ func validateUsageFilters(r *http.Request) error {
 	return nil
 }
 
-func catalogScopeNamespaces(scope publishscope.Scope) []string {
-	names := platformmode.ModePublic.CatalogNamespacesForScope(scope)
-	names = append(names, platformmode.FromEnv().CatalogNamespacesForScope(scope)...)
-	if scope == publishscope.Public {
-		names = append(names, platformmode.DefaultPublicCatalogNamespace)
+func catalogScopeNamespaces(scope topology.Scope) []string {
+	names := topology.ModePublic.CatalogNamespacesForScope(scope)
+	names = append(names, topology.ModeFromEnv().CatalogNamespacesForScope(scope)...)
+	if scope == topology.ScopePublic {
+		names = append(names, topology.DefaultPublicCatalogNamespace)
 	}
-	if scope == publishscope.Org {
-		names = append(names, platformmode.DefaultOrgCatalogNamespace)
+	if scope == topology.ScopeOrg {
+		names = append(names, topology.DefaultOrgCatalogNamespace)
 	}
 	return dedupeStrings(names)
 }
@@ -100,11 +98,11 @@ func appendRequestFilters(scope QueryScope, conditions []string, args []any) ([]
 	}
 	switch scope.Scope {
 	case "public", "org":
-		names := catalogScopeNamespaces(publishscope.Scope(scope.Scope))
+		names := catalogScopeNamespaces(topology.Scope(scope.Scope))
 		conditions = append(conditions, "namespace IN "+sqlPlaceholders(len(names)))
 		args = appendStringArgs(args, names)
 	case "tenant":
-		names := dedupeStrings(append(catalogScopeNamespaces(publishscope.Public), catalogScopeNamespaces(publishscope.Org)...))
+		names := dedupeStrings(append(catalogScopeNamespaces(topology.ScopePublic), catalogScopeNamespaces(topology.ScopeOrg)...))
 		conditions = append(conditions, "namespace NOT IN "+sqlPlaceholders(len(names)), "(team_id != '' OR startsWith(namespace, 'mcp-team-'))")
 		args = appendStringArgs(args, names)
 	}

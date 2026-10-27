@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"strings"
 
-	"mcp-runtime/pkg/platform"
+	"mcp-runtime/pkg/apikit"
 )
 
-func (c *PlatformClient) DeactivateUser(ctx context.Context, userID string) (platform.UserDeactivationResult, error) {
-	var out platform.UserDeactivationResult
+func (c *PlatformClient) DeactivateUser(ctx context.Context, userID string) (apikit.UserDeactivationResult, error) {
+	var out apikit.UserDeactivationResult
 	resp, err := c.do(ctx, http.MethodPost, "/users/"+url.PathEscape(strings.TrimSpace(userID))+"/deactivate", "", nil)
 	if err != nil {
 		return out, err

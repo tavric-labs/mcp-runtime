@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apikit"
 )
 
 type certificateStore struct {
@@ -15,9 +15,9 @@ type certificateStore struct {
 	agent, human string
 }
 
-func (s *certificateStore) AgentCertificates(_ context.Context, agent, human string) (internalapi.CertificateActivity, error) {
+func (s *certificateStore) AgentCertificates(_ context.Context, agent, human string) (apikit.CertificateActivity, error) {
 	s.agent, s.human = agent, human
-	return internalapi.CertificateActivity{Recorded: 2, Recent: []internalapi.CertificateIssuance{}}, nil
+	return apikit.CertificateActivity{Recorded: 2, Recent: []apikit.CertificateIssuance{}}, nil
 }
 
 func TestAgentCertificateHistoryRequiresInternalAuthAndExactFilters(t *testing.T) {

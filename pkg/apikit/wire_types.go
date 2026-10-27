@@ -1,0 +1,167 @@
+package apikit
+
+import (
+	"time"
+)
+
+// ResolveIDsRequest is POST /internal/identity/resolve-ids.
+type ResolveIDsRequest struct {
+	UserIDs []string `json:"user_ids"`
+	TeamIDs []string `json:"team_ids"`
+}
+
+// ResolveIDsResponse is POST /internal/identity/resolve-ids.
+type ResolveIDsResponse struct {
+	Users map[string]string `json:"users"`
+	Teams map[string]string `json:"teams"`
+}
+
+// AuditEvent is POST /internal/audit.
+type AuditEvent struct {
+	UserID           string `json:"user_id,omitempty"`
+	Action           string `json:"action"`
+	Resource         string `json:"resource"`
+	Namespace        string `json:"namespace,omitempty"`
+	Status           string `json:"status"`
+	Message          string `json:"message,omitempty"`
+	ActorIP          string `json:"actor_ip,omitempty"`
+	RequestID        string `json:"request_id,omitempty"`
+	Source           string `json:"source,omitempty"`
+	AuthIdentity     string `json:"auth_identity,omitempty"`
+	ImageRef         string `json:"image_ref,omitempty"`
+	ServerName       string `json:"server_name,omitempty"`
+	DeploymentTarget string `json:"deployment_target,omitempty"`
+	AgentID          string `json:"agent_id,omitempty"`
+	TeamID           string `json:"team_id,omitempty"`
+}
+
+type Agent struct {
+	ID            string     `json:"id"`
+	TeamID        string     `json:"team_id"`
+	TeamSlug      string     `json:"team_slug"`
+	Name          string     `json:"name"`
+	Status        string     `json:"status"`
+	CreatedBy     string     `json:"created_by,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	DeactivatedAt *time.Time `json:"deactivated_at,omitempty"`
+	DeactivatedBy string     `json:"deactivated_by,omitempty"`
+}
+
+type AgentPage struct {
+	Agents     []Agent `json:"agents"`
+	NextCursor string  `json:"next_cursor,omitempty"`
+}
+
+type AgentCreateRequest struct {
+	Name      string `json:"name"`
+	CreatedBy string `json:"created_by"`
+}
+
+type AgentRenameRequest struct {
+	Name string `json:"name"`
+}
+
+// TeamCreateRequest is POST /internal/identity/teams.
+type TeamCreateRequest struct {
+	Slug            string `json:"slug"`
+	Name            string `json:"name"`
+	CreatedByUserID string `json:"created_by_user_id"`
+}
+
+// TeamsListResponse is GET /internal/identity/teams.
+type TeamsListResponse struct {
+	Teams []Team `json:"teams"`
+}
+
+// Team is a managed platform team and its Kubernetes namespace.
+type Team struct {
+	ID        string    `json:"id"`
+	Slug      string    `json:"slug"`
+	Name      string    `json:"name"`
+	Namespace string    `json:"namespace"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// TeamMembershipUpsertRequest is POST /internal/identity/teams/{slug}/members.
+type TeamMembershipUpsertRequest struct {
+	UserID string `json:"userID"`
+	Role   string `json:"role"`
+}
+
+// TeamMembershipPutRequest is PUT /internal/identity/teams/{slug}/members/{userID}.
+type TeamMembershipPutRequest struct {
+	Role   string `json:"role"`
+	UserID string `json:"userID"`
+}
+
+// TeamMembershipResponse wraps a membership mutation result.
+type TeamMembershipResponse struct {
+	Membership TeamMembership `json:"membership"`
+}
+
+// TeamMembersListResponse is GET /internal/identity/teams/{slug}/members.
+type TeamMembersListResponse struct {
+	Members []TeamMembership `json:"members"`
+}
+
+// TeamMembership is the shared API contract for platform team membership data.
+type TeamMembership struct {
+	TeamID        string    `json:"team_id"`
+	TeamSlug      string    `json:"team_slug"`
+	TeamName      string    `json:"team_name"`
+	TeamNamespace string    `json:"team_namespace"`
+	UserID        string    `json:"user_id"`
+	Email         string    `json:"email,omitempty"`
+	Role          string    `json:"role"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// CreateUserRequest is POST /internal/identity/users.
+type CreateUserRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+}
+
+// CreateUserResponse is POST /internal/identity/users.
+type CreateUserResponse struct {
+	User User `json:"user"`
+}
+
+// TeamUserCreateRequest is POST /internal/identity/teams/{slug}/users.
+type TeamUserCreateRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+}
+
+// TeamUserCreateResponse is POST /internal/identity/teams/{slug}/users.
+type TeamUserCreateResponse struct {
+	User       User           `json:"user"`
+	Membership TeamMembership `json:"membership"`
+}
+
+// User is a platform user record returned by identity APIs.
+type User struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Role  string `json:"role"`
+}
+
+// NamespacesListResponse is GET /internal/identity/namespaces.
+type NamespacesListResponse struct {
+	Namespaces []map[string]any `json:"namespaces"`
+}
+
+// UserDeactivationResult contains non-secret, transactionally committed cleanup counts.
+type UserDeactivationResult struct {
+	UserID                     string `json:"user_id"`
+	Status                     string `json:"status"`
+	AlreadyDeactivated         bool   `json:"already_deactivated"`
+	RevokedAPIKeys             int64  `json:"revoked_api_keys"`
+	RevokedRegistryCredentials int64  `json:"revoked_registry_credentials"`
+	RevokedRefreshTokens       int64  `json:"revoked_refresh_tokens"`
+	RevokedSessions            int64  `json:"revoked_sessions"`
+	RemovedMemberships         int64  `json:"removed_memberships"`
+}

@@ -2,7 +2,7 @@ package auth
 
 import (
 	"context"
-	"mcp-runtime/pkg/publicroutes"
+	"mcp-runtime/pkg/topology"
 	"mcp-ui/internal/session"
 	"net/http"
 	"net/http/httptest"
@@ -75,7 +75,7 @@ func TestAdminCheckGrafanaBrowserSignIn(t *testing.T) {
 }
 
 func TestAdminCheckGrafanaLoginUsesPublicRouteConfiguration(t *testing.T) {
-	server := &Server{Store: session.NewStore(time.Now), PublicRoutes: publicroutes.Routes{Platform: "/console", Grafana: "/observability"}}
+	server := &Server{Store: session.NewStore(time.Now), PublicRoutes: topology.Routes{Platform: "/console", Grafana: "/observability"}}
 	req := httptest.NewRequest("GET", "/auth/admin-check", nil)
 	req.Header.Set("Accept", "text/html")
 	req.Header.Set("X-Forwarded-Method", "GET")

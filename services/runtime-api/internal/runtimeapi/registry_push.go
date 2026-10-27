@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mcp-runtime/pkg/topology"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -13,9 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/platformstack"
-	"mcp-runtime/pkg/publishscope"
+	"mcp-runtime-api/internal/platformstack"
 	"mcp-runtime/pkg/registrypush"
 )
 
@@ -106,7 +105,7 @@ func isNetTimeout(err error) bool {
 
 type registryPushRequest struct {
 	Target  string
-	Scope   publishscope.Scope
+	Scope   topology.Scope
 	TarPath string
 }
 
@@ -279,7 +278,7 @@ func readRegistryPushRequestWithTimeout(r *http.Request, upload time.Duration) (
 				part.Close()
 				return registryPushRequest{}, fmt.Errorf("invalid scope field")
 			}
-			out.Scope, err = publishscope.Normalize(strings.TrimSpace(string(value)))
+			out.Scope, err = topology.NormalizeScope(strings.TrimSpace(string(value)))
 			if err != nil {
 				part.Close()
 				return registryPushRequest{}, err
@@ -324,7 +323,7 @@ func readRegistryPushRequestWithTimeout(r *http.Request, upload time.Duration) (
 	return out, nil
 }
 
-func registryPushAuthContext(target string, scope publishscope.Scope, p principal) (namespace, teamSlug string, err error) {
+func registryPushAuthContext(target string, scope topology.Scope, p principal) (namespace, teamSlug string, err error) {
 	target = strings.TrimSpace(target)
 	if target == "" {
 		return "", "", fmt.Errorf("target is required")
@@ -338,16 +337,16 @@ func registryPushAuthContext(target string, scope publishscope.Scope, p principa
 		return "", "", err
 	}
 	switch scope {
-	case publishscope.Public:
+	case topology.ScopePublic:
 		if p.Role != roleAdmin && !sharedCatalogWritableForUsers() {
 			return "", "", fmt.Errorf("public catalog writes are restricted to admins")
 		}
-		return defaultCatalogNamespaceForScope(publishscope.Public), "", nil
-	case publishscope.Org:
+		return defaultCatalogNamespaceForScope(topology.ScopePublic), "", nil
+	case topology.ScopeOrg:
 		if p.Role != roleAdmin && !sharedCatalogWritableForUsers() {
 			return "", "", fmt.Errorf("org catalog writes are restricted to admins")
 		}
-		return defaultCatalogNamespaceForScope(publishscope.Org), "", nil
+		return defaultCatalogNamespaceForScope(topology.ScopeOrg), "", nil
 	case "":
 		prefix, _, found := strings.Cut(repoPath, "/")
 		if !found || strings.TrimSpace(prefix) == "" {
@@ -365,7 +364,7 @@ func registryPushAuthContext(target string, scope publishscope.Scope, p principa
 			}
 		}
 		return "", "", fmt.Errorf("repository must be scoped to one of your teams (%s)", strings.Join(quoteStrings(principalRegistryScopes(p)), " or "))
-	case publishscope.Tenant:
+	case topology.ScopeTenant:
 		prefix, _, found := strings.Cut(repoPath, "/")
 		if !found || strings.TrimSpace(prefix) == "" {
 			return "", "", fmt.Errorf("tenant registry pushes require a team-scoped repository path")
@@ -445,7 +444,7 @@ func registryPushInternalHostnames() []string {
 	if host := registryPullSecretHost(); host != "" {
 		hosts = append(hosts, host)
 	}
-	if host := metadata.ResolveRegistryHost(); host != "" && host != metadata.DefaultRegistryHost {
+	if host := topology.ResolveRegistryHost(); host != "" && host != topology.DefaultRegistryHost {
 		hosts = append(hosts, host)
 	}
 	seen := map[string]struct{}{}

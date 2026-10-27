@@ -147,7 +147,7 @@ See `test/e2e/qa-e2e.sh` and `test/e2e/select_pr_scenarios.sh` for scenario name
 `pkg/access/specvalidation` owns grant/session structural rules. The CRD webhook
 adapts persisted specs; `pkg/access` owns normalized platform apply requests used
 by runtime-api and CLI submission. The Kubernetes objects and `Manager` live in
-`pkg/access/k8sstore`; `pkg/access` stays Kubernetes-free. Keep the explicit boundary contracts:
+`services/runtime-api/internal/k8sstore`; `pkg/access` stays Kubernetes-free. Keep the explicit boundary contracts:
 admission retains legacy wildcard grants and deny-all empty side effects;
 platform apply requires a subject and explicit effects, and new grants must
 expire in the future. Historical session import/revocation remains valid.

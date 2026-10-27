@@ -20,7 +20,6 @@ import (
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/operatorutil"
 )
 
 type RegistryConfig struct {
@@ -137,7 +136,7 @@ const (
 )
 
 // resourceReadiness tracks the readiness state of different resources.
-type resourceReadiness = operatorutil.ResourceReadiness
+type resourceReadiness = ResourceReadiness
 
 // Deployment, ServiceAccount and Certificate mutation is deliberately absent here:
 // it is granted only by namespace-local bindings (config/rbac/operator_workload_access.yaml)

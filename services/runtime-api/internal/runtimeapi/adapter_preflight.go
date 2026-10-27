@@ -19,9 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/sessionstate"
-	"mcp-runtime/pkg/workloadidentity"
+	"mcp-runtime/pkg/topology"
 )
 
 var clusterIssuerGVR = schema.GroupVersionResource{Group: "cert-manager.io", Version: "v1", Resource: "clusterissuers"}
@@ -238,7 +238,7 @@ func (s *AccessService) adapterCertificateReadiness(ctx context.Context, namespa
 
 func (s *AccessService) adapterOperatorConfig(ctx context.Context) (map[string]string, error) {
 	resource := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	obj, err := s.k8sClients.Dynamic.Resource(resource).Namespace(platforminventory.OperatorNamespace).Get(ctx, "mcp-runtime-operator-controller-manager", metav1.GetOptions{})
+	obj, err := s.k8sClients.Dynamic.Resource(resource).Namespace(topology.OperatorNamespace).Get(ctx, "mcp-runtime-operator-controller-manager", metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("operator workload identity configuration is unavailable")
 	}
@@ -258,7 +258,7 @@ func (s *AccessService) adapterOperatorConfig(ctx context.Context) (map[string]s
 			return nil, fmt.Errorf("operator configuration rollout is not Ready")
 		}
 	}
-	return workloadidentity.DeploymentConfig(ctx, &deployment, "manager", []string{"MCP_ADAPTER_CERTIFICATES", "MCP_MTLS_CLUSTER_ISSUER", "MCP_TRUST_DOMAIN", "MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE"}, func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+	return k8sclient.DeploymentConfig(ctx, &deployment, "manager", []string{"MCP_ADAPTER_CERTIFICATES", "MCP_MTLS_CLUSTER_ISSUER", "MCP_TRUST_DOMAIN", "MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE"}, func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
 		obj, err := s.k8sClients.Dynamic.Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
@@ -286,7 +286,7 @@ func (s *AccessService) adapterRouteClientAuthReady(ctx context.Context, server 
 	if !owned {
 		return fmt.Errorf("selected client-certificate route does not belong to the current MCP server")
 	}
-	namespace, name, err := workloadidentity.SelectedTLSOption(route, defaultNamespace)
+	namespace, name, err := k8sclient.SelectedTLSOption(route, defaultNamespace)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func (s *AccessService) adapterRouteClientAuthReady(ctx context.Context, server 
 	if err != nil {
 		return fmt.Errorf("selected route TLSOption is unavailable")
 	}
-	bundles, err := workloadidentity.ClientAuthCASecrets(option)
+	bundles, err := k8sclient.ClientAuthCASecrets(option)
 	if err != nil {
 		return err
 	}

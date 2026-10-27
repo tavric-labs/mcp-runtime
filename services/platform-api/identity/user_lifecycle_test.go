@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"mcp-platform-api/internal/platformstore"
-	"mcp-runtime/pkg/platform"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/apikit"
+	"mcp-runtime/pkg/passport"
 )
 
 type lifecycleStoreStub struct {
@@ -19,10 +19,10 @@ type lifecycleStoreStub struct {
 	event platformstore.AuditEvent
 }
 
-func (s *lifecycleStoreStub) DeactivateUser(_ context.Context, id, actor string, event platformstore.AuditEvent) (platform.UserDeactivationResult, error) {
+func (s *lifecycleStoreStub) DeactivateUser(_ context.Context, id, actor string, event platformstore.AuditEvent) (apikit.UserDeactivationResult, error) {
 	s.calls++
 	s.event = event
-	return platform.UserDeactivationResult{UserID: id, Status: "deactivated", RevokedSessions: 2}, s.err
+	return apikit.UserDeactivationResult{UserID: id, Status: "deactivated", RevokedSessions: 2}, s.err
 }
 func (s *lifecycleStoreStub) WriteAudit(_ context.Context, event platformstore.AuditEvent) {
 	s.event = event
@@ -37,7 +37,7 @@ func TestAccountLifecycleAdminOnlyAndFailureDoesNotClaimSuccess(t *testing.T) {
 		s := &lifecycleStoreStub{err: tc.err}
 		r := httptest.NewRequest(http.MethodPost, "/api/v1/users/8d852676-a996-4cc8-9ad8-206f58f92028/deactivate", nil)
 		if tc.role != "" {
-			r = r.WithContext(platformauth.WithPrincipal(r.Context(), platformauth.Principal{Role: tc.role, Subject: "actor"}))
+			r = r.WithContext(passport.WithPrincipal(r.Context(), passport.Principal{Role: tc.role, Subject: "actor"}))
 		}
 		w := httptest.NewRecorder()
 		HandleUserLifecycle(w, r, s)

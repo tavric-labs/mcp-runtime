@@ -1,13 +1,13 @@
 package platformrelease
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"testing"
 )
 
 func TestReleasePlacementComesFromInventory(t *testing.T) {
 	for _, c := range Catalog() {
-		identity, ok := platforminventory.Lookup(c.Name)
+		identity, ok := topology.Lookup(c.Name)
 		if !ok || c.Namespace != identity.Namespace || c.Deployment != identity.Resource {
 			t.Fatalf("release placement disagrees with canonical inventory: %+v, %+v", c, identity)
 		}

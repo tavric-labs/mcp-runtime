@@ -12,14 +12,13 @@ import (
 	"time"
 
 	"mcp-platform-api/internal/platformstore"
-	"mcp-runtime/pkg/apihttp"
-	"mcp-runtime/pkg/internalapi"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/apikit"
+	"mcp-runtime/pkg/passport"
 )
 
 type PlatformStore interface {
-	PrincipalForUserID(ctx context.Context, userID string) (platformauth.Principal, error)
-	AuthenticateUserAPIKey(ctx context.Context, rawKey string) (platformauth.Principal, bool, error)
+	PrincipalForUserID(ctx context.Context, userID string) (passport.Principal, error)
+	AuthenticateUserAPIKey(ctx context.Context, rawKey string) (passport.Principal, bool, error)
 	ResolveUserIDs(ctx context.Context, ids []string) (map[string]string, error)
 	ResolveTeamIDs(ctx context.Context, ids []string) (map[string]string, error)
 	WriteAudit(ctx context.Context, event platformstore.AuditEvent)
@@ -45,7 +44,7 @@ type PlatformStore interface {
 type Handler struct {
 	Store               PlatformStore
 	Token               string
-	AuthenticateRequest func(*http.Request) (platformauth.Principal, bool, error)
+	AuthenticateRequest func(*http.Request) (passport.Principal, bool, error)
 }
 
 func (h Handler) Register(mux *http.ServeMux) {
@@ -67,26 +66,26 @@ func (h Handler) agentPath(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/internal/identity/agents/"), "/")
 	parts := strings.Split(path, "/")
 	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
-		apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "agent not found")
+		apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "agent not found")
 		return
 	}
 	id := parts[0]
 	if len(parts) == 2 && parts[1] == "certificates" && r.Method == http.MethodGet {
 		reader, ok := h.Store.(interface {
-			AgentCertificates(context.Context, string, string) (internalapi.CertificateActivity, error)
+			AgentCertificates(context.Context, string, string) (apikit.CertificateActivity, error)
 		})
 		if !ok {
-			apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeQueryFailed, "certificate history unavailable")
+			apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeQueryFailed, "certificate history unavailable")
 			return
 		}
 		humanID := strings.TrimSpace(r.URL.Query().Get("human_id"))
 		if len(id) > 128 || len(humanID) > 128 {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid certificate history filter")
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid certificate history filter")
 			return
 		}
 		activity, err := reader.AgentCertificates(r.Context(), id, humanID)
 		if err != nil {
-			apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeQueryFailed, "certificate history unavailable")
+			apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeQueryFailed, "certificate history unavailable")
 			return
 		}
 		writeJSON(w, http.StatusOK, activity)
@@ -95,20 +94,20 @@ func (h Handler) agentPath(w http.ResponseWriter, r *http.Request) {
 	if len(parts) == 1 && r.Method == http.MethodGet {
 		item, ok, err := h.Store.GetAgent(r.Context(), id)
 		if err != nil {
-			apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to get agent")
+			apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to get agent")
 			return
 		}
 		if !ok {
-			apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "agent not found")
+			apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "agent not found")
 			return
 		}
 		writeJSON(w, http.StatusOK, agentToInternal(item))
 		return
 	}
 	if len(parts) == 1 && r.Method == http.MethodPatch {
-		var request internalapi.AgentRenameRequest
+		var request apikit.AgentRenameRequest
 		if err := decodeJSON(r, &request); err != nil {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 			return
 		}
 		item, err := h.Store.RenameAgent(r.Context(), id, request.Name)
@@ -124,7 +123,7 @@ func (h Handler) agentPath(w http.ResponseWriter, r *http.Request) {
 			ActorID string `json:"actor_id"`
 		}
 		if err := decodeJSON(r, &request); err != nil {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 			return
 		}
 		status := "inactive"
@@ -139,26 +138,26 @@ func (h Handler) agentPath(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, agentToInternal(item))
 		return
 	}
-	methodNotAllowed(w)
+	apikit.WriteMethodNotAllowed(w)
 }
 
 func writeAgentStoreError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "team not found")
+		apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "team not found")
 	case errors.Is(err, platformstore.ErrAgentNotFound):
-		apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "agent not found")
+		apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "agent not found")
 	case errors.Is(err, platformstore.ErrAgentNameTaken):
-		apihttp.WriteEnvelope(w, http.StatusConflict, apihttp.CodeConflict, "an agent with this name already exists in the team")
+		apikit.WriteEnvelope(w, http.StatusConflict, apikit.CodeConflict, "an agent with this name already exists in the team")
 	case errors.Is(err, platformstore.ErrInvalidAgentName):
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, err.Error())
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, err.Error())
 	default:
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to update agent")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to update agent")
 	}
 }
 
-func agentToInternal(item platformstore.Agent) internalapi.Agent {
-	return internalapi.Agent{ID: item.ID, TeamID: item.TeamID, TeamSlug: item.TeamSlug, Name: item.Name, Status: item.Status,
+func agentToInternal(item platformstore.Agent) apikit.Agent {
+	return apikit.Agent{ID: item.ID, TeamID: item.TeamID, TeamSlug: item.TeamSlug, Name: item.Name, Status: item.Status,
 		CreatedBy: item.CreatedBy, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, DeactivatedAt: item.DeactivatedAt, DeactivatedBy: item.DeactivatedBy}
 }
 
@@ -167,7 +166,7 @@ func (h Handler) authorize(next http.Handler) http.Handler {
 		expected := strings.TrimSpace(h.Token)
 		provided := strings.TrimPrefix(strings.TrimSpace(r.Header.Get("Authorization")), "Bearer ")
 		if expected == "" || subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
-			apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "internal authentication required")
+			apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "internal authentication required")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -176,20 +175,20 @@ func (h Handler) authorize(next http.Handler) http.Handler {
 
 func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request internalapi.AuthResolveRequest
+	var request passport.AuthResolveRequest
 	if err := decodeJSON(r, &request); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
 	}
 	principal, ok, err := h.resolvePrincipalForAPIKey(r, request.APIKey)
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeAuthFailed, "failed to resolve API key")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeAuthFailed, "failed to resolve API key")
 		return
 	}
-	writeJSON(w, http.StatusOK, internalapi.AuthResolveResponse{OK: ok, Principal: principal})
+	writeJSON(w, http.StatusOK, passport.AuthResolveResponse{OK: ok, Principal: principal})
 }
 
 // resolvePrincipalForAPIKey uses the platform's complete public authentication
@@ -197,7 +196,7 @@ func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 // store keeps the handler useful in isolated tests and older embedders, while
 // the production route can now resolve both user API keys and configured
 // service/admin API keys consistently with /api/v1/auth/me.
-func (h Handler) resolvePrincipalForAPIKey(r *http.Request, rawKey string) (platformauth.Principal, bool, error) {
+func (h Handler) resolvePrincipalForAPIKey(r *http.Request, rawKey string) (passport.Principal, bool, error) {
 	if h.AuthenticateRequest != nil {
 		clone := r.Clone(r.Context())
 		clone.Header.Set("x-api-key", strings.TrimSpace(rawKey))
@@ -209,57 +208,57 @@ func (h Handler) resolvePrincipalForAPIKey(r *http.Request, rawKey string) (plat
 
 func (h Handler) resolvePrincipal(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request internalapi.PrincipalResolveRequest
+	var request passport.PrincipalResolveRequest
 	if err := decodeJSON(r, &request); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
 	}
 	principal, err := h.Store.PrincipalForUserID(r.Context(), strings.TrimSpace(request.UserID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "user not found")
+			apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "user not found")
 			return
 		}
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to resolve principal")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to resolve principal")
 		return
 	}
-	writeJSON(w, http.StatusOK, internalapi.PrincipalResolveResponse{Principal: principal})
+	writeJSON(w, http.StatusOK, passport.PrincipalResolveResponse{Principal: principal})
 }
 
 func (h Handler) resolveIDs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request internalapi.ResolveIDsRequest
+	var request apikit.ResolveIDsRequest
 	if err := decodeJSON(r, &request); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
 	}
 	users, err := h.Store.ResolveUserIDs(r.Context(), request.UserIDs)
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to resolve user ids")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to resolve user ids")
 		return
 	}
 	teams, err := h.Store.ResolveTeamIDs(r.Context(), request.TeamIDs)
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to resolve team ids")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to resolve team ids")
 		return
 	}
-	writeJSON(w, http.StatusOK, internalapi.ResolveIDsResponse{Users: users, Teams: teams})
+	writeJSON(w, http.StatusOK, apikit.ResolveIDsResponse{Users: users, Teams: teams})
 }
 
 func (h Handler) audit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var event internalapi.AuditEvent
+	var event apikit.AuditEvent
 	if err := decodeJSON(r, &event); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
 	}
 	h.Store.WriteAudit(r.Context(), platformstore.AuditEvent(event))
@@ -271,24 +270,24 @@ func (h Handler) teams(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		teams, err := h.Store.ListTeams(r.Context())
 		if err != nil {
-			apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to list teams")
+			apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to list teams")
 			return
 		}
-		writeJSON(w, http.StatusOK, internalapi.TeamsListResponse{Teams: teamsToInternal(teams)})
+		writeJSON(w, http.StatusOK, apikit.TeamsListResponse{Teams: teamsToInternal(teams)})
 	case http.MethodPost:
-		var request internalapi.TeamCreateRequest
+		var request apikit.TeamCreateRequest
 		if err := decodeJSON(r, &request); err != nil {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 			return
 		}
 		team, err := h.Store.CreateTeam(r.Context(), request.Slug, request.Name, request.CreatedByUserID)
 		if err != nil {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, err.Error())
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusCreated, teamToInternal(team))
 	default:
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 	}
 }
 
@@ -296,7 +295,7 @@ func (h Handler) teamPath(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/internal/identity/teams/"), "/")
 	parts := strings.Split(path, "/")
 	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
-		apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "team not found")
+		apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "team not found")
 		return
 	}
 	slug := parts[0]
@@ -318,15 +317,15 @@ func (h Handler) teamPath(w http.ResponseWriter, r *http.Request) {
 	case len(parts) == 2 && parts[1] == "agents" && (r.Method == http.MethodGet || r.Method == http.MethodPost):
 		h.teamAgents(w, r, slug)
 	default:
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 	}
 }
 
 func (h Handler) teamAgents(w http.ResponseWriter, r *http.Request, slug string) {
 	if r.Method == http.MethodPost {
-		var request internalapi.AgentCreateRequest
+		var request apikit.AgentCreateRequest
 		if err := decodeJSON(r, &request); err != nil {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 			return
 		}
 		item, err := h.Store.CreateAgent(r.Context(), slug, request.Name, request.CreatedBy)
@@ -345,29 +344,29 @@ func (h Handler) teamAgents(w http.ResponseWriter, r *http.Request, slug string)
 	if raw := strings.TrimSpace(query.Get("limit")); raw != "" {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || parsed < 1 || parsed > 200 {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "limit must be between 1 and 200")
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "limit must be between 1 and 200")
 			return
 		}
 		limit = parsed
 	}
 	status := strings.TrimSpace(query.Get("status"))
 	if status != "" && status != "active" && status != "inactive" {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "status must be active or inactive")
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "status must be active or inactive")
 		return
 	}
 	page, err := h.Store.ListAgents(r.Context(), platformstore.AgentListFilter{TeamSlug: slug, Status: status,
 		Query: query.Get("q"), Cursor: query.Get("cursor"), Limit: limit})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "team not found")
+			apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "team not found")
 		} else if strings.Contains(err.Error(), "invalid cursor") {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid cursor")
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid cursor")
 		} else {
-			apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to list agents")
+			apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to list agents")
 		}
 		return
 	}
-	out := internalapi.AgentPage{Agents: make([]internalapi.Agent, 0, len(page.Agents)), NextCursor: page.NextCursor}
+	out := apikit.AgentPage{Agents: make([]apikit.Agent, 0, len(page.Agents)), NextCursor: page.NextCursor}
 	for _, item := range page.Agents {
 		out.Agents = append(out.Agents, agentToInternal(item))
 	}
@@ -377,11 +376,11 @@ func (h Handler) teamAgents(w http.ResponseWriter, r *http.Request, slug string)
 func (h Handler) teamItemGet(w http.ResponseWriter, r *http.Request, slug string) {
 	team, ok, err := h.Store.GetTeamBySlug(r.Context(), slug)
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to get team")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to get team")
 		return
 	}
 	if !ok {
-		apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "team not found")
+		apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "team not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, teamToInternal(team))
@@ -390,10 +389,10 @@ func (h Handler) teamItemGet(w http.ResponseWriter, r *http.Request, slug string
 func (h Handler) teamItemDelete(w http.ResponseWriter, r *http.Request, slug string) {
 	if err := h.Store.DeleteTeamBySlug(r.Context(), slug); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "team not found")
+			apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "team not found")
 			return
 		}
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to delete team")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to delete team")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -402,16 +401,16 @@ func (h Handler) teamItemDelete(w http.ResponseWriter, r *http.Request, slug str
 func (h Handler) teamMembersList(w http.ResponseWriter, r *http.Request, slug string) {
 	members, err := h.Store.ListTeamMemberships(r.Context(), slug)
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to list team members")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to list team members")
 		return
 	}
-	writeJSON(w, http.StatusOK, internalapi.TeamMembersListResponse{Members: members})
+	writeJSON(w, http.StatusOK, apikit.TeamMembersListResponse{Members: members})
 }
 
 func (h Handler) teamMembersUpsertBody(w http.ResponseWriter, r *http.Request, slug string) {
-	var request internalapi.TeamMembershipUpsertRequest
+	var request apikit.TeamMembershipUpsertRequest
 	if err := decodeJSON(r, &request); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
 	}
 	role := strings.TrimSpace(request.Role)
@@ -421,20 +420,20 @@ func (h Handler) teamMembersUpsertBody(w http.ResponseWriter, r *http.Request, s
 	membership, err := h.Store.UpsertTeamMembership(r.Context(), slug, strings.TrimSpace(request.UserID), role)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "team or user not found")
+			apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "team or user not found")
 			return
 		}
 		writeMembershipError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, internalapi.TeamMembershipResponse{Membership: membership})
+	writeJSON(w, http.StatusOK, apikit.TeamMembershipResponse{Membership: membership})
 }
 
 func (h Handler) teamMemberUpsert(w http.ResponseWriter, r *http.Request, slug, userID string) {
-	var request internalapi.TeamMembershipPutRequest
+	var request apikit.TeamMembershipPutRequest
 	if r.Method == http.MethodPut {
 		if err := decodeJSON(r, &request); err != nil {
-			apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 			return
 		}
 	}
@@ -445,31 +444,31 @@ func (h Handler) teamMemberUpsert(w http.ResponseWriter, r *http.Request, slug, 
 	membership, err := h.Store.UpsertTeamMembership(r.Context(), slug, strings.TrimSpace(userID), role)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "team or user not found")
+			apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "team or user not found")
 			return
 		}
 		writeMembershipError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, internalapi.TeamMembershipResponse{Membership: membership})
+	writeJSON(w, http.StatusOK, apikit.TeamMembershipResponse{Membership: membership})
 }
 
 func (h Handler) teamMemberDelete(w http.ResponseWriter, r *http.Request, slug, userID string) {
 	if err := h.Store.DeleteTeamMembership(r.Context(), slug, userID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "membership not found")
+			apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "membership not found")
 			return
 		}
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to delete membership")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to delete membership")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h Handler) teamUserCreate(w http.ResponseWriter, r *http.Request, teamSlug string) {
-	var request internalapi.TeamUserCreateRequest
+	var request apikit.TeamUserCreateRequest
 	if err := decodeJSON(r, &request); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
 	}
 	role := strings.TrimSpace(request.Role)
@@ -481,17 +480,17 @@ func (h Handler) teamUserCreate(w http.ResponseWriter, r *http.Request, teamSlug
 		writeUserCreateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, internalapi.TeamUserCreateResponse{User: userToInternal(user), Membership: membership})
+	writeJSON(w, http.StatusCreated, apikit.TeamUserCreateResponse{User: userToInternal(user), Membership: membership})
 }
 
 func (h Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request internalapi.CreateUserRequest
+	var request apikit.CreateUserRequest
 	if err := decodeJSON(r, &request); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, "invalid request body")
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
 	}
 	role := strings.TrimSpace(request.Role)
@@ -503,22 +502,22 @@ func (h Handler) createUser(w http.ResponseWriter, r *http.Request) {
 		writeUserCreateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, internalapi.CreateUserResponse{User: userToInternal(user)})
+	writeJSON(w, http.StatusCreated, apikit.CreateUserResponse{User: userToInternal(user)})
 }
 
 func (h Handler) operationsSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	filter, err := operationsFilterFromRequest(r)
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidQueryParam, err.Error())
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidQueryParam, err.Error())
 		return
 	}
 	snapshot, err := h.Store.OperationsSnapshot(r.Context(), filter)
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to load operations snapshot")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to load operations snapshot")
 		return
 	}
 	writeJSON(w, http.StatusOK, snapshot)
@@ -534,7 +533,7 @@ func operationsFilterFromRequest(r *http.Request) (platformstore.OperationsFilte
 	filter := platformstore.OperationsFilter{
 		User:       user,
 		UserSearch: strings.ToLower(user),
-		Limit:      queryInt(r, "limit", 50),
+		Limit:      apikit.QueryIntOr(r, "limit", 50),
 	}
 	if filter.Limit < 1 {
 		filter.Limit = 1
@@ -567,44 +566,32 @@ func operationsFilterFromRequest(r *http.Request) (platformstore.OperationsFilte
 	return filter, nil
 }
 
-func queryInt(r *http.Request, key string, fallback int) int {
-	raw := strings.TrimSpace(r.URL.Query().Get(key))
-	if raw == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return fallback
-	}
-	return n
-}
-
 func (h Handler) namespaces(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	namespaces, err := h.Store.ListNamespaces(r.Context())
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to list namespaces")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to list namespaces")
 		return
 	}
-	writeJSON(w, http.StatusOK, internalapi.NamespacesListResponse{Namespaces: namespaces})
+	writeJSON(w, http.StatusOK, apikit.NamespacesListResponse{Namespaces: namespaces})
 }
 
 func (h Handler) namespaceItem(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	namespace := strings.TrimPrefix(r.URL.Path, "/internal/identity/namespaces/")
 	item, ok, err := h.Store.GetNamespace(r.Context(), namespace)
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to get namespace")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to get namespace")
 		return
 	}
 	if !ok {
-		apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "namespace not found")
+		apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "namespace not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
@@ -623,12 +610,8 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func methodNotAllowed(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusMethodNotAllowed, apihttp.CodeMethodNotAllowed, "method not allowed")
-}
-
-func teamToInternal(team platformstore.Team) internalapi.Team {
-	return internalapi.Team{
+func teamToInternal(team platformstore.Team) apikit.Team {
+	return apikit.Team{
 		ID:        team.ID,
 		Slug:      team.Slug,
 		Name:      team.Name,
@@ -637,16 +620,16 @@ func teamToInternal(team platformstore.Team) internalapi.Team {
 	}
 }
 
-func teamsToInternal(teams []platformstore.Team) []internalapi.Team {
-	out := make([]internalapi.Team, len(teams))
+func teamsToInternal(teams []platformstore.Team) []apikit.Team {
+	out := make([]apikit.Team, len(teams))
 	for i, team := range teams {
 		out[i] = teamToInternal(team)
 	}
 	return out
 }
 
-func userToInternal(user platformstore.User) internalapi.User {
-	return internalapi.User{
+func userToInternal(user platformstore.User) apikit.User {
+	return apikit.User{
 		ID:    user.ID,
 		Email: user.Email,
 		Role:  user.Role,
@@ -657,21 +640,21 @@ func writeUserCreateError(w http.ResponseWriter, err error) {
 	var input platformstore.UserInputError
 	switch {
 	case errors.Is(err, platformstore.ErrEmailAlreadyRegistered):
-		apihttp.WriteEnvelope(w, http.StatusConflict, apihttp.CodeConflict, platformstore.ErrEmailAlreadyRegistered.Error())
+		apikit.WriteEnvelope(w, http.StatusConflict, apikit.CodeConflict, platformstore.ErrEmailAlreadyRegistered.Error())
 	case errors.Is(err, sql.ErrNoRows):
-		apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, "team not found")
+		apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, "team not found")
 	case errors.As(err, &input):
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, input.Error())
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, input.Error())
 	default:
-		apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeInternalError, "failed to create user")
+		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeInternalError, "failed to create user")
 	}
 }
 
 func writeMembershipError(w http.ResponseWriter, err error) {
 	var input platformstore.UserInputError
 	if errors.As(err, &input) {
-		apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, input.Error())
+		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, input.Error())
 		return
 	}
-	apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeInternalError, "failed to update membership")
+	apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeInternalError, "failed to update membership")
 }

@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"time"
 
-	"mcp-runtime/pkg/platform"
-	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/apikit"
+	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/topology"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 
 const (
 	// SharedCatalogNamespace is the legacy shared MCP server catalog namespace.
-	SharedCatalogNamespace = platforminventory.MCPServersNamespace
+	SharedCatalogNamespace = topology.MCPServersNamespace
 	// TeamNamespacePrefix is prepended to normalized team slugs for managed namespaces.
 	TeamNamespacePrefix = "mcp-team-"
 	// TeamRoleOwner grants team administration privileges.
@@ -62,8 +62,8 @@ type User struct {
 	Namespace string `json:"namespace"`
 }
 
-type Principal = platformauth.Principal
-type PrincipalTeam = platformauth.PrincipalTeam
+type Principal = passport.Principal
+type PrincipalTeam = passport.PrincipalTeam
 
 // Team is a managed platform team and its Kubernetes namespace.
 type Team struct {
@@ -104,7 +104,7 @@ type AgentPage struct {
 }
 
 // TeamMembership is the platform team membership API contract.
-type TeamMembership = platform.TeamMembership
+type TeamMembership = apikit.TeamMembership
 
 // APIKeySummary is the non-secret metadata for a user API key or registry credential.
 type APIKeySummary struct {

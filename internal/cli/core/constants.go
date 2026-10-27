@@ -1,7 +1,7 @@
 package core
 
 import (
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // This file defines constants used across the CLI, including:
@@ -17,16 +17,16 @@ const (
 	NamespaceRegistry = "registry"
 
 	// NamespaceMCPServers is the default namespace for MCP server deployments.
-	NamespaceMCPServers = platforminventory.MCPServersNamespace
+	NamespaceMCPServers = topology.MCPServersNamespace
 
 	// PlatformNamespace holds control-plane services.
-	PlatformNamespace = platforminventory.PlatformNamespace
+	PlatformNamespace = topology.PlatformNamespace
 
 	// ObservabilityNamespace holds the event pipeline and telemetry stack.
-	ObservabilityNamespace = platforminventory.ObservabilityNamespace
+	ObservabilityNamespace = topology.ObservabilityNamespace
 
 	// LogCollectorNamespace isolates the node log collector and its hostPath access.
-	LogCollectorNamespace = platforminventory.LogCollectorNamespace
+	LogCollectorNamespace = topology.LogCollectorNamespace
 )
 
 // Deployment and resource names.
@@ -82,7 +82,7 @@ const (
 
 // ComponentNamespace returns the install namespace for a catalog component.
 func ComponentNamespace(key string) string {
-	component, ok := platforminventory.Lookup(key)
+	component, ok := topology.Lookup(key)
 	if !ok {
 		return ""
 	}

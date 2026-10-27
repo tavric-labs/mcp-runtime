@@ -14,7 +14,6 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 
-	"mcp-runtime/pkg/certauth"
 	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/k8sclient"
 )
@@ -22,14 +21,14 @@ import (
 func TestValidateAdapterCSRUsesCertauth(t *testing.T) {
 	t.Parallel()
 	const expected = "spiffe://example.org/ns/team-a/session/session-1"
-	_, csrPEM, _, err := certauth.BuildSessionCSR("example.org", "team-a", "session-1")
+	_, csrPEM, _, err := identity.BuildSessionCSR("example.org", "team-a", "session-1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := certauth.ValidateCSRPEM(string(csrPEM), expected); err != nil {
+	if _, err := identity.ValidateCSRPEM(string(csrPEM), expected); err != nil {
 		t.Fatalf("ValidateCSRPEM() error = %v", err)
 	}
-	if _, err := certauth.ValidateCSRPEM(string(csrPEM), strings.Replace(expected, "session-1", "session-2", 1)); err == nil {
+	if _, err := identity.ValidateCSRPEM(string(csrPEM), strings.Replace(expected, "session-1", "session-2", 1)); err == nil {
 		t.Fatal("ValidateCSRPEM() accepted a CSR for another session")
 	}
 }
@@ -53,11 +52,11 @@ func TestIssueSessionCertificateSubmitsPEMRequest(t *testing.T) {
 	svc := &AccessService{k8sClients: &k8sclient.Clients{Dynamic: dyn}}
 
 	const trust, ns, sess = "cluster.local", "mcp-servers", "sess-1"
-	_, csrPEM, _, err := certauth.BuildSessionCSR(trust, ns, sess)
+	_, csrPEM, _, err := identity.BuildSessionCSR(trust, ns, sess)
 	if err != nil {
 		t.Fatalf("BuildSessionCSR: %v", err)
 	}
-	csrDER, err := certauth.ValidateCSRPEM(string(csrPEM), identity.SessionSPIFFEID(trust, ns, sess))
+	csrDER, err := identity.ValidateCSRPEM(string(csrPEM), identity.SessionSPIFFEID(trust, ns, sess))
 	if err != nil {
 		t.Fatalf("ValidateCSRPEM: %v", err)
 	}

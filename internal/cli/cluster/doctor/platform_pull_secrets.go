@@ -11,7 +11,7 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 const platformPullSecretsCheckName = "platform registry pull secrets"
@@ -38,7 +38,7 @@ func platformPullSecretNamespaces() []string {
 // that registry need credentials, so such a Deployment fails with
 // ImagePullBackOff on its next rollout (issue #623).
 func checkPlatformPullSecrets(kubectl core.KubectlRunner) DoctorCheck {
-	configName := platforminventory.SharedConfigName
+	configName := topology.SharedConfigName
 	configHost, _ := readKubectlOutput(kubectl, []string{"get", "configmap", configName, "-n", componentNamespace("platform-api"), "-o", "jsonpath={.data.MCP_REGISTRY_INGRESS_HOST}"})
 	configDomain, _ := readKubectlOutput(kubectl, []string{"get", "configmap", configName, "-n", componentNamespace("platform-api"), "-o", "jsonpath={.data.MCP_PLATFORM_DOMAIN}"})
 	registryHost, _ := k8sclient.ChooseRegistryPublicHost(k8sclient.RegistryHostSources{

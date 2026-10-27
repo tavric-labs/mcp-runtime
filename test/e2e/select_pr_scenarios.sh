@@ -109,7 +109,7 @@ classify_path() {
       add_scenario "oauth"
       return
       ;;
-    internal/cli/cluster/doctor/workload_identity*.go|pkg/workloadidentity/*|services/runtime-api/internal/runtimeapi/adapter_preflight*)
+    internal/cli/cluster/doctor/workload_identity*.go|pkg/k8sclient/workload_identity_*|services/runtime-api/internal/runtimeapi/adapter_preflight*)
       # Workload-signer guards and the adapter enrollment preflight.
       add_scenario "adapter-certificates"
       add_scenario "cli-platform"
@@ -128,7 +128,7 @@ classify_path() {
       add_scenario "adapter-proxy"
       return
       ;;
-    pkg/publicroutes/*|pkg/platformmode/*)
+    pkg/topology/routes.go|pkg/topology/mode.go)
       # Public route and platform-mode config shared by setup, the UI and APIs.
       add_scenario "ui-auth"
       add_scenario "api-platform"
@@ -142,18 +142,18 @@ classify_path() {
       add_scenario "adapter-proxy"
       return
       ;;
-    pkg/registryauth/*|pkg/egresscidrs/*)
+    pkg/registryauth/*|pkg/kubeworkload/egress_cidrs*)
       add_scenario "api-platform"
       add_scenario "cli-platform"
       return
       ;;
-    pkg/policy/defaults.go|pkg/platforminventory/defaults.go)
+    pkg/policy/defaults.go|pkg/topology/defaults.go)
       add_scenario "governance"
       add_scenario "trust"
       add_scenario "cli-platform"
       return
       ;;
-    internal/operator/mtls*|internal/cli/certmanager/*|traefik-plugins/spiffe-identity/*|config/cert-manager/*|pkg/identity/*|pkg/certauth/*)
+    internal/operator/mtls*|internal/cli/certmanager/*|traefik-plugins/spiffe-identity/*|config/cert-manager/*|pkg/identity/*)
       # Certificate enrollment. The runner adds the oauth scenario because
       # those assertions live in that block.
       add_scenario "adapter-certificates"
@@ -197,7 +197,7 @@ classify_path() {
       add_scenario "adapter-certificates"
       return
       ;;
-    api/*|cmd/operator/*|internal/operator/*|config/*|k8s/*|pkg/controlplane/*|pkg/k8sclient/*|pkg/kubeworkload/*|pkg/manifest/*|pkg/metadata/*)
+    api/*|cmd/operator/*|internal/operator/*|config/*|k8s/*|pkg/controlplane/*|pkg/k8sclient/*|pkg/kubeworkload/*|internal/cli/manifest/*|internal/blueprint/*)
       # Setup plus the namespace-placement check in smoke-auth covers install
       # and reconcile. Product flows are selected from their own paths.
       return
@@ -257,14 +257,14 @@ classify_path() {
       add_scenario "api-platform"
       return
       ;;
-    pkg/platformauth/*|pkg/authzmatrix/*)
+    pkg/passport/*|pkg/authzmatrix/*)
       # API key/bearer auth and the role matrix every API and the UI proxy use.
       add_scenario "api-platform"
       add_scenario "multitenancy"
       add_scenario "ui-auth"
       return
       ;;
-    pkg/apihttp/*|pkg/internalapi/*|pkg/platform/*|pkg/publishscope/*|pkg/registrypush/*)
+    pkg/apikit/*|pkg/apikit/*|pkg/topology/scope.go|pkg/registrypush/*)
       # Shared HTTP, DTO, publish-scope and registry-push code under the APIs.
       add_scenario "api-platform"
       return
@@ -273,7 +273,7 @@ classify_path() {
       add_scenario "oauth"
       return
       ;;
-    pkg/authfile/*|pkg/runtimeconfig/*)
+    internal/cli/authfile/*|internal/cli/runtimeconfig/*)
       # The CLI's saved login and config paths.
       add_scenario "cli-platform"
       return
@@ -295,7 +295,7 @@ classify_path() {
       add_scenario "adapter-certificates"
       return
       ;;
-    pkg/svcboot/*|services/ingest/*|services/processor/*|pkg/clickhouse/*|pkg/events/*|pkg/platformstack/*|pkg/envcfg/*|pkg/telemetry/*|pkg/transport/*|pkg/oidcdiscovery/*)
+    pkg/svcboot/*|services/ingest/*|services/processor/*|pkg/clickhouse/*|pkg/events/*|services/runtime-api/internal/platformstack/*|pkg/envcfg/*|pkg/telemetry/*|pkg/transport/*|pkg/oidcdiscovery/*)
       add_observability
       return
       ;;

@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	cb "mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/sessionstate"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -92,7 +92,7 @@ func TestManagementUnknownFieldsNeverEchoValues(t *testing.T) {
 	h := Handler{Store: &metadataStub{}}
 	for _, kind := range []string{"sources", "bindings"} {
 		r := httptest.NewRequest(http.MethodPut, cb.ManagementPath+"/team/"+kind+"/upstream", strings.NewReader(`{"value":"sensitive-marker"}`))
-		r = r.WithContext(platformauth.WithPrincipal(r.Context(), platformauth.Principal{Role: "admin", IsService: true}))
+		r = r.WithContext(passport.WithPrincipal(r.Context(), passport.Principal{Role: "admin", IsService: true}))
 		w := httptest.NewRecorder()
 		h.Management(w, r)
 		if w.Code != http.StatusBadRequest || strings.Contains(w.Body.String(), "sensitive-marker") {
@@ -103,13 +103,13 @@ func TestManagementUnknownFieldsNeverEchoValues(t *testing.T) {
 
 type metadataStub struct{}
 
-func (*metadataStub) ListCredentials(context.Context, platformauth.Principal, string, string) ([]json.RawMessage, error) {
+func (*metadataStub) ListCredentials(context.Context, passport.Principal, string, string) ([]json.RawMessage, error) {
 	return nil, nil
 }
-func (*metadataStub) PutCredential(context.Context, platformauth.Principal, *cb.Source, *cb.Binding) (json.RawMessage, error) {
+func (*metadataStub) PutCredential(context.Context, passport.Principal, *cb.Source, *cb.Binding) (json.RawMessage, error) {
 	return nil, nil
 }
-func (*metadataStub) DeleteCredential(context.Context, platformauth.Principal, string, string, string, int64) error {
+func (*metadataStub) DeleteCredential(context.Context, passport.Principal, string, string, string, int64) error {
 	return nil
 }
 func (*metadataStub) UseCredentials(context.Context, sessionstate.Server, cb.ResolutionRequest, func(sessionstate.Session, []cb.Binding, []cb.Source) error, func(sessionstate.Session, []cb.Binding, []cb.Source) (cb.Delivery, error)) (cb.Delivery, error) {

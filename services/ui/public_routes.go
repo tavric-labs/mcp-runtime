@@ -1,18 +1,18 @@
 package main
 
 import (
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
 	"mcp-runtime/pkg/envcfg"
-	"mcp-runtime/pkg/publicroutes"
 	uiproxy "mcp-ui/internal/proxy"
 )
 
-func configuredPublicRoutes() publicroutes.Routes {
-	return publicroutes.Routes{
+func configuredPublicRoutes() topology.Routes {
+	return topology.Routes{
 		Platform: os.Getenv("UI_PATH_PREFIX"), Grafana: os.Getenv("UI_GRAFANA_PATH"),
 		Docs: os.Getenv("UI_DOCS_PATH"), DocsURL: os.Getenv("UI_DOCS_URL"), Registry: os.Getenv("UI_REGISTRY_PATH"),
 	}.WithDefaults()
@@ -20,7 +20,7 @@ func configuredPublicRoutes() publicroutes.Routes {
 
 // mountPublicUI keeps probes and the internal Grafana forward-auth endpoint
 // stable while moving all browser session, proxy, and asset routes together.
-func mountPublicUI(inner *http.ServeMux, routes publicroutes.Routes, platformBase *url.URL) *http.ServeMux {
+func mountPublicUI(inner *http.ServeMux, routes topology.Routes, platformBase *url.URL) *http.ServeMux {
 	outer := http.NewServeMux()
 	outer.Handle("/health", inner)
 	outer.Handle("/auth/admin-check", inner)

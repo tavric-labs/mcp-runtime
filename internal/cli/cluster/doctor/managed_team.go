@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"mcp-runtime/pkg/topology"
 	"regexp"
 	"sort"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/metadata"
 )
 
 const doctorManagedTeamRegistryPullSecret = "mcp-runtime-registry-pull" // #nosec G101 -- Kubernetes Secret object name, not credential material.
@@ -213,7 +213,7 @@ func checkOperatorRegistryEndpoint(kubectl core.KubectlRunner) DoctorCheck {
 		return DoctorCheck{
 			Name:   "operator registry endpoint",
 			OK:     true,
-			Detail: fmt.Sprintf("MCP_REGISTRY_ENDPOINT not set; operator default is %s", metadata.ResolveRegistryPullHost()),
+			Detail: fmt.Sprintf("MCP_REGISTRY_ENDPOINT not set; operator default is %s", topology.ResolveRegistryPullHost()),
 		}
 	}
 	if ingressHost != "" && strings.EqualFold(endpoint, ingressHost) {

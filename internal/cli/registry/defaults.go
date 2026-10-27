@@ -1,15 +1,15 @@
 package registry
 
 import (
+	"mcp-runtime/pkg/topology"
 	"net/url"
 	"strings"
 
 	"go.uber.org/zap"
 
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/registry/resolve"
-	"mcp-runtime/pkg/authfile"
-	"mcp-runtime/pkg/metadata"
 )
 
 const registryServiceDNSWithPort = "registry.registry.svc.cluster.local:5000"
@@ -105,7 +105,7 @@ func PublicImageRefForSavedLogin(image string) (string, bool) {
 	if public == "" || strings.EqualFold(public, host) || isLocalOnlyRegistryHost(public) {
 		return image, false
 	}
-	rewritten, ok := metadata.RewriteImageRegistryHost(image, public)
+	rewritten, ok := topology.RewriteImageRegistryHost(image, public)
 	if !ok {
 		return image, false
 	}
@@ -114,7 +114,7 @@ func PublicImageRefForSavedLogin(image string) (string, bool) {
 
 func isLocalOnlyRegistryHost(host string) bool {
 	host = strings.ToLower(strings.TrimSpace(host))
-	if host == metadata.DefaultRegistryHost {
+	if host == topology.DefaultRegistryHost {
 		return true
 	}
 	name, _, _ := strings.Cut(host, ":")

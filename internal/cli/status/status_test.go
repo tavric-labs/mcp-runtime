@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/status"
-	"mcp-runtime/pkg/authfile"
 )
 
 func TestQuickPlatformStatus(t *testing.T) {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +15,7 @@ import (
 	"mcp-runtime-api/internal/runtimeapi"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/envcfg"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/svcboot"
 )
 
@@ -24,7 +23,7 @@ type server struct {
 	runtime     *runtimeapi.RuntimeServer
 	runtimeInit string
 	platform    *platformapi.Client
-	authentic   platformauth.Authenticator
+	authentic   passport.Authenticator
 }
 
 func main() {
@@ -36,7 +35,7 @@ func main() {
 		log.Fatalf("invalid CLICKHOUSE_DB: %v", err)
 	}
 
-	jwtSecret, err := jwtSecretFromEnv()
+	jwtSecret, err := passport.JWTSecretFromEnv()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -64,7 +63,7 @@ func main() {
 		Token:   internalToken,
 	}
 
-	apiKeys := serviceAPIKeysFromEnv()
+	apiKeys := svcboot.APIKeysFromEnv("API_KEYS")
 	runtimeServer, initErr := runtimeapi.NewRuntimeServer(conn, dbName, apiKeys, platformClient)
 	if initErr != nil {
 		log.Fatalf("runtime server init failed: %v", initErr)
@@ -74,13 +73,13 @@ func main() {
 	srv := &server{
 		runtime:  runtimeServer,
 		platform: platformClient,
-		authentic: platformauth.NewAudienceAuthenticator(platformauth.AudienceConfig{
-			Audience:       platformauth.AudienceRuntime,
+		authentic: passport.NewAudienceAuthenticator(passport.AudienceConfig{
+			Audience:       passport.AudienceRuntime,
 			Secret:         jwtSecret,
 			PlatformAPIURL: platformAPIURL,
 			InternalToken:  internalToken,
 			ServiceAPIKeys: apiKeys,
-			AdminAPIKeys:   adminAPIKeysFromEnv(),
+			AdminAPIKeys:   svcboot.APIKeysFromEnv("ADMIN_API_KEYS"),
 			PublicFallback: runtimeapi.PublicCatalogFallback,
 		}),
 	}
@@ -102,34 +101,4 @@ func main() {
 	}); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func jwtSecretFromEnv() ([]byte, error) {
-	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
-	if secret == "" {
-		return nil, errors.New("JWT_SECRET is required")
-	}
-	return []byte(secret), nil
-}
-
-func serviceAPIKeysFromEnv() map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, key := range strings.Split(envcfg.EnvOr("API_KEYS", ""), ",") {
-		key = strings.TrimSpace(key)
-		if key != "" {
-			out[key] = struct{}{}
-		}
-	}
-	return out
-}
-
-func adminAPIKeysFromEnv() map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, key := range strings.Split(envcfg.EnvOr("ADMIN_API_KEYS", ""), ",") {
-		key = strings.TrimSpace(key)
-		if key != "" {
-			out[key] = struct{}{}
-		}
-	}
-	return out
 }

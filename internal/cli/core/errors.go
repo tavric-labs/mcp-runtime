@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"mcp-runtime/pkg/errx"
+	"mcp-runtime/internal/errx"
 )
 
 var (

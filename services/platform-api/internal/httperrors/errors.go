@@ -3,68 +3,68 @@ package httperrors
 import (
 	"net/http"
 
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 )
 
 func Unauthorized(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "unauthorized")
+	apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "unauthorized")
 }
 
 func Forbidden(w http.ResponseWriter, message string) {
-	apihttp.WriteEnvelope(w, http.StatusForbidden, apihttp.CodeForbidden, message)
+	apikit.WriteEnvelope(w, http.StatusForbidden, apikit.CodeForbidden, message)
 }
 
 func NotFound(w http.ResponseWriter, message string) {
-	apihttp.WriteEnvelope(w, http.StatusNotFound, apihttp.CodeNotFound, message)
+	apikit.WriteEnvelope(w, http.StatusNotFound, apikit.CodeNotFound, message)
 }
 
 func BadRequest(w http.ResponseWriter, message string) {
-	apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidRequestBody, message)
+	apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, message)
 }
 
 func InvalidQuery(w http.ResponseWriter, message string) {
-	apihttp.WriteEnvelope(w, http.StatusBadRequest, apihttp.CodeInvalidQueryParam, message)
+	apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidQueryParam, message)
 }
 
 func MethodNotAllowed(w http.ResponseWriter, allow string) {
 	if allow != "" {
 		w.Header().Set("allow", allow)
 	}
-	apihttp.WriteEnvelope(w, http.StatusMethodNotAllowed, apihttp.CodeMethodNotAllowed, "method not allowed")
+	apikit.WriteEnvelope(w, http.StatusMethodNotAllowed, apikit.CodeMethodNotAllowed, "method not allowed")
 }
 
 func PlatformUnavailable(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "platform identity database not configured")
+	apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "platform identity database not configured")
 }
 
 func UserKeyStoreUnavailable(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "user api key store not configured")
+	apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "user api key store not configured")
 }
 
 func OIDCNotConfigured(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "oidc not configured")
+	apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "oidc not configured")
 }
 
 func AuthFailed(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeAuthFailed, "auth failed")
+	apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeAuthFailed, "auth failed")
 }
 
 func LoginFailed(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeAuthFailed, "login failed")
+	apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeAuthFailed, "login failed")
 }
 
 func QueryFailed(w http.ResponseWriter, message string) {
-	apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, message)
+	apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, message)
 }
 
 func Internal(w http.ResponseWriter, message string) {
-	apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeInternalError, message)
+	apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeInternalError, message)
 }
 
 func TooManyRequests(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusTooManyRequests, apihttp.CodeTooManyRequests, "too many requests")
+	apikit.WriteEnvelope(w, http.StatusTooManyRequests, apikit.CodeTooManyRequests, "too many requests")
 }
 
 func InvalidCredentials(w http.ResponseWriter) {
-	apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "invalid credentials")
+	apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "invalid credentials")
 }

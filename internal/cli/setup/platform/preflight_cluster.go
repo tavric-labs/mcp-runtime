@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 	"strings"
 )
 
@@ -119,7 +119,7 @@ func checkClusterIdentity(ctx context.Context, clients *k8sclient.Clients, want 
 // existing bundled mcp-auth server: its operator configuration and image are
 // updated separately (`update --only mcp-auth`), never as a side effect.
 func checkExistingMCPAuthRetained(ctx context.Context, clients *k8sclient.Clients, deploying bool, image string) []preflightIssue {
-	component, ok := platforminventory.Lookup("mcp-auth")
+	component, ok := topology.Lookup("mcp-auth")
 	if !ok {
 		return nil
 	}

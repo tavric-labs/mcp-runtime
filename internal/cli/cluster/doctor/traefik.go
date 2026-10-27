@@ -3,6 +3,7 @@ package doctor
 import (
 	"context"
 	"fmt"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"strconv"
 	"strings"
@@ -10,7 +11,6 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/metadata"
 )
 
 func checkTraefikIngressClass(kubectl core.KubectlRunner) DoctorCheck {
@@ -368,11 +368,11 @@ func isMCPRuntimeIngress(status doctorIngressStatus) bool {
 }
 
 func doctorConfiguredIngressHosts() (platform, registry, mcp string, configured bool) {
-	platform = strings.TrimSpace(metadata.ResolvePlatformIngressHost())
-	registry = strings.TrimSpace(metadata.ResolveRegistryHost())
-	mcp = strings.TrimSpace(metadata.ResolveMcpIngressHost())
+	platform = strings.TrimSpace(topology.ResolvePlatformIngressHost())
+	registry = strings.TrimSpace(topology.ResolveRegistryHost())
+	mcp = strings.TrimSpace(topology.ResolveMcpIngressHost())
 	configured = doctorPublicIngressHostConfigExplicitlySet()
-	if !configured && registry == metadata.DefaultRegistryHost {
+	if !configured && registry == topology.DefaultRegistryHost {
 		registry = ""
 	}
 	return platform, registry, mcp, configured

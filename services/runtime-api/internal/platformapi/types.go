@@ -3,21 +3,20 @@ package platformapi
 import (
 	"time"
 
-	"mcp-runtime/pkg/internalapi"
-	"mcp-runtime/pkg/platform"
+	"mcp-runtime/pkg/apikit"
 )
 
 // Team is a managed platform team and its Kubernetes namespace.
-type Team = internalapi.Team
+type Team = apikit.Team
 
-type Agent = internalapi.Agent
-type AgentPage = internalapi.AgentPage
+type Agent = apikit.Agent
+type AgentPage = apikit.AgentPage
 
 // TeamMembership is the platform team membership API contract.
-type TeamMembership = platform.TeamMembership
+type TeamMembership = apikit.TeamMembership
 
 // User is a platform user record returned by identity APIs.
-type User = internalapi.User
+type User = apikit.User
 
 // APIKeySummary is the non-secret metadata for a user API key.
 type APIKeySummary struct {
@@ -30,7 +29,7 @@ type APIKeySummary struct {
 }
 
 // AuditEvent is the write-side platform audit envelope.
-type AuditEvent = internalapi.AuditEvent
+type AuditEvent = apikit.AuditEvent
 
 // OperationsFilter constrains platform operations and activity queries.
 type OperationsFilter struct {

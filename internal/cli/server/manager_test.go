@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mcp-runtime/pkg/topology"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,10 +19,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
+	"mcp-runtime/internal/blueprint"
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/authfile"
-	"mcp-runtime/pkg/metadata"
 )
 
 func newKubeTestServerManager(kubectl *core.KubectlClient) *ServerManager {
@@ -60,7 +61,7 @@ func TestInitServerCreatesMetadata(t *testing.T) {
 		}
 	}
 
-	registry, err := metadata.LoadFromFile(metadataPath)
+	registry, err := blueprint.LoadFromFile(metadataPath)
 	if err != nil {
 		t.Fatalf("LoadFromFile() error = %v", err)
 	}
@@ -68,25 +69,25 @@ func TestInitServerCreatesMetadata(t *testing.T) {
 		t.Fatalf("registry = %#v", registry)
 	}
 	server := registry.Servers[0]
-	if server.Name != "payments" || server.Image != "payments" || server.ImageTag != "v1" || server.Scope != metadata.PublishScope("tenant") {
+	if server.Name != "payments" || server.Image != "payments" || server.ImageTag != "v1" || server.Scope != topology.Scope("tenant") {
 		t.Fatalf("server metadata = %#v", server)
 	}
 	if server.Route != "/payments/mcp" || server.PublicPathPrefix != "payments" || server.Port != 8088 {
 		t.Fatalf("server route/port = %#v", server)
 	}
-	if len(server.Tools) != 3 || server.Tools[0].Name != "add" || server.Tools[0].SideEffect != metadata.ToolSideEffectRead {
+	if len(server.Tools) != 3 || server.Tools[0].Name != "add" || server.Tools[0].SideEffect != blueprint.ToolSideEffectRead {
 		t.Fatalf("tools = %#v", server.Tools)
 	}
-	if server.Tools[2].Name != "refund_invoice" || server.Tools[2].RequiredTrust != metadata.TrustLevelHigh || server.Tools[2].SideEffect != metadata.ToolSideEffectDestructive {
+	if server.Tools[2].Name != "refund_invoice" || server.Tools[2].RequiredTrust != blueprint.TrustLevelHigh || server.Tools[2].SideEffect != blueprint.ToolSideEffectDestructive {
 		t.Fatalf("tool spec = %#v, want refund_invoice/high/destructive", server.Tools[2])
 	}
-	if !metadata.GatewayIsEnabled(server.Gateway) {
+	if !blueprint.GatewayIsEnabled(server.Gateway) {
 		t.Fatalf("gateway = %#v, want enabled", server.Gateway)
 	}
 	if server.Auth != nil {
 		t.Fatalf("auth config = %#v, want OAuth disabled by default", server.Auth)
 	}
-	if server.Policy == nil || server.Policy.Mode != metadata.PolicyModeAllowList || server.Policy.DefaultDecision != metadata.PolicyDecisionDeny {
+	if server.Policy == nil || server.Policy.Mode != blueprint.PolicyModeAllowList || server.Policy.DefaultDecision != blueprint.PolicyDecisionDeny {
 		t.Fatalf("policy = %#v, want allow-list/deny", server.Policy)
 	}
 	if server.Session == nil || !server.Session.Required {
@@ -101,12 +102,12 @@ func TestInitServerSetsToolRisk(t *testing.T) {
 	if err := mgr.InitServer("payments", dir, "", "latest", "tenant", "allow-list", "deny", true, 8088, []string{"add"}, []string{"refund_invoice:high:destructive"}, "high", false); err != nil {
 		t.Fatalf("InitServer() error = %v", err)
 	}
-	registry, err := metadata.LoadFromFile(filepath.Join(dir, "servers.yaml"))
+	registry, err := blueprint.LoadFromFile(filepath.Join(dir, "servers.yaml"))
 	if err != nil {
 		t.Fatalf("LoadFromFile() error = %v", err)
 	}
 	for _, tool := range registry.Servers[0].Tools {
-		if tool.RiskLevel != metadata.ToolRiskLevelHigh {
+		if tool.RiskLevel != blueprint.ToolRiskLevelHigh {
 			t.Fatalf("tool risk = %#v, want high for %#v", tool.RiskLevel, tool)
 		}
 	}
@@ -127,7 +128,7 @@ func TestInitServerAppendsAndRejectsDuplicate(t *testing.T) {
 		t.Fatalf("duplicate error = %v, want --force guidance", err)
 	}
 
-	registry, err := metadata.LoadFromFile(filepath.Join(dir, "servers.yaml"))
+	registry, err := blueprint.LoadFromFile(filepath.Join(dir, "servers.yaml"))
 	if err != nil {
 		t.Fatalf("LoadFromFile() error = %v", err)
 	}
@@ -165,10 +166,10 @@ servers:
 	if err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
-	if strings.Contains(string(data), metadata.DefaultRegistryHost) {
-		t.Fatalf("init persisted the %s placeholder:\n%s", metadata.DefaultRegistryHost, data)
+	if strings.Contains(string(data), topology.DefaultRegistryHost) {
+		t.Fatalf("init persisted the %s placeholder:\n%s", topology.DefaultRegistryHost, data)
 	}
-	registry, err := metadata.LoadFromFile(path)
+	registry, err := blueprint.LoadFromFile(path)
 	if err != nil {
 		t.Fatalf("LoadFromFile() error = %v", err)
 	}
@@ -185,12 +186,12 @@ func TestInitServerUsesGovernanceFlags(t *testing.T) {
 		t.Fatalf("InitServer() error = %v", err)
 	}
 
-	registry, err := metadata.LoadFromFile(filepath.Join(dir, "servers.yaml"))
+	registry, err := blueprint.LoadFromFile(filepath.Join(dir, "servers.yaml"))
 	if err != nil {
 		t.Fatalf("LoadFromFile() error = %v", err)
 	}
 	server := registry.Servers[0]
-	if server.Policy == nil || server.Policy.Mode != metadata.PolicyModeObserve || server.Policy.DefaultDecision != metadata.PolicyDecisionAllow {
+	if server.Policy == nil || server.Policy.Mode != blueprint.PolicyModeObserve || server.Policy.DefaultDecision != blueprint.PolicyDecisionAllow {
 		t.Fatalf("policy = %#v, want observe/allow", server.Policy)
 	}
 	if server.Session != nil {
@@ -222,7 +223,7 @@ func TestInitServerForceReplacesExisting(t *testing.T) {
 	if err := mgr.InitServer("payments", dir, "payments-v2", "v2", "tenant", "allow-list", "deny", true, 9090, []string{"echo"}, nil, "", true); err != nil {
 		t.Fatalf("InitServer(force) error = %v", err)
 	}
-	registry, err := metadata.LoadFromFile(filepath.Join(dir, "servers.yaml"))
+	registry, err := blueprint.LoadFromFile(filepath.Join(dir, "servers.yaml"))
 	if err != nil {
 		t.Fatalf("LoadFromFile() error = %v", err)
 	}
@@ -1514,12 +1515,12 @@ func TestDeployImageRefsEquivalentAcceptsScopedDisplayRefs(t *testing.T) {
 }
 
 func TestSelectDeployMetadataNameMatching(t *testing.T) {
-	writeRegistry := func(t *testing.T, dir string, servers []metadata.ServerMetadata) {
+	writeRegistry := func(t *testing.T, dir string, servers []blueprint.ServerMetadata) {
 		t.Helper()
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("MkdirAll() error = %v", err)
 		}
-		data, err := yaml.Marshal(metadata.RegistryFile{Version: "v1", Servers: servers})
+		data, err := yaml.Marshal(blueprint.RegistryFile{Version: "v1", Servers: servers})
 		if err != nil {
 			t.Fatalf("Marshal() error = %v", err)
 		}
@@ -1530,7 +1531,7 @@ func TestSelectDeployMetadataNameMatching(t *testing.T) {
 
 	t.Run("exact match always works", func(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), ".mcp")
-		writeRegistry(t, dir, []metadata.ServerMetadata{{Name: "payments", Image: "registry.example.com/acme/payments"}})
+		writeRegistry(t, dir, []blueprint.ServerMetadata{{Name: "payments", Image: "registry.example.com/acme/payments"}})
 		m, err := selectDeployMetadata("payments", "", dir)
 		if err != nil {
 			t.Fatalf("selectDeployMetadata(payments) error = %v", err)
@@ -1542,7 +1543,7 @@ func TestSelectDeployMetadataNameMatching(t *testing.T) {
 
 	t.Run("single server fallback when name does not match", func(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), ".mcp")
-		writeRegistry(t, dir, []metadata.ServerMetadata{{Name: "example-python-2025-11-25", Image: "example-python-2025-11-25"}})
+		writeRegistry(t, dir, []blueprint.ServerMetadata{{Name: "example-python-2025-11-25", Image: "example-python-2025-11-25"}})
 		m, err := selectDeployMetadata("data-utility", "", dir)
 		if err != nil {
 			t.Fatalf("single-server fallback error = %v", err)
@@ -1554,7 +1555,7 @@ func TestSelectDeployMetadataNameMatching(t *testing.T) {
 
 	t.Run("multi-server registry requires exact match", func(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), ".mcp")
-		writeRegistry(t, dir, []metadata.ServerMetadata{
+		writeRegistry(t, dir, []blueprint.ServerMetadata{
 			{Name: "payments", Image: "registry.example.com/acme/payments"},
 			{Name: "invoices", Image: "registry.example.com/acme/invoices"},
 		})

@@ -32,7 +32,7 @@ func TestSharedInfrastructureDependencyBoundaries(t *testing.T) {
 		{
 			name:     "HTTP authentication does not initialize service telemetry or Kafka",
 			dir:      root,
-			packages: []string{"./pkg/platformauth", "./pkg/transport/httptrace", "./pkg/apihttp"},
+			packages: []string{"./pkg/passport", "./pkg/transport/httptrace", "./pkg/apikit"},
 			forbidden: []string{
 				"github.com/segmentio/kafka-go", "github.com/prometheus/",
 				"go.opentelemetry.io/otel/exporters/", "go.opentelemetry.io/otel/sdk/",
@@ -55,8 +55,8 @@ func TestSharedInfrastructureDependencyBoundaries(t *testing.T) {
 			forbidden: []string{
 				"github.com/segmentio/kafka-go", "k8s.io/", "sigs.k8s.io/",
 				"mcp-runtime/pkg/controlplane", "mcp-runtime/pkg/k8sclient", "mcp-runtime/pkg/kubeworkload",
-				"mcp-runtime/pkg/operatorutil", "mcp-runtime/pkg/platformstack", "mcp-runtime/pkg/registrypush",
-				"mcp-runtime/pkg/resourcehistory", "mcp-runtime/pkg/workloadidentity",
+				"mcp-runtime/pkg/registrypush",
+				"mcp-runtime/pkg/resourcehistory",
 			},
 		},
 	} {

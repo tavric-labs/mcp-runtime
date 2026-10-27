@@ -10,8 +10,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"mcp-runtime-api/internal/k8sstore"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/kubeworkload"
 )
 

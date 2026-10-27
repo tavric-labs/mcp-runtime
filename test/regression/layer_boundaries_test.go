@@ -46,28 +46,28 @@ func canImport(from, to layer) bool {
 // here, so its layer is a deliberate decision rather than an accident.
 var pkgLayers = map[string]layer{
 	// Leaves: no repository imports outside this layer.
-	"authzmatrix": leaf, "credentialbroker": leaf, "egresscidrs": leaf,
-	"envcfg": leaf, "errx": leaf, "events": leaf, "httpx": leaf,
-	"identity": leaf, "manifest": leaf, "oidcdiscovery": leaf, "openapi": leaf,
-	"platform": leaf, "platforminventory": leaf, "publicroutes": leaf,
-	"publishscope": leaf, "registryauth": leaf, "runtimeconfig": leaf,
+	"authzmatrix": leaf, "credentialbroker": leaf,
+	"envcfg": leaf, "events": leaf, "httpx": leaf,
+	"identity": leaf, "oidcdiscovery": leaf, "openapi": leaf,
+	"topology":            leaf,
+	"registryauth":        leaf,
 	"transport/httptrace": leaf, "transport/tlsconfig": leaf,
 
 	// Domain: rules and models, no Kubernetes or service infrastructure.
-	"access": domain, "access/specvalidation": domain, "metadata": domain,
-	"platformmode": domain, "policy": domain, "sessionstate": domain,
+	"access": domain, "access/specvalidation": domain,
+	"policy": domain, "sessionstate": domain,
 
 	// Support: HTTP, telemetry and bootstrap shared by services.
-	"apihttp": support, "authfile": support, "authgateway": support,
-	"certauth": support, "clickhouse": support, "internalapi": support,
-	"platformauth": support, "svcboot": support, "telemetry": support,
+	"apikit": support, "authgateway": support,
+	"clickhouse": support,
+	"passport":   support, "svcboot": support, "telemetry": support,
 	"telemetry/kafkatrace": support,
 
 	// Adapters: the only layer that talks to Kubernetes.
 	"controlplane": adapter, "k8sclient": adapter, "kubeworkload": adapter,
-	"metadata/crdgen": adapter, "access/k8sstore": adapter,
-	"operatorutil": adapter, "platformstack": adapter, "registrypush": adapter,
-	"resourcehistory": adapter, "workloadidentity": adapter,
+
+	"registrypush":    adapter,
+	"resourcehistory": adapter,
 }
 
 // k8sInDomain lists lower-layer packages that still import Kubernetes API

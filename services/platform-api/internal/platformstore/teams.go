@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // ListNamespaces returns platform-managed namespace records for admin views.
@@ -470,10 +470,10 @@ func ValidateTeamNamespace(namespace string) error {
 	}
 	reserved := []string{
 		"default", "kube-system", "kube-public", "kube-node-lease",
-		platforminventory.OperatorNamespace,
-		platforminventory.PlatformNamespace,
-		platforminventory.ObservabilityNamespace,
-		platforminventory.LogCollectorNamespace,
+		topology.OperatorNamespace,
+		topology.PlatformNamespace,
+		topology.ObservabilityNamespace,
+		topology.LogCollectorNamespace,
 		"registry", "traefik",
 	}
 	for _, disallowed := range reserved {

@@ -11,7 +11,7 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/platformrelease"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 func scopedGrafanaPolicy(obj platformrelease.PlatformObject) bool {
@@ -35,7 +35,7 @@ func gateScopedGrafanaPolicies(ctx context.Context, cs kubernetes.Interface, pla
 	if !needed {
 		return nil
 	}
-	config, err := cs.CoreV1().ConfigMaps(namespace).Get(ctx, platforminventory.SharedConfigName, metav1.GetOptions{})
+	config, err := cs.CoreV1().ConfigMaps(namespace).Get(ctx, topology.SharedConfigName, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("verify scoped Grafana setup state before update: %w", err)
 	}
@@ -80,7 +80,7 @@ func requireScopedGrafanaMigration(ctx context.Context, cs kubernetes.Interface,
 	blocked := func(detail string) error {
 		return fmt.Errorf("scoped Grafana setup migration required (%s); no update changes were made: next, run `mcp-runtime setup` from this release with the installation's existing TLS, host, storage and mcp-auth options, then re-run `mcp-runtime update`; see docs/platform-services.md#scoped-grafana-migration", detail)
 	}
-	config, err := cs.CoreV1().ConfigMaps(platformNamespace).Get(ctx, platforminventory.SharedConfigName, metav1.GetOptions{})
+	config, err := cs.CoreV1().ConfigMaps(platformNamespace).Get(ctx, topology.SharedConfigName, metav1.GetOptions{})
 	if err != nil || !strings.EqualFold(config.Data["GRAFANA_SCOPED_USER_ACCESS"], "true") {
 		return blocked("hardened setup has not completed")
 	}

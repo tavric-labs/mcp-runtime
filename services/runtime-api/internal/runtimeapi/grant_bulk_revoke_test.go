@@ -11,8 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"mcp-runtime-api/internal/k8sstore"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 )

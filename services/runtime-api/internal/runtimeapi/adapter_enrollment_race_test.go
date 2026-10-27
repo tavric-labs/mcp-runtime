@@ -21,9 +21,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
+	"mcp-runtime-api/internal/k8sstore"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/access/k8sstore"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -69,7 +69,7 @@ func TestAdapterEnrollmentCompletionPreservesConcurrentRevocation(t *testing.T) 
 	}
 	client := &revocationAfterEnrollmentReadClient{fakeSessionClient: fakeSessionClient{row: sessionToState(session, "server-uid", "team-acme")}}
 	svc.accessMgr.WithSessionBackend(&platformSessionBackend{client: client, access: svc.accessMgr})
-	_, csrPEM, _, err := certauth.BuildSessionCSR("example.org", session.Namespace, session.Name)
+	_, csrPEM, _, err := identity.BuildSessionCSR("example.org", session.Namespace, session.Name)
 	if err != nil {
 		t.Fatal(err)
 	}

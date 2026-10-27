@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -17,14 +16,14 @@ import (
 	"mcp-analytics-api/internal/usage"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/envcfg"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/svcboot"
 )
 
 type server struct {
 	usage     *usage.Service
 	events    *analytics.Handler
-	authentic platformauth.Authenticator
+	authentic passport.Authenticator
 }
 
 func main() {
@@ -36,7 +35,7 @@ func main() {
 		log.Fatalf("invalid CLICKHOUSE_DB: %v", err)
 	}
 
-	jwtSecret, err := jwtSecretFromEnv()
+	jwtSecret, err := passport.JWTSecretFromEnv()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -70,13 +69,13 @@ func main() {
 			},
 		},
 		events: analytics.NewHandler(&clickhousepkg.Client{Conn: conn, DBName: dbName}),
-		authentic: platformauth.NewAudienceAuthenticator(platformauth.AudienceConfig{
-			Audience:       platformauth.AudienceAnalytics,
+		authentic: passport.NewAudienceAuthenticator(passport.AudienceConfig{
+			Audience:       passport.AudienceAnalytics,
 			Secret:         jwtSecret,
 			PlatformAPIURL: platformAPIURL,
 			InternalToken:  internalToken,
-			ServiceAPIKeys: serviceAPIKeysFromEnv(),
-			AdminAPIKeys:   adminAPIKeysFromEnv(),
+			ServiceAPIKeys: svcboot.APIKeysFromEnv("API_KEYS"),
+			AdminAPIKeys:   svcboot.APIKeysFromEnv("ADMIN_API_KEYS"),
 		}),
 	}
 
@@ -94,34 +93,4 @@ func main() {
 	}); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func jwtSecretFromEnv() ([]byte, error) {
-	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
-	if secret == "" {
-		return nil, errors.New("JWT_SECRET is required")
-	}
-	return []byte(secret), nil
-}
-
-func serviceAPIKeysFromEnv() map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, key := range strings.Split(envcfg.EnvOr("API_KEYS", ""), ",") {
-		key = strings.TrimSpace(key)
-		if key != "" {
-			out[key] = struct{}{}
-		}
-	}
-	return out
-}
-
-func adminAPIKeysFromEnv() map[string]struct{} {
-	out := map[string]struct{}{}
-	for _, key := range strings.Split(envcfg.EnvOr("ADMIN_API_KEYS", ""), ",") {
-		key = strings.TrimSpace(key)
-		if key != "" {
-			out[key] = struct{}{}
-		}
-	}
-	return out
 }

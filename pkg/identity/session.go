@@ -1,5 +1,3 @@
-// Package identity provides shared SPIFFE session identity parsing and formatting
-// used by the gateway, platform API, and adapter clients.
 package identity
 
 import (

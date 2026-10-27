@@ -2,7 +2,7 @@ package platforminternal
 
 import (
 	"context"
-	"mcp-runtime/pkg/internalapi"
+	"mcp-runtime/pkg/apikit"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,8 +11,8 @@ import (
 
 type overviewStoreStub struct{ fakeStore }
 
-func (*overviewStoreStub) OverviewCounts(context.Context) (internalapi.OverviewCounts, error) {
-	return internalapi.OverviewCounts{Users: 1000, Teams: 300, Agents: 1500, ActiveSessions: 800}, nil
+func (*overviewStoreStub) OverviewCounts(context.Context) (apikit.OverviewCounts, error) {
+	return apikit.OverviewCounts{Users: 1000, Teams: 300, Agents: 1500, ActiveSessions: 800}, nil
 }
 
 func TestInternalOverviewCountsRequireTokenAndReturnCompleteTotals(t *testing.T) {

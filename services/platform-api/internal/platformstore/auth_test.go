@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func TestEnsureTeamPasswordUserTrimsBeforeLengthCheck(t *testing.T) {
@@ -27,11 +27,11 @@ func TestLoginAccessTokenIsPlatformOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := platformauth.Verify(secret, token, platformauth.AudiencePlatform); err != nil {
+	if _, err := passport.Verify(secret, token, passport.AudiencePlatform); err != nil {
 		t.Fatal(err)
 	}
-	for _, audience := range []string{platformauth.AudienceRuntime, platformauth.AudienceAnalytics} {
-		if _, err := platformauth.Verify(secret, token, audience); err == nil {
+	for _, audience := range []string{passport.AudienceRuntime, passport.AudienceAnalytics} {
+		if _, err := passport.Verify(secret, token, audience); err == nil {
 			t.Fatalf("login token accepted directly at %s", audience)
 		}
 	}

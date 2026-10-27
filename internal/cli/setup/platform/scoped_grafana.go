@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // This must run only after the complete setup pass has installed the scoped
@@ -45,7 +45,7 @@ func enableScopedGrafanaClientGo() error {
 		}
 	}
 	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		config, err := clients.Clientset.CoreV1().ConfigMaps(namespace).Get(ctx, platforminventory.SharedConfigName, metav1.GetOptions{})
+		config, err := clients.Clientset.CoreV1().ConfigMaps(namespace).Get(ctx, topology.SharedConfigName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("read scoped Grafana configuration: %w", err)
 		}

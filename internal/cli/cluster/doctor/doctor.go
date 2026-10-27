@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/platforminventory"
+	"mcp-runtime/pkg/topology"
 )
 
 // Distribution identifies a Kubernetes flavor for remediation messaging.
@@ -55,7 +55,7 @@ type doctorCheckSpec struct {
 }
 
 const (
-	doctorMCPServersNamespace = platforminventory.MCPServersNamespace
+	doctorMCPServersNamespace = topology.MCPServersNamespace
 	doctorTraefikNamespace    = "traefik"
 	doctorK3sTraefikNamespace = "kube-system"
 	doctorTraefikServiceName  = "traefik"
@@ -75,7 +75,7 @@ const (
 
 // componentNamespace is the only namespace lookup doctor checks use.
 func componentNamespace(key string) string {
-	component, ok := platforminventory.Lookup(key)
+	component, ok := topology.Lookup(key)
 	if !ok {
 		return ""
 	}

@@ -121,7 +121,7 @@ nav:
       - Contracts and Flows:
           - API Types: internals/api-types.md
           - Request Flows: internals/request-flows.md
-          - Server Metadata: internals/metadata.md
+          - Server Blueprint: internals/blueprint.md
           - Configuration and Examples: internals/config-and-examples.md
       - Components:
           - CLI Entrypoint: internals/cli-entrypoint.md

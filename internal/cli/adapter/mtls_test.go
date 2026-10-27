@@ -22,7 +22,7 @@ import (
 
 	"mcp-runtime/internal/agentadapter"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/identity"
 )
 
 // fakeMTLSServer extends the platform session endpoint with a CSR-signing
@@ -216,7 +216,7 @@ func TestFailedEnrollmentCleanupSurvivesCallerCancellation(t *testing.T) {
 }
 
 func TestBuildSessionCSROnlySpiffeSAN(t *testing.T) {
-	keyPEM, csrPEM, spiffeID, err := certauth.BuildSessionCSR("mcpruntime.org", "mcp-team-acme", "adapter-xyz")
+	keyPEM, csrPEM, spiffeID, err := identity.BuildSessionCSR("mcpruntime.org", "mcp-team-acme", "adapter-xyz")
 	if err != nil {
 		t.Fatalf("BuildSessionCSR: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestBuildSessionCSROnlySpiffeSAN(t *testing.T) {
 	if spiffeID != want {
 		t.Fatalf("spiffeID = %q, want %q", spiffeID, want)
 	}
-	if _, err := certauth.ValidateCSRPEM(string(csrPEM), want); err != nil {
+	if _, err := identity.ValidateCSRPEM(string(csrPEM), want); err != nil {
 		t.Fatalf("ValidateCSRPEM: %v", err)
 	}
 }

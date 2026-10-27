@@ -17,11 +17,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"mcp-runtime-api/internal/k8sstore"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/access/k8sstore"
-	"mcp-runtime/pkg/certauth"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/identity"
-	"mcp-runtime/pkg/internalapi"
 )
 
 const adapterCertificateRequestMaxBytes = 64 << 10
@@ -140,7 +139,7 @@ func (s *AccessService) HandleAdapterCertificate(w http.ResponseWriter, r *http.
 	}
 
 	expectedSPIFFEID := identity.SessionSPIFFEID(trustDomain, req.Namespace, req.Session)
-	csrDER, err := certauth.ValidateCSRPEM(req.CSR, expectedSPIFFEID)
+	csrDER, err := identity.ValidateCSRPEM(req.CSR, expectedSPIFFEID)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return
@@ -202,14 +201,14 @@ func (s *AccessService) recordCertificateIssuance(r *http.Request, p principal, 
 	})
 }
 
-func certificateIssuanceMetadata(certificate, namespace, session, server, human string) (internalapi.CertificateIssuance, error) {
+func certificateIssuanceMetadata(certificate, namespace, session, server, human string) (apikit.CertificateIssuance, error) {
 	block, _ := pem.Decode([]byte(certificate))
 	if block == nil {
-		return internalapi.CertificateIssuance{}, fmt.Errorf("certificate metadata unavailable")
+		return apikit.CertificateIssuance{}, fmt.Errorf("certificate metadata unavailable")
 	}
 	leaf, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return internalapi.CertificateIssuance{}, fmt.Errorf("certificate metadata unavailable")
+		return apikit.CertificateIssuance{}, fmt.Errorf("certificate metadata unavailable")
 	}
 	spiffe := ""
 	for _, uri := range leaf.URIs {
@@ -218,7 +217,7 @@ func certificateIssuanceMetadata(certificate, namespace, session, server, human 
 			break
 		}
 	}
-	return internalapi.CertificateIssuance{Namespace: namespace, Session: session, Server: server, HumanID: human,
+	return apikit.CertificateIssuance{Namespace: namespace, Session: session, Server: server, HumanID: human,
 		Serial: leaf.SerialNumber.Text(16), Fingerprint: fmt.Sprintf("%x", sha256.Sum256(leaf.Raw)),
 		SPIFFEID: spiffe, NotBefore: leaf.NotBefore.UTC(), NotAfter: leaf.NotAfter.UTC()}, nil
 }
@@ -278,7 +277,7 @@ func (s *AccessService) issueSessionCertificateDER(
 	// Defense in depth: never hand back a certificate the workload issuer
 	// signed with a different identity, key, usage, or lifetime than the
 	// session-bound CSR we submitted, whatever the issuer's approval policy.
-	if err := certauth.ValidateIssuedCertificatePEM(certificate, csrDER, expectedSPIFFEID, duration, time.Now()); err != nil {
+	if err := identity.ValidateIssuedCertificatePEM(certificate, csrDER, expectedSPIFFEID, duration, time.Now()); err != nil {
 		return "", "", fmt.Errorf("reject issued certificate: %w", err)
 	}
 	return certificate, caBundle, nil

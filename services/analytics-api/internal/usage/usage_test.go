@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"mcp-analytics-api/internal/usage"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func TestServersQueryExtractsTeamIDFromPayload(t *testing.T) {
@@ -51,9 +51,9 @@ func TestHandleAdminUsageRejectsNonGET(t *testing.T) {
 
 func TestPrincipalOwnedScopeExcludesSharedCatalog(t *testing.T) {
 	t.Parallel()
-	scope := usage.PrincipalOwnedScope(platformauth.Principal{
+	scope := usage.PrincipalOwnedScope(passport.Principal{
 		Namespace: "user-a",
-		Teams: []platformauth.PrincipalTeam{{
+		Teams: []passport.PrincipalTeam{{
 			ID:        "team-acme-id",
 			Namespace: "mcp-team-acme",
 		}},
@@ -69,7 +69,7 @@ func TestHandleUserUsageRejectsForeignNamespace(t *testing.T) {
 	svc := &usage.Service{DBName: "mcp"}
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/user/analytics/usage?namespace=mcp-team-other", nil)
-	request = request.WithContext(platformauth.WithPrincipal(request.Context(), platformauth.Principal{
+	request = request.WithContext(passport.WithPrincipal(request.Context(), passport.Principal{
 		Namespace:         "user-a",
 		AllowedNamespaces: []string{"user-a"},
 	}))

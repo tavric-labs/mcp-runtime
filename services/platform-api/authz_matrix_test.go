@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/authzmatrix"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func TestAuthzMatrixRows(t *testing.T) {
@@ -41,19 +41,19 @@ func TestAuthzMatrixRows(t *testing.T) {
 	}
 
 	for role, audiences := range map[string][]string{
-		"platform-jwt":       {platformauth.AudiencePlatform},
-		"runtime-jwt":        {platformauth.AudienceRuntime},
-		"analytics-jwt":      {platformauth.AudienceAnalytics},
-		"multi-audience-jwt": {platformauth.AudiencePlatform, platformauth.AudienceRuntime, platformauth.AudienceAnalytics},
+		"platform-jwt":       {passport.AudiencePlatform},
+		"runtime-jwt":        {passport.AudienceRuntime},
+		"analytics-jwt":      {passport.AudienceAnalytics},
+		"multi-audience-jwt": {passport.AudiencePlatform, passport.AudienceRuntime, passport.AudienceAnalytics},
 	} {
-		token, err := platformauth.Sign([]byte("test-secret"), platformauth.Principal{Subject: "matrix-user", Role: platformauth.RoleAdmin}, time.Minute, audiences)
+		token, err := passport.Sign([]byte("test-secret"), passport.Principal{Subject: "matrix-user", Role: passport.RoleAdmin}, time.Minute, audiences)
 		if err != nil {
 			t.Fatal(err)
 		}
 		keys[role] = token
 	}
-	expired := platformauth.ClaimsFromPrincipal(platformauth.Principal{Subject: "matrix-user", Role: platformauth.RoleAdmin})
-	expired.Issuer = platformauth.Issuer
+	expired := passport.ClaimsFromPrincipal(passport.Principal{Subject: "matrix-user", Role: passport.RoleAdmin})
+	expired.Issuer = passport.Issuer
 	expired.Audience = jwt.ClaimStrings{srv.authentic.Audience}
 	expired.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-time.Minute))
 	keys["expired-jwt"], err = jwt.NewWithClaims(jwt.SigningMethodHS256, expired).SignedString([]byte("test-secret"))

@@ -9,7 +9,7 @@ import (
 	"mcp-analytics-api/internal/analytics"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/openapi"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 type eventReaderStub struct {
@@ -63,9 +63,9 @@ func TestStatsUnauthorizedMatchesOpenAPISpec(t *testing.T) {
 	}
 
 	srv := &server{
-		authentic: platformauth.Authenticator{
+		authentic: passport.Authenticator{
 			Secret:   []byte("test-secret"),
-			Audience: platformauth.AudienceAnalytics,
+			Audience: passport.AudienceAnalytics,
 		},
 		events: analytics.NewHandler(eventReaderStub{}),
 	}
@@ -89,9 +89,9 @@ func TestEventsInvalidCursorMatchesOpenAPISpec(t *testing.T) {
 	}
 
 	srv := &server{
-		authentic: platformauth.Authenticator{
+		authentic: passport.Authenticator{
 			Secret:         []byte("test-secret"),
-			Audience:       platformauth.AudienceAnalytics,
+			Audience:       passport.AudienceAnalytics,
 			ServiceAPIKeys: map[string]struct{}{"admin": {}},
 			AdminAPIKeys:   map[string]struct{}{"admin": {}},
 		},

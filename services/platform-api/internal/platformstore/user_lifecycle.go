@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"mcp-runtime/pkg/platform"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -23,9 +23,9 @@ var (
 // DeactivateUser irreversibly disables an account, preserving its identity and
 // audit tombstone. Session revocations use the normal versioned change log.
 // Lock order is session state, users, memberships, then individual session rows.
-func (s *Store) DeactivateUser(ctx context.Context, userID, actorID string, event AuditEvent) (platform.UserDeactivationResult, error) {
+func (s *Store) DeactivateUser(ctx context.Context, userID, actorID string, event AuditEvent) (apikit.UserDeactivationResult, error) {
 	userID = strings.TrimSpace(userID)
-	result := platform.UserDeactivationResult{UserID: userID, Status: "deactivated"}
+	result := apikit.UserDeactivationResult{UserID: userID, Status: "deactivated"}
 	parsed, err := uuid.Parse(userID)
 	if err != nil {
 		return result, UserInputError("valid user ID required")

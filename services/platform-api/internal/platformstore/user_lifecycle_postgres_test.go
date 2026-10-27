@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 )
@@ -92,7 +92,7 @@ func TestPostgresAccountDeactivationRevokesCredentialsSessionsAndIsIdempotent(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	auth := platformauth.Authenticator{Secret: s.jwtSecret, Audience: platformauth.AudiencePlatform, Principals: s}
+	auth := passport.Authenticator{Secret: s.jwtSecret, Audience: passport.AudiencePlatform, Principals: s}
 	request := httptest.NewRequest(http.MethodGet, "/private", nil)
 	request.Header.Set("Authorization", "Bearer "+bearer)
 	if _, ok, err := auth.AuthenticateRequest(request); err != nil || !ok {

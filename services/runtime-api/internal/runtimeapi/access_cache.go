@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"mcp-runtime-api/internal/k8sstore"
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/access/k8sstore"
 )
 
 type accessServerCache map[string]mcpv1alpha1.MCPServer

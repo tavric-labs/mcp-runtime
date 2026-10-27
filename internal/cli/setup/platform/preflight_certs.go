@@ -7,7 +7,7 @@ import (
 	"mcp-runtime/internal/cli/certmanager"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/metadata"
+	"mcp-runtime/pkg/topology"
 	"strings"
 )
 
@@ -62,11 +62,11 @@ func checkStaleRegistryCertificate(ctx context.Context, clients *k8sclient.Clien
 		return nil
 	}
 
-	// Use metadata.ResolveRegistryHost() (reads env directly) instead of
+	// Use topology.ResolveRegistryHost() (reads env directly) instead of
 	// core.GetRegistryIngressHost() (reads the init-time DefaultCLIConfig snapshot)
 	// so tests using t.Setenv and setup runs after --env-file loading see the
 	// correct value.
-	expectedHost := metadata.ResolveRegistryHost()
+	expectedHost := topology.ResolveRegistryHost()
 	if expectedHost == "" || containsString(dnsNames, expectedHost) {
 		return nil
 	}
@@ -133,7 +133,7 @@ func checkConflictingSecretOwners(ctx context.Context, clients *k8sclient.Client
 func checkRegistryHostForTLS() []preflightIssue {
 	// Read directly from env so this check isn't affected by the DefaultCLIConfig
 	// init-time snapshot (same reason we reload DefaultCLIConfig after loadEnvFile).
-	host := metadata.ResolveRegistryHost()
+	host := topology.ResolveRegistryHost()
 	if host != "" && !isDevRegistryURL(host) {
 		return nil
 	}

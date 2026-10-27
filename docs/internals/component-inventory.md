@@ -1,6 +1,6 @@
 # Component identity and namespace placement
 
-`pkg/platforminventory` is the owner-to-namespace map. `Lookup` returns a
+`pkg/topology` is the owner-to-namespace map. `Lookup` returns a
 component whose namespace comes from that owner. There is no layout version.
 
 | Owner | Namespace |

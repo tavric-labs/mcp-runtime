@@ -10,6 +10,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"mcp-runtime/pkg/topology"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,13 +19,12 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
+	"mcp-runtime/internal/blueprint"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
 	"mcp-runtime/internal/cli/registry"
 	"mcp-runtime/internal/cli/registry/ref"
 	"mcp-runtime/internal/cli/registry/resolve"
-	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/publishscope"
 )
 
 const buildTenantScopeTimeout = 30 * time.Second
@@ -115,7 +115,7 @@ func metadataScopeForBuild(serverName, metadataFile, metadataDir string) (string
 	if err != nil || !ok {
 		return "", false
 	}
-	scope, err := publishscope.Normalize(string(server.Scope))
+	scope, err := topology.NormalizeScope(string(server.Scope))
 	if err != nil || scope == "" {
 		return "", false
 	}
@@ -130,11 +130,11 @@ func scopedRepositoryNameForBuild(ctx context.Context, serverName, metadataFile,
 	if !ok {
 		return serverName, nil
 	}
-	scope, err := publishscope.Normalize(string(server.Scope))
+	scope, err := topology.NormalizeScope(string(server.Scope))
 	if err != nil {
 		return serverName, nil
 	}
-	if scope == publishscope.Tenant {
+	if scope == topology.ScopeTenant {
 		repository := serverName
 		if image := strings.TrimSpace(server.Image); image != "" {
 			imageRepository, _ := ref.SplitImage(image)
@@ -154,7 +154,7 @@ func scopedRepositoryNameForBuild(ctx context.Context, serverName, metadataFile,
 	return registry.ScopedRegistryRepository(ctx, nil, serverName, scope)
 }
 
-func findMetadataServer(serverName, metadataFile, metadataDir string) (metadata.ServerMetadata, bool, error) {
+func findMetadataServer(serverName, metadataFile, metadataDir string) (blueprint.ServerMetadata, bool, error) {
 	files := []string{}
 	if metadataFile != "" {
 		files = append(files, metadataFile)
@@ -166,10 +166,10 @@ func findMetadataServer(serverName, metadataFile, metadataDir string) (metadata.
 	}
 
 	for _, file := range files {
-		registry, err := metadata.LoadFromFile(file)
+		registry, err := blueprint.LoadFromFile(file)
 		if err != nil {
 			if metadataFile != "" {
-				return metadata.ServerMetadata{}, false, err
+				return blueprint.ServerMetadata{}, false, err
 			}
 			continue
 		}
@@ -179,7 +179,7 @@ func findMetadataServer(serverName, metadataFile, metadataDir string) (metadata.
 			}
 		}
 	}
-	return metadata.ServerMetadata{}, false, nil
+	return blueprint.ServerMetadata{}, false, nil
 }
 
 // BuildImage builds a Docker image and updates MCP metadata for the server.
@@ -210,7 +210,7 @@ func updateMetadataImage(serverName, imageName, tag, metadataFile, metadataDir s
 		files = append(files, ymlFiles...)
 
 		for _, file := range files {
-			registry, err := metadata.LoadFromFile(file)
+			registry, err := blueprint.LoadFromFile(file)
 			if err != nil {
 				continue
 			}

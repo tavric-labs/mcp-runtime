@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -79,7 +79,7 @@ func (c *Client) ListSessionsFiltered(ctx context.Context, filter sessionstate.F
 			return items, nil
 		}
 		if page.NextCursor <= filter.After {
-			return nil, apihttp.Internal("invalid session pagination cursor")
+			return nil, apikit.Internal("invalid session pagination cursor")
 		}
 		filter.After = page.NextCursor
 	}

@@ -102,9 +102,9 @@ incidents:
     status: partial
     checks:
       - kind: go-test
-        path: pkg/certauth/csr_test.go
+        path: pkg/identity/csr_test.go
         name: TestValidateCSRPEMRejectsAdditionalSANs
-        command: go test ./pkg/certauth -run TestValidateCSRPEMRejectsAdditionalSANs -count=1
+        command: go test ./pkg/identity -run TestValidateCSRPEMRejectsAdditionalSANs -count=1
         ci_job: ci.yaml#test
     gap: >-
       Covers CSR SAN validation only. Does not cover approval gating of

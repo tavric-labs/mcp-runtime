@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/authfile"
 )
 
 // New returns the status command.

@@ -13,9 +13,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 
-	"mcp-runtime/pkg/egresscidrs"
+	"mcp-runtime-api/internal/platformstack"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/platformstack"
 )
 
 const (
@@ -203,18 +202,18 @@ func DefaultDenyNetworkPolicy(ns string, ingressFromNamespaces ...string) *netwo
 // destinations must list MCP_POD_EGRESS_EXCEPT_CIDRS so pod and service ranges
 // stay on the normal namespace policy.
 func applyConfiguredPodEgress(policy *networkingv1.NetworkPolicy) error {
-	allows, err := egresscidrs.Parse(os.Getenv("MCP_POD_EGRESS_CIDRS"))
+	allows, err := kubeworkload.ParseEgressCIDRs(os.Getenv("MCP_POD_EGRESS_CIDRS"))
 	if err != nil {
 		return err
 	}
 	if len(allows) == 0 {
 		return nil
 	}
-	except, err := egresscidrs.Parse(os.Getenv("MCP_POD_EGRESS_EXCEPT_CIDRS"))
+	except, err := kubeworkload.ParseEgressCIDRs(os.Getenv("MCP_POD_EGRESS_EXCEPT_CIDRS"))
 	if err != nil {
 		return err
 	}
-	blocks, err := egresscidrs.Blocks(allows, except)
+	blocks, err := kubeworkload.EgressBlocks(allows, except)
 	if err != nil {
 		return err
 	}

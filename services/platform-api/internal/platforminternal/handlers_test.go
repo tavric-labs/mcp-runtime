@@ -8,29 +8,29 @@ import (
 	"testing"
 
 	"mcp-platform-api/internal/platformstore"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 type fakeStore struct {
 	audit platformstore.AuditEvent
 }
 
-func (f *fakeStore) AuthenticateUserAPIKey(context.Context, string) (platformauth.Principal, bool, error) {
-	return platformauth.Principal{
+func (f *fakeStore) AuthenticateUserAPIKey(context.Context, string) (passport.Principal, bool, error) {
+	return passport.Principal{
 		Subject:           "user-1",
 		Email:             "user@example.com",
-		Teams:             []platformauth.PrincipalTeam{{ID: "team-1", Slug: "core", Namespace: "mcp-team-core", Role: "owner"}},
+		Teams:             []passport.PrincipalTeam{{ID: "team-1", Slug: "core", Namespace: "mcp-team-core", Role: "owner"}},
 		AllowedNamespaces: []string{"mcp-team-core", "mcp-servers"},
 		AuthType:          "user_api_key",
 		APIKeyID:          "key-1",
 	}, true, nil
 }
 
-func (f *fakeStore) PrincipalForUserID(context.Context, string) (platformauth.Principal, error) {
-	return platformauth.Principal{
+func (f *fakeStore) PrincipalForUserID(context.Context, string) (passport.Principal, error) {
+	return passport.Principal{
 		Subject: "user-1",
 		Email:   "user@example.com",
-		Role:    platformauth.RoleUser,
+		Role:    passport.RoleUser,
 	}, nil
 }
 
@@ -133,11 +133,11 @@ func TestResolveAuthUsesPlatformAuthenticatorForServiceKeys(t *testing.T) {
 	handler := Handler{
 		Store: &fakeStore{},
 		Token: "internal-token",
-		AuthenticateRequest: func(r *http.Request) (platformauth.Principal, bool, error) {
+		AuthenticateRequest: func(r *http.Request) (passport.Principal, bool, error) {
 			if got := r.Header.Get("x-api-key"); got != "service-key" {
 				t.Fatalf("x-api-key = %q, want service-key", got)
 			}
-			return platformauth.Principal{Role: platformauth.RoleAdmin, AuthType: "service_api_key"}, true, nil
+			return passport.Principal{Role: passport.RoleAdmin, AuthType: "service_api_key"}, true, nil
 		},
 	}
 	handler.Register(mux)

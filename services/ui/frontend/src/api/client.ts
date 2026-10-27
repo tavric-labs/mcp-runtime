@@ -120,7 +120,7 @@ export class UnauthorizedError extends Error {
 }
 
 // A 403 that isn't the CSRF-token case above - e.g. RequireRole rejecting a
-// non-admin principal (pkg/platformauth/middleware.go), which the gateway
+// non-admin principal (pkg/passport/middleware.go), which the gateway
 // reports as {"error":"forbidden","message":"insufficient permissions"}.
 export class ForbiddenError extends Error {
   readonly status = 403;

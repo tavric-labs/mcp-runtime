@@ -3,6 +3,7 @@ package setup
 
 import (
 	"fmt"
+	"mcp-runtime/pkg/topology"
 	"net/url"
 	"os"
 	"strings"
@@ -14,8 +15,7 @@ import (
 	"mcp-runtime/internal/cli/core"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
 	setupplatform "mcp-runtime/internal/cli/setup/platform"
-	"mcp-runtime/pkg/egresscidrs"
-	"mcp-runtime/pkg/publicroutes"
+	"mcp-runtime/pkg/kubeworkload"
 )
 
 // loadEnvFile reads KEY=VALUE pairs from path and sets any that are not already
@@ -51,7 +51,7 @@ func newManager(runtime *core.Runtime, clusterMgr setupplatform.ClusterManagerAP
 // composition root so setup does not import the cluster command package.
 func New(runtime *core.Runtime, clusterMgr setupplatform.ClusterManagerAPI) *cobra.Command {
 	var envFile string
-	var routes publicroutes.Routes
+	var routes topology.Routes
 	var registryType string
 	var registryStorageSize string
 	var registryMode string
@@ -188,15 +188,15 @@ will use to push and pull container images.`,
 			if err := os.Setenv("MCP_POD_EGRESS_EXCEPT_CIDRS", strings.TrimSpace(podEgressExceptCIDRs)); err != nil {
 				return err
 			}
-			allows, err := egresscidrs.Parse(podEgressCIDRs)
+			allows, err := kubeworkload.ParseEgressCIDRs(podEgressCIDRs)
 			if err != nil {
 				return err
 			}
-			except, err := egresscidrs.Parse(podEgressExceptCIDRs)
+			except, err := kubeworkload.ParseEgressCIDRs(podEgressExceptCIDRs)
 			if err != nil {
 				return err
 			}
-			if _, err := egresscidrs.Blocks(allows, except); err != nil {
+			if _, err := kubeworkload.EgressBlocks(allows, except); err != nil {
 				return err
 			}
 
@@ -368,7 +368,7 @@ will use to push and pull container images.`,
 	cmd.Flags().StringVar(&routes.Grafana, "grafana-path-prefix", "/grafana", "Public admin-only Grafana path prefix")
 	cmd.Flags().StringVar(&routes.Registry, "registry-path", "/registry", "Public registry browser entry path; Docker and Kubernetes clients still use /v2/")
 	cmd.Flags().StringVar(&routes.Docs, "docs-path", "/docs", "Public path that redirects to the configured documentation URL")
-	cmd.Flags().StringVar(&routes.DocsURL, "docs-url", publicroutes.DefaultDocsURL, "HTTPS documentation destination used by the docs route and dashboard links")
+	cmd.Flags().StringVar(&routes.DocsURL, "docs-url", topology.DefaultDocsURL, "HTTPS documentation destination used by the docs route and dashboard links")
 	cmd.Flags().StringVar(&envFile, "env-file", "", "Path to an env file to source before setup (e.g. config/deployments/mcpruntime-org.env); variables already in the environment are not overridden")
 	cmd.Flags().StringVar(&registryType, "registry-type", "docker", "Registry type (docker; harbor coming soon)")
 	cmd.Flags().StringVar(&registryStorageSize, "registry-storage", "20Gi", "Registry storage size (default: 20Gi)")

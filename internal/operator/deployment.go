@@ -22,9 +22,9 @@ import (
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	cb "mcp-runtime/pkg/credentialbroker"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/platforminventory"
 	policypkg "mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
+	"mcp-runtime/pkg/topology"
 )
 
 func (r *MCPServerReconciler) reconcileDeployment(ctx context.Context, mcpServer *mcpv1alpha1.MCPServer) error {
@@ -488,12 +488,12 @@ func ensureGatewaySpec(mcpServer *mcpv1alpha1.MCPServer) {
 		mcpServer.Spec.Gateway.Enabled = mcpv1alpha1.BoolPtr(true)
 	}
 	if mcpServer.Spec.Gateway.Port == 0 {
-		mcpServer.Spec.Gateway.Port = platforminventory.MCPGatewayPort
+		mcpServer.Spec.Gateway.Port = topology.MCPGatewayPort
 	}
 	if strings.TrimSpace(mcpServer.Spec.Gateway.UpstreamURL) == "" {
 		port := mcpServer.Spec.Port
 		if port == 0 {
-			port = platforminventory.MCPServerPort
+			port = topology.MCPServerPort
 		}
 		mcpServer.Spec.Gateway.UpstreamURL = fmt.Sprintf("http://127.0.0.1:%d", port)
 	}

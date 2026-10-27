@@ -22,7 +22,7 @@ import (
 	chpkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/transport/httptrace"
 )
 
@@ -555,7 +555,7 @@ func observabilityPrometheusAPIPath(r *http.Request, namespace, serverName, quer
 // runtime-api paths they can call with their own API key or bearer token.
 // The header only selects the link form; both paths enforce the same auth.
 func observabilityRuntimeAPIPrefix(r *http.Request) string {
-	if platformauth.RequestSource(r) == "ui" {
+	if passport.RequestSource(r) == "ui" {
 		return strings.TrimSuffix(envOr("UI_PATH_PREFIX", "/"), "/") + "/api/ui/v1/runtime"
 	}
 	return "/api/v1/runtime"

@@ -3,6 +3,7 @@ package platform
 import (
 	"encoding/json"
 	"fmt"
+	"mcp-runtime/pkg/topology"
 	"net/url"
 	"os"
 	"regexp"
@@ -15,8 +16,6 @@ import (
 	"mcp-runtime/internal/cli/registry/config"
 	"mcp-runtime/internal/cli/setup/assetpath"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
-	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/publicroutes"
 )
 
 // mcpAuthInternalIssuerURLForCluster returns the in-cluster address gateway
@@ -33,7 +32,7 @@ func mcpAuthInternalIssuerURLForCluster() string {
 // DefaultMCPAuthIssuerURL derives the bundled server's fixed public route from
 // the platform domain, returning empty when no public domain is configured.
 func DefaultMCPAuthIssuerURL() string {
-	domain := metadata.NormalizePlatformDomain(os.Getenv("MCP_PLATFORM_DOMAIN"))
+	domain := topology.NormalizePlatformDomain(os.Getenv("MCP_PLATFORM_DOMAIN"))
 	if domain == "" {
 		return ""
 	}
@@ -254,7 +253,7 @@ func renderMCPAuthServerManifest(raw string, opts mcpAuthServerOptions) (string,
 	if err != nil || parsedIssuer.Host == "" {
 		return "", fmt.Errorf("mcp-auth issuer URL %q is not an absolute URL", issuer)
 	}
-	if err := publicroutes.ValidatePath(parsedIssuer.Path, false); err != nil {
+	if err := topology.ValidateRoutePath(parsedIssuer.Path, false); err != nil {
 		return "", fmt.Errorf("MCP Auth issuer path: %w", err)
 	}
 	if parsedIssuer.User != nil || parsedIssuer.RawQuery != "" || parsedIssuer.Fragment != "" || parsedIssuer.RawPath != "" {

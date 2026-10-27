@@ -24,8 +24,8 @@ import (
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/kube"
+	"mcp-runtime/internal/cli/manifest"
 	"mcp-runtime/internal/cli/setup/assetpath"
-	"mcp-runtime/pkg/manifest"
 )
 
 const (

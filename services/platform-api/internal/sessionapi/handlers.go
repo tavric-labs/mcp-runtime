@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/sessionstate"
 )
@@ -39,12 +39,12 @@ type Handler struct {
 
 func write(w http.ResponseWriter, status int, item any) { httpx.WriteJSON(w, status, item) }
 func fail(w http.ResponseWriter, status int, message string) {
-	codes := map[int]string{400: apihttp.CodeInvalidRequestBody, 401: apihttp.CodeUnauthorized, 403: apihttp.CodeForbidden, 404: apihttp.CodeNotFound, 409: apihttp.CodeConflict, 410: "sync_cursor_expired", 503: apihttp.CodeServiceUnavailable}
+	codes := map[int]string{400: apikit.CodeInvalidRequestBody, 401: apikit.CodeUnauthorized, 403: apikit.CodeForbidden, 404: apikit.CodeNotFound, 409: apikit.CodeConflict, 410: "sync_cursor_expired", 503: apikit.CodeServiceUnavailable}
 	code := codes[status]
 	if code == "" {
-		code = apihttp.CodeInternalError
+		code = apikit.CodeInternalError
 	}
-	apihttp.WriteEnvelope(w, status, code, message)
+	apikit.WriteEnvelope(w, status, code, message)
 }
 func bearer(r *http.Request) string {
 	v := r.Header.Get("Authorization")
