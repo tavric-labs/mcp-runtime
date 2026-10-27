@@ -243,7 +243,7 @@ func TestUpstreamAdmissionDenialsHaveDistinctAuditDecisions(t *testing.T) {
 			exchange := newExchange(recorder, httptest.NewRequest("POST", "http://gateway.invalid/mcp", strings.NewReader(`{"method":"tools/call"}`)), "v1")
 			exchange.Decision = policypkg.Allow("allowed", "v1")
 			exchange.Inspection = inspectedRPC("tools/call", "echo", RPCRequest)
-			permitted, response := permitRequest(AuthorizedRequest{AuthenticatedRequest: AuthenticatedRequest{PolicyRequest: PolicyRequest{InspectedRequest: InspectedRequest{RequestInput: &RequestInput{R: exchange.R}, Inspection: exchange.Inspection}}}, Decision: exchange.Decision}, exchange.W)
+			permitted, response := permitRequest(EvaluatedRequest{AuthenticatedRequest: AuthenticatedRequest{PolicyRequest: PolicyRequest{InspectedRequest: InspectedRequest{RequestInput: &RequestInput{R: exchange.R}, Inspection: exchange.Inspection}}}, Decision: exchange.Decision}, exchange.W)
 			if response != nil {
 				t.Fatal("fixture was denied")
 			}

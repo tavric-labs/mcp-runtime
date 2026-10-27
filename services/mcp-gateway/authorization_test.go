@@ -110,7 +110,7 @@ func TestToolCallIsDeniedWhenGrantExpires(t *testing.T) {
 	s.now = func() time.Time { return now }
 	ex := newTestExchange(http.MethodPost, "/mcp", "", nil)
 	input := authorizationExample()
-	ex.Policy, ex.Identity, ex.Inspection = input.Policy, input.Identity, input.Inspection
+	ex.Policy, ex.Caller, ex.Inspection = input.Policy, verifiedTestCaller(input.Identity), input.Inspection
 	ex.Policy.Grants[0].ExpiresAt = deadline.Format(time.RFC3339)
 	allowed, response := s.authzFilter(ex.AuthenticatedRequest)
 	if response != nil || !allowed.Decision.Allowed {

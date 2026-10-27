@@ -17,7 +17,7 @@
 //   - Authentication (stage 3) always completes before authorization (stage 4).
 //   - The policy snapshot (stage 2) is captured once and held immutable for the
 //     entire exchange lifetime; no later stage may re-acquire it.
-//   - Authorization consumes AuthenticatedRequest and produces AuthorizedRequest;
+//   - Authorization consumes AuthenticatedRequest and produces EvaluatedRequest;
 //     upstream preparation (stage 5) only reads its policy and identity.
 //
 // Filters have typed phase inputs and outputs (see filter.go). A non-nil

@@ -46,8 +46,8 @@ func TestCertificateAuthenticationUsesTheScopedSessionReader(t *testing.T) {
 	ex.Policy.Session.Store = "platform"
 	ex.R.TLS = verifiedProxyTLS()
 	out, response := s.authFilter(ex.PolicyRequest)
-	if response != nil || calls != 1 || out.CallerKind != CallerCertificate || out.Identity.AgentID != "agent" {
-		t.Fatalf("authentication response=%+v calls=%d caller=%v identity=%+v", response, calls, out.CallerKind, out.Identity)
+	if response != nil || calls != 1 || out.Caller.Kind() != CallerCertificate || out.Identity().AgentID != "agent" {
+		t.Fatalf("authentication response=%+v calls=%d caller=%v identity=%+v", response, calls, out.Caller.Kind(), out.Identity())
 	}
 }
 
@@ -82,8 +82,8 @@ func TestOAuthAuthenticationCanBeExercisedWithoutDiscoveryOrJWKS(t *testing.T) {
 	ex := newTestExchange(http.MethodPost, "/mcp", "", nil)
 	ex.Policy = oauthPolicy("https://issuer.invalid")
 	out, response := s.authFilter(ex.PolicyRequest)
-	if response != nil || out.CallerKind != CallerOAuth || out.Identity.HumanID != "human" || out.OAuthToken != "verified-token" {
-		t.Fatalf("out=%+v response=%+v", out.Identity, response)
+	if response != nil || out.Caller.Kind() != CallerOAuth || out.Identity().HumanID != "human" || out.OAuthToken() != "verified-token" {
+		t.Fatalf("out=%+v response=%+v", out.Identity(), response)
 	}
 }
 

@@ -86,13 +86,13 @@ func TestAdapterSessionExpiresAtItsDeadline(t *testing.T) {
 			out, response := s.authFilter(ex.PolicyRequest)
 			ex.record(response)
 			if offset < 0 {
-				if response != nil || out.Identity.SessionID != "session-1" {
+				if response != nil || out.Identity().SessionID != "session-1" {
 					t.Fatal("active adapter session denied")
 				}
 			} else if response == nil || response.Decision.Reason != "session_expired" || ex.W.status != http.StatusUnauthorized {
 				t.Fatalf("expired adapter session: response=%+v status=%d", response, ex.W.status)
 			}
-			if out.Identity.HumanID != "human-1" {
+			if out.Identity().HumanID != "human-1" {
 				t.Fatal("verified actor was lost from expired-session audit state")
 			}
 		})

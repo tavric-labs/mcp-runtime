@@ -65,39 +65,44 @@ type PolicyRequest struct {
 	PolicyErr error
 }
 
+// AuthenticatedRequest carries the policy snapshot and the provenance-tagged
+// caller. Identity and token are read through the Caller so they cannot
+// disagree with how the caller was established.
 type AuthenticatedRequest struct {
 	PolicyRequest
-	Identity   identityContext
-	OAuthToken string
-	CallerKind CallerKind
+	Caller Caller
 }
 
-// Authentication completed does not imply a Runtime identity: delegated-header
-// and anonymous/observe traffic are explicit, supported caller categories.
-type CallerKind uint8
+func (r AuthenticatedRequest) Identity() identityContext { return r.Caller.Identity() }
+func (r AuthenticatedRequest) OAuthToken() string        { return r.Caller.OAuthToken() }
 
-const (
-	CallerAnonymous CallerKind = iota
-	CallerDelegated
-	CallerOAuth
-	CallerCertificate
-)
-
-type AuthorizedRequest struct {
+// EvaluatedRequest is the outcome of authorization evaluation. Decision may be
+// a denial (or the zero value) and is retained for audit; it grants no right
+// to dispatch. Only permitRequest converts an allowed evaluation into the
+// upstream capability.
+type EvaluatedRequest struct {
 	AuthenticatedRequest
 	Decision policypkg.Decision
 }
 
-// PermittedRequest is the upstream capability. Only the dispatch gate attaches
-// the HTTP writer, after checking authorization. Its zero value cannot dispatch.
+// PermittedRequest is the upstream capability. Only permitRequest builds one,
+// after checking authorization, and it alone attaches the HTTP writer. Its
+// zero value cannot dispatch. Go cannot make this unforgeable inside package
+// main; the guard is that every constructor path goes through permitRequest
+// and upstreamFilter re-checks ok().
 type PermittedRequest struct {
-	request AuthorizedRequest
+	request EvaluatedRequest
 	writer  *statusRecorder
-	valid   bool
 	outcome *dispatchOutcome
 }
 
-func permitRequest(request AuthorizedRequest, writer *statusRecorder) (PermittedRequest, *FilterResponse) {
+// ok reports whether the capability was issued for an allowed decision.
+func (p PermittedRequest) ok() bool {
+	return p.writer != nil && p.outcome != nil && p.request.Decision.Allowed &&
+		p.request.RequestInput != nil && p.request.R != nil
+}
+
+func permitRequest(request EvaluatedRequest, writer *statusRecorder) (PermittedRequest, *FilterResponse) {
 	if !request.Decision.Allowed {
 		decision := request.Decision
 		if decision.Reason == "" {
@@ -108,7 +113,7 @@ func permitRequest(request AuthorizedRequest, writer *statusRecorder) (Permitted
 	if request.RequestInput == nil || request.R == nil || writer == nil {
 		return PermittedRequest{}, denyResponse(policypkg.Deny(http.StatusInternalServerError, "invalid_dispatch", request.Decision.PolicyVersion))
 	}
-	return PermittedRequest{request: request, writer: writer, valid: true, outcome: &dispatchOutcome{Decision: request.Decision}}, nil
+	return PermittedRequest{request: request, writer: writer, outcome: &dispatchOutcome{Decision: request.Decision}}, nil
 }
 
 // Pipeline has a fixed security-sensitive order. Named, typed slots allow a
@@ -118,8 +123,8 @@ type Pipeline struct {
 	Inspect  Filter[*RequestInput, InspectedRequest]
 	Policy   Filter[InspectedRequest, PolicyRequest]
 	Auth     Filter[PolicyRequest, AuthenticatedRequest]
-	Authz    Filter[AuthenticatedRequest, AuthorizedRequest]
-	Upstream Filter[PermittedRequest, AuthorizedRequest]
+	Authz    Filter[AuthenticatedRequest, EvaluatedRequest]
+	Upstream Filter[PermittedRequest, EvaluatedRequest]
 }
 
 func (s *gatewayServer) buildPipeline() Pipeline {
@@ -127,8 +132,8 @@ func (s *gatewayServer) buildPipeline() Pipeline {
 		Inspect:  FilterFunc[*RequestInput, InspectedRequest](s.inspectFilter),
 		Policy:   FilterFunc[InspectedRequest, PolicyRequest](s.policyFilter),
 		Auth:     FilterFunc[PolicyRequest, AuthenticatedRequest](s.authFilter),
-		Authz:    FilterFunc[AuthenticatedRequest, AuthorizedRequest](s.authzFilter),
-		Upstream: FilterFunc[PermittedRequest, AuthorizedRequest](s.upstreamFilter),
+		Authz:    FilterFunc[AuthenticatedRequest, EvaluatedRequest](s.authzFilter),
+		Upstream: FilterFunc[PermittedRequest, EvaluatedRequest](s.upstreamFilter),
 	}
 }
 
@@ -158,12 +163,12 @@ func (p Pipeline) Run(ex *Exchange) {
 	if runStage(ex, request, "auth", func() *FilterResponse {
 		var response *FilterResponse
 		authenticated, response = p.Auth.Handle(policy)
-		ex.Identity, ex.OAuthToken = authenticated.Identity, authenticated.OAuthToken
+		ex.Identity, ex.OAuthToken = authenticated.Identity(), authenticated.OAuthToken()
 		return response
 	}) {
 		return
 	}
-	var authorized AuthorizedRequest
+	var authorized EvaluatedRequest
 	if runStage(ex, request, "authz", func() *FilterResponse {
 		var response *FilterResponse
 		authorized, response = p.Authz.Handle(authenticated)
