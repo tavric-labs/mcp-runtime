@@ -45,9 +45,15 @@ var sessionProxyRuntimePrefixes = []string{
 	"/runtime/components",
 	"/runtime/actions/restart",
 	"/runtime/policy",
-	"/user/api-keys",
 	"/admin/operations",
 	"/admin/deployments",
+}
+
+// Platform-api owns identity state, so these routes go to it directly. The
+// stored platform bearer already has platform-api's audience and is forwarded
+// unchanged; there is no exchange for the service that issues the exchange.
+var sessionProxyPlatformPrefixes = []string{
+	"/user/api-keys",
 }
 
 var sessionProxyAnalyticsPrefixes = []string{
@@ -201,6 +207,9 @@ func sessionProxyRoute(requestPath string) (*url.URL, string, bool) {
 	if sessionProxyPathAllowed(suffix, sessionProxyAnalyticsPrefixes) {
 		return nil, "/api/v1" + suffix, true
 	}
+	if sessionProxyPathAllowed(suffix, sessionProxyPlatformPrefixes) {
+		return nil, "/api/v1" + suffix, true
+	}
 	return nil, "", false
 }
 
@@ -252,9 +261,13 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	targetAudience := platformauth.AudienceRuntime
 	base := p.runtimeBase
-	if strings.HasPrefix(upstreamPath, "/api/v1/events") ||
+	platformTarget := sessionProxyPathAllowed(strings.TrimPrefix(upstreamPath, "/api/v1"), sessionProxyPlatformPrefixes)
+	switch {
+	case platformTarget:
+		base = p.platformBase
+	case strings.HasPrefix(upstreamPath, "/api/v1/events") ||
 		strings.HasPrefix(upstreamPath, "/api/v1/analytics/usage") ||
-		strings.HasPrefix(upstreamPath, "/api/v1/user/analytics/usage") {
+		strings.HasPrefix(upstreamPath, "/api/v1/user/analytics/usage"):
 		base = p.analyticsBase
 		targetAudience = platformauth.AudienceAnalytics
 	}
@@ -286,7 +299,9 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if client == nil {
 		client = NewHTTPClient()
 	}
-	if authHeader != "" {
+	if authHeader != "" && platformTarget {
+		req.Header.Set("authorization", authHeader)
+	} else if authHeader != "" {
 		authHeader, err = platformauth.ExchangeBearer(r.Context(), client, p.platformBase, authHeader, targetAudience)
 		if err != nil {
 			status := http.StatusBadGateway

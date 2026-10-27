@@ -123,8 +123,6 @@ func TestAuthzMatrixCoversRegisteredRoutes(t *testing.T) {
 		"/api/v1/runtime/actions/restart",
 		"/api/v1/runtime/grants/",
 		"/api/v1/runtime/sessions/",
-		"/api/v1/user/api-keys",
-		"/api/v1/user/api-keys/",
 	}
 
 	for _, pattern := range required {

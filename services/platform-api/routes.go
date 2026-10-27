@@ -57,6 +57,7 @@ func (s *apiServer) registerRoutes(mux *http.ServeMux) {
 	register("/auth/oidc", http.HandlerFunc(s.handleOIDCLogin))
 	routes := platformRoutes{
 		platform:            s.platform,
+		userKeys:            s.userKeys,
 		authenticateRequest: s.authenticateRequest,
 		auth:                auth,
 		adminOnly:           adminOnly,
@@ -67,6 +68,7 @@ func (s *apiServer) registerRoutes(mux *http.ServeMux) {
 
 type platformRoutes struct {
 	platform            *platformStore
+	userKeys            userAPIKeyStore
 	authenticateRequest func(*http.Request) (principal, bool, error)
 	auth                func(http.Handler) http.Handler
 	adminOnly           func(http.Handler) http.Handler
@@ -84,6 +86,8 @@ func (pr platformRoutes) register() {
 		identity.HandleUserLifecycle(w, r, store)
 	})))
 	pr.mount("/auth/me", pr.auth(http.HandlerFunc(pr.handleAuthMe)))
+	pr.mount("/user/api-keys", pr.auth(http.HandlerFunc(pr.handleUserAPIKeys)))
+	pr.mount("/user/api-keys/", pr.auth(http.HandlerFunc(pr.handleUserAPIKeyItem)))
 	pr.mount("/user/registry-credentials", pr.auth(http.HandlerFunc(pr.handleRegistryCredentials)))
 	pr.mount("/user/registry-credentials/", pr.auth(http.HandlerFunc(pr.handleRegistryCredentialItem)))
 	pr.mount("/user/activity/image-publish", pr.auth(http.HandlerFunc(pr.handleUserImagePublishActivity)))
@@ -132,6 +136,27 @@ func (pr platformRoutes) handleRegistryCredentialItem(w http.ResponseWriter, r *
 		AuditSource:          auditSource,
 		AuditIdentityLabel:   auditIdentityLabel,
 	})
+}
+
+func (pr platformRoutes) userKeyDependencies() identity.Dependencies {
+	return identity.Dependencies{
+		Platform:             pr.platform,
+		UserKeys:             pr.userKeys,
+		PrincipalFromContext: principalFromContext,
+		WriteJSON:            writeJSON,
+		WriteBodyDecodeError: writeBodyDecodeError,
+		RequestIP:            requestIP,
+		AuditSource:          auditSource,
+		AuditIdentityLabel:   auditIdentityLabel,
+	}
+}
+
+func (pr platformRoutes) handleUserAPIKeys(w http.ResponseWriter, r *http.Request) {
+	identity.HandleUserAPIKeys(w, r, pr.userKeyDependencies())
+}
+
+func (pr platformRoutes) handleUserAPIKeyItem(w http.ResponseWriter, r *http.Request) {
+	identity.HandleUserAPIKeyItem(w, r, pr.userKeyDependencies())
 }
 
 func (pr platformRoutes) handleAuthMe(w http.ResponseWriter, r *http.Request) {

@@ -440,6 +440,22 @@ func newTestSessionProxy(t *testing.T, upstreamURL string) *SessionProxy {
 	return newSessionProxyWithUpstreams(testExchangeBase(t), base, base, newUISessionStore(time.Now))
 }
 
+// newTestPlatformSessionProxy points platform-api at the capturing upstream and
+// the other APIs at a closed port, so a platform-owned route that strays to
+// runtime-api or analytics-api fails with a bad gateway.
+func newTestPlatformSessionProxy(t *testing.T, platformURL string) *SessionProxy {
+	t.Helper()
+	platform, err := ParseUpstream(platformURL)
+	if err != nil {
+		t.Fatalf("ParseUpstream() error = %v", err)
+	}
+	closed, err := ParseUpstream("http://127.0.0.1:1")
+	if err != nil {
+		t.Fatalf("ParseUpstream() error = %v", err)
+	}
+	return newSessionProxyWithUpstreams(platform, closed, closed, newUISessionStore(time.Now))
+}
+
 func createTestSession(t *testing.T, store *uiSessionStore, session uiSession) uiSession {
 	t.Helper()
 	sess, err := store.Create(context.Background(), session)

@@ -384,35 +384,6 @@ paths:
           content:
             application/json:
               schema: { type: object, properties: { agent: { $ref: "#/components/schemas/Agent" } } }
-  /internal/auth/resolve:
-    post:
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [api_key]
-              properties:
-                api_key:
-                  type: string
-      responses:
-        "200":
-          description: resolved principal
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [ok]
-                properties:
-                  ok:
-                    type: boolean
-        "401":
-          description: unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   schemas:
     ErrorEnvelope:

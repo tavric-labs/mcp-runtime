@@ -80,7 +80,7 @@ func TestSessionProxyWriteWithValidCSRFReachesUpstream(t *testing.T) {
 		_, _ = w.Write([]byte(`{"key":{"id":"uk_1"},"api_key":"mcpu_secret"}`))
 	}))
 	t.Cleanup(upstream.Close)
-	proxy := newTestSessionProxy(t, upstream.URL)
+	proxy := newTestPlatformSessionProxy(t, upstream.URL)
 	sess := createTestSession(t, proxy.store, uiSession{UpstreamAuthHeader: "Bearer session-token"})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/ui/v1/user/api-keys", strings.NewReader(`{"name":"laptop"}`))
@@ -121,7 +121,7 @@ func TestSessionProxyDeleteWithValidCSRF(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(upstream.Close)
-	proxy := newTestSessionProxy(t, upstream.URL)
+	proxy := newTestPlatformSessionProxy(t, upstream.URL)
 	sess := createTestSession(t, proxy.store, uiSession{UpstreamAuthHeader: "Bearer session-token"})
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/ui/v1/user/api-keys/uk_abc", nil)

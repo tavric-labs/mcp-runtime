@@ -50,7 +50,6 @@ namespace_placement_env() {
 deployment|mcp-platform|mcp-ui|API_UPSTREAM|http://mcp-platform-api.mcp-platform.svc.cluster.local:8080
 deployment|mcp-platform|mcp-ui|RUNTIME_UPSTREAM|http://mcp-runtime-api.mcp-platform.svc.cluster.local:8084
 deployment|mcp-platform|mcp-ui|ANALYTICS_UPSTREAM|http://mcp-analytics-api.mcp-observability.svc.cluster.local:8085
-deployment|mcp-platform|mcp-platform-api|RUNTIME_CONTROL_URL|http://mcp-runtime-api.mcp-platform.svc.cluster.local:8084
 deployment|mcp-platform|mcp-runtime-api|PLATFORM_API_URL|http://mcp-platform-api.mcp-platform.svc.cluster.local:8080
 deployment|mcp-platform|mcp-runtime-api|CLICKHOUSE_ADDR|clickhouse.mcp-observability.svc.cluster.local:${clickhouse_port}
 deployment|mcp-observability|mcp-analytics-api|PLATFORM_API_URL|http://mcp-platform-api.mcp-platform.svc.cluster.local:8080

@@ -120,10 +120,11 @@ rm -f "$JAR"
 
 Add matrix rows for every allowlisted proxy path (`/api/ui/v1/dashboard/summary`,
 `/runtime/{namespaces,servers,tools,server-events,teams,agents,grants,sessions,
-components,policy,observability/*}`, `/user/api-keys`,
+components,policy,observability/*}`,
 `/admin/{operations,deployments}`, `/events`, `/analytics/usage`,
 `/user/analytics/usage` — see `sessionProxyRuntimePrefixes` /
-`sessionProxyAnalyticsPrefixes` in `session_proxy.go` for the authoritative
+`sessionProxyAnalyticsPrefixes` / `sessionProxyPlatformPrefixes` (`/user/api-keys`, sent to
+platform-api with the stored bearer, no exchange) in `session_proxy.go` for the authoritative
 list) and confirm a missing/expired/invalid session returns 401 on each.
 A cookie-authenticated write allowlist exists in `session_proxy.go`
 (`sessionProxyWriteRoutes`). Its current routes include `/user/api-keys`
