@@ -1,7 +1,8 @@
-package access
+package k8sstore
 
 import (
 	"context"
+	"mcp-runtime/pkg/access"
 	"strings"
 	"testing"
 
@@ -41,37 +42,37 @@ func TestApplyGrantCreatesAndUpdates(t *testing.T) {
 				{APIVersion: "mcpruntime.org/v1alpha1", Kind: "MCPServer", Name: "demo"},
 			},
 		},
-		Spec: MCPAccessGrantSpec{
-			ServerRef: ServerReference{Name: "demo"},
-			Subject:   SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
-			MaxTrust:  TrustLevel("low"),
-			ToolRules: []ToolRule{{Name: "aaa-ping", Decision: DecisionAllow}},
+		Spec: access.MCPAccessGrantSpec{
+			ServerRef: access.ServerReference{Name: "demo"},
+			Subject:   access.SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
+			MaxTrust:  access.TrustLevel("low"),
+			ToolRules: []access.ToolRule{{Name: "aaa-ping", Decision: access.DecisionAllow}},
 		},
 	})
 	if err != nil {
 		t.Fatalf("ApplyGrant create returned error: %v", err)
 	}
-	if created.Name != "grant-a" || created.Spec.MaxTrust != TrustLevel("low") {
+	if created.Name != "grant-a" || created.Spec.MaxTrust != access.TrustLevel("low") {
 		t.Fatalf("created grant mismatch: %#v", created)
 	}
 
 	updated, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
-		Spec: MCPAccessGrantSpec{
-			ServerRef: ServerReference{Name: "demo"},
-			Subject:   SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
-			MaxTrust:  TrustLevel("high"),
-			ToolRules: []ToolRule{{Name: "aaa-ping", Decision: DecisionDeny}},
+		Spec: access.MCPAccessGrantSpec{
+			ServerRef: access.ServerReference{Name: "demo"},
+			Subject:   access.SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
+			MaxTrust:  access.TrustLevel("high"),
+			ToolRules: []access.ToolRule{{Name: "aaa-ping", Decision: access.DecisionDeny}},
 		},
 	})
 	if err != nil {
 		t.Fatalf("ApplyGrant update returned error: %v", err)
 	}
-	if updated.Spec.MaxTrust != TrustLevel("high") {
+	if updated.Spec.MaxTrust != access.TrustLevel("high") {
 		t.Fatalf("updated MaxTrust = %q, want high", updated.Spec.MaxTrust)
 	}
-	if got := updated.Spec.ToolRules[0].Decision; got != DecisionDeny {
-		t.Fatalf("updated decision = %q, want %q", got, DecisionDeny)
+	if got := updated.Spec.ToolRules[0].Decision; got != access.DecisionDeny {
+		t.Fatalf("updated decision = %q, want %q", got, access.DecisionDeny)
 	}
 	if got := updated.Labels["operator"]; got != "owned" {
 		t.Fatalf("updated label operator = %q, want owned", got)
@@ -93,32 +94,32 @@ func TestApplySessionCreatesAndUpdates(t *testing.T) {
 
 	created, err := manager.ApplySession(ctx, &MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "mcp-servers"},
-		Spec: MCPAgentSessionSpec{
-			ServerRef:      ServerReference{Name: "demo"},
-			Subject:        SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
-			ConsentedTrust: TrustLevel("low"),
+		Spec: access.MCPAgentSessionSpec{
+			ServerRef:      access.ServerReference{Name: "demo"},
+			Subject:        access.SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
+			ConsentedTrust: access.TrustLevel("low"),
 		},
 	})
 	if err != nil {
 		t.Fatalf("ApplySession create returned error: %v", err)
 	}
-	if created.Name != "session-a" || created.Spec.ConsentedTrust != TrustLevel("low") {
+	if created.Name != "session-a" || created.Spec.ConsentedTrust != access.TrustLevel("low") {
 		t.Fatalf("created session mismatch: %#v", created)
 	}
 
 	updated, err := manager.ApplySession(ctx, &MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "mcp-servers"},
-		Spec: MCPAgentSessionSpec{
-			ServerRef:      ServerReference{Name: "demo"},
-			Subject:        SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
-			ConsentedTrust: TrustLevel("medium"),
+		Spec: access.MCPAgentSessionSpec{
+			ServerRef:      access.ServerReference{Name: "demo"},
+			Subject:        access.SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
+			ConsentedTrust: access.TrustLevel("medium"),
 			Revoked:        true,
 		},
 	})
 	if err != nil {
 		t.Fatalf("ApplySession update returned error: %v", err)
 	}
-	if updated.Spec.ConsentedTrust != TrustLevel("medium") {
+	if updated.Spec.ConsentedTrust != access.TrustLevel("medium") {
 		t.Fatalf("updated ConsentedTrust = %q, want medium", updated.Spec.ConsentedTrust)
 	}
 	if !updated.Spec.Revoked {
@@ -139,21 +140,21 @@ func TestAssertMCPServerRef(t *testing.T) {
 	}
 	manager := NewManager(dynamicfake.NewSimpleDynamicClient(scheme, srv), nil)
 
-	if err := manager.AssertMCPServerRef(ctx, ServerReference{Name: "payments", Namespace: "mcp-servers"}); err != nil {
+	if err := manager.AssertMCPServerRef(ctx, access.ServerReference{Name: "payments", Namespace: "mcp-servers"}); err != nil {
 		t.Fatalf("valid ref: %v", err)
 	}
 
-	err := manager.AssertMCPServerRef(ctx, ServerReference{Name: "missing", Namespace: "mcp-servers"})
+	err := manager.AssertMCPServerRef(ctx, access.ServerReference{Name: "missing", Namespace: "mcp-servers"})
 	if err == nil {
 		t.Fatal("expected error for missing server")
 	}
-	if !IsMCPServerNotFoundForRef(err) {
+	if !access.IsMCPServerNotFoundForRef(err) {
 		t.Fatalf("expected ErrMCPServerNotFound, got %v", err)
 	}
 }
 
 func TestResolveServerRefNamespace(t *testing.T) {
-	if got := ResolveServerRefNamespace(ServerReference{Namespace: "  \t"}); got != DefaultMCPResourceNamespace {
+	if got := access.ResolveServerRefNamespace(access.ServerReference{Namespace: "  \t"}); got != access.DefaultMCPResourceNamespace {
 		t.Fatalf("whitespace only namespace = %q, want default", got)
 	}
 }
@@ -165,10 +166,10 @@ func TestApplyGrantRetriesOnConflict(t *testing.T) {
 
 	if _, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
-		Spec: MCPAccessGrantSpec{
-			ServerRef: ServerReference{Name: "demo"},
-			Subject:   SubjectRef{HumanID: "user-1"},
-			MaxTrust:  TrustLevel("low"),
+		Spec: access.MCPAccessGrantSpec{
+			ServerRef: access.ServerReference{Name: "demo"},
+			Subject:   access.SubjectRef{HumanID: "user-1"},
+			MaxTrust:  access.TrustLevel("low"),
 		},
 	}); err != nil {
 		t.Fatalf("seed grant: %v", err)
@@ -189,10 +190,10 @@ func TestApplyGrantRetriesOnConflict(t *testing.T) {
 
 	updated, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
-		Spec: MCPAccessGrantSpec{
-			ServerRef: ServerReference{Name: "demo"},
-			Subject:   SubjectRef{HumanID: "user-1"},
-			MaxTrust:  TrustLevel("high"),
+		Spec: access.MCPAccessGrantSpec{
+			ServerRef: access.ServerReference{Name: "demo"},
+			Subject:   access.SubjectRef{HumanID: "user-1"},
+			MaxTrust:  access.TrustLevel("high"),
 		},
 	})
 	if err != nil {
@@ -201,7 +202,7 @@ func TestApplyGrantRetriesOnConflict(t *testing.T) {
 	if conflicts != 2 {
 		t.Fatalf("expected 2 simulated conflicts, observed %d", conflicts)
 	}
-	if updated.Spec.MaxTrust != TrustLevel("high") {
+	if updated.Spec.MaxTrust != access.TrustLevel("high") {
 		t.Fatalf("post-retry MaxTrust = %q, want high", updated.Spec.MaxTrust)
 	}
 }
@@ -213,10 +214,10 @@ func TestApplyGrantGivesUpAfterMaxConflicts(t *testing.T) {
 
 	if _, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
-		Spec: MCPAccessGrantSpec{
-			ServerRef: ServerReference{Name: "demo"},
-			Subject:   SubjectRef{HumanID: "user-1"},
-			MaxTrust:  TrustLevel("low"),
+		Spec: access.MCPAccessGrantSpec{
+			ServerRef: access.ServerReference{Name: "demo"},
+			Subject:   access.SubjectRef{HumanID: "user-1"},
+			MaxTrust:  access.TrustLevel("low"),
 		},
 	}); err != nil {
 		t.Fatalf("seed grant: %v", err)
@@ -232,10 +233,10 @@ func TestApplyGrantGivesUpAfterMaxConflicts(t *testing.T) {
 
 	_, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
-		Spec: MCPAccessGrantSpec{
-			ServerRef: ServerReference{Name: "demo"},
-			Subject:   SubjectRef{HumanID: "user-1"},
-			MaxTrust:  TrustLevel("high"),
+		Spec: access.MCPAccessGrantSpec{
+			ServerRef: access.ServerReference{Name: "demo"},
+			Subject:   access.SubjectRef{HumanID: "user-1"},
+			MaxTrust:  access.TrustLevel("high"),
 		},
 	})
 	if err == nil {
@@ -264,7 +265,7 @@ func TestValidateResourceName(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := ValidateResourceName("name", tc.input)
+			err := access.ValidateResourceName("name", tc.input)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("ValidateResourceName(%q) err=%v, wantErr=%v", tc.input, err, tc.wantErr)
 			}
@@ -273,10 +274,10 @@ func TestValidateResourceName(t *testing.T) {
 }
 
 func TestValidateOptionalResourceName(t *testing.T) {
-	if err := ValidateOptionalResourceName("namespace", ""); err != nil {
+	if err := access.ValidateOptionalResourceName("namespace", ""); err != nil {
 		t.Fatalf("empty optional should be allowed: %v", err)
 	}
-	if err := ValidateOptionalResourceName("namespace", "Bad_Name"); err == nil {
+	if err := access.ValidateOptionalResourceName("namespace", "Bad_Name"); err == nil {
 		t.Fatal("expected error for invalid optional name")
 	}
 }

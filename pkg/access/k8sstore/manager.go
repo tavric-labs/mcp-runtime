@@ -1,10 +1,11 @@
-package access
+package k8sstore
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mcp-runtime/pkg/access"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +18,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/platforminventory"
 	policypkg "mcp-runtime/pkg/policy"
 )
 
@@ -27,8 +27,6 @@ const (
 	AccessGrantResource   = mcpv1alpha1.MCPAccessGrantResource
 	AccessSessionResource = mcpv1alpha1.MCPAgentSessionResource
 	MCPServerResource     = mcpv1alpha1.MCPServerResource
-	// DefaultMCPResourceNamespace is used when a ServerReference or access resource omits a namespace.
-	DefaultMCPResourceNamespace = platforminventory.MCPServersNamespace
 )
 
 var (
@@ -70,51 +68,24 @@ func NewManager(dynamic dynamic.Interface, clientset kubernetes.Interface) *Mana
 	}
 }
 
-// ResolveServerRefNamespace returns the namespace to resolve serverRef against.
-// Empty or whitespace ref.Namespace defaults to DefaultMCPResourceNamespace.
-func ResolveServerRefNamespace(ref ServerReference) Namespace {
-	if ns := strings.TrimSpace(string(ref.Namespace)); ns != "" {
-		return Namespace(ns)
-	}
-	return Namespace(DefaultMCPResourceNamespace)
-}
-
-// ErrMCPServerNotFound is returned by AssertMCPServerRef when the target MCPServer is missing.
-type ErrMCPServerNotFound struct {
-	Name, Namespace string
-}
-
-func (e *ErrMCPServerNotFound) Error() string {
-	if e == nil {
-		return ""
-	}
-	return fmt.Sprintf("unknown serverRef: MCPServer %q not found in namespace %q", e.Name, e.Namespace)
-}
-
-// IsMCPServerNotFoundForRef returns true if err is an *ErrMCPServerNotFound.
-func IsMCPServerNotFoundForRef(err error) bool {
-	var missing *ErrMCPServerNotFound
-	return err != nil && errors.As(err, &missing)
-}
-
 // AssertMCPServerRef checks that a server exists and accepts new authorization.
 // Use this before creating grants or sessions so the API can reject unknown targets early.
-func (m *Manager) AssertMCPServerRef(ctx context.Context, ref ServerReference) error {
+func (m *Manager) AssertMCPServerRef(ctx context.Context, ref access.ServerReference) error {
 	_, err := m.GetActiveMCPServerRef(ctx, ref)
 	return err
 }
 
 // GetMCPServerRef returns the MCPServer referenced by ref.
-func (m *Manager) GetMCPServerRef(ctx context.Context, ref ServerReference) (*mcpv1alpha1.MCPServer, error) {
+func (m *Manager) GetMCPServerRef(ctx context.Context, ref access.ServerReference) (*mcpv1alpha1.MCPServer, error) {
 	name := strings.TrimSpace(string(ref.Name))
 	if name == "" {
 		return nil, fmt.Errorf("serverRef.name is required")
 	}
-	ns := ResolveServerRefNamespace(ref)
+	ns := access.ResolveServerRefNamespace(ref)
 	obj, err := m.dynamic.Resource(serverGVR).Namespace(string(ns)).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, &ErrMCPServerNotFound{Name: name, Namespace: string(ns)}
+			return nil, &access.ErrMCPServerNotFound{Name: name, Namespace: string(ns)}
 		}
 		return nil, fmt.Errorf("lookup serverRef: %w", err)
 	}
@@ -128,12 +99,12 @@ func (m *Manager) GetMCPServerRef(ctx context.Context, ref ServerReference) (*mc
 // GetActiveMCPServerRef resolves an authorization target for issuance. Ordinary
 // lookups retain retiring servers so management can still check ownership and
 // clean up access after a failed retirement.
-func (m *Manager) GetActiveMCPServerRef(ctx context.Context, ref ServerReference) (*mcpv1alpha1.MCPServer, error) {
+func (m *Manager) GetActiveMCPServerRef(ctx context.Context, ref access.ServerReference) (*mcpv1alpha1.MCPServer, error) {
 	server, err := m.GetMCPServerRef(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
-	if server.Annotations[ServerRetiringAnnotation] == "true" || server.DeletionTimestamp != nil {
+	if server.Annotations[access.ServerRetiringAnnotation] == "true" || server.DeletionTimestamp != nil {
 		return nil, apierrors.NewConflict(serverGVR.GroupResource(), server.Name, errors.New("server is being retired"))
 	}
 	return server, nil
@@ -212,8 +183,8 @@ func (m *Manager) ApplyGrant(ctx context.Context, grant *MCPAccessGrant) (*MCPAc
 }
 
 // SetGrantMode updates only enforcement mode, preserving the grant restrictions.
-func (m *Manager) SetGrantMode(ctx context.Context, name, namespace string, mode GrantMode) error {
-	if mode != GrantModeEnforce && mode != GrantModeMonitor {
+func (m *Manager) SetGrantMode(ctx context.Context, name, namespace string, mode access.GrantMode) error {
+	if mode != access.GrantModeEnforce && mode != access.GrantModeMonitor {
 		return fmt.Errorf("mode must be enforce or monitor")
 	}
 	return m.patchGrant(ctx, name, namespace, map[string]interface{}{"spec": map[string]interface{}{"mode": mode}})

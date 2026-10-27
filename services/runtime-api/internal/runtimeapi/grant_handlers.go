@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 )
 
 func validateGrantRequest(req *accessGrantRequest) error {
@@ -48,7 +49,7 @@ func (s *AccessService) handleRuntimeGrantList(w http.ResponseWriter, r *http.Re
 		if filterByPrincipal && !principalCanReadGrantSubject(p, g) {
 			continue
 		}
-		summaries = append(summaries, mcpaccess.ToGrantSummary(g))
+		summaries = append(summaries, k8sstore.ToGrantSummary(g))
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{"grants": summaries})
@@ -144,7 +145,7 @@ func (s *AccessService) handleRuntimeGrantApply(w http.ResponseWriter, r *http.R
 		mode = existingGrant.Spec.Mode
 	}
 
-	grant := &mcpaccess.MCPAccessGrant{
+	grant := &k8sstore.MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        req.Name,
 			Namespace:   runtimeaccess.DefaultAccessNamespace(req.Namespace),
@@ -174,10 +175,10 @@ func (s *AccessService) handleRuntimeGrantApply(w http.ResponseWriter, r *http.R
 		}
 		s.writeCrossTeamGrantAudit(ctx, action, *applied, string(targetServer.Spec.TeamID))
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"grant": mcpaccess.ToGrantSummary(*applied)})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"grant": k8sstore.ToGrantSummary(*applied)})
 }
 
-func (s *AccessService) writeCrossTeamGrantAudit(ctx context.Context, action string, grant mcpaccess.MCPAccessGrant, resourceTeamID string) {
+func (s *AccessService) writeCrossTeamGrantAudit(ctx context.Context, action string, grant k8sstore.MCPAccessGrant, resourceTeamID string) {
 	if s == nil || s.audit == nil || strings.TrimSpace(string(grant.Spec.Subject.TeamID)) == strings.TrimSpace(resourceTeamID) {
 		return
 	}

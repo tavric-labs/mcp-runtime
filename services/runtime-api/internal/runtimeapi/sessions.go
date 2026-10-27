@@ -11,6 +11,7 @@ import (
 
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/k8sclient"
 )
 
@@ -91,7 +92,7 @@ func (s *AccessService) handleSessionGet(w http.ResponseWriter, r *http.Request,
 		writeAPIError(w, http.StatusForbidden, "forbidden server")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"session": mcpaccess.ToSessionSummary(*session)})
+	writeJSON(w, http.StatusOK, map[string]any{"session": k8sstore.ToSessionSummary(*session)})
 }
 
 func (s *AccessService) handleSessionDelete(w http.ResponseWriter, r *http.Request, namespace, name string) {

@@ -67,7 +67,7 @@ func TestGrantValidationBoundaryContracts(t *testing.T) {
 			if tc.wildcard && (len(warnings) != 1 || !strings.Contains(warnings[0], "wildcard grant")) {
 				t.Fatalf("wildcard warning: %v", warnings)
 			}
-			req := access.GrantApplyRequest{Name: g.Name, Namespace: g.Namespace, ServerRef: access.ServerReference{Name: access.ServerName(g.Spec.ServerRef.Name)}, Subject: access.SubjectRef{HumanID: access.HumanID(g.Spec.Subject.HumanID), AgentID: access.AgentID(g.Spec.Subject.AgentID), TeamID: access.TeamID(g.Spec.Subject.TeamID)}, ExpiresAt: g.Spec.ExpiresAt}
+			req := access.GrantApplyRequest{Name: g.Name, Namespace: g.Namespace, ServerRef: access.ServerReference{Name: access.ServerName(g.Spec.ServerRef.Name)}, Subject: access.SubjectRef{HumanID: access.HumanID(g.Spec.Subject.HumanID), AgentID: access.AgentID(g.Spec.Subject.AgentID), TeamID: access.TeamID(g.Spec.Subject.TeamID)}, ExpiresAt: testAccessTime(g.Spec.ExpiresAt)}
 			if g.Spec.Mode != "" {
 				mode := access.GrantMode(g.Spec.Mode)
 				req.Mode = &mode
@@ -92,7 +92,7 @@ func TestGrantValidationBoundaryContracts(t *testing.T) {
 
 func TestApplyValidationPreservesStateAndSessionImportContract(t *testing.T) {
 	no := false
-	expired := metav1.NewTime(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
+	expired := access.NewTime(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
 	req := access.SessionApplyRequest{Name: " session-a ", ServerRef: access.ServerReference{Name: " server-a "}, Subject: access.SubjectRef{HumanID: " user-a "}, ConsentedTrust: " high ", ExpiresAt: &expired, Revoked: &no}
 	if err := access.ValidateSessionApplyRequest(&req); err != nil {
 		t.Fatal(err)
@@ -127,4 +127,12 @@ func TestApplyValidationPreservesStateAndSessionImportContract(t *testing.T) {
 	if err = access.ValidateGrantApplyRequest(&grant, time.Now()); err == nil || err.Error() != "mode must be enforce or monitor" {
 		t.Fatalf("explicit empty mode must fail before other fields: %v", err)
 	}
+}
+
+// testAccessTime converts a CRD timestamp to the access contract's time.
+func testAccessTime(t *metav1.Time) *access.Time {
+	if t == nil {
+		return nil
+	}
+	return &access.Time{Time: t.Time}
 }

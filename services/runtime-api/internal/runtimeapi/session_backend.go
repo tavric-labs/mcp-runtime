@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 )
@@ -31,7 +32,7 @@ type platformSessionClient interface {
 // platform-owned persistence. It never creates a Kubernetes session resource.
 type platformSessionBackend struct {
 	client platformSessionClient
-	access *mcpaccess.Manager
+	access *k8sstore.Manager
 }
 
 func (b *platformSessionBackend) configured() error {
@@ -41,7 +42,7 @@ func (b *platformSessionBackend) configured() error {
 	return nil
 }
 
-func (b *platformSessionBackend) ListSessions(ctx context.Context, namespace string) (*mcpaccess.MCPAgentSessionList, error) {
+func (b *platformSessionBackend) ListSessions(ctx context.Context, namespace string) (*k8sstore.MCPAgentSessionList, error) {
 	if err := b.configured(); err != nil {
 		return nil, err
 	}
@@ -49,14 +50,14 @@ func (b *platformSessionBackend) ListSessions(ctx context.Context, namespace str
 	if err != nil {
 		return nil, err
 	}
-	result := &mcpaccess.MCPAgentSessionList{Items: make([]mcpaccess.MCPAgentSession, 0, len(rows))}
+	result := &k8sstore.MCPAgentSessionList{Items: make([]k8sstore.MCPAgentSession, 0, len(rows))}
 	for _, row := range rows {
 		result.Items = append(result.Items, *sessionFromState(row))
 	}
 	return result, nil
 }
 
-func (b *platformSessionBackend) GetSession(ctx context.Context, name, namespace string) (*mcpaccess.MCPAgentSession, error) {
+func (b *platformSessionBackend) GetSession(ctx context.Context, name, namespace string) (*k8sstore.MCPAgentSession, error) {
 	if err := b.configured(); err != nil {
 		return nil, err
 	}
@@ -65,12 +66,12 @@ func (b *platformSessionBackend) GetSession(ctx context.Context, name, namespace
 		return nil, err
 	}
 	if !found {
-		return nil, apierrors.NewNotFound(schema.GroupResource{Group: mcpaccess.APIGroup, Resource: mcpaccess.AccessSessionResource}, name)
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: k8sstore.APIGroup, Resource: k8sstore.AccessSessionResource}, name)
 	}
 	return sessionFromState(row), nil
 }
 
-func (b *platformSessionBackend) ApplySession(ctx context.Context, session *mcpaccess.MCPAgentSession) (*mcpaccess.MCPAgentSession, error) {
+func (b *platformSessionBackend) ApplySession(ctx context.Context, session *k8sstore.MCPAgentSession) (*k8sstore.MCPAgentSession, error) {
 	if err := b.configured(); err != nil {
 		return nil, err
 	}
@@ -119,7 +120,7 @@ func (b *platformSessionBackend) RevokeGrantSessions(ctx context.Context, namesp
 	return client.RevokeSessions(ctx, sessionstate.Filter{GrantNamespace: namespace, GrantName: name}, "grant_revoked")
 }
 
-func (b *platformSessionBackend) ListGrantSessions(ctx context.Context, namespace, name string) (*mcpaccess.MCPAgentSessionList, error) {
+func (b *platformSessionBackend) ListGrantSessions(ctx context.Context, namespace, name string) (*k8sstore.MCPAgentSessionList, error) {
 	if err := b.configured(); err != nil {
 		return nil, err
 	}
@@ -133,7 +134,7 @@ func (b *platformSessionBackend) ListGrantSessions(ctx context.Context, namespac
 	if err != nil {
 		return nil, err
 	}
-	result := &mcpaccess.MCPAgentSessionList{Items: []mcpaccess.MCPAgentSession{}}
+	result := &k8sstore.MCPAgentSessionList{Items: []k8sstore.MCPAgentSession{}}
 	for _, row := range rows {
 		result.Items = append(result.Items, *sessionFromState(row))
 	}
@@ -189,12 +190,12 @@ func (b *platformSessionBackend) DeleteSessionVersioned(ctx context.Context, nam
 
 func sessionBackendError(err error, name string) error {
 	if errors.Is(err, sessionstate.ErrNotFound) {
-		return apierrors.NewNotFound(schema.GroupResource{Group: mcpaccess.APIGroup, Resource: mcpaccess.AccessSessionResource}, name)
+		return apierrors.NewNotFound(schema.GroupResource{Group: k8sstore.APIGroup, Resource: k8sstore.AccessSessionResource}, name)
 	}
 	return err
 }
 
-func sessionToState(session *mcpaccess.MCPAgentSession, serverUID, authorityTeam string) sessionstate.Session {
+func sessionToState(session *k8sstore.MCPAgentSession, serverUID, authorityTeam string) sessionstate.Session {
 	serverNamespace := string(session.Spec.ServerRef.Namespace)
 	if serverNamespace == "" {
 		serverNamespace = session.Namespace
@@ -220,7 +221,7 @@ func sessionToState(session *mcpaccess.MCPAgentSession, serverUID, authorityTeam
 	return row
 }
 
-func sessionFromState(row sessionstate.Session) *mcpaccess.MCPAgentSession {
+func sessionFromState(row sessionstate.Session) *k8sstore.MCPAgentSession {
 	annotations := make(map[string]string, len(row.Annotations)+3)
 	for key, value := range row.Annotations {
 		annotations[key] = value
@@ -234,7 +235,7 @@ func sessionFromState(row sessionstate.Session) *mcpaccess.MCPAgentSession {
 		annotations[adapterGrantNameAnnotation] = row.GrantName
 		annotations[adapterGrantNamespaceAnnotation] = row.GrantNamespace
 	}
-	session := &mcpaccess.MCPAgentSession{
+	session := &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: string(row.Binding.Name), Namespace: row.Namespace, UID: types.UID(row.UID), CreationTimestamp: metav1.NewTime(row.CreatedAt), Labels: row.Labels, Annotations: annotations},
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			ServerRef:      mcpaccess.ServerReference{Name: mcpaccess.ServerName(row.ServerName), Namespace: mcpaccess.Namespace(row.ServerNamespace)},
@@ -243,7 +244,7 @@ func sessionFromState(row sessionstate.Session) *mcpaccess.MCPAgentSession {
 		},
 	}
 	if expires, err := time.Parse(time.RFC3339, row.Binding.ExpiresAt); err == nil {
-		session.Spec.ExpiresAt = &metav1.Time{Time: expires}
+		session.Spec.ExpiresAt = &mcpaccess.Time{Time: expires}
 	}
 	if name, key, ok := strings.Cut(row.Binding.UpstreamTokenRef, "/"); ok {
 		session.Spec.UpstreamTokenSecretRef = &mcpaccess.SecretKeyRef{Name: name, Key: key}

@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 )
@@ -72,7 +72,7 @@ func TestGrantBulkRevocationCrossNamespaceAuthorizationAndFailure(t *testing.T) 
 			_ = mcpv1alpha1.AddToScheme(scheme)
 			grant := &mcpv1alpha1.MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "grant", Namespace: "team-a"}, Spec: mcpv1alpha1.MCPAccessGrantSpec{ServerRef: mcpv1alpha1.ServerReference{Name: "server", Namespace: "team-a"}, Subject: mcpv1alpha1.SubjectRef{TeamID: "team-b"}}}
 			server := &mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "server", Namespace: "team-a"}, Spec: mcpv1alpha1.MCPServerSpec{TeamID: "team-a"}}
-			manager := mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, grant, server), nil)
+			manager := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, grant, server), nil)
 			client := &bulkGrantSessionClient{fail: tc.fail, rows: []sessionstate.Session{
 				{Namespace: "team-a", GrantNamespace: "team-a", GrantName: "grant", Binding: policy.Binding{Name: "local", TeamID: "team-b"}},
 				{Namespace: "team-b", GrantNamespace: "team-a", GrantName: "grant", Binding: policy.Binding{Name: "foreign", TeamID: "team-b"}},

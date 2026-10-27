@@ -65,22 +65,26 @@ var pkgLayers = map[string]layer{
 
 	// Adapters: the only layer that talks to Kubernetes.
 	"controlplane": adapter, "k8sclient": adapter, "kubeworkload": adapter,
-	"metadata/crdgen": adapter,
-	"operatorutil":    adapter, "platformstack": adapter, "registrypush": adapter,
+	"metadata/crdgen": adapter, "access/k8sstore": adapter,
+	"operatorutil": adapter, "platformstack": adapter, "registrypush": adapter,
 	"resourcehistory": adapter, "workloadidentity": adapter,
 }
 
-// k8sInDomain lists lower-layer packages that still import Kubernetes libraries
-// directly. The list may only shrink: splitting each into a pure package and a
-// Kubernetes store removes its entry, and an entry that no longer applies fails.
-var k8sInDomain = map[string]string{
-	"access":                "types and manager use Kubernetes objects; split into pure access and a k8s store",
-	"access/specvalidation": "validates Kubernetes-typed specs; move with the access split",
+// k8sInDomain lists lower-layer packages that still import Kubernetes API
+// objects or clients directly. It is empty: every entry has been removed by
+// splitting the package into a pure part and an adapter. An entry that no longer
+// applies fails, and a new entry needs a written justification.
+var k8sInDomain = map[string]string{}
+
+// k8sHelperPackages are generic Kubernetes utility packages that carry no API
+// objects, clients or cluster access, so lower layers may use them.
+var k8sHelperPackages = map[string]bool{
+	"k8s.io/apimachinery/pkg/util/validation/field": true, // field-path error formatting
 }
 
 type pkgInfo struct {
 	imports []string // repository packages under pkg/, relative to pkg/
-	k8s     bool     // imports k8s.io or sigs.k8s.io directly
+	k8s     []string // k8s.io and sigs.k8s.io packages imported directly
 }
 
 func layerViolations(graph map[string]pkgInfo, layers map[string]layer, k8sAllowed map[string]string) []string {
@@ -101,10 +105,16 @@ func layerViolations(graph map[string]pkgInfo, layers map[string]layer, k8sAllow
 			}
 		}
 		_, allowed := k8sAllowed[pkg]
+		heavy := false
+		for _, imp := range info.k8s {
+			if !k8sHelperPackages[imp] {
+				heavy = true
+			}
+		}
 		switch {
-		case info.k8s && from != adapter && !allowed:
+		case heavy && from != adapter && !allowed:
 			problems = append(problems, "pkg/"+pkg+" ("+from.String()+") imports Kubernetes libraries; only adapters may")
-		case !info.k8s && allowed:
+		case !heavy && allowed:
 			problems = append(problems, "pkg/"+pkg+" no longer imports Kubernetes libraries; remove it from k8sInDomain")
 		}
 	}
@@ -120,9 +130,9 @@ func layerViolations(graph map[string]pkgInfo, layers map[string]layer, k8sAllow
 func TestLayerViolationsDetectsUpwardImportsAndKubernetesInLowerLayers(t *testing.T) {
 	layers := map[string]layer{"id": leaf, "rules": domain, "store": adapter, "web": support}
 	graph := map[string]pkgInfo{
-		"id":    {imports: []string{"rules"}},         // leaf -> domain
-		"rules": {imports: []string{"id"}, k8s: true}, // domain with k8s
-		"store": {imports: []string{"rules"}, k8s: true},
+		"id":    {imports: []string{"rules"}},                                         // leaf -> domain
+		"rules": {imports: []string{"id"}, k8s: []string{"k8s.io/client-go/dynamic"}}, // domain with k8s
+		"store": {imports: []string{"rules"}, k8s: []string{"k8s.io/client-go/dynamic"}},
 		"web":   {imports: []string{"store"}}, // support -> adapter
 		"new":   {},                           // unclassified
 	}
@@ -138,13 +148,24 @@ func TestLayerViolationsDetectsUpwardImportsAndKubernetesInLowerLayers(t *testin
 	}
 
 	allowed := map[string]string{"rules": "pending split", "gone": "stale"}
-	got = layerViolations(map[string]pkgInfo{"rules": {k8s: false}}, map[string]layer{"rules": domain}, allowed)
+	got = layerViolations(map[string]pkgInfo{"rules": {}}, map[string]layer{"rules": domain}, allowed)
 	want = []string{
 		"pkg/gone is in k8sInDomain but does not exist",
 		"pkg/rules no longer imports Kubernetes libraries; remove it from k8sInDomain",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("ratchet violations = %q, want %q", got, want)
+	}
+
+	// Generic validation helpers are allowed in a lower layer; API objects and
+	// clients are not, even from the same group of k8s.io packages.
+	helper := map[string]pkgInfo{"rules": {k8s: []string{"k8s.io/apimachinery/pkg/util/validation/field"}}}
+	if got := layerViolations(helper, map[string]layer{"rules": domain}, nil); len(got) != 0 {
+		t.Fatalf("validation helper rejected in domain: %q", got)
+	}
+	object := map[string]pkgInfo{"rules": {k8s: []string{"k8s.io/apimachinery/pkg/apis/meta/v1"}}}
+	if got := layerViolations(object, map[string]layer{"rules": domain}, nil); len(got) != 1 {
+		t.Fatalf("API object import accepted in domain: %q", got)
 	}
 }
 
@@ -168,7 +189,7 @@ func TestSharedPackageLayerDesign(t *testing.T) {
 			case strings.HasPrefix(imp, modulePkg):
 				info.imports = append(info.imports, strings.TrimPrefix(imp, modulePkg))
 			case strings.HasPrefix(imp, "k8s.io/"), strings.HasPrefix(imp, "sigs.k8s.io/"):
-				info.k8s = true
+				info.k8s = append(info.k8s, imp)
 			}
 		}
 		graph[pkg] = info

@@ -12,6 +12,7 @@ import (
 
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/k8sclient"
 )
@@ -170,7 +171,7 @@ func (s *AccessService) handleGrantGet(w http.ResponseWriter, r *http.Request, n
 		writeAPIError(w, http.StatusForbidden, "forbidden server")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"grant": mcpaccess.ToGrantSummary(*grant)})
+	writeJSON(w, http.StatusOK, map[string]any{"grant": k8sstore.ToGrantSummary(*grant)})
 }
 
 func (s *AccessService) handleGrantDelete(w http.ResponseWriter, r *http.Request, namespace, name string) {

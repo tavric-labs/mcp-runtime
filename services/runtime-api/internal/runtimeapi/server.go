@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	chpkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
@@ -24,7 +24,7 @@ type RuntimeServer struct {
 	identity   identityStore
 	k8sClients *k8sclient.Clients
 	control    *controlplane.Manager
-	accessMgr  *mcpaccess.Manager
+	accessMgr  *k8sstore.Manager
 	stackMgr   *platformstack.Manager
 	audit      auditWriter
 
@@ -42,7 +42,7 @@ type DeploymentService struct {
 type AccessService struct {
 	k8sClients *k8sclient.Clients
 	identity   identityStore
-	accessMgr  *mcpaccess.Manager
+	accessMgr  *k8sstore.Manager
 	audit      auditWriter
 }
 
@@ -75,13 +75,13 @@ func NewRuntimeServer(db clickhouse.Conn, dbName string, apiKeys map[string]stru
 		k8sClients = nil
 	}
 
-	var accessMgr *mcpaccess.Manager
+	var accessMgr *k8sstore.Manager
 	var stackMgr *platformstack.Manager
 	var control *controlplane.Manager
 
 	if k8sClients != nil {
 		control = controlplane.New(k8sClients)
-		accessMgr = mcpaccess.NewManager(k8sClients.Dynamic, k8sClients.Clientset)
+		accessMgr = k8sstore.NewManager(k8sClients.Dynamic, k8sClients.Clientset)
 		// Platform sessions are authoritative even when the platform connection
 		// is unavailable: never fall back to stale Kubernetes session objects.
 		sessionClient, _ := identity.(platformSessionClient)

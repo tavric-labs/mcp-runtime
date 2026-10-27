@@ -1,4 +1,4 @@
-package access
+package k8sstore
 
 import (
 	"context"

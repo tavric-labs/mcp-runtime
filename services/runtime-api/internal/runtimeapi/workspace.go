@@ -7,6 +7,7 @@ import (
 	"time"
 
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/internalapi"
 )
 
@@ -103,7 +104,7 @@ func (s *RuntimeServer) HandleWorkspaceAccess(w http.ResponseWriter, r *http.Req
 			}
 		}
 		if (personal && (subject.TeamID == "" || team)) || (subject.HumanID == "" && team) {
-			gs = append(gs, mcpaccess.ToGrantSummary(grant))
+			gs = append(gs, k8sstore.ToGrantSummary(grant))
 		}
 	}
 	for _, session := range sessions.Items {
@@ -111,7 +112,7 @@ func (s *RuntimeServer) HandleWorkspaceAccess(w http.ResponseWriter, r *http.Req
 			continue
 		}
 		if p.UserID() != "" && string(session.Spec.Subject.HumanID) == p.UserID() {
-			ss = append(ss, mcpaccess.ToSessionSummary(session))
+			ss = append(ss, k8sstore.ToSessionSummary(session))
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"grants": gs, "sessions": ss})

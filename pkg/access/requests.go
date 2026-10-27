@@ -4,8 +4,6 @@ import (
 	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"mcp-runtime/pkg/access/specvalidation"
 	"mcp-runtime/pkg/policy"
 )
@@ -21,7 +19,7 @@ type GrantApplyRequest struct {
 	AllowedSideEffects []ToolSideEffect `json:"allowedSideEffects"`
 	PolicyVersion      string           `json:"policyVersion"`
 	Disabled           *bool            `json:"disabled,omitempty"`
-	ExpiresAt          *metav1.Time     `json:"expiresAt,omitempty"`
+	ExpiresAt          *Time            `json:"expiresAt,omitempty"`
 	ToolRules          []ToolRule       `json:"toolRules"`
 }
 
@@ -32,7 +30,7 @@ type SessionApplyRequest struct {
 	ServerRef      ServerReference `json:"serverRef"`
 	Subject        SubjectRef      `json:"subject"`
 	ConsentedTrust TrustLevel      `json:"consentedTrust"`
-	ExpiresAt      *metav1.Time    `json:"expiresAt"`
+	ExpiresAt      *Time           `json:"expiresAt"`
 	Revoked        *bool           `json:"revoked,omitempty"`
 	PolicyVersion  string          `json:"policyVersion"`
 	GrantName      string          `json:"grantName,omitempty"`

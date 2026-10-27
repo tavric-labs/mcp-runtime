@@ -1,9 +1,10 @@
-package access
+package k8sstore
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"mcp-runtime/pkg/access"
 	"testing"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,9 +22,9 @@ func TestRetireServerAccessCrossNamespaceAndRetry(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	ref := ServerReference{Name: "demo", Namespace: "team-a"}
-	grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "grant", Namespace: "team-b"}, Spec: MCPAccessGrantSpec{ServerRef: ref}}
-	session := &MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "session", Namespace: "team-c"}, Spec: MCPAgentSessionSpec{ServerRef: ref}}
+	ref := access.ServerReference{Name: "demo", Namespace: "team-a"}
+	grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "grant", Namespace: "team-b"}, Spec: access.MCPAccessGrantSpec{ServerRef: ref}}
+	session := &MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "session", Namespace: "team-c"}, Spec: access.MCPAgentSessionSpec{ServerRef: ref}}
 	otherGrant := *grant
 	otherGrant.Name = "other"
 	otherGrant.Spec.ServerRef.Namespace = "team-other"
@@ -80,7 +81,7 @@ func TestRetireServerAccessDoesNotDeleteAfterInvalidationFailure(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "grant", Namespace: "team-a"}, Spec: MCPAccessGrantSpec{ServerRef: ServerReference{Name: "demo", Namespace: "team-a"}}}
+	grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "grant", Namespace: "team-a"}, Spec: access.MCPAccessGrantSpec{ServerRef: access.ServerReference{Name: "demo", Namespace: "team-a"}}}
 	obj, _ := toUnstructured(grant, "MCPAccessGrant")
 	client := dynamicfake.NewSimpleDynamicClient(scheme, obj)
 	client.PrependReactor("patch", AccessGrantResource, func(a clienttesting.Action) (bool, runtime.Object, error) {
@@ -102,7 +103,7 @@ func TestAuthorizationBoundToServerDeployment(t *testing.T) {
 	_ = mcpv1alpha1.AddToScheme(scheme)
 	server := &mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "team-a", UID: "new"}}
 	manager := NewManager(dynamicfake.NewSimpleDynamicClient(scheme, server), nil)
-	grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "grant", Namespace: "team-a", Annotations: map[string]string{ServerUIDAnnotation: "old"}}, Spec: MCPAccessGrantSpec{ServerRef: ServerReference{Name: "demo", Namespace: "team-a"}}}
+	grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "grant", Namespace: "team-a", Annotations: map[string]string{access.ServerUIDAnnotation: "old"}}, Spec: access.MCPAccessGrantSpec{ServerRef: access.ServerReference{Name: "demo", Namespace: "team-a"}}}
 	if _, err := manager.ApplyGrant(context.Background(), grant); err == nil {
 		t.Fatal("stale request rebound to replacement server")
 	}
@@ -111,7 +112,7 @@ func TestAuthorizationBoundToServerDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bound.Annotations[ServerUIDAnnotation] != "new" {
+	if bound.Annotations[access.ServerUIDAnnotation] != "new" {
 		t.Fatal("new grant not bound to deployment")
 	}
 }
@@ -126,10 +127,10 @@ func TestRetiringServerLookupAllowsManagementButBlocksIssuance(t *testing.T) {
 				now := metav1.Now()
 				server.DeletionTimestamp = &now
 			} else {
-				server.Annotations = map[string]string{ServerRetiringAnnotation: "true"}
+				server.Annotations = map[string]string{access.ServerRetiringAnnotation: "true"}
 			}
 			manager := NewManager(dynamicfake.NewSimpleDynamicClient(scheme, server), nil)
-			ref := ServerReference{Name: "demo", Namespace: "team-a"}
+			ref := access.ServerReference{Name: "demo", Namespace: "team-a"}
 			got, err := manager.GetMCPServerRef(context.Background(), ref)
 			if err != nil || got.Labels["owner"] != "owner" {
 				t.Fatalf("management lookup lost authority: %+v %v", got, err)
@@ -137,11 +138,11 @@ func TestRetiringServerLookupAllowsManagementButBlocksIssuance(t *testing.T) {
 			if err := manager.AssertMCPServerRef(context.Background(), ref); !apierrors.IsConflict(err) {
 				t.Fatalf("issuance accepted retiring target: %v", err)
 			}
-			grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "team-a"}, Spec: MCPAccessGrantSpec{ServerRef: ref}}
+			grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "team-a"}, Spec: access.MCPAccessGrantSpec{ServerRef: ref}}
 			if _, err := manager.ApplyGrant(context.Background(), grant); !apierrors.IsConflict(err) {
 				t.Fatalf("grant issuance: %v", err)
 			}
-			session := &MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "team-a"}, Spec: MCPAgentSessionSpec{ServerRef: ref}}
+			session := &MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "team-a"}, Spec: access.MCPAgentSessionSpec{ServerRef: ref}}
 			if _, err := manager.ApplySession(context.Background(), session); !apierrors.IsConflict(err) {
 				t.Fatalf("session issuance: %v", err)
 			}

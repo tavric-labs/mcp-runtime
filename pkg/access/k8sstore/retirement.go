@@ -1,28 +1,21 @@
-package access
+package k8sstore
 
 import (
 	"context"
 	"fmt"
+	"mcp-runtime/pkg/access"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ServerRetiringAnnotation prevents issuing access or republishing a server
-// while a failed retirement is awaiting a retry.
-const ServerRetiringAnnotation = "mcpruntime.org/retiring"
-
-// ServerUIDAnnotation fences delayed authorization writes from an earlier
-// deployment when the same namespace/name is published again.
-const ServerUIDAnnotation = "mcpruntime.org/server-uid"
-
-func (m *Manager) bindServerUID(ctx context.Context, object metav1.Object, ref ServerReference) error {
+func (m *Manager) bindServerUID(ctx context.Context, object metav1.Object, ref access.ServerReference) error {
 	if strings.TrimSpace(string(ref.Namespace)) == "" {
-		ref.Namespace = Namespace(object.GetNamespace())
+		ref.Namespace = access.Namespace(object.GetNamespace())
 	}
 	server, err := m.GetActiveMCPServerRef(ctx, ref)
-	if IsMCPServerNotFoundForRef(err) {
+	if access.IsMCPServerNotFoundForRef(err) {
 		// Preserve the manager's low-level import behavior. The API validates
 		// existence before calling Apply; a previously bound import stays fenced.
 		return nil
@@ -37,10 +30,10 @@ func (m *Manager) bindServerUID(ctx context.Context, object metav1.Object, ref S
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
-	if bound := annotations[ServerUIDAnnotation]; bound != "" && bound != string(server.UID) {
+	if bound := annotations[access.ServerUIDAnnotation]; bound != "" && bound != string(server.UID) {
 		return fmt.Errorf("authorization belongs to a retired server deployment")
 	}
-	annotations[ServerUIDAnnotation] = string(server.UID)
+	annotations[access.ServerUIDAnnotation] = string(server.UID)
 	object.SetAnnotations(annotations)
 	return nil
 }
@@ -58,7 +51,7 @@ func (m *Manager) RetireServerAccess(ctx context.Context, namespace, name string
 	if err != nil {
 		return err
 	}
-	matches := func(objectNamespace string, ref ServerReference) bool {
+	matches := func(objectNamespace string, ref access.ServerReference) bool {
 		refNamespace := strings.TrimSpace(string(ref.Namespace))
 		if refNamespace == "" {
 			refNamespace = objectNamespace

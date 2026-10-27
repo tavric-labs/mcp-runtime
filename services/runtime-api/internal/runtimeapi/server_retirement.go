@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/kubeworkload"
 )
 
@@ -36,7 +36,7 @@ func (s *RuntimeServer) retireServerCredentials(ctx context.Context, namespace, 
 	}
 	// Preserve pre-existing credentials used by another server (including long
 	// server names whose deterministic generated credential names collide).
-	manager := mcpaccess.NewManager(s.k8sClients.Dynamic, s.k8sClients.Clientset)
+	manager := k8sstore.NewManager(s.k8sClients.Dynamic, s.k8sClients.Clientset)
 	servers, err := manager.ListMCPServers(ctx, namespace)
 	if err != nil {
 		return err

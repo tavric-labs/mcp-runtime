@@ -1,8 +1,8 @@
-package access
+package k8sstore
 
 import (
-	"encoding/json"
 	"fmt"
+	"mcp-runtime/pkg/access"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -99,57 +99,25 @@ func convertToSessionList(obj interface{}) (*MCPAgentSessionList, error) {
 	return list, nil
 }
 
-// GrantSummary provides a simplified view of a grant for UI display.
-type GrantSummary struct {
-	Mode               GrantMode        `json:"mode,omitempty"`
-	Name               string           `json:"name"`
-	Namespace          string           `json:"namespace"`
-	ServerRef          ServerReference  `json:"serverRef"`
-	Subject            SubjectRef       `json:"subject"`
-	MaxTrust           TrustLevel       `json:"maxTrust"`
-	AllowedSideEffects []ToolSideEffect `json:"allowedSideEffects,omitempty"`
-	ExpiresAt          *metav1.Time     `json:"expiresAt,omitempty"`
-	Disabled           bool             `json:"disabled"`
-	Age                string           `json:"age"`
-}
-
 // ToGrantSummary converts an MCPAccessGrant to a GrantSummary.
-func ToGrantSummary(grant MCPAccessGrant) GrantSummary {
-	return GrantSummary{
+func ToGrantSummary(grant MCPAccessGrant) access.GrantSummary {
+	return access.GrantSummary{
 		Mode:               grant.Spec.Mode,
 		Name:               grant.Name,
 		Namespace:          grant.Namespace,
 		ServerRef:          grant.Spec.ServerRef,
 		Subject:            grant.Spec.Subject,
 		MaxTrust:           grant.Spec.MaxTrust,
-		AllowedSideEffects: append([]ToolSideEffect(nil), grant.Spec.AllowedSideEffects...),
+		AllowedSideEffects: append([]access.ToolSideEffect(nil), grant.Spec.AllowedSideEffects...),
 		ExpiresAt:          grant.Spec.ExpiresAt,
 		Disabled:           grant.Spec.Disabled,
 		Age:                grant.CreationTimestamp.Format("2006-01-02T15:04:05Z"),
 	}
 }
 
-// SessionSummary provides a simplified view of a session for UI display.
-type SessionSummary struct {
-	Name            string          `json:"name"`
-	Namespace       string          `json:"namespace"`
-	ServerRef       ServerReference `json:"serverRef"`
-	Subject         SubjectRef      `json:"subject"`
-	ConsentedTrust  TrustLevel      `json:"consentedTrust"`
-	Revoked         bool            `json:"revoked"`
-	ExpiresAt       *metav1.Time    `json:"expiresAt,omitempty"`
-	Age             string          `json:"age"`
-	PolicyVersion   string          `json:"policyVersion,omitempty"`
-	ServerUID       string          `json:"serverUID,omitempty"`
-	GrantName       string          `json:"grantName,omitempty"`
-	GrantNamespace  string          `json:"grantNamespace,omitempty"`
-	RevokedAt       string          `json:"revokedAt,omitempty"`
-	RevocationCause string          `json:"revocationCause,omitempty"`
-}
-
 // ToSessionSummary converts an MCPAgentSession to a SessionSummary.
-func ToSessionSummary(session MCPAgentSession) SessionSummary {
-	summary := SessionSummary{
+func ToSessionSummary(session MCPAgentSession) access.SessionSummary {
+	summary := access.SessionSummary{
 		Name:            session.Name,
 		Namespace:       session.Namespace,
 		ServerRef:       session.Spec.ServerRef,
@@ -159,16 +127,11 @@ func ToSessionSummary(session MCPAgentSession) SessionSummary {
 		ExpiresAt:       session.Spec.ExpiresAt,
 		Age:             session.CreationTimestamp.Format("2006-01-02T15:04:05Z"),
 		PolicyVersion:   session.Spec.PolicyVersion,
-		ServerUID:       session.Annotations[ServerUIDAnnotation],
+		ServerUID:       session.Annotations[access.ServerUIDAnnotation],
 		GrantName:       session.Annotations["mcpruntime.org/access-grant-name"],
 		GrantNamespace:  session.Annotations["mcpruntime.org/access-grant-namespace"],
 		RevokedAt:       session.Annotations["mcpruntime.org/session-revoked-at"],
 		RevocationCause: session.Annotations["mcpruntime.org/session-revocation-cause"],
 	}
 	return summary
-}
-
-// ToJSON converts a grant or session to JSON bytes.
-func ToJSON(obj interface{}) ([]byte, error) {
-	return json.MarshalIndent(obj, "", "  ")
 }

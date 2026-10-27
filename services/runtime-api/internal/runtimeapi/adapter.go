@@ -20,6 +20,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
+	"mcp-runtime/pkg/access/k8sstore"
 )
 
 // Adapter-session bounds: the issued session's lifetime is constrained so a
@@ -181,7 +182,7 @@ func (s *AccessService) HandleAdapterSession(w http.ResponseWriter, r *http.Requ
 	policyVersion := runtimeaccess.DefaultPolicyVersion(grant.Spec.PolicyVersion)
 	sessionName := adapterSessionName(humanID, req.AgentID, teamID, req.ServerName)
 	expiresAt := time.Now().UTC().Add(requestedTTL)
-	if grant.Spec.ExpiresAt != nil && grant.Spec.ExpiresAt.Before(&metav1.Time{Time: expiresAt}) {
+	if grant.Spec.ExpiresAt != nil && grant.Spec.ExpiresAt.Before(expiresAt) {
 		expiresAt = grant.Spec.ExpiresAt.Time.UTC()
 	}
 
@@ -197,7 +198,7 @@ func (s *AccessService) HandleAdapterSession(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, http.StatusServiceUnavailable, "platform sessions are unavailable")
 		return
 	}
-	var existing *mcpaccess.MCPAgentSession
+	var existing *k8sstore.MCPAgentSession
 	for i := range available.Items {
 		candidate := &available.Items[i]
 		refNS := string(candidate.Spec.ServerRef.Namespace)
@@ -246,7 +247,7 @@ func (s *AccessService) HandleAdapterSession(w http.ResponseWriter, r *http.Requ
 		sessionName = sessionName + "-" + hex.EncodeToString(suffix[:])
 	}
 
-	session := &mcpaccess.MCPAgentSession{
+	session := &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sessionName,
 			Namespace: runtimeaccess.DefaultAccessNamespace(req.Namespace),
@@ -268,7 +269,7 @@ func (s *AccessService) HandleAdapterSession(w http.ResponseWriter, r *http.Requ
 				TeamID:  mcpaccess.TeamID(teamID),
 			},
 			ConsentedTrust: consentedTrust,
-			ExpiresAt:      &metav1.Time{Time: expiresAt},
+			ExpiresAt:      &mcpaccess.Time{Time: expiresAt},
 			PolicyVersion:  policyVersion,
 		},
 	}
@@ -302,7 +303,7 @@ func (s *AccessService) HandleAdapterSession(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-func adapterSessionLinkedToGrant(session *mcpaccess.MCPAgentSession, grant *mcpaccess.MCPAccessGrant) bool {
+func adapterSessionLinkedToGrant(session *k8sstore.MCPAgentSession, grant *k8sstore.MCPAccessGrant) bool {
 	if session == nil || grant == nil || session.Annotations == nil {
 		return false
 	}
@@ -319,7 +320,7 @@ func containsString(values []string, target string) bool {
 	return false
 }
 
-func adapterSessionWithinGrant(session *mcpaccess.MCPAgentSession, grant *mcpaccess.MCPAccessGrant) bool {
+func adapterSessionWithinGrant(session *k8sstore.MCPAgentSession, grant *k8sstore.MCPAccessGrant) bool {
 	if session == nil || session.Spec.ExpiresAt == nil {
 		return false
 	}
@@ -361,7 +362,7 @@ func defaultAdapterSessionTeamID(p principal, namespace string, teamIDs []string
 // field empty (wildcard). When multiple grants match, the one with the highest
 // MaxTrust wins; ties are broken by oldest creationTimestamp so the result is
 // deterministic across replicas.
-func (s *AccessService) selectAdapterGrant(ctx context.Context, namespace, serverName, humanID, agentID string, teamIDs []string, defaultTeamID string, allowAnyTeam bool) (*mcpaccess.MCPAccessGrant, string, error) {
+func (s *AccessService) selectAdapterGrant(ctx context.Context, namespace, serverName, humanID, agentID string, teamIDs []string, defaultTeamID string, allowAnyTeam bool) (*k8sstore.MCPAccessGrant, string, error) {
 	if s == nil || s.accessMgr == nil {
 		return nil, "", fmt.Errorf("kubernetes not available")
 	}
@@ -374,7 +375,7 @@ func (s *AccessService) selectAdapterGrant(ctx context.Context, namespace, serve
 		return nil, "", fmt.Errorf("list grants in %s: %w", namespace, err)
 	}
 	type grantMatch struct {
-		grant  mcpaccess.MCPAccessGrant
+		grant  k8sstore.MCPAccessGrant
 		teamID string
 	}
 	var matches []grantMatch
@@ -457,7 +458,7 @@ func adapterSessionName(humanID, agentID, teamID, serverName string) string {
 // adapterSessionReusable reports whether an existing session can be returned
 // to the caller as-is without writing to Kubernetes. Reuse fails closed: if
 // any condition is unmet we issue a fresh session.
-func adapterSessionReusable(s *mcpaccess.MCPAgentSession, policyVersion string, consentedTrust mcpaccess.TrustLevel) bool {
+func adapterSessionReusable(s *k8sstore.MCPAgentSession, policyVersion string, consentedTrust mcpaccess.TrustLevel) bool {
 	if s == nil || s.Spec.Revoked {
 		return false
 	}

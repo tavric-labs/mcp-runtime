@@ -12,6 +12,7 @@ import (
 
 	"mcp-runtime-api/internal/platformclient"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/internalapi"
 )
@@ -243,8 +244,8 @@ func (s *RuntimeServer) HandleRuntimeAgentPath(w http.ResponseWriter, r *http.Re
 // session. The UI never receives unrelated subjects or another user's session.
 type agentAccessSnapshot struct {
 	principal principal
-	grants    []mcpaccess.MCPAccessGrant
-	sessions  []mcpaccess.MCPAgentSession
+	grants    []k8sstore.MCPAccessGrant
+	sessions  []k8sstore.MCPAgentSession
 }
 
 func (s *RuntimeServer) agentAccessForPrincipal(ctx context.Context, p principal) (agentAccessSnapshot, error) {
@@ -285,7 +286,7 @@ func (a agentAccessSnapshot) canUse(agent platformclient.Agent) bool {
 	return false
 }
 
-func (a agentAccessSnapshot) grantMatches(grant mcpaccess.MCPAccessGrant, agent platformclient.Agent, manager bool) bool {
+func (a agentAccessSnapshot) grantMatches(grant k8sstore.MCPAccessGrant, agent platformclient.Agent, manager bool) bool {
 	subject := grant.Spec.Subject
 	if string(subject.TeamID) != agent.TeamID || (subject.AgentID != "" && string(subject.AgentID) != agent.ID) {
 		return false
@@ -293,7 +294,7 @@ func (a agentAccessSnapshot) grantMatches(grant mcpaccess.MCPAccessGrant, agent 
 	return manager || subject.HumanID == "" || string(subject.HumanID) == a.principal.UserID()
 }
 
-func (a agentAccessSnapshot) sessionMatches(session mcpaccess.MCPAgentSession, agent platformclient.Agent, manager bool) bool {
+func (a agentAccessSnapshot) sessionMatches(session k8sstore.MCPAgentSession, agent platformclient.Agent, manager bool) bool {
 	subject := session.Spec.Subject
 	if string(subject.TeamID) != agent.TeamID || string(subject.AgentID) != agent.ID {
 		return false
@@ -306,12 +307,12 @@ func (a agentAccessSnapshot) forAgent(agent platformclient.Agent, manager bool) 
 	sessions := []mcpaccess.SessionSummary{}
 	for _, grant := range a.grants {
 		if a.grantMatches(grant, agent, manager) {
-			grants = append(grants, mcpaccess.ToGrantSummary(grant))
+			grants = append(grants, k8sstore.ToGrantSummary(grant))
 		}
 	}
 	for _, session := range a.sessions {
 		if a.sessionMatches(session, agent, manager) {
-			sessions = append(sessions, mcpaccess.ToSessionSummary(session))
+			sessions = append(sessions, k8sstore.ToSessionSummary(session))
 		}
 	}
 	return grants, sessions

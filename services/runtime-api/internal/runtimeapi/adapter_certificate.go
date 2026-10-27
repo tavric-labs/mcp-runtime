@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/certauth"
 	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/internalapi"
@@ -183,7 +184,7 @@ func (s *AccessService) HandleAdapterCertificate(w http.ResponseWriter, r *http.
 	})
 }
 
-func (s *AccessService) recordCertificateIssuance(r *http.Request, p principal, session *mcpaccess.MCPAgentSession, certificate string) {
+func (s *AccessService) recordCertificateIssuance(r *http.Request, p principal, session *k8sstore.MCPAgentSession, certificate string) {
 	if s.audit == nil {
 		return
 	}

@@ -14,6 +14,7 @@ import (
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -75,11 +76,11 @@ func TestPlatformSessionBackendPersistsWithoutKubernetesState(t *testing.T) {
 	}
 	server := &mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "server", Namespace: "team", UID: types.UID("server-uid")}, Spec: mcpv1alpha1.MCPServerSpec{TeamID: "authority-team"}}
 	dynamic := dynamicfake.NewSimpleDynamicClient(scheme, server)
-	manager := mcpaccess.NewManager(dynamic, nil)
+	manager := k8sstore.NewManager(dynamic, nil)
 	client := &fakeSessionClient{}
 	backend := &platformSessionBackend{client: client, access: manager}
 	manager.WithSessionBackend(backend)
-	session := &mcpaccess.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "session", Namespace: "team", Annotations: map[string]string{adapterGrantNameAnnotation: "grant", adapterGrantNamespaceAnnotation: "foreign"}}, Spec: mcpaccess.MCPAgentSessionSpec{ServerRef: mcpaccess.ServerReference{Name: "server", Namespace: "team"}, Subject: mcpaccess.SubjectRef{HumanID: "human", AgentID: "agent", TeamID: "actor-team"}, ConsentedTrust: "medium", PolicyVersion: "v1", ExpiresAt: &metav1.Time{Time: time.Now().Add(time.Hour)}}}
+	session := &k8sstore.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "session", Namespace: "team", Annotations: map[string]string{adapterGrantNameAnnotation: "grant", adapterGrantNamespaceAnnotation: "foreign"}}, Spec: mcpaccess.MCPAgentSessionSpec{ServerRef: mcpaccess.ServerReference{Name: "server", Namespace: "team"}, Subject: mcpaccess.SubjectRef{HumanID: "human", AgentID: "agent", TeamID: "actor-team"}, ConsentedTrust: "medium", PolicyVersion: "v1", ExpiresAt: &mcpaccess.Time{Time: time.Now().Add(time.Hour)}}}
 	applied, err := manager.ApplySession(context.Background(), session)
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +89,7 @@ func TestPlatformSessionBackendPersistsWithoutKubernetesState(t *testing.T) {
 		t.Fatalf("lost session attribution: %+v", client.row)
 	}
 	for _, action := range dynamic.Actions() {
-		if action.GetResource().Resource == mcpaccess.AccessSessionResource {
+		if action.GetResource().Resource == k8sstore.AccessSessionResource {
 			t.Fatalf("used Kubernetes session state: %+v", action)
 		}
 	}
@@ -108,22 +109,22 @@ func TestPlatformSessionBackendPersistsWithoutKubernetesState(t *testing.T) {
 	}
 	// No backend operation may silently query CRDs during an outage.
 	for _, action := range dynamic.Actions() {
-		if action.GetResource().Resource == mcpaccess.AccessSessionResource {
+		if action.GetResource().Resource == k8sstore.AccessSessionResource {
 			t.Fatal("fell back to Kubernetes")
 		}
 	}
 }
 
 func TestSessionStateRoundTripKeepsRevocationAndGrantLink(t *testing.T) {
-	expires := metav1.NewTime(time.Now().UTC().Truncate(time.Second).Add(time.Hour))
-	session := &mcpaccess.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "session", Namespace: "team", Annotations: map[string]string{adapterGrantNameAnnotation: "grant", adapterGrantNamespaceAnnotation: "foreign"}}, Spec: mcpaccess.MCPAgentSessionSpec{ServerRef: mcpaccess.ServerReference{Name: "server"}, Subject: mcpaccess.SubjectRef{HumanID: "human"}, ConsentedTrust: "low", ExpiresAt: &expires, Revoked: true, PolicyVersion: "v1"}}
+	expires := mcpaccess.NewTime(time.Now().UTC().Truncate(time.Second).Add(time.Hour))
+	session := &k8sstore.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "session", Namespace: "team", Annotations: map[string]string{adapterGrantNameAnnotation: "grant", adapterGrantNamespaceAnnotation: "foreign"}}, Spec: mcpaccess.MCPAgentSessionSpec{ServerRef: mcpaccess.ServerReference{Name: "server"}, Subject: mcpaccess.SubjectRef{HumanID: "human"}, ConsentedTrust: "low", ExpiresAt: &expires, Revoked: true, PolicyVersion: "v1"}}
 	row := sessionToState(session, "server-uid", "authority")
 	now := time.Now().UTC()
 	row.RevokedAt = &now
 	row.RevocationCause = "server_retired"
 	got := sessionFromState(row)
-	summary := mcpaccess.ToSessionSummary(*got)
-	if summary.ServerUID != "server-uid" || summary.GrantNamespace != "foreign" || summary.RevocationCause != "server_retired" || !got.Spec.ExpiresAt.Equal(&expires) {
+	summary := k8sstore.ToSessionSummary(*got)
+	if summary.ServerUID != "server-uid" || summary.GrantNamespace != "foreign" || summary.RevocationCause != "server_retired" || !got.Spec.ExpiresAt.Equal(expires.Time) {
 		t.Fatalf("round trip=%+v", summary)
 	}
 }
@@ -143,10 +144,10 @@ func TestPlatformSessionBackendRejectsRetiringTarget(t *testing.T) {
 			} else {
 				server.Annotations = map[string]string{mcpaccess.ServerRetiringAnnotation: "true"}
 			}
-			manager := mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, server), nil)
+			manager := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, server), nil)
 			client := &fakeSessionClient{}
 			manager.WithSessionBackend(&platformSessionBackend{client: client, access: manager})
-			session := &mcpaccess.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "team"}, Spec: mcpaccess.MCPAgentSessionSpec{ServerRef: mcpaccess.ServerReference{Name: "server", Namespace: "team"}}}
+			session := &k8sstore.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "team"}, Spec: mcpaccess.MCPAgentSessionSpec{ServerRef: mcpaccess.ServerReference{Name: "server", Namespace: "team"}}}
 			if _, err := manager.ApplySession(context.Background(), session); !apierrors.IsConflict(err) {
 				t.Fatalf("retiring target issuance: %v", err)
 			}
