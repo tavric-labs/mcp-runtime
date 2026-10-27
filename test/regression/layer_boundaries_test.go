@@ -46,7 +46,7 @@ func canImport(from, to layer) bool {
 // here, so its layer is a deliberate decision rather than an accident.
 var pkgLayers = map[string]layer{
 	// Leaves: no repository imports outside this layer.
-	"authzmatrix": leaf, "credentialbroker": leaf, "egresscidrs": leaf,
+	"authzmatrix": leaf, "credentialbroker": leaf,
 	"envcfg": leaf, "events": leaf, "httpx": leaf,
 	"identity": leaf, "oidcdiscovery": leaf, "openapi": leaf,
 	"platforminventory":   leaf,
@@ -67,7 +67,7 @@ var pkgLayers = map[string]layer{
 	"controlplane": adapter, "k8sclient": adapter, "kubeworkload": adapter,
 	"metadata/crdgen": adapter,
 	"registrypush":    adapter,
-	"resourcehistory": adapter, "workloadidentity": adapter,
+	"resourcehistory": adapter,
 }
 
 // k8sInDomain lists lower-layer packages that still import Kubernetes API

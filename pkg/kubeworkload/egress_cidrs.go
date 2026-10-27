@@ -1,7 +1,4 @@
-// Package egresscidrs parses cluster-admin destination prefixes for MCP server
-// egress. An empty list adds nothing. The default route is rejected so a
-// cluster cannot open every address by accident.
-package egresscidrs
+package kubeworkload
 
 import (
 	"fmt"
@@ -11,16 +8,16 @@ import (
 
 const maxPrefixes = 16
 
-// Block is one NetworkPolicy ipBlock: a destination prefix minus cluster ranges
+// EgressBlock is one NetworkPolicy ipBlock: a destination prefix minus cluster ranges
 // that must stay on the normal pod policy.
-type Block struct {
+type EgressBlock struct {
 	CIDR   string
 	Except []string
 }
 
-// Parse accepts a comma-separated list of canonical prefixes. IPv4 prefixes
+// ParseEgressCIDRs accepts a comma-separated list of canonical prefixes. IPv4 prefixes
 // must be /8 or longer, and IPv6 prefixes must be /32 or longer.
-func Parse(raw string) ([]netip.Prefix, error) {
+func ParseEgressCIDRs(raw string) ([]netip.Prefix, error) {
 	fields := strings.Split(raw, ",")
 	out := make([]netip.Prefix, 0, len(fields))
 	seen := map[netip.Prefix]struct{}{}
@@ -55,11 +52,11 @@ func Parse(raw string) ([]netip.Prefix, error) {
 	return out, nil
 }
 
-// Blocks returns ipBlock entries for allows, subtracting except prefixes that
+// EgressBlocks returns ipBlock entries for allows, subtracting except prefixes that
 // fall inside each allow. A private allow with no contained exception is
 // rejected so the cluster pod and service ranges are not opened by accident.
-func Blocks(allows, except []netip.Prefix) ([]Block, error) {
-	blocks := make([]Block, 0, len(allows))
+func EgressBlocks(allows, except []netip.Prefix) ([]EgressBlock, error) {
+	blocks := make([]EgressBlock, 0, len(allows))
 	for _, allow := range allows {
 		var inside []string
 		skip := false
@@ -78,7 +75,7 @@ func Blocks(allows, except []netip.Prefix) ([]Block, error) {
 		if isPrivate(allow) && len(inside) == 0 {
 			return nil, fmt.Errorf("pod egress CIDR %s overlaps private space and needs MCP_POD_EGRESS_EXCEPT_CIDRS to exclude the cluster pod and service ranges", allow)
 		}
-		blocks = append(blocks, Block{CIDR: allow.String(), Except: inside})
+		blocks = append(blocks, EgressBlock{CIDR: allow.String(), Except: inside})
 	}
 	return blocks, nil
 }

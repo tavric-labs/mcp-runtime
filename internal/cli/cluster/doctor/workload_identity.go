@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/workloadidentity"
+	"mcp-runtime/pkg/k8sclient"
 )
 
 const workloadIdentityExpiryWarning = 30 * 24 * time.Hour
@@ -104,7 +104,7 @@ func CheckWorkloadIdentity(kubectl core.KubectlRunner, namespace, server string)
 	if err != nil || route.GetName() != server {
 		return DoctorCheck{Name: name, OK: false, Detail: configDetail + fmt.Sprintf("; selected server route %s/%s is not an active Traefik IngressRoute", namespace, server), Remedy: "check MCPServer reconciliation and its ingress route"}
 	}
-	optionNamespace, optionName, err := workloadidentity.SelectedTLSOption(route, operator["MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE"])
+	optionNamespace, optionName, err := k8sclient.SelectedTLSOption(route, operator["MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE"])
 	if err != nil {
 		return DoctorCheck{Name: name, OK: false, Detail: configDetail + "; " + err.Error(), Remedy: "check the selected IngressRoute TLS configuration"}
 	}
@@ -112,7 +112,7 @@ func CheckWorkloadIdentity(kubectl core.KubectlRunner, namespace, server string)
 	if err != nil {
 		return DoctorCheck{Name: name, OK: false, Detail: configDetail + fmt.Sprintf("; route TLSOption %s/%s is unreadable", optionNamespace, optionName), Remedy: "check the selected route TLSOption and read access"}
 	}
-	trustedNames, err := workloadidentity.ClientAuthCASecrets(option)
+	trustedNames, err := k8sclient.ClientAuthCASecrets(option)
 	if err != nil {
 		return DoctorCheck{Name: name, OK: false, Detail: configDetail + fmt.Sprintf("; route TLSOption %s/%s does not request a verifiable client certificate", optionNamespace, optionName), Remedy: "check the operator's adapter-certificate reconciliation and Traefik TLSOption"}
 	}
@@ -161,7 +161,7 @@ func readIdentityDeploymentConfig(kubectl core.KubectlRunner, namespace, deploym
 	if deployment.Generation > deployment.Status.ObservedGeneration {
 		return nil, fmt.Errorf("deployment configuration is not yet observed")
 	}
-	return workloadidentity.DeploymentConfig(context.Background(), &deployment, container, keys, func(_ context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+	return k8sclient.DeploymentConfig(context.Background(), &deployment, container, keys, func(_ context.Context, namespace, name string) (*corev1.ConfigMap, error) {
 		raw, err := readKubectlOutput(kubectl, []string{"get", "configmap", name, "-n", namespace, "--ignore-not-found", "-o", "json"})
 		if err != nil {
 			return nil, err

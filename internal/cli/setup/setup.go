@@ -15,7 +15,7 @@ import (
 	"mcp-runtime/internal/cli/core"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
 	setupplatform "mcp-runtime/internal/cli/setup/platform"
-	"mcp-runtime/pkg/egresscidrs"
+	"mcp-runtime/pkg/kubeworkload"
 )
 
 // loadEnvFile reads KEY=VALUE pairs from path and sets any that are not already
@@ -188,15 +188,15 @@ will use to push and pull container images.`,
 			if err := os.Setenv("MCP_POD_EGRESS_EXCEPT_CIDRS", strings.TrimSpace(podEgressExceptCIDRs)); err != nil {
 				return err
 			}
-			allows, err := egresscidrs.Parse(podEgressCIDRs)
+			allows, err := kubeworkload.ParseEgressCIDRs(podEgressCIDRs)
 			if err != nil {
 				return err
 			}
-			except, err := egresscidrs.Parse(podEgressExceptCIDRs)
+			except, err := kubeworkload.ParseEgressCIDRs(podEgressExceptCIDRs)
 			if err != nil {
 				return err
 			}
-			if _, err := egresscidrs.Blocks(allows, except); err != nil {
+			if _, err := kubeworkload.EgressBlocks(allows, except); err != nil {
 				return err
 			}
 

@@ -1,4 +1,4 @@
-package egresscidrs
+package kubeworkload
 
 import (
 	"net/netip"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseEmpty(t *testing.T) {
-	got, err := Parse("  ")
+	got, err := ParseEgressCIDRs("  ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,7 +17,7 @@ func TestParseEmpty(t *testing.T) {
 }
 
 func TestParseAcceptsInternalPrefix(t *testing.T) {
-	got, err := Parse(" 10.0.0.0/8, 192.168.10.0/24 ")
+	got, err := ParseEgressCIDRs(" 10.0.0.0/8, 192.168.10.0/24 ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,32 +28,32 @@ func TestParseAcceptsInternalPrefix(t *testing.T) {
 
 func TestParseRejectsDefaultAndWideRoutes(t *testing.T) {
 	for _, raw := range []string{"0.0.0.0/0", "::/0", "0.0.0.0/1", "10.0.0.0/7"} {
-		if _, err := Parse(raw); err == nil {
-			t.Fatalf("Parse(%q) accepted a route wider than /8", raw)
+		if _, err := ParseEgressCIDRs(raw); err == nil {
+			t.Fatalf("ParseEgressCIDRs(%q) accepted a route wider than /8", raw)
 		}
 	}
 }
 
 func TestParseRejectsPrivateAllowWithoutExcept(t *testing.T) {
-	allows, err := Parse("10.0.0.0/8")
+	allows, err := ParseEgressCIDRs("10.0.0.0/8")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Blocks(allows, nil); err == nil {
+	if _, err := EgressBlocks(allows, nil); err == nil {
 		t.Fatal("private destination without a cluster exception was accepted")
 	}
 }
 
 func TestBlocksExceptsClusterRanges(t *testing.T) {
-	allows, err := Parse("10.0.0.0/8")
+	allows, err := ParseEgressCIDRs("10.0.0.0/8")
 	if err != nil {
 		t.Fatal(err)
 	}
-	except, err := Parse("10.42.0.0/16,10.43.0.0/16")
+	except, err := ParseEgressCIDRs("10.42.0.0/16,10.43.0.0/16")
 	if err != nil {
 		t.Fatal(err)
 	}
-	blocks, err := Blocks(allows, except)
+	blocks, err := EgressBlocks(allows, except)
 	if err != nil {
 		t.Fatal(err)
 	}

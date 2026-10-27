@@ -31,8 +31,8 @@ import (
 	"mcp-runtime/internal/cli/setup/assetpath"
 	"mcp-runtime/internal/cli/setup/ingressmanifest"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
-	"mcp-runtime/pkg/egresscidrs"
 	"mcp-runtime/pkg/k8sclient"
+	"mcp-runtime/pkg/kubeworkload"
 	"mcp-runtime/pkg/platforminventory"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1071,15 +1071,15 @@ func renderAnalyticsManifest(content string, images AnalyticsImageSet, imagePull
 }
 
 func applyPodEgressManifestValues(content string) (string, error) {
-	allows, err := egresscidrs.Parse(os.Getenv("MCP_POD_EGRESS_CIDRS"))
+	allows, err := kubeworkload.ParseEgressCIDRs(os.Getenv("MCP_POD_EGRESS_CIDRS"))
 	if err != nil {
 		return "", err
 	}
-	except, err := egresscidrs.Parse(os.Getenv("MCP_POD_EGRESS_EXCEPT_CIDRS"))
+	except, err := kubeworkload.ParseEgressCIDRs(os.Getenv("MCP_POD_EGRESS_EXCEPT_CIDRS"))
 	if err != nil {
 		return "", err
 	}
-	if _, err := egresscidrs.Blocks(allows, except); err != nil {
+	if _, err := kubeworkload.EgressBlocks(allows, except); err != nil {
 		return "", err
 	}
 	content = replacePodEgressValue(content, "MCP_POD_EGRESS_CIDRS", joinPrefixes(allows))

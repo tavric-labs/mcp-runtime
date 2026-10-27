@@ -1,4 +1,4 @@
-package workloadidentity
+package k8sclient
 
 import (
 	"fmt"

@@ -1,6 +1,4 @@
-// Package workloadidentity resolves the public configuration used by workload
-// certificate diagnostics and authenticated adapter enrollment preflight.
-package workloadidentity
+package k8sclient
 
 import (
 	"context"

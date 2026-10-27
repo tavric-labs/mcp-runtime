@@ -56,7 +56,7 @@ func TestSharedInfrastructureDependencyBoundaries(t *testing.T) {
 				"github.com/segmentio/kafka-go", "k8s.io/", "sigs.k8s.io/",
 				"mcp-runtime/pkg/controlplane", "mcp-runtime/pkg/k8sclient", "mcp-runtime/pkg/kubeworkload",
 				"mcp-runtime/pkg/registrypush",
-				"mcp-runtime/pkg/resourcehistory", "mcp-runtime/pkg/workloadidentity",
+				"mcp-runtime/pkg/resourcehistory",
 			},
 		},
 	} {

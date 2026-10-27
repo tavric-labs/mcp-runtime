@@ -109,7 +109,7 @@ classify_path() {
       add_scenario "oauth"
       return
       ;;
-    internal/cli/cluster/doctor/workload_identity*.go|pkg/workloadidentity/*|services/runtime-api/internal/runtimeapi/adapter_preflight*)
+    internal/cli/cluster/doctor/workload_identity*.go|pkg/k8sclient/workload_identity_*|services/runtime-api/internal/runtimeapi/adapter_preflight*)
       # Workload-signer guards and the adapter enrollment preflight.
       add_scenario "adapter-certificates"
       add_scenario "cli-platform"
@@ -142,7 +142,7 @@ classify_path() {
       add_scenario "adapter-proxy"
       return
       ;;
-    pkg/registryauth/*|pkg/egresscidrs/*)
+    pkg/registryauth/*|pkg/kubeworkload/egress_cidrs*)
       add_scenario "api-platform"
       add_scenario "cli-platform"
       return
