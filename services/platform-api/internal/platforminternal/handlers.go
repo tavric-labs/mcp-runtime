@@ -139,7 +139,7 @@ func (h Handler) agentPath(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, agentToInternal(item))
 		return
 	}
-	methodNotAllowed(w)
+	apikit.WriteMethodNotAllowed(w)
 }
 
 func writeAgentStoreError(w http.ResponseWriter, err error) {
@@ -176,7 +176,7 @@ func (h Handler) authorize(next http.Handler) http.Handler {
 
 func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	var request internalapi.AuthResolveRequest
@@ -209,7 +209,7 @@ func (h Handler) resolvePrincipalForAPIKey(r *http.Request, rawKey string) (plat
 
 func (h Handler) resolvePrincipal(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	var request internalapi.PrincipalResolveRequest
@@ -231,7 +231,7 @@ func (h Handler) resolvePrincipal(w http.ResponseWriter, r *http.Request) {
 
 func (h Handler) resolveIDs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	var request internalapi.ResolveIDsRequest
@@ -254,7 +254,7 @@ func (h Handler) resolveIDs(w http.ResponseWriter, r *http.Request) {
 
 func (h Handler) audit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	var event internalapi.AuditEvent
@@ -288,7 +288,7 @@ func (h Handler) teams(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusCreated, teamToInternal(team))
 	default:
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 	}
 }
 
@@ -318,7 +318,7 @@ func (h Handler) teamPath(w http.ResponseWriter, r *http.Request) {
 	case len(parts) == 2 && parts[1] == "agents" && (r.Method == http.MethodGet || r.Method == http.MethodPost):
 		h.teamAgents(w, r, slug)
 	default:
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 	}
 }
 
@@ -486,7 +486,7 @@ func (h Handler) teamUserCreate(w http.ResponseWriter, r *http.Request, teamSlug
 
 func (h Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	var request internalapi.CreateUserRequest
@@ -508,7 +508,7 @@ func (h Handler) createUser(w http.ResponseWriter, r *http.Request) {
 
 func (h Handler) operationsSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	filter, err := operationsFilterFromRequest(r)
@@ -534,7 +534,7 @@ func operationsFilterFromRequest(r *http.Request) (platformstore.OperationsFilte
 	filter := platformstore.OperationsFilter{
 		User:       user,
 		UserSearch: strings.ToLower(user),
-		Limit:      queryInt(r, "limit", 50),
+		Limit:      apikit.QueryIntOr(r, "limit", 50),
 	}
 	if filter.Limit < 1 {
 		filter.Limit = 1
@@ -567,21 +567,9 @@ func operationsFilterFromRequest(r *http.Request) (platformstore.OperationsFilte
 	return filter, nil
 }
 
-func queryInt(r *http.Request, key string, fallback int) int {
-	raw := strings.TrimSpace(r.URL.Query().Get(key))
-	if raw == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return fallback
-	}
-	return n
-}
-
 func (h Handler) namespaces(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	namespaces, err := h.Store.ListNamespaces(r.Context())
@@ -594,7 +582,7 @@ func (h Handler) namespaces(w http.ResponseWriter, r *http.Request) {
 
 func (h Handler) namespaceItem(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	namespace := strings.TrimPrefix(r.URL.Path, "/internal/identity/namespaces/")
@@ -621,10 +609,6 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
-}
-
-func methodNotAllowed(w http.ResponseWriter) {
-	apikit.WriteEnvelope(w, http.StatusMethodNotAllowed, apikit.CodeMethodNotAllowed, "method not allowed")
 }
 
 func teamToInternal(team platformstore.Team) internalapi.Team {

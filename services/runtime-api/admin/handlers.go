@@ -2,8 +2,8 @@ package admin
 
 import (
 	"fmt"
+	"mcp-runtime/pkg/apikit"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -65,7 +65,7 @@ func adminOperationsFilterFromRequest(r *http.Request) (platformapi.OperationsFi
 	filter := platformapi.OperationsFilter{
 		User:       user,
 		UserSearch: strings.ToLower(user),
-		Limit:      clampInt(queryInt(r, "limit", 50), 1, 200),
+		Limit:      apikit.ClampInt(apikit.QueryIntOr(r, "limit", 50), 1, 200),
 	}
 	since, err := parseOptionalTimeQuery(r, "since", false)
 	if err != nil {
@@ -287,26 +287,4 @@ func min(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func queryInt(r *http.Request, key string, fallback int) int {
-	raw := strings.TrimSpace(r.URL.Query().Get(key))
-	if raw == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return fallback
-	}
-	return n
-}
-
-func clampInt(n, minValue, maxValue int) int {
-	if n < minValue {
-		return minValue
-	}
-	if n > maxValue {
-		return maxValue
-	}
-	return n
 }

@@ -135,3 +135,15 @@ func TestAdminAPIKeyRequiresExplicitAdminKeyEntry(t *testing.T) {
 		t.Fatalf("role = %q, want %q", p.Role, RoleAdmin)
 	}
 }
+
+func TestJWTSecretFromEnv(t *testing.T) {
+	t.Setenv("JWT_SECRET", "  s3cret  ")
+	got, err := JWTSecretFromEnv()
+	if err != nil || string(got) != "s3cret" {
+		t.Fatalf("JWTSecretFromEnv() = %q, %v; want trimmed secret", got, err)
+	}
+	t.Setenv("JWT_SECRET", "   ")
+	if _, err := JWTSecretFromEnv(); err == nil || err.Error() != "JWT_SECRET is required" {
+		t.Fatalf("JWTSecretFromEnv() error = %v, want JWT_SECRET is required", err)
+	}
+}

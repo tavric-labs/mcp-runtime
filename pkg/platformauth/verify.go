@@ -3,6 +3,7 @@ package platformauth
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -42,4 +43,13 @@ func Verify(secret []byte, token, expectedAudience string) (Claims, error) {
 		return Claims{}, errors.New("JWT subject is required")
 	}
 	return claims, nil
+}
+
+// JWTSecretFromEnv reads the shared platform JWT signing secret from JWT_SECRET.
+func JWTSecretFromEnv() ([]byte, error) {
+	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	if secret == "" {
+		return nil, errors.New("JWT_SECRET is required")
+	}
+	return []byte(secret), nil
 }

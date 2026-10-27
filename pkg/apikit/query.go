@@ -37,3 +37,29 @@ func QueryRFC3339Time(r *http.Request, key string) (time.Time, error) {
 	}
 	return parsed, nil
 }
+
+// QueryIntOr parses an optional integer query param and returns fallback when
+// the value is missing, blank or not an integer. It never rejects the request;
+// use QueryInt when invalid input must be a 400.
+func QueryIntOr(r *http.Request, key string, fallback int) int {
+	raw := strings.TrimSpace(r.URL.Query().Get(key))
+	if raw == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
+
+// ClampInt limits n to the inclusive range [minValue, maxValue].
+func ClampInt(n, minValue, maxValue int) int {
+	if n < minValue {
+		return minValue
+	}
+	if n > maxValue {
+		return maxValue
+	}
+	return n
+}

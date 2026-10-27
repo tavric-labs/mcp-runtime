@@ -9,7 +9,7 @@ import (
 
 func (h Handler) overviewCounts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		apikit.WriteMethodNotAllowed(w)
 		return
 	}
 	store, ok := h.Store.(interface {

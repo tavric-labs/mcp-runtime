@@ -101,3 +101,17 @@ func TestWrapHandlerAlignsConfiguredServiceAcrossLogsAndMetrics(t *testing.T) {
 		t.Fatal("missing service request counter")
 	}
 }
+
+func TestAPIKeysFromEnvSplitsAndTrims(t *testing.T) {
+	t.Setenv("TEST_API_KEYS", " a, b ,,a ")
+	got := APIKeysFromEnv("TEST_API_KEYS")
+	if len(got) != 2 {
+		t.Fatalf("APIKeysFromEnv() = %v, want keys a and b", got)
+	}
+	if _, ok := got["a"]; !ok {
+		t.Fatalf("missing key a in %v", got)
+	}
+	if got := APIKeysFromEnv("TEST_API_KEYS_UNSET"); len(got) != 0 {
+		t.Fatalf("unset variable returned %v, want empty set", got)
+	}
+}
