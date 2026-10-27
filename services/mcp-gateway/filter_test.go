@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	policypkg "mcp-runtime/pkg/policy"
 )
@@ -131,10 +132,10 @@ func TestPolicySnapshotSurvivesReloadDuringRequest(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	original := testPolicy()
-	s.snapshotPolicy(policySnapshot{Policy: original, Ready: true})
+	s.snapshotPolicy(readySnapshot(original, time.Time{}))
 	pipeline := s.buildPipeline()
 	pipeline.Auth = FilterFunc[PolicyRequest, AuthenticatedRequest](func(in PolicyRequest) (AuthenticatedRequest, *FilterResponse) {
-		s.snapshotPolicy(policySnapshot{Policy: &policypkg.Document{}, Ready: true})
+		s.snapshotPolicy(readySnapshot(&policypkg.Document{}, time.Time{}))
 		return AuthenticatedRequest{PolicyRequest: in}, nil
 	})
 	pipeline.Upstream = FilterFunc[PermittedRequest, EvaluatedRequest](func(permitted PermittedRequest) (EvaluatedRequest, *FilterResponse) {

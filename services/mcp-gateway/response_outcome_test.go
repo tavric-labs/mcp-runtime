@@ -16,7 +16,7 @@ func TestMetadataOutcomeIsRenderedAndExcludedFromAudit(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	issuer := newTestJWTIssuer(t)
-	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url), Ready: true})
+	s.snapshotPolicy(readySnapshot(oauthPolicy(issuer.url), time.Time{}))
 	w := httptest.NewRecorder()
 	ex := newExchange(w, httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource", nil), "test")
 	s.buildPipeline().Run(ex)
@@ -41,7 +41,7 @@ func TestDeniedOutcomesKeepPartialStateForAudit(t *testing.T) {
 	policy.Auth.TrustDomain = "example.org"
 	policy.Sessions[0].Namespace = "team"
 	policy.Sessions[0].Revoked = true
-	s.snapshotPolicy(policySnapshot{Policy: policy, Ready: true})
+	s.snapshotPolicy(readySnapshot(policy, time.Time{}))
 	r := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"method":"tools/call","params":{"name":"echo"}}`))
 	r.Header.Set(defaultVerifiedSPIFFEHeader, "spiffe://example.org/ns/team/session/session-1")
 	r.TLS = verifiedProxyTLS()

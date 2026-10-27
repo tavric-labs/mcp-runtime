@@ -436,7 +436,7 @@ func TestHandleProxyRewritesUpstreamHostAndForwardedHeaders(t *testing.T) {
 		defaultPolicyVersion:  "test-policy",
 		oauthProviders:        map[string]*oauthProvider{},
 	}
-	proxy.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url), Ready: true})
+	proxy.snapshotPolicy(readySnapshot(oauthPolicy(issuer.url), time.Time{}))
 
 	req := httptest.NewRequest(http.MethodGet, "http://policy.example.local/mcp", nil)
 	req.Host = "policy.example.local"
@@ -697,7 +697,7 @@ func TestGatewayMetricsNotExposedOnMainListener(t *testing.T) {
 		defaultPolicyVersion:  "test-policy",
 		oauthProviders:        map[string]*oauthProvider{},
 	}
-	proxy.snapshotPolicy(policySnapshot{Policy: testPolicy()})
+	proxy.snapshotPolicy(seedSnapshot(testPolicy()))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", proxy.handleGateway)
@@ -1278,7 +1278,7 @@ func newTestGatewayServer(t *testing.T, policy *policypkg.Document, upstream htt
 		defaultPolicyVersion:  "test-policy",
 		oauthProviders:        map[string]*oauthProvider{},
 	}
-	server.snapshotPolicy(policySnapshot{Policy: policy, Revision: policy.Revision, LoadedAt: time.Now(), Ready: true})
+	server.snapshotPolicy(readySnapshot(policy, time.Now()))
 	return server
 }
 

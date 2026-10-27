@@ -145,7 +145,7 @@ func TestInspectFilterSetsInspection(t *testing.T) {
 func TestPolicyFilterContinuesForNonOAuthPath(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
-	s.snapshotPolicy(policySnapshot{Policy: testPolicy()})
+	s.snapshotPolicy(seedSnapshot(testPolicy()))
 	ex := newTestExchange(http.MethodPost, "/mcp", `{}`, map[string]string{"Content-Type": "application/json"})
 
 	if got := ex.policy(s); got != nil {
@@ -160,7 +160,7 @@ func TestPolicyFilterRespondsForOAuthMetadataPath(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	issuer := newTestJWTIssuer(t)
-	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
+	s.snapshotPolicy(seedSnapshot(oauthPolicy(issuer.url)))
 	ex := newTestExchange(http.MethodGet, "/.well-known/oauth-protected-resource", "", nil)
 
 	if got := ex.policy(s); got == nil {
@@ -178,7 +178,7 @@ func TestPolicyFilterSetsSkipAuditForOAuthMetadataPath(t *testing.T) {
 	// orchestrator does not emit a spurious audit event with no identity.
 	s := minimalServer()
 	issuer := newTestJWTIssuer(t)
-	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
+	s.snapshotPolicy(seedSnapshot(oauthPolicy(issuer.url)))
 	ex := newTestExchange(http.MethodGet, "/.well-known/oauth-protected-resource", "", nil)
 
 	ex.policy(s)
@@ -192,14 +192,14 @@ func TestPolicyFilterPolicySnapshotIsImmutableForExchange(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	snap := testPolicy()
-	s.snapshotPolicy(policySnapshot{Policy: snap})
+	s.snapshotPolicy(seedSnapshot(snap))
 	ex := newTestExchange(http.MethodPost, "/mcp", "", nil)
 
 	ex.policy(s)
 	captured := ex.Policy
 
 	// Replace the gateway snapshot mid-exchange — the Exchange copy must be unaffected.
-	s.snapshotPolicy(policySnapshot{Policy: &policypkg.Document{Server: policypkg.Server{Name: "other"}}})
+	s.snapshotPolicy(seedSnapshot(&policypkg.Document{Server: policypkg.Server{Name: "other"}}))
 	if ex.Policy != captured {
 		t.Fatal("Exchange.Policy changed after snapshot was replaced — not immutable for exchange lifetime")
 	}
@@ -507,7 +507,7 @@ func TestAuthFilterAlwaysRunsBeforeAuthz(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	issuer := newTestJWTIssuer(t)
-	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
+	s.snapshotPolicy(seedSnapshot(oauthPolicy(issuer.url)))
 	pipeline := s.buildPipeline()
 	pipeline.Authz = FilterFunc[AuthenticatedRequest, EvaluatedRequest](func(in AuthenticatedRequest) (EvaluatedRequest, *FilterResponse) {
 		t.Fatal("authorization reached after failed authentication")

@@ -123,7 +123,7 @@ func TestRPCMethodsKeepTheirAuditIdentityAcrossProtocolRevisions(t *testing.T) {
 				s := minimalServer()
 				policy := testPolicy()
 				policy.Policy.Mode = "observe"
-				s.snapshotPolicy(policySnapshot{Policy: policy, Ready: true})
+				s.snapshotPolicy(readySnapshot(policy, time.Time{}))
 				s.proxy = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 				body := fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":%q,\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":%q},\"name\":\"not-a-tool\",\"private\":\"do-not-audit\"}}", method, version)
 				r := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(body))
