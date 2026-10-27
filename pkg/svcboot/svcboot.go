@@ -56,7 +56,7 @@ func NewHTTPServer(addr string, handler http.Handler) *http.Server {
 // handlers can still use http.ResponseController to extend deadlines.
 func WrapHandler(serviceName string, requestMetrics *telemetry.RequestMetrics, next http.Handler) http.Handler {
 	serviceName = envcfg.EnvOr("OTEL_SERVICE_NAME", serviceName)
-	return otelhttp.NewHandler(telemetry.LogRequestsForService(serviceName, requestMetrics.Middleware(serviceName, next)), "http.server", otelhttp.WithFilter(telemetry.TraceableRequest))
+	return otelhttp.NewHandler(WithRequestID(telemetry.LogRequestsForService(serviceName, requestMetrics.Middleware(serviceName, next))), "http.server", otelhttp.WithFilter(telemetry.TraceableRequest))
 }
 
 // Run starts metrics, OTEL-instrumented HTTP, and blocks until shutdown.

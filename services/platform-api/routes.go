@@ -39,6 +39,9 @@ func (s *apiServer) registerRoutes(mux *http.ServeMux) {
 	}
 
 	register := func(pattern string, handler http.Handler) {
+		if s.routeObserver != nil {
+			s.routeObserver("/api/v1" + pattern)
+		}
 		mux.Handle("/api/v1"+pattern, handler)
 	}
 

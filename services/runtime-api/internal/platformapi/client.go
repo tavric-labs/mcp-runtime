@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/internalapi"
 	"mcp-runtime/pkg/platformauth"
 	"mcp-runtime/pkg/transport/httptrace"
@@ -403,6 +404,9 @@ func (c *Client) CreateTeamUser(ctx context.Context, teamSlug, email, password, 
 
 // WriteAudit posts an audit event to platform-api.
 func (c *Client) WriteAudit(ctx context.Context, event AuditEvent) {
+	if !httpx.ValidRequestID(event.RequestID) {
+		event.RequestID = httpx.RequestID(ctx)
+	}
 	status, err := c.authorizedJSON(ctx, http.MethodPost, "/internal/audit", event, nil)
 	if err != nil || status != http.StatusAccepted {
 		if err == nil {

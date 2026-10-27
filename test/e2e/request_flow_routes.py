@@ -625,6 +625,7 @@ if deep_request_flows:
     expect_json(f"{api_base}/api/v1/user/api-keys", headers=user_headers)
     created_user_key = expect_json(
         f"{api_base}/api/v1/user/api-keys",
+        status=201,
         method="POST",
         headers=user_headers,
         body={"name": f"e2e-key-{suffix}"},

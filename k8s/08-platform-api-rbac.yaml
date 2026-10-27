@@ -13,9 +13,6 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["create"]
-  - apiGroups: [""]
-    resources: ["secrets"]
     resourceNames: ["mcp-platform-api-credentials"]
     verbs: ["get"]
 ---

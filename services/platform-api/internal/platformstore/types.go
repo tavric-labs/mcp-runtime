@@ -48,6 +48,12 @@ type Store struct {
 	jwtSecret []byte
 }
 
+// NewStoreWithDB binds a Store to an existing database. Tests use it to observe
+// SQL without opening Postgres.
+func NewStoreWithDB(db *sql.DB) *Store {
+	return &Store{db: db}
+}
+
 // User is the persisted platform account shape returned by identity operations.
 type User struct {
 	ID        string `json:"id"`

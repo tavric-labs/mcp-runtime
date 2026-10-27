@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"mcp-runtime/pkg/httpx"
 )
 
 // ListUserActivity returns user accounts with login, failure, key, and credential counters.
@@ -199,6 +201,12 @@ LIMIT $` + strconv.Itoa(limitArg)
 func (s *Store) WriteAudit(ctx context.Context, ev AuditEvent) {
 	if s == nil || s.db == nil {
 		return
+	}
+	// Callers pass the request context and leave RequestID empty. An id already
+	// on the event (a peer service forwarding its caller's id) is kept, so the
+	// internal hop's own id does not replace it.
+	if !httpx.ValidRequestID(ev.RequestID) {
+		ev.RequestID = httpx.RequestID(ctx)
 	}
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO audit_logs (user_id,action,resource,namespace,status,message,actor_ip,request_id,source,auth_identity,image_ref,server_name,deployment_target,agent_id,team_id) VALUES (NULLIF($1,'')::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULLIF($14,''),NULLIF($15,'')::uuid)`,
 		ev.UserID, ev.Action, ev.Resource, ev.Namespace, ev.Status, ev.Message, ev.ActorIP, ev.RequestID, ev.Source, ev.AuthIdentity, ev.ImageRef, ev.ServerName, ev.DeploymentTarget, ev.AgentID, ev.TeamID); err != nil {

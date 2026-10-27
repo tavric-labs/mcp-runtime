@@ -76,7 +76,7 @@ func HandleRegistryCredentialItem(w http.ResponseWriter, r *http.Request, deps C
 	}
 	credentialID, allowed, valid := parseRegistryCredentialItemPath(r.Method, r.URL.Path)
 	if !allowed {
-		httperrors.MethodNotAllowed(w, "DELETE, POST")
+		httperrors.MethodNotAllowed(w, "DELETE")
 		return
 	}
 	if !valid {
@@ -98,25 +98,12 @@ func HandleRegistryCredentialItem(w http.ResponseWriter, r *http.Request, deps C
 }
 
 func parseRegistryCredentialItemPath(method, path string) (credentialID string, allowed bool, valid bool) {
-	const prefix = "/api/v1/user/registry-credentials/"
-	if strings.HasPrefix(path, prefix) {
-		path = strings.TrimPrefix(path, prefix)
-	} else {
-		path = strings.TrimPrefix(path, "/api/user/registry-credentials/")
-	}
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	switch method {
-	case http.MethodDelete:
-		if len(parts) != 1 || parts[0] == "" {
-			return "", true, false
-		}
-		return parts[0], true, true
-	case http.MethodPost:
-		if len(parts) != 2 || parts[0] == "" || parts[1] != "revoke" {
-			return "", true, false
-		}
-		return parts[0], true, true
-	default:
+	if method != http.MethodDelete {
 		return "", false, false
 	}
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(path, "/api/v1/user/registry-credentials/"), "/"), "/")
+	if len(parts) != 1 || parts[0] == "" {
+		return "", true, false
+	}
+	return parts[0], true, true
 }

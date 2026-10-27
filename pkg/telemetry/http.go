@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"mcp-runtime/pkg/envcfg"
+	"mcp-runtime/pkg/httpx"
 )
 
 // StartMetricsServer starts a Prometheus metrics server with /metrics and /health.
@@ -98,6 +99,23 @@ func LogRequests(next http.Handler) http.Handler {
 	return LogRequestsForService(envcfg.EnvOr("OTEL_SERVICE_NAME", "mcp-service"), next)
 }
 
+// requestIDForLog returns the id the request middleware stored, or a
+// well-formed header when the middleware is not in front of this logger.
+// Anything else is dropped so a caller cannot write into the log line.
+func requestIDForLog(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if id := httpx.RequestID(r.Context()); id != "" {
+		return id
+	}
+	id := r.Header.Get(httpx.RequestIDHeader)
+	if httpx.ValidRequestID(id) {
+		return id
+	}
+	return ""
+}
+
 // LogRequestsForService keeps bootstrap service identity aligned with metrics.
 func LogRequestsForService(service string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,8 +137,8 @@ func LogRequestsForService(service string, next http.Handler) http.Handler {
 			RecordSpanFailure(r.Context(), operation, http.StatusText(recorder.status), recorder.status, nil)
 		}
 		// #nosec G706 -- quoted fields escape control characters; no raw URL or body.
-		log.Printf("event=http.request service=%q operation=%q method=%q status=%d duration_ms=%.3f%s",
+		log.Printf("event=http.request service=%q operation=%q method=%q status=%d duration_ms=%.3f request_id=%q%s",
 			service, operation, r.Method, recorder.status,
-			float64(time.Since(start))/float64(time.Millisecond), TraceLogSuffix(r.Context()))
+			float64(time.Since(start))/float64(time.Millisecond), requestIDForLog(r), TraceLogSuffix(r.Context()))
 	})
 }

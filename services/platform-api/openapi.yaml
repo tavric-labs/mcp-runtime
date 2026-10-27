@@ -112,6 +112,220 @@ paths:
         "403": {description: "Workload identity, current policy or binding denied"}
         "404": {description: Approved credential metadata absent}
         "503": {description: "Provider, store, Kubernetes or audit unavailable; no values returned"}
+  /api/v1/user/api-keys:
+    x-audience: platform
+    get:
+      operationId: listUserApiKeys
+      summary: List the caller's API keys
+      description: Non-secret metadata for the caller's keys. The raw key value is never returned after creation.
+      responses:
+        "200":
+          description: Key metadata; an empty list is [] and never null.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items: {$ref: "#/components/schemas/UserApiKey"}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      operationId: createUserApiKey
+      summary: Create an API key for the caller
+      description: The raw key is returned once, as api_key and one_time_key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+      responses:
+        "201":
+          description: Key created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, api_key, one_time_key]
+                properties:
+                  key: {$ref: "#/components/schemas/UserApiKey"}
+                  api_key: {type: string}
+                  one_time_key: {type: string}
+        "400": {description: invalid request body or name, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/user/api-keys/{id}:
+    x-audience: platform
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    delete:
+      operationId: revokeUserApiKey
+      summary: Revoke one of the caller's API keys
+      description: Idempotent; a key that is already revoked returns its final metadata. DELETE is the only revoke form.
+      responses:
+        "200":
+          description: Revoked key metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key]
+                properties:
+                  key: {$ref: "#/components/schemas/UserApiKey"}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: key not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/auth/signup:
+    x-audience: platform
+    post:
+      operationId: signup
+      summary: Create a password account and sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: {type: string}
+                password: {type: string}
+                role:
+                  type: string
+                  description: Optional. Omitted or user creates a regular account. admin is accepted only when the caller is already an administrator.
+      responses:
+        "201": {description: "Account created; response carries access_token, token_type and expires_in", content: {application/json: {schema: {type: object}}}}
+        "400": {description: "invalid request body", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "403": {description: "role admin requires an administrator", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "email already registered", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/auth/oidc:
+    x-audience: platform
+    post:
+      operationId: oidcLogin
+      summary: Exchange an OIDC ID token for a platform token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token: {type: string}
+      responses:
+        "200": {description: "Platform token for the verified OIDC identity", content: {application/json: {schema: {type: object}}}}
+        "400": {description: "invalid request body", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: "ID token rejected", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/users:
+    x-audience: platform
+    post:
+      operationId: createUser
+      summary: Create a password user (administrator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: {type: string}
+                password: {type: string}
+                role: {type: string}
+      responses:
+        "201": {description: "User created", content: {application/json: {schema: {type: object}}}}
+        "400": {description: "invalid request body", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: "unauthorized", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "403": {description: "administrator role required", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "email already registered", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/admin/audit:
+    x-audience: platform
+    get:
+      operationId: listAudit
+      summary: Audit timeline (administrator)
+      responses:
+        "200": {description: "audit_logs: recent audit events", content: {application/json: {schema: {type: object}}}}
+        "401": {description: "unauthorized", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "403": {description: "administrator role required", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/admin/namespaces:
+    x-audience: platform
+    get:
+      operationId: listNamespaces
+      summary: Namespace inventory (administrator)
+      responses:
+        "200": {description: "namespaces: the platform namespace inventory", content: {application/json: {schema: {type: object}}}}
+        "401": {description: "unauthorized", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "403": {description: "administrator role required", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/registry/authz:
+    x-audience: platform
+    get:
+      operationId: registryAuthz
+      summary: Registry forward-auth decision
+      description: Called by the ingress for every registry request. 204 allows, 401 asks for credentials, 403 denies.
+      responses:
+        "204": {description: allowed}
+        "401": {description: credentials required}
+        "403": {description: denied}
+        "503": {description: identity store unavailable}
+  /api/v1/user/activity/image-publish:
+    x-audience: platform
+    post:
+      operationId: recordImagePublish
+      summary: Record that the caller published an image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [image_ref]
+              properties:
+                image_ref: {type: string}
+                source_image: {type: string}
+                mode: {type: string}
+      responses:
+        "202": {description: "Recorded", content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, image_ref: {type: string}}}}}}
+        "400": {description: "invalid request body", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: "unauthorized", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/user/registry-credentials:
+    x-audience: platform
+    get:
+      operationId: listRegistryCredentials
+      summary: List the caller's registry credentials
+      responses:
+        "200": {description: "credentials: non-secret metadata", content: {application/json: {schema: {type: object}}}}
+        "401": {description: "unauthorized", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      operationId: createRegistryCredential
+      summary: Create a registry credential for the caller
+      description: The password is returned once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+      responses:
+        "201": {description: "credential, username and one-time password", content: {application/json: {schema: {type: object}}}}
+        "400": {description: "invalid request body or name", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: "unauthorized", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/user/registry-credentials/{id}:
+    x-audience: platform
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    delete:
+      operationId: revokeRegistryCredential
+      summary: Revoke one of the caller's registry credentials
+      responses:
+        "200": {description: "Revoked credential metadata", content: {application/json: {schema: {type: object}}}}
+        "401": {description: "unauthorized", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: "credential not found", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
   /internal/identity/agents/{agent_id}/certificates:
     get:
       summary: Read recorded certificate issuance for an agent (internal service authentication)
@@ -1379,6 +1593,16 @@ components:
             $ref: "#/components/schemas/SessionChange"
         more:
           type: "boolean"
+    UserApiKey:
+      type: object
+      required: [id, name, prefix, created_at, revoked]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        prefix: {type: string}
+        created_at: {type: string, format: date-time}
+        revoked: {type: boolean}
+        revoked_at: {type: string, format: date-time}
     ErrorEnvelope:
       type: object
       required: [error, message]
