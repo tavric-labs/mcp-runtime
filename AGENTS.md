@@ -196,6 +196,16 @@ agent/grant/certificate session before updating the live-version badge.
   3. Recommend, then wait. Say whether you think the change should be made and
      why. Make it only after the user agrees, in its own commit, and call it out
      in the PR and changelog.
+- Service boundaries and refactors. Services talk over the network against the
+  provider's OpenAPI spec, not through shared domain packages. Before a consumer
+  drops a shared package, give its client a contract test that exercises every
+  call and checks the method and path against the provider's `openapi.yaml`
+  (example: `services/runtime-api/internal/platformapi/contract_test.go`).
+  Interfaces belong to the package that uses them: domain packages define them
+  and Kubernetes or service adapters implement them (`test/regression/layer_boundaries_test.go`
+  enforces the layers). In a refactor PR, commit each moved responsibility
+  separately and keep pure moves apart from interface or behavior changes, so a
+  reviewer can tell them apart.
 - Match nearby patterns and keep scope focused. Branches use `component/feature_name`;
   agents create a branch and PR, never push directly to `main`.
 - Use `fix(component):`, `feat(component):`, `doc:` or `website:` commits.
