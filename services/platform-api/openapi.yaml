@@ -480,6 +480,166 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /internal/identity/teams/{slug}:
+    parameters:
+      - {name: slug, in: path, required: true, schema: {type: string}}
+    get:
+      responses:
+        "200": {description: team, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    delete:
+      responses:
+        "204": {description: team deleted}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/identity/teams/{slug}/agents:
+    parameters:
+      - {name: slug, in: path, required: true, schema: {type: string}}
+    get:
+      parameters:
+        - {name: status, in: query, required: false, schema: {type: string, enum: [active, inactive]}}
+        - {name: q, in: query, required: false, schema: {type: string}}
+        - {name: cursor, in: query, required: false, schema: {type: string}}
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 200}}
+      responses:
+        "200": {description: one page of team agents, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid filter or cursor, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+                created_by: {type: string}
+      responses:
+        "201": {description: agent created, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid agent name, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: agent name already exists in the team, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/identity/teams/{slug}/members:
+    parameters:
+      - {name: slug, in: path, required: true, schema: {type: string}}
+    get:
+      responses:
+        "200": {description: team memberships, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id: {type: string}
+                role: {type: string}
+      responses:
+        "200": {description: membership created or updated, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request body, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team or user not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/identity/teams/{slug}/members/{user_id}:
+    parameters:
+      - {name: slug, in: path, required: true, schema: {type: string}}
+      - {name: user_id, in: path, required: true, schema: {type: string}}
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: {type: string}
+      responses:
+        "200": {description: membership created or updated, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request body, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team or user not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    delete:
+      responses:
+        "204": {description: membership removed}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: membership not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/identity/teams/{slug}/users:
+    parameters:
+      - {name: slug, in: path, required: true, schema: {type: string}}
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, role]
+              properties:
+                email: {type: string}
+                password: {type: string}
+                role: {type: string}
+      responses:
+        "201": {description: user and membership created atomically, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request body, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/identity/agents/{agent_id}:
+    parameters:
+      - {name: agent_id, in: path, required: true, schema: {type: string}}
+    get:
+      responses:
+        "200": {description: agent, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: agent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    patch:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+      responses:
+        "200": {description: agent renamed, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid agent name, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: agent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: agent name already exists in the team, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/identity/agents/{agent_id}/{action}:
+    parameters:
+      - {name: agent_id, in: path, required: true, schema: {type: string}}
+      - {name: action, in: path, required: true, schema: {type: string, enum: [deactivate, reactivate]}}
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actor_id: {type: string}
+      responses:
+        "200": {description: agent status changed, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request body, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: agent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/identity/namespaces/{namespace}:
+    parameters:
+      - {name: namespace, in: path, required: true, schema: {type: string}}
+    get:
+      responses:
+        "200": {description: namespace, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: namespace not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
   /internal/identity/namespaces:
     get:
       responses:

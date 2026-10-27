@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/access/k8sstore"
@@ -89,10 +89,10 @@ func newAdapterTestFixture(t *testing.T, grants ...mcpv1alpha1.MCPAccessGrant) a
 			http.NotFound(w, r)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(platformclient.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: agentTeamID, TeamSlug: "acme", Name: "Ops", Status: agentStatus})
+		_ = json.NewEncoder(w).Encode(platformapi.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: agentTeamID, TeamSlug: "acme", Name: "Ops", Status: agentStatus})
 	}))
 	t.Cleanup(identityHTTP.Close)
-	identity := &platformclient.Client{BaseURL: identityHTTP.URL, Token: "test-token", HTTP: identityHTTP.Client()}
+	identity := &platformapi.Client{BaseURL: identityHTTP.URL, Token: "test-token", HTTP: identityHTTP.Client()}
 	return adapterTestFixture{
 		server: &RuntimeServer{accessMgr: mgr, identity: identity, k8sClients: &k8sclient.Clients{Dynamic: dynamic}},
 		principal: principal{

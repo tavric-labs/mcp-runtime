@@ -1,4 +1,7 @@
-package platformclient
+// Package platformapi is runtime-api's network client for platform-api. The two
+// services share a network contract, platform-api's openapi.yaml, and not code:
+// contract_test.go fails when this client calls an operation the spec omits.
+package platformapi
 
 import (
 	"bytes"
@@ -19,7 +22,7 @@ import (
 	"mcp-runtime/pkg/transport/httptrace"
 )
 
-// Client calls platform-api internal identity and audit endpoints.
+// Client calls platform-api's /internal endpoints with the service token.
 type Client struct {
 	BaseURL string
 	Token   string

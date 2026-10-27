@@ -23,6 +23,9 @@ type OIDCVerifier interface {
 
 // PrincipalResolver refreshes current account and membership state after token
 // verification. A signed token cannot keep a deactivated account authorized.
+// Only platform-api sets it: its exchange handler refreshes the account before
+// minting the short-lived token that other services then verify locally (see
+// NewAudienceAuthenticator).
 type PrincipalResolver interface {
 	PrincipalForUserID(context.Context, string) (Principal, error)
 }

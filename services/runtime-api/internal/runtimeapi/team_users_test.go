@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 )
 
 func TestTeamUserCreatePreservesIdentityErrors(t *testing.T) {
@@ -38,7 +38,7 @@ func TestTeamUserCreatePreservesIdentityErrors(t *testing.T) {
 				_ = json.NewEncoder(w).Encode(map[string]string{"error": tc.code, "message": tc.message})
 			}))
 			defer upstream.Close()
-			server := &RuntimeServer{identity: &platformclient.Client{BaseURL: upstream.URL, Token: "test-token", HTTP: upstream.Client()}}
+			server := &RuntimeServer{identity: &platformapi.Client{BaseURL: upstream.URL, Token: "test-token", HTTP: upstream.Client()}}
 			audit := &fakeAuditWriter{}
 			server.SetAuditWriter(audit)
 			response := httptest.NewRecorder()

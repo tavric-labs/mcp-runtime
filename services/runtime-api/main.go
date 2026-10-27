@@ -12,7 +12,7 @@ import (
 	chdriver "github.com/ClickHouse/clickhouse-go/v2"
 	_ "go.uber.org/automaxprocs"
 
-	"mcp-runtime-api/internal/platformclient"
+	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime-api/internal/runtimeapi"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/envcfg"
@@ -23,7 +23,7 @@ import (
 type server struct {
 	runtime     *runtimeapi.RuntimeServer
 	runtimeInit string
-	platform    *platformclient.Client
+	platform    *platformapi.Client
 	authentic   platformauth.Authenticator
 }
 
@@ -59,7 +59,7 @@ func main() {
 		platformAPIURL = "http://mcp-platform-api.mcp-platform.svc.cluster.local:8080"
 	}
 	internalToken := strings.TrimSpace(os.Getenv("INTERNAL_AUTH_TOKEN"))
-	platformClient := &platformclient.Client{
+	platformClient := &platformapi.Client{
 		BaseURL: platformAPIURL,
 		Token:   internalToken,
 	}
@@ -74,18 +74,15 @@ func main() {
 	srv := &server{
 		runtime:  runtimeServer,
 		platform: platformClient,
-		authentic: platformauth.Authenticator{
-			Principals:     &platformauth.HTTPUserKeyResolver{BaseURL: platformAPIURL, Token: internalToken},
-			Secret:         jwtSecret,
+		authentic: platformauth.NewAudienceAuthenticator(platformauth.AudienceConfig{
 			Audience:       platformauth.AudienceRuntime,
+			Secret:         jwtSecret,
+			PlatformAPIURL: platformAPIURL,
+			InternalToken:  internalToken,
 			ServiceAPIKeys: apiKeys,
 			AdminAPIKeys:   adminAPIKeysFromEnv(),
-			UserKeyResolver: &platformauth.HTTPUserKeyResolver{
-				BaseURL: platformAPIURL,
-				Token:   internalToken,
-			},
 			PublicFallback: runtimeapi.PublicCatalogFallback,
-		},
+		}),
 	}
 	if !runtimeServer.KubernetesAvailable() {
 		srv.runtimeInit = "kubernetes client not available"

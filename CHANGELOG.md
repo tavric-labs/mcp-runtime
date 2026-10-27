@@ -9,6 +9,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
+- runtime-api and analytics-api no longer call platform-api to re-read the account on every request. Platform-api's token exchange already refreshes the account and memberships immediately before it mints the 60-second, single-audience token, so the services verify that token locally. A deactivated account or changed membership takes effect at the next exchange, and an already minted token stays valid for at most 60 seconds. User API keys are still checked by platform-api on every call, so a revoked key fails at once. No setup or data change is required.
 - QA E2E failures now upload redacted, size-capped logs from every pod in the platform namespaces (`pod-logs/<namespace>/<pod>.log`, plus `<pod>.previous.log` for restarted containers in the run artifact), so a 5xx such as `query_failed` or a crash loop carries its backend error. Collection is bounded to 30 pods per namespace and 150 seconds. No deployment or fresh-setup change is required.
 
 ### Fixed
