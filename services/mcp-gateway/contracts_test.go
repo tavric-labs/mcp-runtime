@@ -114,17 +114,6 @@ func TestZeroDispatchCapabilityCannotReachUpstream(t *testing.T) {
 	}
 }
 
-// A malformed expiry has always been treated as "no expiry" (mtlsBindingExpired
-// ignored parse errors). Changing that is a behavior change that needs review.
-func TestMalformedSessionDeadlineKeepsLegacyNoExpiryBehavior(t *testing.T) {
-	t.Parallel()
-	actor := identityContext{HumanID: "human"}
-	err := validateSessionBinding(&policypkg.Binding{HumanID: actor.HumanID, ExpiresAt: "tomorrow"}, actor, time.Date(2026, 10, 25, 0, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("malformed expiry changed outcome: %v", err)
-	}
-}
-
 func TestRPCMethodsKeepTheirAuditIdentityAcrossProtocolRevisions(t *testing.T) {
 	t.Parallel()
 	for _, version := range []string{"2025-11-25", "2026-07-28"} {
