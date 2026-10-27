@@ -295,7 +295,7 @@ classify_path() {
       add_scenario "adapter-certificates"
       return
       ;;
-    pkg/svcboot/*|services/ingest/*|services/processor/*|pkg/clickhouse/*|pkg/events/*|pkg/platformstack/*|pkg/envcfg/*|pkg/telemetry/*|pkg/transport/*|pkg/oidcdiscovery/*)
+    pkg/svcboot/*|services/ingest/*|services/processor/*|pkg/clickhouse/*|pkg/events/*|services/runtime-api/internal/platformstack/*|pkg/envcfg/*|pkg/telemetry/*|pkg/transport/*|pkg/oidcdiscovery/*)
       add_observability
       return
       ;;

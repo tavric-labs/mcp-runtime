@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"mcp-runtime-api/internal/platformstack"
 	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/platformstack"
 	"mcp-runtime/pkg/publishscope"
 	"mcp-runtime/pkg/registrypush"
 )

@@ -19,8 +19,8 @@ import (
 	mcpaccess "mcp-runtime/pkg/access"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"mcp-runtime-api/internal/k8sstore"
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
-	"mcp-runtime/pkg/access/k8sstore"
 )
 
 // Adapter-session bounds: the issued session's lifetime is constrained so a

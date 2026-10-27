@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 
-	"mcp-runtime/pkg/platformstack"
+	"mcp-runtime-api/internal/platformstack"
 )
 
 const (

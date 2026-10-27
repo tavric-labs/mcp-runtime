@@ -6,8 +6,8 @@ import (
 	"sort"
 	"time"
 
+	"mcp-runtime-api/internal/k8sstore"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/internalapi"
 )
 

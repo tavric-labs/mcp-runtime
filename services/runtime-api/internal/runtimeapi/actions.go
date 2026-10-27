@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"mcp-runtime/pkg/platformstack"
+	"mcp-runtime-api/internal/platformstack"
 )
 
 const actionRestartMaxBytes = 4 * 1024

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"mcp-runtime/pkg/authgateway"
+	"mcp-runtime/internal/authgateway"
 )
 
-// The CLI derives service entries and validates them with pkg/authgateway; this
+// The CLI derives service entries and validates them with internal/authgateway; this
 // package parses the same JSON at runtime. The test keeps the two in step: an
 // entry the CLI produces must load here and keep the names mcp-auth is wired to.
 func TestServicesDerivedByTheCLILoadHere(t *testing.T) {

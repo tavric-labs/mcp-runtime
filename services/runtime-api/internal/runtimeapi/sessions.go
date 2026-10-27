@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
+	"mcp-runtime-api/internal/k8sstore"
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/k8sclient"
 )
 

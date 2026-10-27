@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"mcp-runtime-api/internal/k8sstore"
 	"mcp-runtime-api/internal/platformapi"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/platformauth"
 
