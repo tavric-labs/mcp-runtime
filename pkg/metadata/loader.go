@@ -14,8 +14,6 @@ import (
 	policypkg "mcp-runtime/pkg/policy"
 )
 
-const DefaultRegistryHost = "registry.local"
-
 // LoadFromFile reads a single registry YAML file from disk and applies default values.
 func LoadFromFile(filePath string) (*RegistryFile, error) {
 	cleanPath := filepath.Clean(filePath)
@@ -93,15 +91,15 @@ func setDefaults(server *ServerMetadata) error {
 	server.Scope = scope
 
 	// Set default image if not provided (will be updated by build command).
-	// ResolveRegistryHost names the platform registry for docker push/build. Pipeline
+	// platforminventory.ResolveRegistryHost names the platform registry for docker push/build. Pipeline
 	// generation rewrites unqualified or platform-registry MCPServer image refs to
-	// ResolveRegistryPullHost for kubelet pulls, while preserving external registries.
+	// platforminventory.ResolveRegistryPullHost for kubelet pulls, while preserving external registries.
 	if server.Image == "" {
 		repository := server.Name
 		if alias, ok := platforminventory.ScopeRegistryAlias(scope); ok {
 			repository = alias + "/" + repository
 		}
-		server.Image = fmt.Sprintf("%s/%s", ResolveRegistryHost(), repository)
+		server.Image = fmt.Sprintf("%s/%s", platforminventory.ResolveRegistryHost(), repository)
 	}
 	if server.ImageTag == "" {
 		server.ImageTag = "latest"

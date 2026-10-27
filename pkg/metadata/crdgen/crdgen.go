@@ -2,6 +2,7 @@ package crdgen
 
 import (
 	"fmt"
+	"mcp-runtime/pkg/platforminventory"
 	"os"
 	"path/filepath"
 
@@ -23,13 +24,13 @@ func GenerateCRD(server *metadata.ServerMetadata, outputPath string) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      server.Name,
 			Namespace: server.Namespace,
-			Labels:    metadata.PublishScopeLabels(server.Scope),
+			Labels:    publishScopeLabels(server.Scope),
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			CredentialBindings: append([]string(nil), server.CredentialBindings...),
 			Description:        server.Description,
 			TeamID:             server.TeamID,
-			Image:              metadata.ImageRefForClusterPull(server.Image),
+			Image:              platforminventory.ImageRefForClusterPull(server.Image),
 			ImageTag:           server.ImageTag,
 			Port:               server.Port,
 			Replicas:           server.Replicas,
@@ -257,4 +258,12 @@ func GenerateCRDsFromRegistry(registry *metadata.RegistryFile, outputDir string)
 	}
 
 	return nil
+}
+
+// publishScopeLabels returns the labels that record a server's publish scope.
+func publishScopeLabels(scope platforminventory.Scope) map[string]string {
+	if scope == "" {
+		return nil
+	}
+	return map[string]string{"mcpruntime.org/scope": string(scope)}
 }

@@ -1,4 +1,4 @@
-package metadata
+package platforminventory
 
 import (
 	"fmt"

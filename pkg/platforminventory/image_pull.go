@@ -1,19 +1,10 @@
-package metadata
+package platforminventory
 
 import (
-	"mcp-runtime/pkg/platforminventory"
 	"net"
 	"os"
 	"strings"
 )
-
-// PublishScopeLabels returns the labels that record a server's publish scope.
-func PublishScopeLabels(scope platforminventory.Scope) map[string]string {
-	if scope == "" {
-		return nil
-	}
-	return map[string]string{"mcpruntime.org/scope": string(scope)}
-}
 
 // ImageRefForClusterPull rewrites platform-registry images to the in-cluster pull host.
 func ImageRefForClusterPull(image string) string {

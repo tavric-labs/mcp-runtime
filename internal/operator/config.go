@@ -1,11 +1,10 @@
 package operator
 
 import (
+	"mcp-runtime/pkg/platforminventory"
 	"os"
 	"strconv"
 	"strings"
-
-	"mcp-runtime/pkg/metadata"
 )
 
 // OperatorConfig holds configuration for the operator loaded from environment variables.
@@ -69,7 +68,7 @@ type OperatorConfig struct {
 // LoadOperatorConfig loads operator configuration from environment variables.
 func LoadOperatorConfig() *OperatorConfig {
 	ingressReadinessMode, _ := NormalizeIngressReadinessMode(os.Getenv("MCP_INGRESS_READINESS_MODE"))
-	mcpIngressHost := metadata.ResolveMcpIngressHost()
+	mcpIngressHost := platforminventory.ResolveMcpIngressHost()
 	if mcpIngressHost == "" {
 		mcpIngressHost = getEnvCompat("MCP_DEFAULT_INGRESS_HOST", "DEFAULT_INGRESS_HOST")
 	}

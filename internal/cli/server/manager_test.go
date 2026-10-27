@@ -166,8 +166,8 @@ servers:
 	if err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
-	if strings.Contains(string(data), metadata.DefaultRegistryHost) {
-		t.Fatalf("init persisted the %s placeholder:\n%s", metadata.DefaultRegistryHost, data)
+	if strings.Contains(string(data), platforminventory.DefaultRegistryHost) {
+		t.Fatalf("init persisted the %s placeholder:\n%s", platforminventory.DefaultRegistryHost, data)
 	}
 	registry, err := metadata.LoadFromFile(path)
 	if err != nil {

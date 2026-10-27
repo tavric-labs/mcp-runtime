@@ -27,7 +27,6 @@ import (
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/platforminventory"
 )
 
@@ -538,12 +537,12 @@ func (s *DeploymentService) ensureNamespaceRegistryPullSecret(ctx context.Contex
 }
 
 func registryPullSecretHost() string {
-	if host := normalizeImageRegistryHost(metadata.ResolveRegistryHost()); host != "" && host != "registry.local" && host != "localhost" {
+	if host := normalizeImageRegistryHost(platforminventory.ResolveRegistryHost()); host != "" && host != "registry.local" && host != "localhost" {
 		return host
 	}
 	// Keep the secret useful when a public registry override is a local
 	// placeholder but an explicit internal endpoint is configured.
-	if host := normalizeImageRegistryHost(metadata.ResolveRegistryEndpoint()); host != "" && host != "registry.local" && host != "localhost" {
+	if host := normalizeImageRegistryHost(platforminventory.ResolveRegistryEndpoint()); host != "" && host != "registry.local" && host != "localhost" {
 		return host
 	}
 	return ""

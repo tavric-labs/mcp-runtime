@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/platforminventory"
 )
 
@@ -69,7 +68,7 @@ const (
 	defaultHelperPodTimeout    = 3 * time.Minute
 	defaultRegistryPort        = 5000
 	defaultKubernetesAPIPort   = 6443
-	defaultRegistryEndpoint    = "registry.local" // used by build paths; same default as metadata.DefaultRegistryHost
+	defaultRegistryEndpoint    = "registry.local" // used by build paths; same default as platforminventory.DefaultRegistryHost
 	defaultRegistryIngressHost = "registry.local"
 	// Exported aliases for tests and subpackages (same values as above).
 	DefaultRegistryEndpoint    = defaultRegistryEndpoint
@@ -83,10 +82,10 @@ var DefaultCLIConfig = LoadCLIConfig()
 
 // LoadCLIConfig loads CLI configuration from environment variables.
 func LoadCLIConfig() *CLIConfig {
-	registryEndpoint := metadata.ResolveRegistryEndpoint()
-	registryIngressHost := metadata.ResolveRegistryHost()
-	mcpIngressHost := metadata.ResolveMcpIngressHost()
-	platformIngressHost := metadata.ResolvePlatformIngressHost()
+	registryEndpoint := platforminventory.ResolveRegistryEndpoint()
+	registryIngressHost := platforminventory.ResolveRegistryHost()
+	mcpIngressHost := platforminventory.ResolveMcpIngressHost()
+	platformIngressHost := platforminventory.ResolvePlatformIngressHost()
 	return &CLIConfig{
 		// Applies to core deployment waits and platform rollouts (ingest, Kafka, etc.).
 		DeploymentTimeout:           parseDurationEnv("MCP_DEPLOYMENT_TIMEOUT", defaultDeploymentTimeout),

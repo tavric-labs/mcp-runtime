@@ -1,6 +1,9 @@
 package platforminventory
 
 const (
+	// DefaultRegistryHost names the registry used when none is configured.
+	DefaultRegistryHost = "registry.local"
+
 	MCPServerPort       = 8088
 	MCPGatewayPort      = 8091
 	MCPServersNamespace = "mcp-servers"

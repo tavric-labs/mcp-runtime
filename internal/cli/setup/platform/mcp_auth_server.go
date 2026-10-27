@@ -16,7 +16,6 @@ import (
 	"mcp-runtime/internal/cli/registry/config"
 	"mcp-runtime/internal/cli/setup/assetpath"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
-	"mcp-runtime/pkg/metadata"
 )
 
 // mcpAuthInternalIssuerURLForCluster returns the in-cluster address gateway
@@ -33,7 +32,7 @@ func mcpAuthInternalIssuerURLForCluster() string {
 // DefaultMCPAuthIssuerURL derives the bundled server's fixed public route from
 // the platform domain, returning empty when no public domain is configured.
 func DefaultMCPAuthIssuerURL() string {
-	domain := metadata.NormalizePlatformDomain(os.Getenv("MCP_PLATFORM_DOMAIN"))
+	domain := platforminventory.NormalizePlatformDomain(os.Getenv("MCP_PLATFORM_DOMAIN"))
 	if domain == "" {
 		return ""
 	}

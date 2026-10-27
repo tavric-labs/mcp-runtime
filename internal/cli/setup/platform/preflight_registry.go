@@ -6,7 +6,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/platforminventory"
 	"strings"
 )
@@ -15,7 +14,7 @@ import (
 // host that does not match the expected registry hostname. This causes external
 // TLS validation to fail and the platform API to use the wrong pull URL.
 func checkStaleRegistryIngress(ctx context.Context, clients *k8sclient.Clients) []preflightIssue {
-	expectedHost := metadata.ResolveRegistryHost()
+	expectedHost := platforminventory.ResolveRegistryHost()
 	if expectedHost == "" {
 		return nil
 	}

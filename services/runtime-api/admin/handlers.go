@@ -3,13 +3,13 @@ package admin
 import (
 	"fmt"
 	"mcp-runtime/pkg/apikit"
+	"mcp-runtime/pkg/platforminventory"
 	"net/http"
 	"strings"
 	"time"
 
 	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime-api/internal/runtimeapi"
-	"mcp-runtime/pkg/metadata"
 )
 
 type Dependencies struct {
@@ -224,8 +224,8 @@ func operationsLimit(filter platformapi.OperationsFilter) int {
 func sanitizeImageActivity(items []platformapi.ImageActivity) []platformapi.ImageActivity {
 	out := make([]platformapi.ImageActivity, 0, len(items))
 	for _, item := range items {
-		item.ImageRef = metadata.DisplayImageReference(item.ImageRef)
-		item.SourceImage = metadata.DisplayImageReference(item.SourceImage)
+		item.ImageRef = platforminventory.DisplayImageReference(item.ImageRef)
+		item.SourceImage = platforminventory.DisplayImageReference(item.SourceImage)
 		out = append(out, item)
 	}
 	return out
@@ -239,7 +239,7 @@ func sanitizeDeploymentSummaries(items []map[string]any) []map[string]any {
 			copyItem[k] = v
 		}
 		if imageRef, ok := copyItem["image"].(string); ok {
-			copyItem["image"] = metadata.DisplayImageReference(imageRef)
+			copyItem["image"] = platforminventory.DisplayImageReference(imageRef)
 		}
 		out = append(out, copyItem)
 	}

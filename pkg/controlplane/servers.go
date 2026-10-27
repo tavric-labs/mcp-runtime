@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mcp-runtime/pkg/platforminventory"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -14,7 +15,6 @@ import (
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	"mcp-runtime/pkg/identity"
-	"mcp-runtime/pkg/metadata"
 )
 
 const stableDeploymentSelector = "app.kubernetes.io/managed-by=mcp-runtime,mcpruntime.org/rollout-track=stable"
@@ -409,7 +409,7 @@ func PublicMCPEndpoint(mcpServer mcpv1alpha1.MCPServer) string {
 	}
 	host := strings.TrimSpace(mcpServer.Spec.IngressHost)
 	if host == "" {
-		host = metadata.ResolveMcpIngressHost()
+		host = platforminventory.ResolveMcpIngressHost()
 	}
 	if host == "" {
 		return path

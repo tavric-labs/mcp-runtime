@@ -25,7 +25,6 @@ import (
 	chpkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -350,7 +349,7 @@ func serverApplyNamespaceEnsureError(p principal, namespace string, isTeamNamesp
 }
 
 func defaultRuntimeServerIngressHost() string {
-	return metadata.ResolveMcpIngressHost()
+	return platforminventory.ResolveMcpIngressHost()
 }
 
 func (s *RuntimeServer) applyPublishedServerDefaults(ctx context.Context, namespace, name string, spec *mcpv1alpha1.MCPServerSpec) error {
@@ -842,7 +841,7 @@ func connectServerEntry(endpoint string, info controlplane.ServerInfo) map[strin
 }
 
 func serverInfoWithAccessJSON(info controlplane.ServerInfo, r *http.Request) serverInfo {
-	info.Image = metadata.DisplayImageReference(info.Image)
+	info.Image = platforminventory.DisplayImageReference(info.Image)
 	out := serverInfo{ServerInfo: info}
 	connectEndpoint := publicMCPConnectEndpoint(info.Endpoint, r)
 	if connectEndpoint != "" {

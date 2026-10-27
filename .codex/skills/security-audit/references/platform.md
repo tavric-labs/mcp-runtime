@@ -283,7 +283,7 @@ variables — any of those is Medium.
 
 ## Step 10 — SSRF and path traversal
 
-- Image refs: `pkg/metadata/host_resolve.go` and registry parsing must reject
+- Image refs: `pkg/platforminventory/hosts.go` and registry parsing must reject
   `127.0.0.1`, `169.254.169.254`, `[::1]`, IPv6 zone IDs, schemes other than
   `http`/`https`, and registry hosts that resolve to private CIDRs in prod.
 - Ingress hosts: confirm `MCP_PLATFORM_DOMAIN` parsing rejects values that

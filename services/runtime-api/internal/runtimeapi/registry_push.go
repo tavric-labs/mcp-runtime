@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"mcp-runtime-api/internal/platformstack"
-	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/registrypush"
 )
 
@@ -445,7 +444,7 @@ func registryPushInternalHostnames() []string {
 	if host := registryPullSecretHost(); host != "" {
 		hosts = append(hosts, host)
 	}
-	if host := metadata.ResolveRegistryHost(); host != "" && host != metadata.DefaultRegistryHost {
+	if host := platforminventory.ResolveRegistryHost(); host != "" && host != platforminventory.DefaultRegistryHost {
 		hosts = append(hosts, host)
 	}
 	seen := map[string]struct{}{}
