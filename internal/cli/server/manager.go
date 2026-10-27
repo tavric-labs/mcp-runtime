@@ -27,8 +27,8 @@ import (
 	"mcp-runtime/internal/cli/kubeerr"
 	"mcp-runtime/internal/cli/platformapi"
 	registrycli "mcp-runtime/internal/cli/registry"
+	"mcp-runtime/internal/cli/server/crdgen"
 	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/metadata/crdgen"
 	policypkg "mcp-runtime/pkg/policy"
 )
 
