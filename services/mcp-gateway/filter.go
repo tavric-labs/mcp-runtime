@@ -43,6 +43,12 @@ func denyResponse(decision policypkg.Decision) *FilterResponse {
 	return &FilterResponse{Decision: decision, kind: responseDenied}
 }
 
+// metadataResponse is the public OAuth metadata outcome: it is rendered by
+// applyFilterResponse and is the only outcome that skips audit.
+func metadataResponse(decision policypkg.Decision, metadata *oauthMetadataResponse) *FilterResponse {
+	return &FilterResponse{Decision: decision, kind: responseMetadata, metadata: metadata}
+}
+
 func forwardedResponse(decision policypkg.Decision) *FilterResponse {
 	return &FilterResponse{Decision: decision, kind: responseForwarded}
 }
