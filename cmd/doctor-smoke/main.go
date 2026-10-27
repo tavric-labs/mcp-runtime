@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"time"
 
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/platforminventory"
 )
 
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = strconv.Itoa(mcpdefaults.MCPServerPort)
+		port = strconv.Itoa(platforminventory.MCPServerPort)
 	}
 	portNumber, err := strconv.Atoi(port)
 	if err != nil || portNumber < 1 || portNumber > 65535 {

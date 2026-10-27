@@ -15,15 +15,15 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	_ "go.uber.org/automaxprocs" // align GOMAXPROCS with container CPU quota
 
+	"mcp-runtime/pkg/envcfg"
+	"mcp-runtime/pkg/platformmode"
+	policypkg "mcp-runtime/pkg/policy"
+	"mcp-runtime/pkg/publishscope"
+	"mcp-runtime/pkg/telemetry"
 	"mcp-ui/internal/assets"
 	"mcp-ui/internal/auth"
 	uiproxy "mcp-ui/internal/proxy"
 	"mcp-ui/internal/session"
-
-	"mcp-runtime/pkg/mcpdefaults"
-	"mcp-runtime/pkg/platformmode"
-	"mcp-runtime/pkg/publishscope"
-	"mcp-runtime/pkg/serviceutil"
 )
 
 //go:embed static/*
@@ -57,12 +57,12 @@ func authServerForStore(store *session.Store) *auth.Server {
 // It serves static web assets and provides a dynamic /config.js endpoint
 // with API configuration for the frontend. Includes tracing support.
 func main() {
-	port := serviceutil.EnvOr("PORT", "8082")
-	apiBase := serviceutil.EnvOr("API_BASE", "/api/v1")
+	port := envcfg.EnvOr("PORT", "8082")
+	apiBase := envcfg.EnvOr("API_BASE", "/api/v1")
 	apiKey := strings.TrimSpace(os.Getenv("API_KEY"))
 	apiKeys := strings.TrimSpace(os.Getenv("API_KEYS"))
 	adminAPIKeys := strings.TrimSpace(os.Getenv("ADMIN_API_KEYS"))
-	apiUpstream := serviceutil.EnvOr("API_UPSTREAM", "http://mcp-platform-api.mcp-platform.svc.cluster.local:8080")
+	apiUpstream := envcfg.EnvOr("API_UPSTREAM", "http://mcp-platform-api.mcp-platform.svc.cluster.local:8080")
 	if apiKey == "" && apiKeys == "" {
 		log.Printf("WARNING: neither API_KEY nor API_KEYS is set; UI API-key login is disabled")
 	}
@@ -76,7 +76,7 @@ func main() {
 		log.Fatalf("invalid API, runtime, or analytics upstream: %v", err)
 	}
 
-	shutdown, err := serviceutil.InitTracer("mcp-ui")
+	shutdown, err := telemetry.InitTracer("mcp-ui")
 	if err != nil {
 		log.Printf("otel init failed: %v", err)
 	} else {
@@ -88,9 +88,9 @@ func main() {
 	}
 
 	log.Printf("mcp-ui listening on :%s", port)
-	httpsMode := serviceutil.EnvOr("UI_REQUIRE_HTTPS", "auto")
+	httpsMode := envcfg.EnvOr("UI_REQUIRE_HTTPS", "auto")
 	secured := securityHeadersMiddleware(httpsRedirectMiddleware(mux, httpsMode))
-	handler := otelhttp.NewHandler(serviceutil.LogRequests(secured), "http.server")
+	handler := otelhttp.NewHandler(telemetry.LogRequests(secured), "http.server")
 	readTimeout := durationEnvOr("UI_HTTP_READ_TIMEOUT", 20*time.Minute)
 	writeTimeout := durationEnvOr("UI_HTTP_WRITE_TIMEOUT", 20*time.Minute)
 	httpServer := &http.Server{
@@ -129,7 +129,7 @@ func newMux(apiBase, apiUpstream, apiKey, apiKeys, adminAPIKeys string) (*http.S
 	if defaultNamespace == "" {
 		defaultNamespace = defaultCatalogNamespaceForMode(platformMode)
 	}
-	defaultPolicyVersion := serviceutil.EnvOr("UI_DEFAULT_POLICY_VERSION", mcpdefaults.PolicyVersion)
+	defaultPolicyVersion := envcfg.EnvOr("UI_DEFAULT_POLICY_VERSION", policypkg.DefaultVersion)
 	baseJSON, err := json.Marshal(apiBase)
 	if err != nil {
 		return nil, err
@@ -175,11 +175,11 @@ func newMux(apiBase, apiUpstream, apiKey, apiKeys, adminAPIKeys string) (*http.S
 	parsedAdminAPIKeys := auth.ParseAPIKeyList(adminAPIKeys)
 	mux.HandleFunc("/auth/admin-check", authServer.AdminCheck(parsedAPIKeys, parsedAdminAPIKeys, legacyAdminAPIKeyFallbackEnabled()))
 
-	runtimeBase, err := uiproxy.ParseUpstream(serviceutil.EnvOr("RUNTIME_UPSTREAM", uiproxy.DefaultRuntimeUpstream))
+	runtimeBase, err := uiproxy.ParseUpstream(envcfg.EnvOr("RUNTIME_UPSTREAM", uiproxy.DefaultRuntimeUpstream))
 	if err != nil {
 		return nil, err
 	}
-	analyticsBase, err := uiproxy.ParseUpstream(serviceutil.EnvOr("ANALYTICS_UPSTREAM", uiproxy.DefaultAnalyticsUpstream))
+	analyticsBase, err := uiproxy.ParseUpstream(envcfg.EnvOr("ANALYTICS_UPSTREAM", uiproxy.DefaultAnalyticsUpstream))
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func isHTTPSRequest(r *http.Request) bool {
 }
 
 func intEnvOr(key string, fallback int) int {
-	parsed := serviceutil.EnvInt(key, fallback)
+	parsed := envcfg.EnvInt(key, fallback)
 	if parsed <= 0 {
 		// #nosec G706 -- fixed-format env validation log for local operator diagnostics.
 		log.Printf("invalid %s=%q; using default %d", key, strings.TrimSpace(os.Getenv(key)), fallback)
@@ -349,7 +349,7 @@ func intEnvOr(key string, fallback int) int {
 }
 
 func durationEnvOr(key string, fallback time.Duration) time.Duration {
-	parsed := serviceutil.EnvDuration(key, fallback)
+	parsed := envcfg.EnvDuration(key, fallback)
 	if parsed <= 0 {
 		// #nosec G706 -- fixed-format env validation log for local operator diagnostics.
 		log.Printf("invalid %s=%q; using default %s", key, strings.TrimSpace(os.Getenv(key)), fallback)
@@ -359,7 +359,7 @@ func durationEnvOr(key string, fallback time.Duration) time.Duration {
 }
 
 func boolEnvOr(key string, fallback bool) bool {
-	if parsed, ok := serviceutil.BoolEnv(key); ok {
+	if parsed, ok := envcfg.BoolEnv(key); ok {
 		return parsed
 	}
 	return fallback
@@ -367,7 +367,7 @@ func boolEnvOr(key string, fallback bool) bool {
 
 func legacyAdminAPIKeyFallbackEnabled() bool {
 	for _, key := range []string{"MCP_LEGACY_ADMIN_API_KEY_FALLBACK", "LEGACY_ADMIN_API_KEY_FALLBACK"} {
-		if parsed, ok := serviceutil.BoolEnv(key); ok {
+		if parsed, ok := envcfg.BoolEnv(key); ok {
 			return parsed
 		}
 	}

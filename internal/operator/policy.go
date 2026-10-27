@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/policy"
 )
 
@@ -183,7 +183,7 @@ func (r *MCPServerReconciler) renderGatewayPolicy(ctx context.Context, mcpServer
 
 	if mcpv1alpha1.AuthUsesHeaderMode(mcpServer.Spec.Auth) {
 		doc.Auth = &policy.Auth{
-			Mode:               mcpdefaults.AuthModeHeader,
+			Mode:               identity.AuthModeHeader,
 			Headers:            append([]string(nil), mcpServer.Spec.Auth.Headers...),
 			CredentialPresence: mcpServer.Spec.Auth.CredentialPresence,
 		}
@@ -212,20 +212,20 @@ func (r *MCPServerReconciler) renderGatewayPolicy(ctx context.Context, mcpServer
 		}
 	} else if mcpv1alpha1.AuthUsesHeaderMode(mcpServer.Spec.Auth) {
 		doc.Policy = &policy.Config{
-			Mode:            mcpdefaults.PolicyModeAllowList,
-			DefaultDecision: mcpdefaults.PolicyDecisionDeny,
-			EnforceOn:       mcpdefaults.PolicyEnforceOn,
-			PolicyVersion:   mcpdefaults.PolicyVersion,
+			Mode:            policy.ModeAllowList,
+			DefaultDecision: policy.DecisionDeny,
+			EnforceOn:       policy.DefaultEnforceOn,
+			PolicyVersion:   policy.DefaultVersion,
 		}
 	} else {
 		// Gateway without an explicit policy block stays in observe mode so
 		// metrics/analytics work without adapter grants. Set spec.policy to
 		// enforce allow-list/deny.
 		doc.Policy = &policy.Config{
-			Mode:            mcpdefaults.ObservabilityPolicyMode,
-			DefaultDecision: mcpdefaults.ObservabilityPolicyDecision,
-			EnforceOn:       mcpdefaults.PolicyEnforceOn,
-			PolicyVersion:   mcpdefaults.PolicyVersion,
+			Mode:            policy.ObservabilityMode,
+			DefaultDecision: policy.ObservabilityDecision,
+			EnforceOn:       policy.DefaultEnforceOn,
+			PolicyVersion:   policy.DefaultVersion,
 		}
 	}
 	if mcpServer.Spec.Session != nil {
@@ -336,7 +336,7 @@ func serverReferenceMatches(objectNamespace string, ref mcpv1alpha1.ServerRefere
 }
 
 func gatewayPolicyConfigMapName(serverName string) string {
-	return mcpdefaults.GatewayPolicyConfigMapName(serverName)
+	return policy.ConfigMapName(serverName)
 }
 
 func defaultTrust(trust mcpv1alpha1.TrustLevel) mcpv1alpha1.TrustLevel {

@@ -12,8 +12,9 @@ import (
 
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/serviceutil"
 )
 
 type accessGrantRequest = mcpaccess.GrantApplyRequest
@@ -48,7 +49,7 @@ func (s *AccessService) HandleGrantItemPath(w http.ResponseWriter, r *http.Reque
 		s.handleGrantGet(w, r, ns, name)
 		return
 	case http.MethodDelete:
-		ns, name, err := serviceutil.ExtractNamespacedResourceDelete(r, "/api/runtime/grants/")
+		ns, name, err := runtimeaccess.ExtractNamespacedResourceDelete(r, "/api/runtime/grants/")
 		if err != nil {
 			writeAPIError(w, http.StatusBadRequest, err.Error())
 			return
@@ -64,7 +65,7 @@ func (s *AccessService) HandleGrantItemPath(w http.ResponseWriter, r *http.Reque
 		s.handleGrantPatch(w, r, ns, name)
 		return
 	case http.MethodPost:
-		parts := strings.Split(strings.Trim(serviceutil.NormalizePublicAPIPath(r.URL.Path), "/"), "/")
+		parts := strings.Split(strings.Trim(httpx.NormalizePublicAPIPath(r.URL.Path), "/"), "/")
 		if len(parts) == 5 && parts[0] == "runtime" && parts[1] == "grants" && parts[4] == "revoke-sessions" {
 			s.handleGrantRevokeSessions(w, r, parts[2], parts[3])
 			return
@@ -170,7 +171,7 @@ func (s *AccessService) handleGrantGet(w http.ResponseWriter, r *http.Request, n
 		writeAPIError(w, http.StatusForbidden, "forbidden server")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"grant": mcpaccess.ToGrantSummary(*grant)})
+	writeJSON(w, http.StatusOK, map[string]any{"grant": k8sstore.ToGrantSummary(*grant)})
 }
 
 func (s *AccessService) handleGrantDelete(w http.ResponseWriter, r *http.Request, namespace, name string) {
@@ -284,9 +285,9 @@ func (s *AccessService) handleGrantPatch(w http.ResponseWriter, r *http.Request,
 
 // handleGrantPostTogglePath handles legacy POST /api/runtime/grants/{namespace}/{name}/disable|enable.
 func (s *AccessService) handleGrantPostTogglePath(w http.ResponseWriter, r *http.Request) {
-	params, err := serviceutil.ExtractGrantActionParams(r, "/api/runtime/grants/")
+	params, err := runtimeaccess.ExtractGrantActionParams(r, "/api/runtime/grants/")
 	if err != nil {
-		if errors.Is(err, serviceutil.ErrMethodNotAllowed) {
+		if errors.Is(err, runtimeaccess.ErrMethodNotAllowed) {
 			writeAPIError(w, http.StatusMethodNotAllowed, err.Error())
 		} else {
 			writeAPIError(w, http.StatusBadRequest, err.Error())
@@ -294,7 +295,7 @@ func (s *AccessService) handleGrantPostTogglePath(w http.ResponseWriter, r *http
 		return
 	}
 
-	disable := !serviceutil.IsActionEnabled(params.Action)
+	disable := !runtimeaccess.IsActionEnabled(params.Action)
 	s.handleGrantToggle(w, r, params.Namespace, params.Name, disable)
 }
 

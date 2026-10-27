@@ -20,6 +20,7 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
 )
@@ -105,7 +106,7 @@ func TestServerRetirementAuthorizationAndRecovery(t *testing.T) {
 					t.Fatalf("missing retirement marker: %+v %v", current, err)
 				}
 				if tc.secretDenied {
-					manager := mcpaccess.NewManager(dynamic, nil)
+					manager := k8sstore.NewManager(dynamic, nil)
 					if _, err := manager.GetGrant(context.Background(), "grant", "team-b"); !apierrors.IsNotFound(err) {
 						t.Fatalf("grant survived credential cleanup failure: %v", err)
 					}
@@ -121,7 +122,7 @@ func TestServerRetirementAuthorizationAndRecovery(t *testing.T) {
 			if w.Code != http.StatusOK {
 				t.Fatalf("status %d: %s", w.Code, w.Body.String())
 			}
-			manager := mcpaccess.NewManager(dynamic, nil)
+			manager := k8sstore.NewManager(dynamic, nil)
 			if _, err := manager.GetGrant(context.Background(), "grant", "team-b"); !apierrors.IsNotFound(err) {
 				t.Fatalf("grant remains: %v", err)
 			}
@@ -252,7 +253,7 @@ func TestRetiringServerAccessManagementHandlers(t *testing.T) {
 					grant := &mcpv1alpha1.MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "access", Namespace: "team-a"}, Spec: mcpv1alpha1.MCPAccessGrantSpec{ServerRef: mcpv1alpha1.ServerReference{Name: "demo", Namespace: "team-a"}}}
 					session := &mcpv1alpha1.MCPAgentSession{ObjectMeta: grant.ObjectMeta, Spec: mcpv1alpha1.MCPAgentSessionSpec{ServerRef: grant.Spec.ServerRef}}
 					dyn := dynamicfake.NewSimpleDynamicClient(scheme, server, grant, session)
-					api := &RuntimeServer{accessMgr: mcpaccess.NewManager(dyn, nil)}
+					api := &RuntimeServer{accessMgr: k8sstore.NewManager(dyn, nil)}
 					p := principal{Role: roleAdmin, Subject: "owner", Namespace: "team-a"}
 					if role != "admin" {
 						p.Role = roleUser
@@ -297,7 +298,7 @@ func TestRetiringServerIssuanceHandlersRejectConflict(t *testing.T) {
 	server := ownedTestMCPServer("demo", "team-a", "owner")
 	server.Annotations = map[string]string{mcpaccess.ServerRetiringAnnotation: "true"}
 	dyn := dynamicfake.NewSimpleDynamicClient(scheme, server)
-	api := &RuntimeServer{accessMgr: mcpaccess.NewManager(dyn, nil)}
+	api := &RuntimeServer{accessMgr: k8sstore.NewManager(dyn, nil)}
 	for _, kind := range []string{"grants", "sessions"} {
 		body := `{"name":"new","namespace":"team-a","serverRef":{"name":"demo"},"subject":{"humanID":"owner"},"maxTrust":"low","allowedSideEffects":["read"]}`
 		if kind == "sessions" {

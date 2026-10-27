@@ -22,8 +22,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	_ "go.uber.org/automaxprocs" // align GOMAXPROCS with container CPU quota
 
+	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/events"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
+	identitypkg "mcp-runtime/pkg/identity"
+	"mcp-runtime/pkg/oidcdiscovery"
+	"mcp-runtime/pkg/telemetry"
+	"mcp-runtime/pkg/telemetry/kafkatrace"
+	"mcp-runtime/pkg/transport/tlsconfig"
 )
 
 type eventWriter interface {
@@ -48,13 +54,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	port := serviceutil.EnvOr("PORT", "8081")
-	metricsPort := serviceutil.EnvOr("METRICS_PORT", "9091")
-	brokers := strings.Split(serviceutil.EnvOr("KAFKA_BROKERS", "kafka:9092"), ",")
-	topic := serviceutil.EnvOr("KAFKA_TOPIC", "mcp.events")
+	port := envcfg.EnvOr("PORT", "8081")
+	metricsPort := envcfg.EnvOr("METRICS_PORT", "9091")
+	brokers := strings.Split(envcfg.EnvOr("KAFKA_BROKERS", "kafka:9092"), ",")
+	topic := envcfg.EnvOr("KAFKA_TOPIC", "mcp.events")
 
 	apiKeys := map[string]struct{}{}
-	ingestKeys := serviceutil.EnvOr("INGEST_API_KEYS", serviceutil.EnvOr("API_KEYS", ""))
+	ingestKeys := envcfg.EnvOr("INGEST_API_KEYS", envcfg.EnvOr("API_KEYS", ""))
 	for _, key := range strings.Split(ingestKeys, ",") {
 		key = strings.TrimSpace(key)
 		if key != "" {
@@ -71,7 +77,7 @@ func main() {
 		}
 		if jwksURL == "" {
 			var err error
-			jwksURL, err = serviceutil.DiscoverOIDCJWKSURLWithRetry(context.Background(), oidcIssuer, 5, time.Second)
+			jwksURL, err = oidcdiscovery.DiscoverOIDCJWKSURLWithRetry(context.Background(), oidcIssuer, 5, time.Second)
 			if err != nil {
 				log.Fatalf("OIDC_JWKS_URL is not configured and issuer discovery failed: %v", err)
 			}
@@ -91,7 +97,7 @@ func main() {
 	var saAuth *serviceAccountAuthenticator
 	if audience := strings.TrimSpace(os.Getenv("INGEST_SA_TOKEN_AUDIENCE")); audience != "" {
 		var err error
-		saAuth, err = newInClusterServiceAccountAuthenticator(audience, serviceutil.EnvOr("INGEST_SA_NAME", "mcp-workload"))
+		saAuth, err = newInClusterServiceAccountAuthenticator(audience, envcfg.EnvOr("INGEST_SA_NAME", "mcp-workload"))
 		if err != nil {
 			log.Fatalf("service account token authentication is configured but unavailable: %v", err)
 		}
@@ -100,7 +106,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	kafkaTLS, err := serviceutil.ClientTLSFromEnv("KAFKA")
+	kafkaTLS, err := tlsconfig.ClientTLSFromEnv("KAFKA")
 	if err != nil {
 		log.Fatalf("configure Kafka TLS: %v", err)
 	}
@@ -127,15 +133,15 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/live", func(w http.ResponseWriter, _ *http.Request) {
-		serviceutil.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 	mux.HandleFunc("/ready", server.handleReady)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		serviceutil.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 	mux.Handle("/events", server.auth(http.HandlerFunc(server.handleEvents)))
 
-	shutdown, err := serviceutil.InitTracer("mcp-ingest")
+	shutdown, err := telemetry.InitTracer("mcp-ingest")
 	if err != nil {
 		log.Printf("otel init failed: %v", err)
 	} else {
@@ -146,7 +152,7 @@ func main() {
 		}()
 	}
 
-	metricsShutdown, metricsErrs := serviceutil.StartMetricsServer(metricsPort)
+	metricsShutdown, metricsErrs := telemetry.StartMetricsServer(metricsPort)
 	go func() {
 		if err, ok := <-metricsErrs; ok {
 			log.Printf("metrics server stopped: %v", err)
@@ -154,8 +160,8 @@ func main() {
 	}()
 
 	log.Printf("mcp-ingest listening on :%s", port)
-	requestMetrics := serviceutil.DefaultRequestMetrics()
-	handler := otelhttp.NewHandler(serviceutil.LogRequests(requestMetrics.Middleware("mcp-ingest", mux)), "http.server")
+	requestMetrics := telemetry.DefaultRequestMetrics()
+	handler := otelhttp.NewHandler(telemetry.LogRequests(requestMetrics.Middleware("mcp-ingest", mux)), "http.server")
 	httpServer := &http.Server{
 		Addr:              ":" + port,
 		Handler:           handler,
@@ -165,7 +171,7 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 	go func() {
-		if err := serviceutil.ListenAndServeHTTP(httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := tlsconfig.ListenAndServeHTTP(httpServer); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("server failed: %v", err)
 		}
 	}()
@@ -197,7 +203,7 @@ func (s *ingestServer) handleReady(w http.ResponseWriter, _ *http.Request) {
 		ok, reason = s.readiness.Status()
 	}
 	if !ok {
-		serviceutil.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{
+		httpx.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"ok":     false,
 			"error":  "kafka_unavailable",
 			"reason": reason,
@@ -205,7 +211,7 @@ func (s *ingestServer) handleReady(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	serviceutil.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 // handleEvents handles POST /events requests.
@@ -221,14 +227,14 @@ func (s *ingestServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, ingestEventMaxBytes)
 	var payload events.Envelope
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		serviceutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
 		return
 	}
 
 	payload.Source = strings.TrimSpace(payload.Source)
 	payload.EventType = strings.TrimSpace(payload.EventType)
 	if err := payload.Validate(); err != nil {
-		serviceutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_fields"})
+		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_fields"})
 		return
 	}
 	if id, ok := r.Context().Value(workloadIdentityKey{}).(workloadIdentity); ok {
@@ -236,10 +242,10 @@ func (s *ingestServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, errAttributionMismatch):
 			log.Printf("rejected event: attribution does not match the authenticated workload (namespace=%q server=%q)", id.Namespace, id.Server)
-			serviceutil.WriteJSON(w, http.StatusForbidden, map[string]string{"error": "attribution_mismatch"})
+			httpx.WriteJSON(w, http.StatusForbidden, map[string]string{"error": "attribution_mismatch"})
 			return
 		case err != nil:
-			serviceutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_payload"})
+			httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_payload"})
 			return
 		}
 		payload.Payload = bound
@@ -251,28 +257,28 @@ func (s *ingestServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 		spanOpts = append(spanOpts, trace.WithAttributes(attribute.String("kafka.topic", s.topic)))
 	}
 	writeCtx, span := otel.Tracer("mcp-ingest").Start(r.Context(), "kafka.produce", spanOpts...)
-	payload.SetTraceID(serviceutil.TraceIDFromContext(writeCtx))
+	payload.SetTraceID(telemetry.TraceIDFromContext(writeCtx))
 
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		span.RecordError(err)
 		span.End()
-		serviceutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "encode_failed"})
+		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "encode_failed"})
 		return
 	}
 	err = s.writer.WriteMessages(writeCtx, kafka.Message{
 		Value:   raw,
-		Headers: serviceutil.InjectKafkaHeaders(writeCtx, nil),
+		Headers: kafkatrace.InjectKafkaHeaders(writeCtx, nil),
 	})
 	if err != nil {
 		span.RecordError(err)
 		span.End()
-		serviceutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "enqueue_failed"})
+		httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "enqueue_failed"})
 		return
 	}
 	span.End()
 
-	serviceutil.WriteJSON(w, http.StatusAccepted, map[string]any{"ok": true})
+	httpx.WriteJSON(w, http.StatusAccepted, map[string]any{"ok": true})
 }
 
 // auth is middleware that enforces API key authentication.
@@ -291,7 +297,7 @@ func (s *ingestServer) auth(next http.Handler) http.Handler {
 			}
 		}
 
-		token := serviceutil.ExtractBearer(r.Header.Get("authorization"))
+		token := identitypkg.ExtractBearer(r.Header.Get("authorization"))
 		if token != "" && s.saAuth != nil {
 			if id, ok := s.saAuth.Authenticate(r.Context(), token); ok {
 				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), workloadIdentityKey{}, id)))
@@ -303,22 +309,22 @@ func (s *ingestServer) auth(next http.Handler) http.Handler {
 			parsed, err := parser.Parse(token, s.jwks.Keyfunc)
 			if err == nil && parsed.Valid {
 				if s.oidcIssuer == "" && s.oidcAudience == "" {
-					serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
+					httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
 					return
 				}
 				if s.oidcIssuer != "" || s.oidcAudience != "" {
 					claims, ok := parsed.Claims.(jwt.MapClaims)
 					if !ok {
-						serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
+						httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
 						return
 					}
 					if s.oidcIssuer != "" && claims["iss"] != s.oidcIssuer {
-						serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
+						httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
 						return
 					}
 					if s.oidcAudience != "" {
-						if !serviceutil.AudienceMatches(claims["aud"], s.oidcAudience) {
-							serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
+						if !identitypkg.AudienceMatches(claims["aud"], s.oidcAudience) {
+							httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
 							return
 						}
 					}
@@ -328,7 +334,7 @@ func (s *ingestServer) auth(next http.Handler) http.Handler {
 			}
 		}
 
-		serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	})
 }
 

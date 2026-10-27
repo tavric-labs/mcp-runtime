@@ -15,151 +15,81 @@ import (
 	mcpauth "github.com/Agent-Hellboy/mcp-auth/auth-client/go/mcpauth"
 	"github.com/golang-jwt/jwt/v4"
 
-	"mcp-runtime/pkg/oauthresource"
+	"mcp-runtime/pkg/identity"
 	policypkg "mcp-runtime/pkg/policy"
-	"mcp-runtime/pkg/serviceutil"
 )
 
-func (s *gatewayServer) handleOAuthProtectedResource(w http.ResponseWriter, r *http.Request, policy *policypkg.Document) bool {
+type oauthMetadataResponse struct {
+	status               int
+	resource             string
+	authorizationServers []string
+	scopes               []string
+	errorCode            string
+	message              string
+}
+
+// protectedResourceMetadata describes the response without writing HTTP state.
+func protectedResourceMetadata(r *http.Request, policy *policypkg.Document) *oauthMetadataResponse {
 	if !isOAuthProtectedMetadataPath(r.URL.Path) {
-		return false
+		return nil
 	}
 	if !policypkg.PolicyUsesOAuth(policy) {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		if r.Method != http.MethodHead {
-			_ = json.NewEncoder(w).Encode(map[string]string{
-				"error":   "oauth_not_enabled",
-				"message": "This MCP server has no OAuth configuration.",
-			})
-		}
-		return true
+		return &oauthMetadataResponse{status: http.StatusNotFound, errorCode: "oauth_not_enabled", message: "This MCP server has no OAuth configuration."}
 	}
-	switch r.Method {
-	case http.MethodGet, http.MethodHead:
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return true
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return &oauthMetadataResponse{status: http.StatusMethodNotAllowed}
 	}
-
-	// auth.audience is the single resource identifier for this server: it is
-	// what RFC 9728 metadata advertises here, what a conforming client sends as
-	// the RFC 8707 resource parameter, and what authenticateOAuth validates the
-	// token's audience against. Deriving it from the request instead would let
-	// the advertised resource and the validated audience drift apart, and a
-	// client that did exactly what the metadata told it would be rejected with
-	// an opaque invalid_token.
 	audience := strings.TrimSpace(policy.Auth.Audience)
 	if audience == "" {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		if r.Method != http.MethodHead {
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"error":   "oauth_audience_missing",
-				"message": "This MCP server has no auth.audience. Set spec.auth.audience to the canonical resource URI.",
-			})
-		}
-		return true
+		return &oauthMetadataResponse{status: http.StatusServiceUnavailable, errorCode: "oauth_audience_missing", message: "This MCP server has no auth.audience. Set spec.auth.audience to the canonical resource URI."}
 	}
-
-	w.Header().Set("content-type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if r.Method == http.MethodHead {
-		return true
-	}
-	payload := map[string]any{
-		"resource":                 audience,
-		"authorization_servers":    []string{strings.TrimSpace(policy.Auth.IssuerURL)},
-		"bearer_methods_supported": []string{"header"},
-	}
-	if len(policy.Auth.Scopes) > 0 {
-		payload["scopes_supported"] = policy.Auth.Scopes
-	}
-	_ = json.NewEncoder(w).Encode(payload)
-	return true
+	return &oauthMetadataResponse{status: http.StatusOK, resource: audience,
+		authorizationServers: []string{strings.TrimSpace(policy.Auth.IssuerURL)}, scopes: append([]string(nil), policy.Auth.Scopes...)}
 }
 
-func (s *gatewayServer) authenticateOAuth(r *http.Request, policy *policypkg.Document) oauthAuthResult {
-	return s.authenticateOAuthForSubjectTeam(r, policy, "")
-}
-
-func (s *gatewayServer) authenticateOAuthForSubjectTeam(r *http.Request, policy *policypkg.Document, subjectTeam string) oauthAuthResult {
-	result := oauthAuthResult{
-		Allowed:  true,
-		Status:   http.StatusOK,
-		Identity: identityContext{},
+func (s *gatewayServer) authenticateOAuthForSubjectTeam(r *http.Request, policy *policypkg.Document, subjectTeam policypkg.TeamID) (oauthCredentials, error) {
+	fail := func(status int, reason string) (oauthCredentials, error) {
+		return oauthCredentials{}, &authenticationFailure{status: status, reason: reason}
 	}
-
-	if policy.Auth == nil {
-		return oauthAuthResult{
-			Status:   http.StatusServiceUnavailable,
-			Reason:   "oauth_config_missing",
-			Identity: result.Identity,
-		}
+	if policy == nil || policy.Auth == nil {
+		return fail(http.StatusServiceUnavailable, "oauth_config_missing")
 	}
-
 	issuerURL := strings.TrimSpace(policy.Auth.IssuerURL)
 	if issuerURL == "" {
-		return oauthAuthResult{
-			Status:   http.StatusServiceUnavailable,
-			Reason:   "oauth_issuer_missing",
-			Identity: result.Identity,
-		}
+		return fail(http.StatusServiceUnavailable, "oauth_issuer_missing")
 	}
-
 	tokenHeader := oauthTokenHeader(policy)
 	token := extractToken(tokenHeader, r.Header.Get(tokenHeader))
 	if token == "" {
-		return oauthAuthResult{
-			Status:   http.StatusUnauthorized,
-			Reason:   "missing_bearer_token",
-			Identity: result.Identity,
-		}
+		return fail(http.StatusUnauthorized, "missing_bearer_token")
 	}
-
-	// Fail closed rather than deriving the audience from the request. A derived
-	// audience is only as trustworthy as the forwarded host headers behind it,
-	// and it would no longer match the resource advertised in the protected
-	// resource metadata above.
+	// The audience is the configured resource, never an untrusted request host.
 	audience := strings.TrimSpace(policy.Auth.Audience)
 	if audience == "" {
-		return oauthAuthResult{Status: http.StatusServiceUnavailable, Reason: "oauth_audience_missing", Identity: result.Identity}
+		return fail(http.StatusServiceUnavailable, "oauth_audience_missing")
 	}
 	provider, err := s.oauthProviderForIssuer(r.Context(), issuerURL, audience)
 	if err != nil {
 		log.Printf("oauth provider lookup failed for %s: %v", issuerURL, err)
-		return oauthAuthResult{
-			Status:   http.StatusServiceUnavailable,
-			Reason:   "oauth_provider_unavailable",
-			Identity: result.Identity,
-		}
+		return fail(http.StatusServiceUnavailable, "oauth_provider_unavailable")
 	}
-
-	// VerifyContext so a client disconnect or upstream deadline cancels an
-	// in-flight JWKS fetch instead of holding the request open.
 	claims, err := provider.verifier.VerifyContext(r.Context(), token)
 	if err != nil {
-		return oauthAuthResult{
-			Status:   http.StatusUnauthorized,
-			Reason:   "invalid_token",
-			Identity: result.Identity,
-		}
+		return fail(http.StatusUnauthorized, "invalid_token")
 	}
-	teamID, teamAllowed := oauthTeamIDForSubject(jwt.MapClaims(claims.Raw), policy, subjectTeam)
+	teamID, teamAllowed := oauthTeamIDForSubject(jwt.MapClaims(claims.Raw), policy, string(subjectTeam))
 	if !teamAllowed {
-		return oauthAuthResult{Status: http.StatusUnauthorized, Reason: "certificate_oauth_team_mismatch", Identity: result.Identity}
+		return fail(http.StatusUnauthorized, "certificate_oauth_team_mismatch")
 	}
-	return oauthAuthResult{
-		Allowed: true,
-		Status:  http.StatusOK,
-		Token:   token,
+	return oauthCredentials{
+		Token: token,
 		Identity: identityContext{
-			HumanID:   claims.Subject,
-			AgentID:   policypkg.FirstNonEmpty(stringClaim(claims.Raw, "azp"), stringClaim(claims.Raw, "client_id")),
-			TeamID:    teamID,
-			SessionID: stringClaim(claims.Raw, "sid"),
+			HumanID:   policypkg.HumanID(claims.Subject),
+			AgentID:   policypkg.AgentID(policypkg.FirstNonEmpty(stringClaim(claims.Raw, "azp"), stringClaim(claims.Raw, "client_id"))),
+			TeamID:    policypkg.TeamID(teamID),
+			SessionID: policypkg.SessionID(stringClaim(claims.Raw, "sid")),
 		},
-	}
+	}, nil
 }
 
 // A certificate already binds the caller's subject team. When OAuth lists
@@ -285,10 +215,6 @@ func (s *gatewayServer) fetchAuthServerMetadataWithFallback(ctx context.Context,
 	return metadata, false, err
 }
 
-func (s *gatewayServer) fetchAuthServerMetadata(ctx context.Context, issuerURL string) (*authServerMetadata, error) {
-	return s.fetchAuthServerMetadataForIssuer(ctx, issuerURL, issuerURL)
-}
-
 func (s *gatewayServer) fetchAuthServerMetadataForIssuer(ctx context.Context, lookupIssuerURL, expectedIssuerURL string) (*authServerMetadata, error) {
 	var lastErr error
 	for _, endpoint := range authServerMetadataCandidates(lookupIssuerURL) {
@@ -356,14 +282,6 @@ func isOAuthProtectedMetadataPath(value string) bool {
 	return value == oauthProtectedPrefix || strings.HasPrefix(value, oauthProtectedPrefix+"/")
 }
 
-func oauthMetadataPath(value string) string {
-	value = normalizeURLPath(value)
-	if value == "/" {
-		return oauthProtectedPrefix
-	}
-	return oauthProtectedPrefix + value
-}
-
 func oauthTokenHeader(policy *policypkg.Document) string {
 	if policy != nil && policy.Auth != nil && strings.TrimSpace(policy.Auth.TokenHeader) != "" {
 		return strings.TrimSpace(policy.Auth.TokenHeader)
@@ -392,7 +310,7 @@ func shouldChallengeOAuth(policy *policypkg.Document, decision policypkg.Decisio
 func oauthAuthenticateHeader(policy *policypkg.Document, reason, toolName string, decision policypkg.Decision) string {
 	values := []string{
 		`realm="mcp-runtime"`,
-		fmt.Sprintf(`resource_metadata="%s"`, oauthresource.ProtectedResourceMetadataURL(policy.Auth.Audience)),
+		fmt.Sprintf(`resource_metadata="%s"`, identity.ProtectedResourceMetadataURL(policy.Auth.Audience)),
 	}
 	if reason == "invalid_token" {
 		values = append(values, `error="invalid_token"`)
@@ -470,9 +388,9 @@ func extractToken(headerName, value string) string {
 		return ""
 	}
 	if strings.EqualFold(strings.TrimSpace(headerName), "authorization") {
-		return serviceutil.ExtractBearer(value)
+		return identity.ExtractBearer(value)
 	}
-	if token := serviceutil.ExtractBearer(value); token != "" {
+	if token := identity.ExtractBearer(value); token != "" {
 		return token
 	}
 	return value

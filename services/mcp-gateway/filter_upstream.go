@@ -7,26 +7,48 @@ import (
 	policypkg "mcp-runtime/pkg/policy"
 )
 
-// upstreamFilter is stage 5 of the gateway pipeline. It preserves the OAuth
-// bearer token for validation by the upstream MCP server, strips any configured
-// path prefix, and forwards the request via the reverse proxy.
-//
-// upstreamFilter reads Exchange.Policy, Exchange.Identity, and Exchange.OAuthToken
-// (all set by earlier stages) and must not mutate them. It always returns Respond
-// so the pipeline halts and stage 6 (audit) runs from the orchestrator.
-func (s *gatewayServer) upstreamFilter(ex *Exchange) Result {
-	if len(ex.R.Header.Values(idempotencyKeyHeader)) > 0 {
-		return s.idempotentUpstream(ex)
+// upstreamContext holds dispatch inputs and operational outcomes. Policy and
+// session snapshots remain read-only; pre-dispatch filters never receive it.
+type upstreamContext struct {
+	R          *http.Request
+	W          *statusRecorder
+	Inspection rpcInspection
+	Policy     *policypkg.Document
+	Identity   identityContext
+	// dispatchOutcome is shared with the caller, so results are visible to
+	// observation without a copy-back, even if the proxy aborts by panicking.
+	*dispatchOutcome
+}
+
+// dispatchOutcome carries operational results back to observation even when a
+// streaming proxy aborts the response by panicking.
+type dispatchOutcome struct {
+	Decision    policypkg.Decision
+	Idempotency idempotencyAudit
+}
+
+// upstreamFilter dispatches only a capability issued by the authorization gate.
+func (s *gatewayServer) upstreamFilter(in PermittedRequest) (EvaluatedRequest, *FilterResponse) {
+	request := in.request
+	if !in.ok() {
+		return request, denyResponse(policypkg.Deny(http.StatusForbidden, "undecided", request.Decision.PolicyVersion))
 	}
-	return s.forwardUpstream(ex)
+	ex := &upstreamContext{R: request.R, W: in.writer, Inspection: request.Inspection, Policy: request.Policy, Identity: request.Identity(), dispatchOutcome: in.outcome}
+	if len(ex.R.Header.Values(idempotencyKeyHeader)) > 0 {
+		s.idempotentUpstream(ex)
+	} else {
+		s.forwardUpstream(ex)
+	}
+	request.Decision = ex.Decision
+	return request, forwardedResponse(ex.Decision)
 }
 
 // forwardUpstream prepares and proxies the request to the upstream MCP server.
-func (s *gatewayServer) forwardUpstream(ex *Exchange) Result {
+func (s *gatewayServer) forwardUpstream(ex *upstreamContext) {
 	if !s.injectCredentials(ex) {
 		ex.Decision = policypkg.Deny(http.StatusServiceUnavailable, "credential_unavailable", ex.Decision.PolicyVersion)
 		http.Error(ex.W, "credential unavailable", http.StatusServiceUnavailable)
-		return Respond
+		return
 	}
 	outcome := &upstreamOutcome{}
 	ex.R = ex.R.WithContext(context.WithValue(ex.R.Context(), upstreamOutcomeKey{}, outcome))
@@ -69,5 +91,4 @@ func (s *gatewayServer) forwardUpstream(ex *Exchange) Result {
 	}
 
 	s.proxy.ServeHTTP(ex.W, ex.R)
-	return Respond
 }

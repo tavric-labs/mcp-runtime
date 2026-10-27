@@ -83,45 +83,48 @@ func canonicalJSON(raw json.RawMessage) string {
 	return string(out)
 }
 
-func (s *gatewayServer) rejectIdempotency(ex *Exchange, status int, reason, outcome string) Result {
+func (s *gatewayServer) rejectIdempotency(ex *upstreamContext, status int, reason, outcome string) {
 	ex.Decision = policypkg.Deny(status, reason, policypkg.ChoosePolicyVersion(ex.Decision.PolicyVersion, s.defaultPolicyVersion))
 	ex.Idempotency.Outcome = outcome
 	s.metrics.recordIdempotency(s.metricScope(ex.Policy), outcome)
-	s.writeDeniedResponse(ex)
-	return Reject
+	ex.Decision = writeDeniedResponse(ex.W, ex.Policy, ex.Inspection.ToolName(), ex.Decision)
 }
 
 // idempotentUpstream handles a request that carries an Idempotency-Key header.
 // It runs only after authentication and authorization allowed this request, so
 // a replay is always preceded by fresh policy, grant and revocation checks.
-func (s *gatewayServer) idempotentUpstream(ex *Exchange) Result {
+func (s *gatewayServer) idempotentUpstream(ex *upstreamContext) {
 	key, ok := validIdempotencyKey(ex.R.Header.Values(idempotencyKeyHeader))
 	if !ok {
-		return s.rejectIdempotency(ex, http.StatusBadRequest, "idempotency_key_invalid", "rejected")
+		s.rejectIdempotency(ex, http.StatusBadRequest, "idempotency_key_invalid", "rejected")
+		return
 	}
-	if !ex.Inspection.ToolCall {
-		return s.rejectIdempotency(ex, http.StatusBadRequest, "idempotency_unsupported_request", "rejected")
+	if !ex.Inspection.IsToolCall() {
+		s.rejectIdempotency(ex, http.StatusBadRequest, "idempotency_unsupported_request", "rejected")
+		return
 	}
 	if ex.Policy == nil || policypkg.UsesDelegatedHeaders(ex.Policy) ||
 		(ex.Identity.HumanID == "" && ex.Identity.AgentID == "") {
-		return s.rejectIdempotency(ex, http.StatusBadRequest, "idempotency_requires_verified_identity", "rejected")
+		s.rejectIdempotency(ex, http.StatusBadRequest, "idempotency_requires_verified_identity", "rejected")
+		return
 	}
 	uid := strings.TrimSpace(ex.Policy.Server.UID)
 	if uid == "" {
-		return s.rejectIdempotency(ex, http.StatusServiceUnavailable, "idempotency_unavailable", "rejected")
+		s.rejectIdempotency(ex, http.StatusServiceUnavailable, "idempotency_unavailable", "rejected")
+		return
 	}
 
-	scoped := hashFields("idem-scope-v1", ex.Identity.HumanID, ex.Identity.AgentID, ex.Identity.TeamID,
-		ex.Identity.SessionID, uid, key)
-	reqHash := hashFields("idem-req-v1", key, ex.Inspection.Method, ex.Inspection.ToolName,
-		canonicalJSON(ex.Inspection.IDRaw), canonicalJSON(ex.Inspection.ParamsRaw))
+	scoped := hashFields("idem-scope-v1", string(ex.Identity.HumanID), string(ex.Identity.AgentID), string(ex.Identity.TeamID),
+		string(ex.Identity.SessionID), uid, key)
+	reqHash := hashFields("idem-req-v1", key, ex.Inspection.Method(), ex.Inspection.ToolName(),
+		canonicalJSON(ex.Inspection.idRaw), canonicalJSON(ex.Inspection.paramsRaw))
 	ex.Idempotency.KeyHash = scoped[:idempotencyKeyHashAuditLen]
 
 	store := s.idemStore()
-	principal := hashFields("idem-principal-v1", ex.Identity.HumanID, ex.Identity.AgentID, ex.Identity.TeamID)
+	principal := hashFields("idem-principal-v1", string(ex.Identity.HumanID), string(ex.Identity.AgentID), string(ex.Identity.TeamID))
 	entry, status := store.begin(idemScope{
 		Principal: principal,
-		Session:   hashFields("idem-session-v1", principal, ex.Identity.SessionID),
+		Session:   hashFields("idem-session-v1", principal, string(ex.Identity.SessionID)),
 	}, scoped, reqHash)
 	scope := s.metricScope(ex.Policy)
 	switch status {
@@ -136,19 +139,24 @@ func (s *gatewayServer) idempotentUpstream(ex *Exchange) Result {
 		ex.W.Header().Set(idempotencyReplayedHeader, "true")
 		ex.W.WriteHeader(reply.Status)
 		_, _ = ex.W.Write(reply.Body)
-		return Respond
+		return
 	case idemConflict:
-		return s.rejectIdempotency(ex, http.StatusConflict, "idempotency_key_conflict", "conflict")
+		s.rejectIdempotency(ex, http.StatusConflict, "idempotency_key_conflict", "conflict")
+		return
 	case idemInFlight:
 		ex.W.Header().Set("Retry-After", "1")
-		return s.rejectIdempotency(ex, http.StatusConflict, "idempotency_in_flight", "in_flight")
+		s.rejectIdempotency(ex, http.StatusConflict, "idempotency_in_flight", "in_flight")
+		return
 	case idemUnknownOutcome:
-		return s.rejectIdempotency(ex, http.StatusConflict, "idempotency_outcome_unknown", "unknown_outcome")
+		s.rejectIdempotency(ex, http.StatusConflict, "idempotency_outcome_unknown", "unknown_outcome")
+		return
 	case idemNotReplayable:
-		return s.rejectIdempotency(ex, http.StatusConflict, "idempotency_response_not_replayable", "not_replayable")
+		s.rejectIdempotency(ex, http.StatusConflict, "idempotency_response_not_replayable", "not_replayable")
+		return
 	case idemCapacity:
 		ex.W.Header().Set("Retry-After", "1")
-		return s.rejectIdempotency(ex, http.StatusTooManyRequests, "idempotency_capacity", "capacity")
+		s.rejectIdempotency(ex, http.StatusTooManyRequests, "idempotency_capacity", "capacity")
+		return
 	}
 
 	// This request owns the key. The scoped key is gateway state; upstream
@@ -171,7 +179,7 @@ func (s *gatewayServer) idempotentUpstream(ex *Exchange) Result {
 		ex.Idempotency.Outcome = "unknown_outcome"
 		s.metrics.recordIdempotency(scope, "unknown_outcome")
 	}()
-	result := s.forwardUpstream(ex)
+	s.forwardUpstream(ex)
 	finished = true
 
 	code := capture.status
@@ -197,7 +205,6 @@ func (s *gatewayServer) idempotentUpstream(ex *Exchange) Result {
 		ex.Idempotency.Outcome = "first"
 	}
 	s.metrics.recordIdempotency(scope, ex.Idempotency.Outcome)
-	return result
 }
 
 // idemCapture passes the response through to the client unchanged while keeping

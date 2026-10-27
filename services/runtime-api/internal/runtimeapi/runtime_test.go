@@ -27,6 +27,7 @@ import (
 	"mcp-runtime-api/internal/platformclient"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	chpkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
@@ -108,7 +109,7 @@ func TestValidateGrantRequestRejectsExpiredAtCreation(t *testing.T) {
 		ServerRef:          mcpaccess.ServerReference{Name: "demo"},
 		Subject:            mcpaccess.SubjectRef{TeamID: "team-acme"},
 		AllowedSideEffects: []mcpaccess.ToolSideEffect{"read"},
-		ExpiresAt:          &metav1.Time{Time: time.Now().Add(-time.Second)},
+		ExpiresAt:          &mcpaccess.Time{Time: time.Now().Add(-time.Second)},
 	}
 	if err := validateGrantRequest(req); err == nil || !strings.Contains(err.Error(), "expiresAt must be in the future") {
 		t.Fatalf("validateGrantRequest error = %v, want expired grant rejection", err)
@@ -142,7 +143,7 @@ func TestValidateSessionRequestRequiresSubject(t *testing.T) {
 	}
 }
 
-func newTestAccessManager(t *testing.T) *mcpaccess.Manager {
+func newTestAccessManager(t *testing.T) *k8sstore.Manager {
 	t.Helper()
 	srv := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
@@ -153,13 +154,13 @@ func newTestAccessManager(t *testing.T) *mcpaccess.Manager {
 	return newTestAccessManagerWithObjects(t, srv)
 }
 
-func newTestAccessManagerWithObjects(t *testing.T, objects ...runtime.Object) *mcpaccess.Manager {
+func newTestAccessManagerWithObjects(t *testing.T, objects ...runtime.Object) *k8sstore.Manager {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	return mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, objects...), nil)
+	return k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, objects...), nil)
 }
 
 func TestRuntimeGrantApplyRejectsUnknownServer(t *testing.T) {
@@ -2282,7 +2283,7 @@ func TestRuntimeGrantApplyRejectsNormalUserInPersonalNamespace(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	accessMgr := mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
+	accessMgr := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo",
 			Namespace: "user-1",
@@ -2318,7 +2319,7 @@ func TestRuntimeGrantApplyDefaultsSubjectTeamID(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	accessMgr := mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
+	accessMgr := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo",
 			Namespace: "mcp-team-acme",
@@ -2384,7 +2385,7 @@ func TestRuntimeGrantApplyAllowsValidatedCrossTeamSubjectWithoutChangingServerOw
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	accessMgr := mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
+	accessMgr := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo",
 			Namespace: "mcp-team-acme",
@@ -2446,7 +2447,7 @@ func TestRuntimeGrantApplyRejectsTeamMemberForTeamServer(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	accessMgr := mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
+	accessMgr := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo",
 			Namespace: "mcp-team-acme",
@@ -2490,7 +2491,7 @@ func TestRuntimeGrantApplyRejectsTeamMemberServerOwner(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	accessMgr := mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
+	accessMgr := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo",
 			Namespace: "mcp-team-acme",
@@ -2661,7 +2662,7 @@ func TestRuntimeGrantListScopesTeamMemberAccessResources(t *testing.T) {
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{TeamID: "team-acme-id"},
 	})
-	if _, err := accessMgr.ApplyGrant(ctx, &mcpaccess.MCPAccessGrant{
+	if _, err := accessMgr.ApplyGrant(ctx, &k8sstore.MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-team", Namespace: "mcp-team-acme"},
 		Spec: mcpaccess.MCPAccessGrantSpec{
 			ServerRef:          mcpaccess.ServerReference{Name: "demo"},
@@ -2752,9 +2753,9 @@ func TestRuntimeGrantListScopesBySubjectWithoutServerLookup(t *testing.T) {
 		serverLists++
 		return false, nil, nil
 	})
-	accessMgr := mcpaccess.NewManager(dynamicClient, nil)
+	accessMgr := k8sstore.NewManager(dynamicClient, nil)
 	for _, name := range []string{"grant-one", "grant-two"} {
-		if _, err := accessMgr.ApplyGrant(ctx, &mcpaccess.MCPAccessGrant{
+		if _, err := accessMgr.ApplyGrant(ctx, &k8sstore.MCPAccessGrant{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-team-acme"},
 			Spec: mcpaccess.MCPAccessGrantSpec{
 				ServerRef:          mcpaccess.ServerReference{Name: "demo"},
@@ -2814,7 +2815,7 @@ func TestRuntimeGrantGetRejectsTeamMemberForSensitiveGrant(t *testing.T) {
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{TeamID: "team-acme-id"},
 	})
-	if _, err := accessMgr.ApplyGrant(ctx, &mcpaccess.MCPAccessGrant{
+	if _, err := accessMgr.ApplyGrant(ctx, &k8sstore.MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-team", Namespace: "mcp-team-acme"},
 		Spec: mcpaccess.MCPAccessGrantSpec{
 			ServerRef:          mcpaccess.ServerReference{Name: "demo"},
@@ -2873,7 +2874,7 @@ func TestRuntimePolicyRequiresServerAdministrator(t *testing.T) {
 	clientset := kubernetesfake.NewSimpleClientset(cm)
 	server := &RuntimeServer{
 		k8sClients: &k8sclient.Clients{Dynamic: dynamicClient, Clientset: clientset},
-		accessMgr:  mcpaccess.NewManager(dynamicClient, clientset),
+		accessMgr:  k8sstore.NewManager(dynamicClient, clientset),
 	}
 
 	memberReq := httptest.NewRequest(http.MethodGet, "/api/runtime/policy?namespace=mcp-team-acme&server=demo", nil)
@@ -3046,7 +3047,7 @@ func TestRuntimeGrantDeleteAllowsNamespaceOwnerWithStaleServerRef(t *testing.T) 
 	ctx := context.Background()
 	accessMgr := newTestAccessManagerWithObjects(t)
 	for _, name := range []string{"stale-owner", "stale-member"} {
-		if _, err := accessMgr.ApplyGrant(ctx, &mcpaccess.MCPAccessGrant{
+		if _, err := accessMgr.ApplyGrant(ctx, &k8sstore.MCPAccessGrant{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-team-acme"},
 			Spec: mcpaccess.MCPAccessGrantSpec{
 				ServerRef:          mcpaccess.ServerReference{Name: "deleted"},
@@ -3116,7 +3117,7 @@ func TestRuntimeSessionDeleteMapsNotFound(t *testing.T) {
 func TestRuntimeSessionDeleteAllowsNamespaceOwnerWithStaleServerRef(t *testing.T) {
 	ctx := context.Background()
 	accessMgr := newTestAccessManagerWithObjects(t)
-	if _, err := accessMgr.ApplySession(ctx, &mcpaccess.MCPAgentSession{
+	if _, err := accessMgr.ApplySession(ctx, &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "stale-session", Namespace: "mcp-team-acme"},
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			ServerRef:      mcpaccess.ServerReference{Name: "deleted"},
@@ -3161,7 +3162,7 @@ func TestRuntimeSessionListScopesTeamMemberAccessResources(t *testing.T) {
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{TeamID: "team-acme-id"},
 	})
-	if _, err := accessMgr.ApplySession(ctx, &mcpaccess.MCPAgentSession{
+	if _, err := accessMgr.ApplySession(ctx, &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "session-team", Namespace: "mcp-team-acme"},
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			ServerRef:      mcpaccess.ServerReference{Name: "demo"},
@@ -3223,9 +3224,9 @@ func TestRuntimeSessionListScopesBySubjectWithoutServerLookup(t *testing.T) {
 		serverLists++
 		return false, nil, nil
 	})
-	accessMgr := mcpaccess.NewManager(dynamicClient, nil)
+	accessMgr := k8sstore.NewManager(dynamicClient, nil)
 	for _, name := range []string{"session-one", "session-two"} {
-		if _, err := accessMgr.ApplySession(ctx, &mcpaccess.MCPAgentSession{
+		if _, err := accessMgr.ApplySession(ctx, &k8sstore.MCPAgentSession{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-team-acme"},
 			Spec: mcpaccess.MCPAgentSessionSpec{
 				ServerRef:      mcpaccess.ServerReference{Name: "demo"},
@@ -3284,7 +3285,7 @@ func TestRuntimeSessionToggleRejectsTeamMemberForTeamServer(t *testing.T) {
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{TeamID: "team-acme-id"},
 	})
-	if _, err := accessMgr.ApplySession(ctx, &mcpaccess.MCPAgentSession{
+	if _, err := accessMgr.ApplySession(ctx, &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "session-team", Namespace: "mcp-team-acme"},
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			ServerRef:      mcpaccess.ServerReference{Name: "demo"},
@@ -3333,7 +3334,7 @@ func TestRuntimeGrantApplyPreservesOmittedDisabled(t *testing.T) {
 		t.Fatalf("new grant status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 
-	if _, err := accessMgr.ApplyGrant(ctx, &mcpaccess.MCPAccessGrant{
+	if _, err := accessMgr.ApplyGrant(ctx, &k8sstore.MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
 		Spec: mcpaccess.MCPAccessGrantSpec{
 			ServerRef: mcpaccess.ServerReference{Name: "demo"},
@@ -3407,7 +3408,7 @@ func TestRuntimeSessionApplyPreservesOmittedRevoked(t *testing.T) {
 		t.Fatalf("new session status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 
-	if _, err := accessMgr.ApplySession(ctx, &mcpaccess.MCPAgentSession{
+	if _, err := accessMgr.ApplySession(ctx, &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "mcp-servers"},
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			ServerRef:      mcpaccess.ServerReference{Name: "demo"},
@@ -3519,7 +3520,7 @@ func TestValidateSessionRequestRejectsInvalidName(t *testing.T) {
 }
 
 func TestRuntimeGrantApplyRejectsOversizedBody(t *testing.T) {
-	server := &RuntimeServer{accessMgr: mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()), nil)}
+	server := &RuntimeServer{accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()), nil)}
 	body := oversizedJSON(accessApplyMaxBytes + 1)
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/grants", bytes.NewReader(body))
@@ -3533,7 +3534,7 @@ func TestRuntimeGrantApplyRejectsOversizedBody(t *testing.T) {
 }
 
 func TestRuntimeSessionApplyRejectsOversizedBody(t *testing.T) {
-	server := &RuntimeServer{accessMgr: mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()), nil)}
+	server := &RuntimeServer{accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()), nil)}
 	body := oversizedJSON(accessApplyMaxBytes + 1)
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/sessions", bytes.NewReader(body))

@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/internalapi"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
@@ -127,7 +128,7 @@ func (c *workspaceSessionClient) ListSessions(context.Context, string) ([]sessio
 }
 
 func TestWorkspacePersonalAccessNeverExpandsForAdmin(t *testing.T) {
-	grants := []*mcpaccess.MCPAccessGrant{
+	grants := []*k8sstore.MCPAccessGrant{
 		{ObjectMeta: metav1.ObjectMeta{Name: "mine", Namespace: "team"}, Spec: mcpaccess.MCPAccessGrantSpec{Subject: mcpaccess.SubjectRef{HumanID: "me"}}},
 		{ObjectMeta: metav1.ObjectMeta{Name: "team", Namespace: "team"}, Spec: mcpaccess.MCPAccessGrantSpec{Subject: mcpaccess.SubjectRef{TeamID: "actual"}}},
 		{ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: "team"}, Spec: mcpaccess.MCPAccessGrantSpec{Subject: mcpaccess.SubjectRef{HumanID: "another"}}},

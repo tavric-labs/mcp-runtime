@@ -7,11 +7,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"mcp-runtime/pkg/serviceutil"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"mcp-runtime/pkg/transport/httptrace"
 )
 
 const defaultResolverCacheTTL = 45 * time.Second
@@ -62,7 +63,7 @@ func (r *HTTPUserKeyResolver) ResolveAPIKey(ctx context.Context, rawKey string) 
 		client = http.DefaultClient
 	}
 	// #nosec G704 -- same validated internal resolve endpoint as NewRequest above.
-	resp, err := serviceutil.DoHTTP(client, req)
+	resp, err := httptrace.DoHTTP(client, req)
 	if err != nil {
 		return Principal{}, false, err
 	}

@@ -7,14 +7,13 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 
 	"mcp-runtime/pkg/events"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/telemetry"
 )
 
 func (s *gatewayServer) startAnalyticsDispatcher() {
@@ -30,15 +29,15 @@ func (s *gatewayServer) startAnalyticsDispatcher() {
 		if s.analyticsQueue == nil {
 			s.analyticsQueue = make(chan analyticsEvent, analyticsQueueSize)
 		}
-		queue := s.analyticsQueue
+		queue := (<-chan analyticsEvent)(s.analyticsQueue)
 		s.analyticsWG.Add(analyticsWorkerCount)
 		s.analyticsMu.Unlock()
 		for i := 0; i < analyticsWorkerCount; i++ {
 			go func() {
 				defer s.analyticsWG.Done()
 				for event := range queue {
-					parentCtx := serviceutil.ContextWithTraceContext(context.Background(), event.TraceContext)
-					ctx, cancel := context.WithTimeout(parentCtx, time.Duration(analyticsEmitTimeout)*time.Second)
+					parentCtx := telemetry.ContextWithTraceContext(context.Background(), event.TraceContext)
+					ctx, cancel := context.WithTimeout(parentCtx, analyticsEmitTimeout)
 					ctx, span := otel.Tracer("mcp-runtime/gateway").Start(ctx, "gateway.analytics.dispatch")
 					span.SetAttributes(attribute.Bool("mcp.async", true))
 					s.emit(ctx, event.Envelope)
@@ -90,7 +89,7 @@ func (s *gatewayServer) emitIfEnabled(ctx context.Context, event events.Envelope
 	s.analyticsMu.Lock()
 	item := analyticsEvent{
 		Envelope:     event,
-		TraceContext: serviceutil.CaptureTraceContext(ctx),
+		TraceContext: telemetry.CaptureTraceContext(ctx),
 	}
 	select {
 	case queue <- item:
@@ -105,7 +104,7 @@ func (s *gatewayServer) emitIfEnabled(ctx context.Context, event events.Envelope
 	}
 }
 
-func (s *gatewayServer) analyticsEventQueue() chan analyticsEvent {
+func (s *gatewayServer) analyticsEventQueue() chan<- analyticsEvent {
 	s.analyticsMu.Lock()
 	queue := s.analyticsQueue
 	s.analyticsMu.Unlock()

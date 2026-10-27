@@ -62,17 +62,17 @@ func TestDelegatedHeaderForwardsConfiguredCredentialsAndStripsIdentity(t *testin
 		defaultVerifiedSPIFFEHeader: "spiffe://example.org/ns/team/sa/forged",
 	})
 	ex.Policy = doc
-	s.inspectFilter(ex)
-	if got := s.authFilter(ex); got != Continue {
+	ex.inspect(s)
+	if got := ex.authenticate(s); got != nil {
 		t.Fatalf("authFilter = %v", got)
 	}
-	if ex.Identity.HumanID != "" || ex.Identity.AgentID != "" {
-		t.Fatalf("identity = %#v, want unverified", ex.Identity)
+	if ex.Identity().HumanID != "" || ex.Identity().AgentID != "" {
+		t.Fatalf("identity = %#v, want unverified", ex.Identity())
 	}
-	if got := s.authzFilter(ex); got != Continue {
+	if got := ex.authorize(s); got != nil {
 		t.Fatalf("authz = %#v", ex.Decision)
 	}
-	if got := s.upstreamFilter(ex); got != Respond {
+	if got := ex.upstream(s); got == nil {
 		t.Fatal(got)
 	}
 	if calls.Load() != 1 || custom != "synthetic-token" || authz != "" || session != "session-1" || spiffe != "" {
@@ -81,11 +81,11 @@ func TestDelegatedHeaderForwardsConfiguredCredentialsAndStripsIdentity(t *testin
 	if ex.W.status != http.StatusOK {
 		t.Fatalf("status = %d", ex.W.status)
 	}
-	payload := s.auditPayload(ex.R, ex.OriginalPath, "tools/call", "list_projects", ex.Identity, doc, ex.Decision, ex.W.status, 1, 1)
+	payload := auditPayloadForTest(s, ex.R, ex.OriginalPath, "tools/call", "list_projects", ex.Identity(), doc, ex.Decision, ex.W.status, 1, 1)
 	encoded := strings.ToLower(strings.Join([]string{
-		payload["reason"].(string), payload["auth_delegation"].(string), payload["caller_identity"].(string), payload["human_id"].(string),
+		payload.Reason, payload.AuthDelegation, payload.CallerIdentity, payload.HumanID,
 	}, " "))
-	if strings.Contains(encoded, "synthetic-token") || payload["caller_identity"] != "unverified" || payload["auth_delegation"] != "upstream_header" {
+	if strings.Contains(encoded, "synthetic-token") || payload.CallerIdentity != "unverified" || payload.AuthDelegation != "upstream_header" {
 		t.Fatalf("audit = %#v", payload)
 	}
 }
@@ -108,8 +108,8 @@ func TestDelegatedHeaderDenyDoesNotReachUpstream(t *testing.T) {
 		"X-Example-Credential": "synthetic-token",
 	})
 	ex.Policy = doc
-	s.inspectFilter(ex)
-	if s.authFilter(ex) != Continue || s.authzFilter(ex) != Reject {
+	ex.inspect(s)
+	if ex.authenticate(s) != nil || ex.authorize(s) == nil {
 		t.Fatalf("decision = %#v", ex.Decision)
 	}
 	if calls.Load() != 0 || ex.Decision.Reason != "tool_side_effect_unknown" && ex.Decision.Reason != "tool_not_allowed" {
@@ -135,8 +135,8 @@ func TestDelegatedHeaderForwardsOpaqueSchemes(t *testing.T) {
 		"X-Api-Key":     "raw-token",
 	})
 	ex.Policy = doc
-	s.inspectFilter(ex)
-	if s.authFilter(ex) != Continue || s.authzFilter(ex) != Continue || s.upstreamFilter(ex) != Respond {
+	ex.inspect(s)
+	if ex.authenticate(s) != nil || ex.authorize(s) != nil || ex.upstream(s) == nil {
 		t.Fatalf("decision = %#v", ex.Decision)
 	}
 	if basic != "Basic c3ludGhldGlj" || apiKey != "raw-token" {
@@ -161,7 +161,7 @@ func TestDelegatedHeaderMissingCredentialAndUpstreamRejection(t *testing.T) {
 	doc := delegatedPolicy([]string{"Authorization", "X-Example-Credential"}, "any")
 	missing := newTestExchange(http.MethodPost, "/pilot/mcp", `{"method":"initialize"}`, nil)
 	missing.Policy = doc
-	if s.authFilter(missing) != Reject || missing.Decision.Reason != "missing_credential" {
+	if missing.authenticate(s) == nil || missing.Decision.Reason != "missing_credential" {
 		t.Fatalf("missing = %#v", missing.Decision)
 	}
 	if calls.Load() != 0 {
@@ -169,8 +169,8 @@ func TestDelegatedHeaderMissingCredentialAndUpstreamRejection(t *testing.T) {
 	}
 	ex := newTestExchange(http.MethodPost, "/pilot/mcp", `{"method":"initialize"}`, map[string]string{"Authorization": "Bearer synthetic"})
 	ex.Policy = doc
-	s.inspectFilter(ex)
-	if s.authFilter(ex) != Continue || s.authzFilter(ex) != Continue || s.upstreamFilter(ex) != Respond {
+	ex.inspect(s)
+	if ex.authenticate(s) != nil || ex.authorize(s) != nil || ex.upstream(s) == nil {
 		t.Fatalf("forward decision = %#v", ex.Decision)
 	}
 	if calls.Load() != 1 || ex.W.status != http.StatusUnauthorized {
@@ -188,8 +188,8 @@ func TestDelegatedHeaderPolicyUnavailableFailsClosed(t *testing.T) {
 	})
 	ex.Policy = doc
 	ex.PolicyErr = errPolicyUnavailable
-	s.inspectFilter(ex)
-	if s.authzFilter(ex) != Reject || ex.Decision.Reason != "policy_unavailable" {
+	ex.inspect(s)
+	if ex.authorize(s) == nil || ex.Decision.Reason != "policy_unavailable" {
 		t.Fatalf("decision = %#v", ex.Decision)
 	}
 }
@@ -199,7 +199,7 @@ func TestOAuthFailureDoesNotFallBackToHeader(t *testing.T) {
 	s := minimalServer()
 	ex := newTestExchange(http.MethodPost, "/mcp", `{}`, map[string]string{"X-Example-Credential": "synthetic-token"})
 	ex.Policy = oauthPolicy("https://issuer.example.com")
-	if got := s.authFilter(ex); got != Reject {
+	if got := ex.authenticate(s); got == nil {
 		t.Fatalf("authFilter = %v, want OAuth rejection", got)
 	}
 }

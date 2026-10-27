@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
 )
 
 // Error is a safe, typed HTTP error for JSON API responses.
@@ -79,7 +79,7 @@ func WriteError(w http.ResponseWriter, logger *zap.Logger, err error) {
 
 // WriteEnvelope writes {"error":"<code>","message":"<description>"}.
 func WriteEnvelope(w http.ResponseWriter, status int, code, message string) {
-	serviceutil.WriteJSON(w, status, map[string]string{
+	httpx.WriteJSON(w, status, map[string]string{
 		"error":   code,
 		"message": message,
 	})

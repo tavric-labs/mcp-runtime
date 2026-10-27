@@ -25,11 +25,11 @@ import (
 
 	"mcp-runtime-api/internal/runtimeapi/k8sprovision"
 	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/metadata"
+	"mcp-runtime/pkg/platforminventory"
 	"mcp-runtime/pkg/publishscope"
-	"mcp-runtime/pkg/serviceutil"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 	platformTeamSlugLabel   = "mcpruntime.org/team-slug"
 	platformScopeLabel      = "mcpruntime.org/scope"
 	createdByLabel          = "created-by"
-	defaultDeployPort       = int32(mcpdefaults.MCPServerPort)
+	defaultDeployPort       = int32(platforminventory.MCPServerPort)
 	restrictedRunAsUser     = kubeworkload.RestrictedRunAsUser
 	traefikWatchRoleName    = k8sprovision.TraefikWatchRoleName
 	registryNamespace       = k8sprovision.RegistryNamespace
@@ -939,8 +939,8 @@ func firstNonEmpty(values ...string) string {
 }
 
 func extractNamespaceName(path, prefix string) (string, string, error) {
-	path = serviceutil.NormalizePublicAPIPath(path)
-	prefix = serviceutil.NormalizePublicAPIPath(prefix)
+	path = httpx.NormalizePublicAPIPath(path)
+	prefix = httpx.NormalizePublicAPIPath(prefix)
 	trimmed := strings.Trim(strings.TrimPrefix(path, prefix), "/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {

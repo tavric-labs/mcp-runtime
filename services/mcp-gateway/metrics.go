@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	policypkg "mcp-runtime/pkg/policy"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/telemetry"
 )
 
 var (
@@ -70,7 +70,7 @@ type gatewayMetrics struct {
 	responseBytesTotal     *prometheus.CounterVec
 	policyReloadsTotal     *prometheus.CounterVec
 	policyLastReload       *prometheus.GaugeVec
-	requestMetrics         *serviceutil.RequestMetrics
+	requestMetrics         *telemetry.RequestMetrics
 }
 
 type gatewayMetricScope struct {
@@ -142,7 +142,7 @@ func newGatewayMetrics(registerer prometheus.Registerer) *gatewayMetrics {
 			Name: "mcp_gateway_policy_last_reload_success_timestamp_seconds",
 			Help: "Unix timestamp of the last successful gateway policy reload.",
 		}, []string{"namespace", "server", "cluster", "team_id"}),
-		requestMetrics: serviceutil.NewRequestMetrics(registerer),
+		requestMetrics: telemetry.NewRequestMetrics(registerer),
 	}
 	if registerer != nil {
 		registerer.MustRegister(

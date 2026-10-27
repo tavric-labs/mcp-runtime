@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"sync"
@@ -241,8 +242,13 @@ func TestUpstreamAdmissionDenialsHaveDistinctAuditDecisions(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			exchange := newExchange(recorder, httptest.NewRequest("POST", "http://gateway.invalid/mcp", strings.NewReader(`{"method":"tools/call"}`)), "v1")
 			exchange.Decision = policypkg.Allow("allowed", "v1")
-			exchange.Inspection.Method, exchange.Inspection.ToolName = "tools/call", "echo"
-			server.upstreamFilter(exchange)
+			exchange.Inspection = inspectedRPC("tools/call", "echo", RPCRequest)
+			permitted, response := permitRequest(EvaluatedRequest{AuthenticatedRequest: AuthenticatedRequest{PolicyRequest: PolicyRequest{InspectedRequest: InspectedRequest{RequestInput: &RequestInput{R: exchange.R}, Inspection: exchange.Inspection}}}, Decision: exchange.Decision}, exchange.W)
+			if response != nil {
+				t.Fatal("fixture was denied")
+			}
+			_, response = server.upstreamFilter(permitted)
+			applyFilterResponse(exchange, response)
 			if recorder.Code != want || exchange.Decision.Allowed || exchange.Decision.Reason != reason || exchange.Decision.Status != want || !strings.Contains(recorder.Body.String(), reason) {
 				t.Fatalf("audit outcome=%+v http=%d %s", exchange.Decision, recorder.Code, recorder.Body.String())
 			}
@@ -331,7 +337,7 @@ func TestUpstreamBodyAbortStillFinalizesAudit(t *testing.T) {
 		}()
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}}, Body: reader, Request: r}, nil
 	})
-	server.proxy.Transport = newResilientUpstreamTransport(base, 30*time.Millisecond, 1, 1, 5, time.Second)
+	server.proxy.(*httputil.ReverseProxy).Transport = newResilientUpstreamTransport(base, 30*time.Millisecond, 1, 1, 5, time.Second)
 	request := httptest.NewRequest("POST", "http://proxy.example.com/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{}}}`))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Upstream-Credential", "fixture-secret")
@@ -370,10 +376,10 @@ func TestUpstreamRejectionPreservesAuthorizationMetrics(t *testing.T) {
 	}
 	server := newTestGatewayServer(t, doc, func(http.ResponseWriter, *http.Request) { t.Fatal("overloaded request reached upstream") })
 	server.metrics = newGatewayMetrics(prometheus.NewRegistry())
-	server.proxy.ErrorHandler = handleUpstreamError
+	server.proxy.(*httputil.ReverseProxy).ErrorHandler = handleUpstreamError
 	transport := newResilientUpstreamTransport(http.DefaultTransport, time.Second, 1, 1, 5, time.Second)
 	transport.unary <- struct{}{}
-	server.proxy.Transport = transport
+	server.proxy.(*httputil.ReverseProxy).Transport = transport
 	request := httptest.NewRequest("POST", "http://proxy.example.com/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{}}}`))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Upstream-Credential", "fixture-secret")

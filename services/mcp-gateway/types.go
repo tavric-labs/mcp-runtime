@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"sync"
 	"sync/atomic"
@@ -12,50 +10,16 @@ import (
 	mcpauth "github.com/Agent-Hellboy/mcp-auth/auth-client/go/mcpauth"
 
 	"mcp-runtime/pkg/events"
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/identity"
 	policypkg "mcp-runtime/pkg/policy"
 )
 
 type identityContext struct {
-	HumanID   string
-	AgentID   string
-	TeamID    string
-	SessionID string
+	HumanID   policypkg.HumanID
+	AgentID   policypkg.AgentID
+	TeamID    policypkg.TeamID
+	SessionID policypkg.SessionID
 	Session   *policypkg.Binding
-}
-
-// policySnapshot is the atomically-swapped view of the active gateway policy.
-// A snapshot only ever holds a complete, validated policy (the last-known-good
-// document); an invalid reload never replaces Policy and instead records its
-// failure in Err while leaving the rest of the snapshot intact.
-type policySnapshot struct {
-	Policy   *policypkg.Document
-	Revision string
-	LoadedAt time.Time
-	// Err holds the most recent reload error for observability. It does not
-	// imply the active Policy is unusable: on a failed reload the previous
-	// known-good Policy is retained and Err describes why the update was
-	// rejected.
-	Err error
-	// Ready is true once a valid policy snapshot has been activated. It stays
-	// true across subsequent failed reloads (last-known-good is retained).
-	Ready bool
-}
-
-type rpcInspection struct {
-	Method        string
-	ToolName      string
-	ToolCall      bool
-	Indeterminate bool
-	FailureReason string
-	// IsRPCAttempt is true when the request had application/json content-type
-	// (or no content-type) and is therefore a genuine MCP client attempt that
-	// should be audited even when Method could not be extracted.
-	IsRPCAttempt bool
-	// ParamsRaw and IDRaw are the request params and JSON-RPC id, retained only
-	// to derive an opt-in idempotency request hash.
-	ParamsRaw json.RawMessage
-	IDRaw     json.RawMessage
 }
 
 type oauthProvider struct {
@@ -67,10 +31,8 @@ type authServerMetadata struct {
 	JWKSURI string `json:"jwks_uri"`
 }
 
-type oauthAuthResult struct {
-	Allowed  bool
-	Status   int
-	Reason   string
+// oauthCredentials is returned only alongside a successful verification.
+type oauthCredentials struct {
 	Identity identityContext
 	Token    string
 }
@@ -81,7 +43,7 @@ type analyticsEvent struct {
 }
 
 type gatewayServer struct {
-	proxy                  *httputil.ReverseProxy
+	proxy                  http.Handler
 	metrics                *gatewayMetrics
 	analyticsURL           string
 	apiKey                 string
@@ -111,12 +73,24 @@ type gatewayServer struct {
 	analyticsDropped       atomic.Uint64
 	oauthMu                sync.Mutex
 	oauthProviders         map[string]*oauthProvider
-	policyState            atomic.Value
+	policyState            atomic.Pointer[policySnapshot]
 	sessionSync            *gatewaySessionSync
 	credentialBroker       *credentialBroker
 	upstreamURL            *url.URL
 	idem                   idempotencyStore
 	idemOnce               sync.Once
+	sessions               SessionReader
+	oauth                  OAuthAuthenticator
+	// now overrides the clock for authorization and session validity checks.
+	// Configure before serving requests; nil uses the system clock.
+	now func() time.Time
+}
+
+func (s *gatewayServer) currentTime() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }
 
 type statusRecorder struct {
@@ -129,16 +103,16 @@ const (
 	maxRPCBodyBytes      = 1 << 20
 	analyticsQueueSize   = 256
 	analyticsWorkerCount = 4
-	analyticsEmitTimeout = 5
+	analyticsEmitTimeout = 5 * time.Second
 	// defaultVerifiedSPIFFEHeader carries an optional adapter's SPIFFE identity
 	// extracted and injected by the TLS-terminating ingress (Traefik). It is
 	// trusted only on an ingress-authenticated mTLS hop.
 	defaultVerifiedSPIFFEHeader = "X-MCP-Verified-SPIFFE-ID"
-	defaultPolicyMode           = mcpdefaults.PolicyMode
-	defaultPolicyDecision       = mcpdefaults.PolicyDecision
-	defaultPolicyVersion        = mcpdefaults.PolicyVersion
+	defaultPolicyMode           = policypkg.DefaultMode
+	defaultPolicyDecision       = policypkg.DefaultDecision
+	defaultPolicyVersion        = policypkg.DefaultVersion
 	oauthProtectedPrefix        = "/.well-known/oauth-protected-resource"
-	defaultTokenHeader          = mcpdefaults.AuthTokenHeader
+	defaultTokenHeader          = identity.AuthTokenHeader
 )
 
 // main initializes and starts the MCP gateway service.

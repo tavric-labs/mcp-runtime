@@ -1,7 +1,6 @@
 package core
 
 import (
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/platforminventory"
 )
 
@@ -18,7 +17,7 @@ const (
 	NamespaceRegistry = "registry"
 
 	// NamespaceMCPServers is the default namespace for MCP server deployments.
-	NamespaceMCPServers = mcpdefaults.MCPServersNamespace
+	NamespaceMCPServers = platforminventory.MCPServersNamespace
 
 	// PlatformNamespace holds control-plane services.
 	PlatformNamespace = platforminventory.PlatformNamespace
@@ -27,7 +26,7 @@ const (
 	ObservabilityNamespace = platforminventory.ObservabilityNamespace
 
 	// LogCollectorNamespace isolates the node log collector and its hostPath access.
-	LogCollectorNamespace = mcpdefaults.LogCollectorNamespace
+	LogCollectorNamespace = platforminventory.LogCollectorNamespace
 )
 
 // Deployment and resource names.

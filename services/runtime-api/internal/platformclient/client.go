@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mcp-runtime/pkg/serviceutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"mcp-runtime/pkg/apihttp"
 	"mcp-runtime/pkg/internalapi"
 	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/transport/httptrace"
 )
 
 // Client calls platform-api internal identity and audit endpoints.
@@ -61,7 +61,7 @@ func (c *Client) requestJSON(ctx context.Context, method, path string, body any,
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := serviceutil.DoHTTP(c.httpClient(), req)
+	resp, err := httptrace.DoHTTP(c.httpClient(), req)
 	if err != nil {
 		return 0, err
 	}

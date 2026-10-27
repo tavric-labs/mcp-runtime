@@ -12,6 +12,7 @@ import (
 	"mcp-runtime-api/internal/platformclient"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/platformauth"
 
@@ -80,7 +81,7 @@ func newAdapterTestFixture(t *testing.T, grants ...mcpv1alpha1.MCPAccessGrant) a
 		}},
 	)
 	dynamic := dynamicfake.NewSimpleDynamicClient(scheme, objects...)
-	mgr := mcpaccess.NewManager(dynamic, nil)
+	mgr := k8sstore.NewManager(dynamic, nil)
 	agentTeamID := "team-acme"
 	agentStatus := "active"
 	identityHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -298,14 +299,14 @@ func TestAdapterSessionRefreshCapsExistingSessionWhenGrantExpiryIsShortened(t *t
 	}
 	fx := newAdapterTestFixture(t, grant)
 	sessionName := adapterSessionName("user-123", "agt_01arz3ndektsv4rrffq69g5fav", "team-acme", "demo")
-	_, err := fx.server.accessMgr.ApplySession(t.Context(), &mcpaccess.MCPAgentSession{
+	_, err := fx.server.accessMgr.ApplySession(t.Context(), &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: sessionName, Namespace: "mcp-team-acme"},
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			ServerRef:      mcpaccess.ServerReference{Name: "demo", Namespace: "mcp-team-acme"},
 			Subject:        mcpaccess.SubjectRef{HumanID: "user-123", AgentID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-acme"},
 			ConsentedTrust: mcpaccess.TrustLow,
 			PolicyVersion:  "v1",
-			ExpiresAt:      &metav1.Time{Time: time.Now().UTC().Add(time.Hour)},
+			ExpiresAt:      &mcpaccess.Time{Time: time.Now().UTC().Add(time.Hour)},
 		},
 	})
 	if err != nil {
@@ -588,7 +589,7 @@ func TestGrantRevokeSessionsOnlyTouchesLinkedSessionsAndIsRetrySafe(t *testing.T
 		ObjectMeta: metav1.ObjectMeta{Name: "unlinked", Namespace: "mcp-team-acme"},
 		Spec:       mcpv1alpha1.MCPAgentSessionSpec{Subject: grant.Spec.Subject},
 	}
-	accessMgr := mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClient(scheme,
+	accessMgr := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme,
 		&mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "mcp-team-acme"}, Spec: mcpv1alpha1.MCPServerSpec{TeamID: "team-a"}},
 		grant, linked, unlinked,
 	), nil)
@@ -706,17 +707,17 @@ func TestAdapterSessionDeterministicName(t *testing.T) {
 
 func TestAdapterSessionReusableRejectsExpiredOrRevoked(t *testing.T) {
 	now := time.Now()
-	ok := &mcpaccess.MCPAgentSession{
+	ok := &k8sstore.MCPAgentSession{
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			PolicyVersion:  "v1",
 			ConsentedTrust: mcpaccess.TrustLow,
-			ExpiresAt:      &metav1.Time{Time: now.Add(time.Hour)},
+			ExpiresAt:      &mcpaccess.Time{Time: now.Add(time.Hour)},
 		},
 	}
 	revoked := *ok
 	revoked.Spec.Revoked = true
 	soon := *ok
-	soon.Spec.ExpiresAt = &metav1.Time{Time: now.Add(5 * time.Second)} // < refresh buffer
+	soon.Spec.ExpiresAt = &mcpaccess.Time{Time: now.Add(5 * time.Second)} // < refresh buffer
 	mismatchPolicy := *ok
 	mismatchPolicy.Spec.PolicyVersion = "v2"
 

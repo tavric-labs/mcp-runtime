@@ -70,8 +70,11 @@ such as `ghcr.io/owner/image` remain unchanged.
 
 ## Manifest Generation
 
-`GenerateCRD` converts one `ServerMetadata` into an `MCPServer` YAML manifest.
-`GenerateCRDsFromRegistry` writes one manifest per server to an output directory.
+`crdgen.GenerateCRD` (package `pkg/metadata/crdgen`) converts one `ServerMetadata`
+into an `MCPServer` YAML manifest. `crdgen.GenerateCRDsFromRegistry` writes one
+manifest per server to an output directory. The generator is the only part of the
+metadata code that imports Kubernetes types; `pkg/metadata` itself stays
+Kubernetes-free and exports `PublishScopeLabels` and `ImageRefForClusterPull` for it.
 
 Generation should be deterministic:
 

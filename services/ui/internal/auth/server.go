@@ -5,13 +5,15 @@ import (
 	"crypto/hmac"
 	"encoding/json"
 	"log"
-	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/publicroutes"
-	"mcp-runtime/pkg/serviceutil"
-	"mcp-ui/internal/session"
+
 	"net/http"
 	"strings"
 	"time"
+
+	"mcp-runtime/pkg/httpx"
+	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/publicroutes"
+	"mcp-ui/internal/session"
 )
 
 // Hooks override credential verification for injected integrations; normal
@@ -48,19 +50,19 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.Header().Set("allow", http.MethodPost)
-			serviceutil.WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
+			httpx.WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
 			return
 		}
 		clientID := loginClientID(r)
 		if !s.Attempts.Allow(clientID) {
-			serviceutil.WriteJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too_many_requests"})
+			httpx.WriteJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too_many_requests"})
 			return
 		}
 
 		var req loginRequest
 		r.Body = http.MaxBytesReader(w, r.Body, loginRequestMaxBytes)
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			serviceutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request"})
+			httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request"})
 			return
 		}
 
@@ -69,7 +71,7 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 		email := strings.TrimSpace(req.Email)
 		password := strings.TrimSpace(req.Password)
 		if presentedAPIKey == "" && idToken == "" && (email == "" || password == "") {
-			serviceutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_credentials"})
+			httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_credentials"})
 			return
 		}
 
@@ -96,7 +98,7 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 					// #nosec G706 -- authentication telemetry log with bounded fields.
 					log.Printf(`auth_login_failure client=%q timestamp=%q failure_count=%d mode=%q`, clientID, time.Now().UTC().Format(time.RFC3339), failures, "password")
 				}
-				serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 				return
 			}
 			sess, err = s.Store.Create(r.Context(), session.Session{
@@ -122,7 +124,7 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 					// #nosec G706 -- authentication telemetry log with bounded fields.
 					log.Printf(`auth_login_failure client=%q timestamp=%q failure_count=%d mode=%q`, clientID, time.Now().UTC().Format(time.RFC3339), failures, "oidc")
 				}
-				serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 				return
 			}
 			sess, err = s.Store.Create(r.Context(), session.Session{
@@ -132,7 +134,7 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 			})
 		} else {
 			if apiKey == "" {
-				serviceutil.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "api_key_not_configured"})
+				httpx.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "api_key_not_configured"})
 				return
 			}
 			if !hmac.Equal([]byte(presentedAPIKey), []byte(apiKey)) {
@@ -141,7 +143,7 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 					// #nosec G706 -- authentication telemetry log with bounded fields.
 					log.Printf(`auth_login_failure client=%q timestamp=%q failure_count=%d mode=%q`, clientID, time.Now().UTC().Format(time.RFC3339), failures, "api_key")
 				}
-				serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 				return
 			}
 			sess, err = s.Store.Create(r.Context(), session.Session{
@@ -153,7 +155,7 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 			})
 		}
 		if err != nil {
-			serviceutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "session_create_failed"})
+			httpx.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "session_create_failed"})
 			return
 		}
 
@@ -163,7 +165,7 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 			log.Printf(`auth_login_success_after_failures timestamp=%q prior_failures=%d`, time.Now().UTC().Format(time.RFC3339), priorFailures)
 		}
 		http.SetCookie(w, s.newSessionCookie(r, sess.ID, sess.ExpiresAt))
-		serviceutil.WriteJSON(w, http.StatusOK, map[string]any{
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"authenticated": true,
 			"principal":     sess.Principal,
 			"csrf_token":    sess.CSRFToken,
@@ -179,14 +181,14 @@ func (s *Server) Logout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.Header().Set("allow", http.MethodPost)
-			serviceutil.WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
+			httpx.WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
 			return
 		}
 		if cookie, err := r.Cookie(session.CookieName); err == nil {
 			s.Store.Delete(strings.TrimSpace(cookie.Value))
 		}
 		http.SetCookie(w, s.expiredSessionCookie(r))
-		serviceutil.WriteJSON(w, http.StatusOK, map[string]bool{"authenticated": false})
+		httpx.WriteJSON(w, http.StatusOK, map[string]bool{"authenticated": false})
 	}
 }
 
@@ -212,7 +214,7 @@ func (s *Server) AdminCheck(apiKeys, adminAPIKeys []string, legacyAdminKeys bool
 			http.Redirect(w, r, target, http.StatusSeeOther)
 			return
 		}
-		serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	}
 }
 
@@ -245,10 +247,10 @@ func (s *Server) Status() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sess, ok := s.Store.FromRequest(r)
 		if !ok {
-			serviceutil.WriteJSON(w, http.StatusOK, map[string]any{"authenticated": false})
+			httpx.WriteJSON(w, http.StatusOK, map[string]any{"authenticated": false})
 			return
 		}
-		serviceutil.WriteJSON(w, http.StatusOK, map[string]any{
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"authenticated": true,
 			"principal":     sess.Principal,
 			"csrf_token":    sess.CSRFToken,

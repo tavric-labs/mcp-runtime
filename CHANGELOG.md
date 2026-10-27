@@ -11,6 +11,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 - QA E2E failures now upload redacted, size-capped logs from every pod in the platform namespaces (`pod-logs/<namespace>/<pod>.log`, plus `<pod>.previous.log` for restarted containers in the run artifact), so a 5xx such as `query_failed` or a crash loop carries its backend error. Collection is bounded to 30 pods per namespace and 150 seconds. No deployment or fresh-setup change is required.
 
+### Fixed
+
+- The MCP gateway now rejects an adapter-certificate session whose static policy binding carries a malformed `expires_at` with `401 session_expired`, as the policy evaluator already did. Previously the authentication stage treated it as non-expiring, so non-tool traffic was authenticated with such a session; tool calls were already denied. Well-formed, blank and absent expiries are unchanged ([#861](https://github.com/tavric-labs/mcp-runtime/issues/861)).
+
 ## [0.13.1] - 2026-10-26
 
 Console, Grafana sign-in, credential connector and service-image security fixes.
@@ -36,6 +40,10 @@ reset or MCP Auth release is required.
 ### Changed
 
 - Dependency maintenance updates `kin-openapi` to 0.152.0, AWS SDK configuration and Secrets Manager modules to 1.33.10 and 1.50.6, and the pinned `docker/login-action` to 4.7.0. Service module files stay aligned with the root OpenAPI dependency so image builds remain reproducible ([#865](https://github.com/tavric-labs/mcp-runtime/pull/865), [#866](https://github.com/tavric-labs/mcp-runtime/pull/866), [#867](https://github.com/tavric-labs/mcp-runtime/pull/867)).
+
+### Changed
+
+- Shared Go authentication helpers now live in `pkg/identity`; policy defaults, platform defaults and route defaults live with their owning packages. Source consumers must update imports from `credentialheaders`, `oauthresource`, `mcpdefaults` and `serviceutil`. Shared environment, HTTP primitives, TLS, HTTP tracing, service telemetry and Kafka tracing now have explicit owners; the gateway and authentication helpers no longer pull Kafka through shared utilities. Gateway audit records and authentication behavior are unchanged ([#860](https://github.com/tavric-labs/mcp-runtime/pull/860)).
 
 ## [0.13.0] - 2026-10-24
 

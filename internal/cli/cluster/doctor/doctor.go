@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/platforminventory"
 )
 
@@ -56,7 +55,7 @@ type doctorCheckSpec struct {
 }
 
 const (
-	doctorMCPServersNamespace = mcpdefaults.MCPServersNamespace
+	doctorMCPServersNamespace = platforminventory.MCPServersNamespace
 	doctorTraefikNamespace    = "traefik"
 	doctorK3sTraefikNamespace = "kube-system"
 	doctorTraefikServiceName  = "traefik"

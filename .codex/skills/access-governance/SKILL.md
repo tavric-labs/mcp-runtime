@@ -146,7 +146,8 @@ See `test/e2e/qa-e2e.sh` and `test/e2e/select_pr_scenarios.sh` for scenario name
 
 `pkg/access/specvalidation` owns grant/session structural rules. The CRD webhook
 adapts persisted specs; `pkg/access` owns normalized platform apply requests used
-by runtime-api and CLI submission. Keep the explicit boundary contracts:
+by runtime-api and CLI submission. The Kubernetes objects and `Manager` live in
+`pkg/access/k8sstore`; `pkg/access` stays Kubernetes-free. Keep the explicit boundary contracts:
 admission retains legacy wildcard grants and deny-all empty side effects;
 platform apply requires a subject and explicit effects, and new grants must
 expire in the future. Historical session import/revocation remains valid.
@@ -158,4 +159,15 @@ Kubernetes field causes and platform error text when changing these boundaries.
 
 - CRDs: `api/v1alpha1/`, `config/crd/bases/`
 - Shared policy: `pkg/access/`, `pkg/policy/`
+- Shared authentication contracts and OAuth resource URLs: `pkg/identity/`
+- Gateway stages: `services/mcp-gateway/filter*.go`; request stages return typed
+  outcomes and the runner renders denials/metadata. Upstream receives a
+  `PermittedRequest`; session/OAuth dependencies can be injected through the
+  read-only consumer interfaces in `dependencies.go`.
+- Transport support: `pkg/transport/tlsconfig` owns existing TLS loading and
+  renewal; `pkg/transport/httptrace` instruments caller-owned HTTP clients.
+  `pkg/telemetry` owns service observation; only ingest/processor import
+  `pkg/telemetry/kafkatrace`. The HTTP factory remains tracked separately in #868.
+- Audit wire payload: `pkg/events.MCPRequest`; this is a platform audit record,
+  independent of any draft MCP Events extension.
 - Adapters: `internal/cli/adapter/`, `internal/agentadapter/`, `services/runtime-api/internal/runtimeapi/adapter.go`

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
@@ -45,7 +45,7 @@ type grantAPIBody struct {
 	ServerRef          mcpaccess.ServerReference  `json:"serverRef"`
 	Subject            mcpaccess.SubjectRef       `json:"subject"`
 	MaxTrust           mcpaccess.TrustLevel       `json:"maxTrust"`
-	ExpiresAt          *metav1.Time               `json:"expiresAt,omitempty"`
+	ExpiresAt          *mcpaccess.Time            `json:"expiresAt,omitempty"`
 	AllowedSideEffects []mcpaccess.ToolSideEffect `json:"allowedSideEffects,omitempty"`
 	PolicyVersion      string                     `json:"policyVersion,omitempty"`
 	Disabled           *bool                      `json:"disabled,omitempty"`
@@ -58,7 +58,7 @@ type sessionAPIBody struct {
 	ServerRef      mcpaccess.ServerReference `json:"serverRef"`
 	Subject        mcpaccess.SubjectRef      `json:"subject"`
 	ConsentedTrust mcpaccess.TrustLevel      `json:"consentedTrust"`
-	ExpiresAt      *metav1.Time              `json:"expiresAt,omitempty"`
+	ExpiresAt      *mcpaccess.Time           `json:"expiresAt,omitempty"`
 	Revoked        *bool                     `json:"revoked,omitempty"`
 	PolicyVersion  string                    `json:"policyVersion"`
 	GrantName      string                    `json:"grantName,omitempty"`
@@ -343,12 +343,20 @@ func grantFromV1(g *mcpv1alpha1.MCPAccessGrant) grantAPIBody {
 		ServerRef:          mcpaccess.ServerReference{Name: mcpaccess.ServerName(g.Spec.ServerRef.Name), Namespace: mcpaccess.Namespace(g.Spec.ServerRef.Namespace)},
 		Subject:            mcpaccess.SubjectRef{HumanID: mcpaccess.HumanID(g.Spec.Subject.HumanID), AgentID: mcpaccess.AgentID(g.Spec.Subject.AgentID), TeamID: mcpaccess.TeamID(g.Spec.Subject.TeamID)},
 		MaxTrust:           trust,
-		ExpiresAt:          g.Spec.ExpiresAt,
+		ExpiresAt:          accessTime(g.Spec.ExpiresAt),
 		AllowedSideEffects: allowedSideEffects,
 		PolicyVersion:      g.Spec.PolicyVersion,
 		Disabled:           &dis,
 		ToolRules:          rules,
 	}
+}
+
+// accessTime converts a CRD timestamp to the access contract's wire-identical time.
+func accessTime(t *metav1.Time) *mcpaccess.Time {
+	if t == nil {
+		return nil
+	}
+	return &mcpaccess.Time{Time: t.Time}
 }
 
 func sessionFromV1(s *mcpv1alpha1.MCPAgentSession) sessionAPIBody {
@@ -365,7 +373,7 @@ func sessionFromV1(s *mcpv1alpha1.MCPAgentSession) sessionAPIBody {
 		ConsentedTrust: mcpaccess.TrustLevel(s.Spec.ConsentedTrust),
 		PolicyVersion:  s.Spec.PolicyVersion,
 		Revoked:        &rev,
-		ExpiresAt:      s.Spec.ExpiresAt,
+		ExpiresAt:      accessTime(s.Spec.ExpiresAt),
 		GrantName:      s.Annotations["mcpruntime.org/access-grant-name"],
 		GrantNamespace: s.Annotations["mcpruntime.org/access-grant-namespace"],
 	}

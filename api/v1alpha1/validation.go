@@ -16,8 +16,10 @@ import (
 
 	"mcp-runtime/pkg/access/specvalidation"
 	"mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/credentialheaders"
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/identity"
+	"mcp-runtime/pkg/platforminventory"
+	policypkg "mcp-runtime/pkg/policy"
+	"mcp-runtime/pkg/publicroutes"
 )
 
 var (
@@ -30,22 +32,22 @@ var (
 const (
 	defaultImageTag          = "latest"
 	defaultReplicas          = int32(1)
-	defaultPort              = int32(mcpdefaults.MCPServerPort)
+	defaultPort              = int32(platforminventory.MCPServerPort)
 	defaultServicePort       = int32(80)
 	defaultIngressClass      = "traefik"
-	defaultGatewayPort       = int32(mcpdefaults.MCPGatewayPort)
+	defaultGatewayPort       = int32(platforminventory.MCPGatewayPort)
 	defaultToolRequiredTrust = "low"
 
-	defaultAuthTokenHeader = mcpdefaults.AuthTokenHeader
+	defaultAuthTokenHeader = identity.AuthTokenHeader
 
-	defaultPolicyMode      = PolicyMode(mcpdefaults.PolicyMode)
-	defaultPolicyDecision  = PolicyDecision(mcpdefaults.PolicyDecision)
-	defaultPolicyEnforceOn = mcpdefaults.PolicyEnforceOn
-	defaultPolicyVersion   = mcpdefaults.PolicyVersion
-	defaultSessionStore    = mcpdefaults.SessionStore
-	defaultSessionMaxLife  = mcpdefaults.SessionMaxLife
-	defaultSessionIdleTime = mcpdefaults.SessionIdleTime
-	defaultSessionUpstream = mcpdefaults.SessionUpstream
+	defaultPolicyMode      = PolicyMode(policypkg.DefaultMode)
+	defaultPolicyDecision  = PolicyDecision(policypkg.DefaultDecision)
+	defaultPolicyEnforceOn = policypkg.DefaultEnforceOn
+	defaultPolicyVersion   = policypkg.DefaultVersion
+	defaultSessionStore    = policypkg.DefaultSessionStore
+	defaultSessionMaxLife  = policypkg.DefaultSessionMaxLife
+	defaultSessionIdleTime = policypkg.DefaultSessionIdleTime
+	defaultSessionUpstream = policypkg.DefaultSessionUpstream
 
 	defaultAnalyticsEventType    = "mcp.request"
 	defaultAnalyticsSourceSuffix = "-gateway"
@@ -58,7 +60,7 @@ func defaultIngressPathFromName(name string) string {
 	if strings.TrimSpace(name) == "" {
 		return ""
 	}
-	return mcpdefaults.DefaultIngressPath(strings.TrimSpace(name))
+	return publicroutes.DefaultMCPPath(strings.TrimSpace(name))
 }
 
 func defaultPublicPathPrefixFromName(name string) string {
@@ -182,7 +184,7 @@ func (r *MCPServer) DefaultWithOptions(options MCPServerDefaultOptions) {
 	if r.Spec.Auth != nil {
 		if AuthUsesHeaderMode(r.Spec.Auth) {
 			if strings.TrimSpace(r.Spec.Auth.CredentialPresence) == "" {
-				r.Spec.Auth.CredentialPresence = mcpdefaults.CredentialPresenceAny
+				r.Spec.Auth.CredentialPresence = identity.CredentialPresenceAny
 			}
 			if r.Spec.Policy == nil {
 				r.Spec.Policy = &PolicyConfig{
@@ -315,14 +317,14 @@ func validateHeaderAuth(authPath *field.Path, auth *AuthConfig, policy *PolicyCo
 	if strings.TrimSpace(auth.TokenHeader) != "" || strings.TrimSpace(auth.IssuerURL) != "" || strings.TrimSpace(auth.Audience) != "" || len(auth.Scopes) > 0 {
 		allErrs = append(allErrs, field.Forbidden(authPath, "header mode cannot set tokenHeader, issuerURL, audience, or scopes"))
 	}
-	if err := credentialheaders.NormalizeNames(auth.Headers); err != nil {
+	if err := identity.ValidateCredentialHeaderNames(auth.Headers); err != nil {
 		allErrs = append(allErrs, field.Invalid(authPath.Child("headers"), auth.Headers, err.Error()))
 	}
-	if _, err := credentialheaders.NormalizePresence(auth.CredentialPresence); err != nil {
+	if _, err := identity.NormalizeCredentialPresence(auth.CredentialPresence); err != nil {
 		allErrs = append(allErrs, field.Invalid(authPath.Child("credentialPresence"), auth.CredentialPresence, err.Error()))
 	}
 	if auth.CredentialGateway != nil {
-		if err := credentialheaders.ValidateGateway(auth.CredentialGateway.ValidationPath, auth.CredentialGateway.SecretHeaders, auth.Headers); err != nil {
+		if err := identity.ValidateGateway(auth.CredentialGateway.ValidationPath, auth.CredentialGateway.SecretHeaders, auth.Headers); err != nil {
 			allErrs = append(allErrs, field.Invalid(authPath.Child("credentialGateway"), auth.CredentialGateway.ValidationPath, err.Error()))
 		}
 	}

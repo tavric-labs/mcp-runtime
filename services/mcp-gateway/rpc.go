@@ -6,8 +6,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	policypkg "mcp-runtime/pkg/policy"
 )
 
 type rpcRequest struct {
@@ -28,29 +26,46 @@ func inspectRPCRequest(r *http.Request) rpcInspection {
 	if contentType != "" && !strings.Contains(contentType, "application/json") {
 		// Clearly not a JSON-RPC client (e.g. text/plain probe). Not an audit-worthy
 		// MCP attempt.
-		return rpcInspection{Indeterminate: true, FailureReason: "rpc_inspection_failed"}
+		return failedRPCInspection(inspectionContentType)
 	}
 	// From here on the content-type is JSON (or absent), so treat failures as
 	// genuine MCP client attempts that should produce audit events.
-	if r.Body == nil || r.ContentLength == 0 || r.ContentLength > maxRPCBodyBytes {
-		return rpcInspection{Indeterminate: true, FailureReason: "rpc_inspection_failed", IsRPCAttempt: true}
+	if r.Body == nil || r.ContentLength == 0 {
+		return failedRPCInspection(inspectionMissingBody)
+	}
+	if r.ContentLength > maxRPCBodyBytes {
+		return failedRPCInspection(inspectionBodyTooLarge)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxRPCBodyBytes+1))
 	if err != nil {
-		return rpcInspection{Indeterminate: true, FailureReason: "rpc_inspection_failed", IsRPCAttempt: true}
+		return failedRPCInspection(inspectionReadFailed)
 	}
-	if len(body) == 0 || len(body) > maxRPCBodyBytes {
-		return rpcInspection{Indeterminate: true, FailureReason: "rpc_inspection_failed", IsRPCAttempt: true}
+	if len(body) == 0 {
+		return failedRPCInspection(inspectionMissingBody)
+	}
+	if len(body) > maxRPCBodyBytes {
+		return failedRPCInspection(inspectionBodyTooLarge)
 	}
 	r.Body = io.NopCloser(bytes.NewReader(body))
+	return inspectRPCBody(body)
+}
 
+// inspectRPCBody extracts authorization inputs without HTTP or I/O. It retains
+// the gateway's size limit even when called independently of body capture.
+func inspectRPCBody(body []byte) rpcInspection {
+	if len(body) == 0 {
+		return failedRPCInspection(inspectionMissingBody)
+	}
+	if len(body) > maxRPCBodyBytes {
+		return failedRPCInspection(inspectionBodyTooLarge)
+	}
 	var req rpcRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		return rpcInspection{Indeterminate: true, FailureReason: "rpc_inspection_failed", IsRPCAttempt: true}
+		return failedRPCInspection(inspectionMalformed)
 	}
 	if strings.TrimSpace(req.Method) == "" {
-		return rpcInspection{Indeterminate: true, FailureReason: "rpc_inspection_failed", IsRPCAttempt: true}
+		return failedRPCInspection(inspectionMissingMethod)
 	}
 
 	var toolName string
@@ -61,13 +76,11 @@ func inspectRPCRequest(r *http.Request) rpcInspection {
 		}
 	}
 
-	return rpcInspection{
-		Method:    req.Method,
-		ToolName:  toolName,
-		ToolCall:  policypkg.IsToolCallMethod(req.Method),
-		ParamsRaw: req.Params,
-		IDRaw:     req.ID,
+	kind := RPCNotification
+	if len(req.ID) > 0 {
+		kind = RPCRequest
 	}
+	inspection := inspectedRPC(req.Method, toolName, kind)
+	inspection.paramsRaw, inspection.idRaw = req.Params, req.ID
+	return inspection
 }
-
-// maxInt64 returns the maximum of two int64 values.

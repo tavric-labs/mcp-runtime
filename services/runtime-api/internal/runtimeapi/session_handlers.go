@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 )
 
 func validateSessionRequest(req *accessSessionRequest) error {
@@ -47,7 +48,7 @@ func (s *AccessService) handleRuntimeSessionList(w http.ResponseWriter, r *http.
 		if filterByPrincipal && !principalCanReadSessionSubject(p, sess) {
 			continue
 		}
-		summaries = append(summaries, mcpaccess.ToSessionSummary(sess))
+		summaries = append(summaries, k8sstore.ToSessionSummary(sess))
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{"sessions": summaries})
@@ -138,7 +139,7 @@ func (s *AccessService) handleRuntimeSessionApply(w http.ResponseWriter, r *http
 		grantAnnotations = map[string]string{}
 	}
 	grantAnnotations[mcpaccess.ServerUIDAnnotation] = string(targetServer.UID)
-	session := &mcpaccess.MCPAgentSession{
+	session := &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        req.Name,
 			Namespace:   runtimeaccess.DefaultAccessNamespace(req.Namespace),
@@ -165,10 +166,10 @@ func (s *AccessService) handleRuntimeSessionApply(w http.ResponseWriter, r *http
 		writeAgentDirectoryError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"session": mcpaccess.ToSessionSummary(*applied)})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"session": k8sstore.ToSessionSummary(*applied)})
 }
 
-func (s *AccessService) sessionGrantLink(ctx context.Context, req accessSessionRequest) (map[string]string, *mcpaccess.MCPAccessGrant, error) {
+func (s *AccessService) sessionGrantLink(ctx context.Context, req accessSessionRequest) (map[string]string, *k8sstore.MCPAccessGrant, error) {
 	grantName := strings.TrimSpace(req.GrantName)
 	if grantName == "" {
 		return nil, nil, nil

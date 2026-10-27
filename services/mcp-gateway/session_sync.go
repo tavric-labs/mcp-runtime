@@ -25,7 +25,7 @@ type gatewaySessionSync struct {
 	server      sessionstate.Server
 	baseURL     string
 	token       *tokenFileSource
-	client      *http.Client
+	client      httpDoer
 	epoch       string
 	sequence    int64
 	sessions    map[string]sessionstate.Session
@@ -44,13 +44,20 @@ func (c *gatewaySessionSync) invalidate() {
 	c.mu.Unlock()
 }
 
-func (c *gatewaySessionSync) fresh() bool {
+// freshLocked is the single freshness rule, evaluated at an explicit instant:
+// fresh from the last successful sync through the end of the stale window
+// (inclusive), never before a first sync. The caller holds c.mu.
+func (c *gatewaySessionSync) freshLocked(now time.Time) bool {
+	return !c.lastSync.IsZero() && now.Sub(c.lastSync) <= c.staleWindow
+}
+
+func (c *gatewaySessionSync) Fresh(now time.Time) bool {
 	if c == nil {
 		return false
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return !c.lastSync.IsZero() && time.Since(c.lastSync) <= c.staleWindow
+	return c.freshLocked(now)
 }
 
 func (c *gatewaySessionSync) getJSON(ctx context.Context, path string, out any) error {
@@ -195,31 +202,34 @@ func (c *gatewaySessionSync) run(ctx context.Context) {
 	}
 }
 
-func (c *gatewaySessionSync) binding(ctx context.Context, namespace, name string) (*policy.Binding, string) {
+func (c *gatewaySessionSync) Lookup(ctx context.Context, ref SessionRef, now time.Time) (*policy.Binding, error) {
 	if c == nil {
-		return nil, "policy_unavailable"
+		return nil, errSessionUnavailable
 	}
 	c.mu.RLock()
-	fresh := !c.lastSync.IsZero() && time.Since(c.lastSync) <= c.staleWindow
-	row, found := c.sessions[namespace+"/"+name]
+	fresh := c.freshLocked(now)
+	row, found := c.sessions[ref.key()]
 	c.mu.RUnlock()
 	if !fresh {
-		return nil, "policy_unavailable"
+		return nil, errSessionUnavailable
 	}
 	if !found {
 		// Enrollment can complete between polls. A scoped one-off lookup avoids
 		// waiting for the next update; ordinary calls stay entirely in-process.
-		path := sessionstate.GatewayPath + "/" + url.PathEscape(namespace) + "/" + url.PathEscape(name)
+		path := sessionstate.GatewayPath + "/" + url.PathEscape(string(ref.Namespace)) + "/" + url.PathEscape(string(ref.ID))
 		if err := c.getJSON(ctx, path, &row); err != nil {
 			if errors.Is(err, sessionstate.ErrNotFound) {
-				return nil, "session_not_found"
+				return nil, errSessionNotFound
 			}
-			return nil, "policy_unavailable"
+			return nil, errSessionUnavailable
 		}
 		if !c.owns(row) {
-			return nil, "session_not_found"
+			return nil, errSessionNotFound
 		}
 	}
 	binding := row.Binding
-	return &binding, ""
+	if _, err := parseDeadline(strings.TrimSpace(binding.ExpiresAt)); err != nil {
+		return nil, errSessionUnavailable
+	}
+	return &binding, nil
 }

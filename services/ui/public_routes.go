@@ -6,10 +6,9 @@ import (
 	"os"
 	"strings"
 
-	uiproxy "mcp-ui/internal/proxy"
-
+	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/publicroutes"
-	"mcp-runtime/pkg/serviceutil"
+	uiproxy "mcp-ui/internal/proxy"
 )
 
 func configuredPublicRoutes() publicroutes.Routes {
@@ -26,7 +25,7 @@ func mountPublicUI(inner *http.ServeMux, routes publicroutes.Routes, platformBas
 	outer.Handle("/health", inner)
 	outer.Handle("/auth/admin-check", inner)
 	// Grafana has its own public prefix even when the console uses /console.
-	runtimeBase, err := uiproxy.ParseUpstream(serviceutil.EnvOr("RUNTIME_UPSTREAM", uiproxy.DefaultRuntimeUpstream))
+	runtimeBase, err := uiproxy.ParseUpstream(envcfg.EnvOr("RUNTIME_UPSTREAM", uiproxy.DefaultRuntimeUpstream))
 	if err == nil {
 		grafana := uiproxy.NewGrafanaProxy(platformBase, runtimeBase, sessions, routes.Grafana, sessionProxyHTTPClient)
 		outer.Handle(routes.Grafana, grafana)

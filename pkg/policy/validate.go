@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/credentialheaders"
+	"mcp-runtime/pkg/identity"
 )
 
 // Validate checks that a rendered gateway policy document is structurally sound
@@ -118,10 +118,10 @@ func validateAuth(auth *Auth) error {
 // metadata and that clients send as the RFC 8707 resource parameter, so it has
 // to be an absolute URI without a fragment (RFC 8707 section 2).
 func validateDelegatedAuth(auth *Auth) error {
-	if err := credentialheaders.NormalizeNames(auth.Headers); err != nil {
+	if err := identity.ValidateCredentialHeaderNames(auth.Headers); err != nil {
 		return fmt.Errorf("policy: %w", err)
 	}
-	if _, err := credentialheaders.NormalizePresence(auth.CredentialPresence); err != nil {
+	if _, err := identity.NormalizeCredentialPresence(auth.CredentialPresence); err != nil {
 		return fmt.Errorf("policy: %w", err)
 	}
 	if strings.TrimSpace(auth.IssuerURL) != "" || strings.TrimSpace(auth.Audience) != "" || len(auth.Scopes) > 0 || strings.TrimSpace(auth.TokenHeader) != "" || strings.TrimSpace(auth.TrustDomain) != "" {

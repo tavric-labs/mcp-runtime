@@ -29,7 +29,7 @@ func (s *gatewayServer) startPolicyCache() error {
 	// Seed with the default document so reads never observe a nil policy. It is
 	// not marked Ready: in file-backed mode the gateway is only ready once the
 	// rendered policy validates and activates below.
-	s.snapshotPolicy(policySnapshot{Policy: s.defaultPolicyDocument()})
+	s.snapshotPolicy(seedSnapshot(s.defaultPolicyDocument()))
 	if err := s.reloadPolicy(); err != nil {
 		return err
 	}
@@ -52,31 +52,23 @@ func (s *gatewayServer) startPolicyCache() error {
 
 // reloadPolicy loads, validates, and atomically activates the policy. A load or
 // validation failure never replaces the last-known-good snapshot: the previous
-// Policy/Revision/LoadedAt/Ready are retained and only Err is updated so that
+// active policy, revision, load time and readiness are retained and only the reload error is updated so that
 // /config/status and metrics surface the failure while traffic keeps flowing.
 func (s *gatewayServer) reloadPolicy() error {
 	doc, err := s.loadPolicy()
 	if err != nil {
 		retained := s.loadPolicySnapshot()
-		fallback := retained.Policy
-		if fallback == nil {
-			fallback = s.defaultPolicyDocument()
+		if retained.Document() == nil {
+			retained = seedSnapshot(s.defaultPolicyDocument())
 		}
-		retained.Policy = fallback
-		retained.Err = err
-		s.snapshotPolicy(retained)
+		s.snapshotPolicy(retained.afterFailedReload(err))
 		recordPolicyReloadFailure()
-		s.metrics.recordPolicyReload(s.metricScope(fallback), err)
+		s.metrics.recordPolicyReload(s.metricScope(retained.Document()), err)
 		return err
 	}
 
-	loadedAt := time.Now()
-	s.snapshotPolicy(policySnapshot{
-		Policy:   doc,
-		Revision: doc.Revision,
-		LoadedAt: loadedAt,
-		Ready:    true,
-	})
+	loadedAt := s.currentTime()
+	s.snapshotPolicy(readySnapshot(doc, loadedAt))
 	recordPolicyReloadSuccess(doc.Revision, doc.SchemaVersion, loadedAt)
 	s.metrics.recordPolicyReload(s.metricScope(doc), nil)
 	return nil
@@ -84,27 +76,27 @@ func (s *gatewayServer) reloadPolicy() error {
 
 func (s *gatewayServer) currentPolicy() (*policypkg.Document, error) {
 	snapshot := s.loadPolicySnapshot()
-	if snapshot.Policy == nil {
+	if snapshot.Document() == nil {
 		return s.defaultPolicyDocument(), errPolicyUnavailable
 	}
 	// Until the first valid policy is activated, fail tool calls closed even
 	// though a seed document is present. Once Ready, a later failed reload is
 	// surfaced via /config/status but traffic keeps using last-known-good.
-	if !snapshot.Ready {
-		return snapshot.Policy, errPolicyUnavailable
+	if !snapshot.Ready() {
+		return snapshot.Document(), errPolicyUnavailable
 	}
-	return snapshot.Policy, nil
+	return snapshot.Document(), nil
 }
 
 func (s *gatewayServer) loadPolicySnapshot() policySnapshot {
 	if value := s.policyState.Load(); value != nil {
-		return value.(policySnapshot)
+		return *value
 	}
-	return policySnapshot{Policy: s.defaultPolicyDocument()}
+	return seedSnapshot(s.defaultPolicyDocument())
 }
 
 func (s *gatewayServer) snapshotPolicy(snapshot policySnapshot) {
-	s.policyState.Store(snapshot)
+	s.policyState.Store(&snapshot)
 }
 
 func (s *gatewayServer) loadPolicy() (*policypkg.Document, error) {
@@ -188,10 +180,10 @@ func (s *gatewayServer) applyPolicyDefaults(doc *policypkg.Document) {
 
 func policyIdentity(identity identityContext) policypkg.Identity {
 	return policypkg.Identity{
-		HumanID:   policypkg.HumanID(identity.HumanID),
-		AgentID:   policypkg.AgentID(identity.AgentID),
-		TeamID:    policypkg.TeamID(identity.TeamID),
-		SessionID: policypkg.SessionID(identity.SessionID),
+		HumanID:   identity.HumanID,
+		AgentID:   identity.AgentID,
+		TeamID:    identity.TeamID,
+		SessionID: identity.SessionID,
 	}
 }
 

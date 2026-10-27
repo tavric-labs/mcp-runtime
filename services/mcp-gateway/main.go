@@ -20,9 +20,11 @@ import (
 	_ "go.uber.org/automaxprocs" // align GOMAXPROCS with container CPU quota
 
 	"mcp-gateway/credential"
-	"mcp-runtime/pkg/mcpdefaults"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/envcfg"
+	"mcp-runtime/pkg/platforminventory"
 	"mcp-runtime/pkg/sessionstate"
+	"mcp-runtime/pkg/telemetry"
+	"mcp-runtime/pkg/transport/tlsconfig"
 )
 
 func main() {
@@ -36,14 +38,14 @@ func main() {
 		}
 		return
 	}
-	port := serviceutil.EnvOr("PORT", strconv.Itoa(mcpdefaults.MCPGatewayPort))
-	metricsPort := serviceutil.EnvOr("METRICS_PORT", "9103")
-	upstream := serviceutil.EnvOr("UPSTREAM_URL", "http://127.0.0.1:8090")
+	port := envcfg.EnvOr("PORT", strconv.Itoa(platforminventory.MCPGatewayPort))
+	metricsPort := envcfg.EnvOr("METRICS_PORT", "9103")
+	upstream := envcfg.EnvOr("UPSTREAM_URL", "http://127.0.0.1:8090")
 	analyticsURL := strings.TrimSpace(os.Getenv("ANALYTICS_INGEST_URL"))
 	apiKey := strings.TrimSpace(os.Getenv("ANALYTICS_API_KEY"))
 	analyticsTokenFile := strings.TrimSpace(os.Getenv("ANALYTICS_TOKEN_FILE"))
-	source := serviceutil.EnvOr("ANALYTICS_SOURCE", "mcp-gateway")
-	eventType := serviceutil.EnvOr("ANALYTICS_EVENT_TYPE", "mcp.request")
+	source := envcfg.EnvOr("ANALYTICS_SOURCE", "mcp-gateway")
+	eventType := envcfg.EnvOr("ANALYTICS_EVENT_TYPE", "mcp.request")
 	stripPrefix := strings.TrimSpace(os.Getenv("STRIP_PREFIX"))
 	externalBaseURL, err := parseExternalBaseURL(strings.TrimSpace(os.Getenv("EXTERNAL_BASE_URL")))
 	if err != nil {
@@ -58,7 +60,7 @@ func main() {
 	proxy := newUpstreamReverseProxy(target)
 	proxy.ErrorHandler = handleUpstreamError
 
-	analyticsTLS, err := serviceutil.ClientTLSFromEnv("ANALYTICS")
+	analyticsTLS, err := tlsconfig.ClientTLSFromEnv("ANALYTICS")
 	if err != nil {
 		log.Fatalf("configure analytics TLS: %v", err)
 	}
@@ -86,11 +88,11 @@ func main() {
 		serverNamespace:        strings.TrimSpace(os.Getenv("MCP_SERVER_NAMESPACE")),
 		serverUID:              strings.TrimSpace(os.Getenv("MCP_SERVER_UID")),
 		clusterName:            strings.TrimSpace(os.Getenv("MCP_CLUSTER_NAME")),
-		verifiedSPIFFEHeader:   serviceutil.EnvOr("VERIFIED_SPIFFE_HEADER", defaultVerifiedSPIFFEHeader),
+		verifiedSPIFFEHeader:   envcfg.EnvOr("VERIFIED_SPIFFE_HEADER", defaultVerifiedSPIFFEHeader),
 		trustedProxySPIFFE:     strings.TrimSpace(os.Getenv("TRUSTED_PROXY_SPIFFE_ID")),
-		defaultPolicyMode:      serviceutil.EnvOr("POLICY_MODE", defaultPolicyMode),
-		defaultPolicyDecision:  serviceutil.EnvOr("POLICY_DEFAULT_DECISION", defaultPolicyDecision),
-		defaultPolicyVersion:   serviceutil.EnvOr("POLICY_VERSION", defaultPolicyVersion),
+		defaultPolicyMode:      envcfg.EnvOr("POLICY_MODE", defaultPolicyMode),
+		defaultPolicyDecision:  envcfg.EnvOr("POLICY_DEFAULT_DECISION", defaultPolicyDecision),
+		defaultPolicyVersion:   envcfg.EnvOr("POLICY_VERSION", defaultPolicyVersion),
 		oauthProviders:         map[string]*oauthProvider{},
 	}
 	if err := srv.startPolicyCache(); err != nil {
@@ -145,7 +147,7 @@ func main() {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/", srv.handleGateway)
 
-	metricsShutdown, metricsErrs := serviceutil.StartMetricsServer(metricsPort)
+	metricsShutdown, metricsErrs := telemetry.StartMetricsServer(metricsPort)
 
 	shutdown, err := initTracer("mcp-gateway")
 	if err != nil {
@@ -159,7 +161,7 @@ func main() {
 	}
 
 	log.Printf("mcp-gateway listening on :%s -> %s (metrics on :%s)", port, upstream, metricsPort)
-	handler := otelhttp.NewHandler(mux, "http.server", otelhttp.WithFilter(serviceutil.TraceableRequest))
+	handler := otelhttp.NewHandler(mux, "http.server", otelhttp.WithFilter(telemetry.TraceableRequest))
 	httpServer := &http.Server{
 		Addr:              ":" + port,
 		Handler:           handler,
@@ -245,7 +247,7 @@ func main() {
 
 // initTracer initializes OpenTelemetry tracing for the service.
 func initTracer(serviceName string) (func(context.Context) error, error) {
-	return serviceutil.InitTracer(serviceName)
+	return telemetry.InitTracer(serviceName)
 }
 
 type gatewayHTTPClients struct {

@@ -17,12 +17,13 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	chpkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/transport/httptrace"
 )
 
 const (
@@ -145,7 +146,7 @@ func (s *RuntimeServer) HandleRuntimeObservabilityPrometheusQuery(w http.Respons
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query_build_failed"})
 		return
 	}
-	resp, err := serviceutil.DoHTTP(nil, req)
+	resp, err := httptrace.DoHTTP(nil, req)
 	if err != nil {
 		log.Printf("observability prometheus query failed namespace=%q server=%q query_id=%q err=%v", target.Namespace, target.Name, query.ID, err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "prometheus_unavailable"})
@@ -297,7 +298,7 @@ func fetchObservabilityMetric(ctx context.Context, query string) (*float64, stri
 	if err != nil {
 		return nil, "", err
 	}
-	resp, err := serviceutil.DoHTTP(nil, req)
+	resp, err := httptrace.DoHTTP(nil, req)
 	if err != nil {
 		return nil, "", err
 	}
@@ -360,7 +361,7 @@ func (s *RuntimeServer) HandleRuntimeObservabilityLogs(w http.ResponseWriter, r 
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query_build_failed"})
 		return
 	}
-	resp, err := serviceutil.DoHTTP(nil, req)
+	resp, err := httptrace.DoHTTP(nil, req)
 	if err != nil {
 		log.Printf("observability loki query failed namespace=%q server=%q err=%v", target.Namespace, target.Name, err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "loki_unavailable"})

@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/internalapi"
 )
 
@@ -49,11 +50,11 @@ func TestAgentCertificateHistoryVisibilityAndIndependentFailure(t *testing.T) {
 				identity.err = errors.New("history offline")
 			}
 			kinds := map[schema.GroupVersionResource]string{
-				{Group: mcpaccess.APIGroup, Version: mcpaccess.APIVersion, Resource: mcpaccess.AccessGrantResource}:   "MCPAccessGrantList",
-				{Group: mcpaccess.APIGroup, Version: mcpaccess.APIVersion, Resource: mcpaccess.AccessSessionResource}: "MCPAgentSessionList",
+				{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessGrantResource}:   "MCPAccessGrantList",
+				{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessSessionResource}: "MCPAgentSessionList",
 			}
-			grant := &unstructured.Unstructured{Object: map[string]any{"apiVersion": mcpaccess.APIGroup + "/" + mcpaccess.APIVersion, "kind": "MCPAccessGrant", "metadata": map[string]any{"name": "grant", "namespace": "mcp-team-core"}, "spec": map[string]any{"subject": map[string]any{"humanID": "member", "teamID": "team-id", "agentID": "agt_01arz3ndektsv4rrffq69g5fav"}, "serverRef": map[string]any{"name": "demo"}}}}
-			s := &RuntimeServer{identity: identity, accessMgr: mcpaccess.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), kinds, grant), nil)}
+			grant := &unstructured.Unstructured{Object: map[string]any{"apiVersion": k8sstore.APIGroup + "/" + k8sstore.APIVersion, "kind": "MCPAccessGrant", "metadata": map[string]any{"name": "grant", "namespace": "mcp-team-core"}, "spec": map[string]any{"subject": map[string]any{"humanID": "member", "teamID": "team-id", "agentID": "agt_01arz3ndektsv4rrffq69g5fav"}, "serverRef": map[string]any{"name": "demo"}}}}
+			s := &RuntimeServer{identity: identity, accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), kinds, grant), nil)}
 			team := "core"
 			if tc.team == "foreign" {
 				team = "other"
@@ -102,7 +103,7 @@ func TestCertificateIssuanceMetadataContainsNoCredentials(t *testing.T) {
 	}
 	audit := &fakeAuditWriter{}
 	svc := &AccessService{audit: audit}
-	session := &mcpaccess.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "team-a"}, Spec: mcpaccess.MCPAgentSessionSpec{ServerRef: mcpaccess.ServerReference{Name: "demo"}, Subject: mcpaccess.SubjectRef{HumanID: "human-a", AgentID: "agent-a", TeamID: "team-a"}}}
+	session := &k8sstore.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "team-a"}, Spec: mcpaccess.MCPAgentSessionSpec{ServerRef: mcpaccess.ServerReference{Name: "demo"}, Subject: mcpaccess.SubjectRef{HumanID: "human-a", AgentID: "agent-a", TeamID: "team-a"}}}
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/runtime/adapter/certificates", nil)
 	for range 2 {
 		svc.recordCertificateIssuance(req, principal{Subject: "human-a"}, session, string(certificate))

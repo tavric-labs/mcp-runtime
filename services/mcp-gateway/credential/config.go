@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/credentialheaders"
+	"mcp-runtime/pkg/identity"
 )
 
 var (
@@ -363,7 +363,7 @@ func parseHeaders(raw []headerRule, where string) ([]Header, error) {
 		if h.Type != "" && h.Type != "direct" {
 			return nil, fmt.Errorf("%s: only type \"direct\" is supported", here)
 		}
-		if err := credentialheaders.ValidateGatewayHeader(h.Name); err != nil {
+		if err := identity.ValidateGatewayHeader(h.Name); err != nil {
 			return nil, fmt.Errorf("%s: %w", here, err)
 		}
 		if !fieldRe.MatchString(h.Field) {

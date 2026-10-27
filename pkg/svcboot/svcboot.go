@@ -14,7 +14,8 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/envcfg"
+	"mcp-runtime/pkg/telemetry"
 )
 
 // Config drives the shared HTTP + metrics + OTEL bootstrap for split API services.
@@ -53,9 +54,9 @@ func NewHTTPServer(addr string, handler http.Handler) *http.Server {
 // WrapHandler applies the shared OTEL, request logging, and request metrics
 // middleware. The wrapped writers unwrap to the connection's writer, so
 // handlers can still use http.ResponseController to extend deadlines.
-func WrapHandler(serviceName string, requestMetrics *serviceutil.RequestMetrics, next http.Handler) http.Handler {
-	serviceName = serviceutil.EnvOr("OTEL_SERVICE_NAME", serviceName)
-	return otelhttp.NewHandler(serviceutil.LogRequestsForService(serviceName, requestMetrics.Middleware(serviceName, next)), "http.server", otelhttp.WithFilter(serviceutil.TraceableRequest))
+func WrapHandler(serviceName string, requestMetrics *telemetry.RequestMetrics, next http.Handler) http.Handler {
+	serviceName = envcfg.EnvOr("OTEL_SERVICE_NAME", serviceName)
+	return otelhttp.NewHandler(telemetry.LogRequestsForService(serviceName, requestMetrics.Middleware(serviceName, next)), "http.server", otelhttp.WithFilter(telemetry.TraceableRequest))
 }
 
 // Run starts metrics, OTEL-instrumented HTTP, and blocks until shutdown.
@@ -76,8 +77,8 @@ func Run(cfg Config) error {
 		serviceName = "mcp-service"
 	}
 
-	serviceName = serviceutil.EnvOr("OTEL_SERVICE_NAME", serviceName)
-	shutdown, err := serviceutil.InitTracer(serviceName)
+	serviceName = envcfg.EnvOr("OTEL_SERVICE_NAME", serviceName)
+	shutdown, err := telemetry.InitTracer(serviceName)
 	if err != nil {
 		log.Printf("otel init failed: %v", err)
 	} else {
@@ -88,10 +89,10 @@ func Run(cfg Config) error {
 		}()
 	}
 
-	metricsShutdown, metricsErrs := serviceutil.StartMetricsServer(metricsPort)
+	metricsShutdown, metricsErrs := telemetry.StartMetricsServer(metricsPort)
 	log.Printf("%s listening on :%s", serviceName, port)
 
-	handler := WrapHandler(serviceName, serviceutil.DefaultRequestMetrics(), cfg.Handler)
+	handler := WrapHandler(serviceName, telemetry.DefaultRequestMetrics(), cfg.Handler)
 	httpServer := NewHTTPServer(":"+port, handler)
 
 	shutdownSignals, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

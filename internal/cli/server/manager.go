@@ -26,8 +26,10 @@ import (
 	"mcp-runtime/internal/cli/kubeerr"
 	"mcp-runtime/internal/cli/platformapi"
 	registrycli "mcp-runtime/internal/cli/registry"
-	"mcp-runtime/pkg/mcpdefaults"
 	"mcp-runtime/pkg/metadata"
+	"mcp-runtime/pkg/metadata/crdgen"
+	policypkg "mcp-runtime/pkg/policy"
+	"mcp-runtime/pkg/publicroutes"
 	"mcp-runtime/pkg/publishscope"
 )
 
@@ -163,7 +165,7 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 		ImageTag:         imageTag,
 		Scope:            metadata.PublishScope(scope),
 		PublicPathPrefix: name,
-		Route:            mcpdefaults.DefaultIngressPath(name),
+		Route:            publicroutes.DefaultMCPPath(name),
 		Port:             port,
 		Tools:            nil,
 		Auth:             nil,
@@ -582,7 +584,7 @@ func (m *ServerManager) CreateServer(name, namespace, image, imageTag string) er
 			Replicas:    1,
 			Port:        core.GetDefaultServerPort(),
 			ServicePort: 80,
-			IngressPath: mcpdefaults.DefaultIngressPath(name),
+			IngressPath: publicroutes.DefaultMCPPath(name),
 		},
 	}
 
@@ -742,7 +744,7 @@ func (m *ServerManager) GenerateManifests(metadataFile, metadataDir, outputDir s
 	if outputDir == "" {
 		outputDir = "manifests"
 	}
-	if err := metadata.GenerateCRDsFromRegistry(registry, outputDir); err != nil {
+	if err := crdgen.GenerateCRDsFromRegistry(registry, outputDir); err != nil {
 		wrappedErr := core.WrapWithBaseAndContext(
 			core.ErrGenerateCRDsFailed,
 			err,
@@ -1457,7 +1459,7 @@ func (m *ServerManager) InspectServerPolicy(name, namespace string) error {
 		return nil
 	}
 
-	configMapName := mcpdefaults.GatewayPolicyConfigMapName(name)
+	configMapName := policypkg.ConfigMapName(name)
 	args := []string{"get", "configmap", configMapName, "-n", namespace, "-o", `go-template={{index .data "policy.json"}}`}
 	cmd, err := m.kubectl.CommandArgs(args)
 	if err != nil {

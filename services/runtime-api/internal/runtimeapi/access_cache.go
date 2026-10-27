@@ -8,21 +8,22 @@ import (
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 )
 
 type accessServerCache map[string]mcpv1alpha1.MCPServer
 
-func (s *AccessService) grantVisibleToPrincipal(ctx context.Context, grant mcpaccess.MCPAccessGrant) bool {
+func (s *AccessService) grantVisibleToPrincipal(ctx context.Context, grant k8sstore.MCPAccessGrant) bool {
 	p, ok := principalFromContext(ctx)
 	return !ok || principalCanReadGrantSubject(p, grant)
 }
 
-func (s *AccessService) sessionVisibleToPrincipal(ctx context.Context, session mcpaccess.MCPAgentSession) bool {
+func (s *AccessService) sessionVisibleToPrincipal(ctx context.Context, session k8sstore.MCPAgentSession) bool {
 	p, ok := principalFromContext(ctx)
 	return !ok || principalCanReadSessionSubject(p, session)
 }
 
-func principalCanReadGrantSubject(p principal, grant mcpaccess.MCPAccessGrant) bool {
+func principalCanReadGrantSubject(p principal, grant k8sstore.MCPAccessGrant) bool {
 	if p.Role == roleAdmin {
 		return true
 	}
@@ -44,7 +45,7 @@ func principalCanReadGrantSubject(p principal, grant mcpaccess.MCPAccessGrant) b
 	return subject.HumanID != "" && string(subject.HumanID) == p.UserID()
 }
 
-func principalCanReadSessionSubject(p principal, session mcpaccess.MCPAgentSession) bool {
+func principalCanReadSessionSubject(p principal, session k8sstore.MCPAgentSession) bool {
 	if p.Role == roleAdmin {
 		return true
 	}
@@ -54,7 +55,7 @@ func principalCanReadSessionSubject(p principal, session mcpaccess.MCPAgentSessi
 	return session.Spec.Subject.HumanID != "" && string(session.Spec.Subject.HumanID) == p.UserID()
 }
 
-func (s *AccessService) accessServerCacheForGrantRefs(ctx context.Context, namespace string, grants []mcpaccess.MCPAccessGrant) (accessServerCache, error) {
+func (s *AccessService) accessServerCacheForGrantRefs(ctx context.Context, namespace string, grants []k8sstore.MCPAccessGrant) (accessServerCache, error) {
 	refs := make([]mcpaccess.ServerReference, 0, len(grants))
 	for _, grant := range grants {
 		refs = append(refs, grant.Spec.ServerRef)
@@ -62,7 +63,7 @@ func (s *AccessService) accessServerCacheForGrantRefs(ctx context.Context, names
 	return s.accessServerCacheForRefs(ctx, namespace, refs)
 }
 
-func (s *AccessService) accessServerCacheForSessionRefs(ctx context.Context, namespace string, sessions []mcpaccess.MCPAgentSession) (accessServerCache, error) {
+func (s *AccessService) accessServerCacheForSessionRefs(ctx context.Context, namespace string, sessions []k8sstore.MCPAgentSession) (accessServerCache, error) {
 	refs := make([]mcpaccess.ServerReference, 0, len(sessions))
 	for _, session := range sessions {
 		refs = append(refs, session.Spec.ServerRef)

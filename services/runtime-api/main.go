@@ -15,8 +15,8 @@ import (
 	"mcp-runtime-api/internal/platformclient"
 	"mcp-runtime-api/internal/runtimeapi"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
+	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/serviceutil"
 	"mcp-runtime/pkg/svcboot"
 )
 
@@ -28,10 +28,10 @@ type server struct {
 }
 
 func main() {
-	port := serviceutil.EnvOr("PORT", "8084")
-	metricsPort := serviceutil.EnvOr("METRICS_PORT", "9094")
-	clickhouseAddr := serviceutil.EnvOr("CLICKHOUSE_ADDR", "clickhouse:9000")
-	dbName := serviceutil.EnvOr("CLICKHOUSE_DB", "mcp")
+	port := envcfg.EnvOr("PORT", "8084")
+	metricsPort := envcfg.EnvOr("METRICS_PORT", "9094")
+	clickhouseAddr := envcfg.EnvOr("CLICKHOUSE_ADDR", "clickhouse:9000")
+	dbName := envcfg.EnvOr("CLICKHOUSE_DB", "mcp")
 	if err := clickhousepkg.ValidateDBName(dbName); err != nil {
 		log.Fatalf("invalid CLICKHOUSE_DB: %v", err)
 	}
@@ -117,7 +117,7 @@ func jwtSecretFromEnv() ([]byte, error) {
 
 func serviceAPIKeysFromEnv() map[string]struct{} {
 	out := map[string]struct{}{}
-	for _, key := range strings.Split(serviceutil.EnvOr("API_KEYS", ""), ",") {
+	for _, key := range strings.Split(envcfg.EnvOr("API_KEYS", ""), ",") {
 		key = strings.TrimSpace(key)
 		if key != "" {
 			out[key] = struct{}{}
@@ -128,7 +128,7 @@ func serviceAPIKeysFromEnv() map[string]struct{} {
 
 func adminAPIKeysFromEnv() map[string]struct{} {
 	out := map[string]struct{}{}
-	for _, key := range strings.Split(serviceutil.EnvOr("ADMIN_API_KEYS", ""), ",") {
+	for _, key := range strings.Split(envcfg.EnvOr("ADMIN_API_KEYS", ""), ",") {
 		key = strings.TrimSpace(key)
 		if key != "" {
 			out[key] = struct{}{}

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
 )
 
 // configStatus is the sanitized view of the active policy snapshot exposed at
@@ -25,16 +25,16 @@ type configStatus struct {
 // reloads because the last-known-good policy is retained.
 func (s *gatewayServer) handleReady(w http.ResponseWriter, _ *http.Request) {
 	snapshot := s.loadPolicySnapshot()
-	if !snapshot.Ready {
+	if !snapshot.Ready() {
 		payload := map[string]any{"status": "not_ready", "reason": "policy_not_loaded"}
-		if snapshot.Err != nil {
-			payload["last_reload_error"] = snapshot.Err.Error()
+		if snapshot.ReloadErr() != nil {
+			payload["last_reload_error"] = snapshot.ReloadErr().Error()
 		}
-		serviceutil.WriteJSON(w, http.StatusServiceUnavailable, payload)
+		httpx.WriteJSON(w, http.StatusServiceUnavailable, payload)
 		return
 	}
-	if snapshot.Policy != nil && snapshot.Policy.Session != nil && snapshot.Policy.Session.Store == "platform" && !s.sessionSync.fresh() {
-		serviceutil.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "reason": "session_sync_unavailable"})
+	if snapshot.Document() != nil && snapshot.Document().Session != nil && snapshot.Document().Session.Store == "platform" && !s.sessionReader().Fresh(s.currentTime()) {
+		httpx.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "reason": "session_sync_unavailable"})
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -46,26 +46,26 @@ func (s *gatewayServer) handleReady(w http.ResponseWriter, _ *http.Request) {
 func (s *gatewayServer) handleConfigStatus(w http.ResponseWriter, _ *http.Request) {
 	snapshot := s.loadPolicySnapshot()
 	status := configStatus{
-		Ready:    snapshot.Ready,
-		Revision: snapshot.Revision,
+		Ready:    snapshot.Ready(),
+		Revision: snapshot.Revision(),
 	}
-	if snapshot.Policy != nil {
-		status.SchemaVersion = snapshot.Policy.SchemaVersion
+	if snapshot.Document() != nil {
+		status.SchemaVersion = snapshot.Document().SchemaVersion
 	}
-	if !snapshot.LoadedAt.IsZero() {
-		status.LoadedAt = snapshot.LoadedAt.UTC().Format(time.RFC3339)
+	if !snapshot.LoadedAt().IsZero() {
+		status.LoadedAt = snapshot.LoadedAt().UTC().Format(time.RFC3339)
 	}
-	if snapshot.Err != nil {
-		status.LastReloadError = snapshot.Err.Error()
+	if snapshot.ReloadErr() != nil {
+		status.LastReloadError = snapshot.ReloadErr().Error()
 	}
 	if s.sessionSync != nil {
-		status.SessionSyncReady = s.sessionSync.fresh()
+		status.SessionSyncReady = s.sessionReader().Fresh(s.currentTime())
 		s.sessionSync.mu.RLock()
 		if !s.sessionSync.lastSync.IsZero() {
-			age := time.Since(s.sessionSync.lastSync).Seconds()
+			age := s.currentTime().Sub(s.sessionSync.lastSync).Seconds()
 			status.SessionSyncAgeSeconds = &age
 		}
 		s.sessionSync.mu.RUnlock()
 	}
-	serviceutil.WriteJSON(w, http.StatusOK, status)
+	httpx.WriteJSON(w, http.StatusOK, status)
 }

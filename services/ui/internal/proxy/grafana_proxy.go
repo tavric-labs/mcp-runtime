@@ -8,10 +8,10 @@ import (
 	"path"
 	"strings"
 
-	"mcp-ui/internal/session"
-
+	"mcp-runtime/pkg/envcfg"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-ui/internal/session"
 )
 
 // The platform session is the only browser credential accepted here. Every
@@ -23,19 +23,19 @@ func NewGrafanaProxy(platformBase, runtimeBase *url.URL, store *session.Store, p
 		w.Header().Set("X-Frame-Options", "DENY")
 		sess, ok := store.FromRequest(r)
 		if !ok {
-			serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		auth, apiKey, ok := sessionUpstreamCredential(sess)
 		if !ok {
-			serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
 		// Grafana's own app does not know the platform synchronizer token. It
 		// uses a strict, required Origin check against configuration instead;
 		// absent/null/alternate origins fail even with a valid session cookie.
 		if unsafeHTTPMethod(r.Method) && !grafanaRequestOriginAllowed(r) {
-			serviceutil.WriteJSON(w, http.StatusForbidden, map[string]string{"error": "csrf_failed"})
+			httpx.WriteJSON(w, http.StatusForbidden, map[string]string{"error": "csrf_failed"})
 			return
 		}
 		suffix, ok := strings.CutPrefix(r.URL.Path, prefix)
@@ -49,7 +49,7 @@ func NewGrafanaProxy(platformBase, runtimeBase *url.URL, store *session.Store, p
 		}
 		target, err := resolveSessionProxyURL(runtimeBase, "/api/v1/runtime/observability/grafana"+suffix, r.URL.RawQuery)
 		if err != nil {
-			serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+			httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 			return
 		}
 		var body io.Reader
@@ -58,7 +58,7 @@ func NewGrafanaProxy(platformBase, runtimeBase *url.URL, store *session.Store, p
 		}
 		req, err := http.NewRequestWithContext(r.Context(), r.Method, target.String(), body)
 		if err != nil {
-			serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+			httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 			return
 		}
 		// No browser cookie, X-WEBAUTH-* / X-Grafana-* identity, or caller
@@ -72,7 +72,7 @@ func NewGrafanaProxy(platformBase, runtimeBase *url.URL, store *session.Store, p
 				if errors.Is(err, platformauth.ErrExchangeUnauthorized) {
 					status = http.StatusUnauthorized
 				}
-				serviceutil.WriteJSON(w, status, map[string]string{"error": "token_exchange_failed"})
+				httpx.WriteJSON(w, status, map[string]string{"error": "token_exchange_failed"})
 				return
 			}
 			req.Header.Set("Authorization", auth)
@@ -81,7 +81,7 @@ func NewGrafanaProxy(platformBase, runtimeBase *url.URL, store *session.Store, p
 		}
 		resp, err := httpClient.Do(req)
 		if err != nil {
-			serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+			httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 			return
 		}
 		if strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Type")), "text/html") {
@@ -92,7 +92,7 @@ func NewGrafanaProxy(platformBase, runtimeBase *url.URL, store *session.Store, p
 			policy := strings.TrimSpace(resp.Header.Get("Content-Security-Policy"))
 			if policy == "" {
 				drainAndClose(resp.Body)
-				serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "grafana_security_policy_missing"})
+				httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "grafana_security_policy_missing"})
 				return
 			}
 			w.Header().Del("Content-Security-Policy")
@@ -102,7 +102,7 @@ func NewGrafanaProxy(platformBase, runtimeBase *url.URL, store *session.Store, p
 }
 
 func grafanaRequestOriginAllowed(r *http.Request) bool {
-	expected, err := url.Parse(strings.TrimSpace(serviceutil.EnvOr("UI_PUBLIC_ORIGIN", "http://localhost:18080")))
+	expected, err := url.Parse(strings.TrimSpace(envcfg.EnvOr("UI_PUBLIC_ORIGIN", "http://localhost:18080")))
 	if err != nil || expected.Host == "" || expected.User != nil || expected.Path != "" || expected.RawQuery != "" || expected.Fragment != "" ||
 		expected.Scheme != "http" && expected.Scheme != "https" {
 		return false

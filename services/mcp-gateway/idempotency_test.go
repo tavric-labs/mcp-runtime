@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -48,7 +49,7 @@ func newIdemHarness(t *testing.T, upstream http.HandlerFunc) *idemHarness {
 	h.s.proxy = newUpstreamReverseProxy(target)
 	h.s.httpClient = &http.Client{Timeout: 2 * time.Second}
 	h.s.metrics = newGatewayMetrics(h.reg)
-	h.s.snapshotPolicy(policySnapshot{Policy: idemPolicy(h.issuer.url), Ready: true, LoadedAt: time.Now()})
+	h.s.snapshotPolicy(readySnapshot(idemPolicy(h.issuer.url), time.Now()))
 	return h
 }
 
@@ -132,7 +133,7 @@ func TestIdempotencyReplaysAfterFreshAuthorization(t *testing.T) {
 	// Revocation/policy change is honoured: the retry is denied, not replayed.
 	revoked := idemPolicy(h.issuer.url)
 	revoked.Grants = nil
-	h.s.snapshotPolicy(policySnapshot{Policy: revoked, Ready: true, LoadedAt: time.Now()})
+	h.s.snapshotPolicy(readySnapshot(revoked, time.Now()))
 	denied := h.call(t, idemRawKey, toolBody, "session-1")
 	if denied.Code == 200 || denied.Header().Get("Idempotency-Replayed") != "" {
 		t.Fatalf("replay served after grant removal: %d %s", denied.Code, denied.Body.String())
@@ -170,7 +171,7 @@ func TestIdempotencyScopedToServerUID(t *testing.T) {
 	wantStatus(t, h.call(t, idemRawKey, toolBody, "session-1"), 200, "")
 	recreated := idemPolicy(h.issuer.url)
 	recreated.Server.UID = "uid-2"
-	h.s.snapshotPolicy(policySnapshot{Policy: recreated, Ready: true, LoadedAt: time.Now()})
+	h.s.snapshotPolicy(readySnapshot(recreated, time.Now()))
 	rec := h.call(t, idemRawKey, toolBody, "session-1")
 	wantStatus(t, rec, 200, "")
 	if rec.Header().Get("Idempotency-Replayed") != "" || h.hits.Load() != 2 {
@@ -198,7 +199,7 @@ func TestIdempotencyRejectedForDelegatedHeaderMode(t *testing.T) {
 	s.proxy = newUpstreamReverseProxy(target)
 	doc := delegatedPolicy([]string{"X-Example-Credential"}, "any", policypkg.DelegatedToolRule{Name: "list_projects", Decision: "allow"})
 	doc.Server.UID = "uid-1"
-	s.snapshotPolicy(policySnapshot{Policy: doc, Ready: true, LoadedAt: time.Now()})
+	s.snapshotPolicy(readySnapshot(doc, time.Now()))
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects"}}`
 	req := httptest.NewRequest(http.MethodPost, "/pilot/mcp", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -216,7 +217,7 @@ func TestIdempotencyRequiresKnownServerUID(t *testing.T) {
 	h := newIdemHarness(t, okJSON)
 	noUID := idemPolicy(h.issuer.url)
 	noUID.Server.UID = ""
-	h.s.snapshotPolicy(policySnapshot{Policy: noUID, Ready: true, LoadedAt: time.Now()})
+	h.s.snapshotPolicy(readySnapshot(noUID, time.Now()))
 	wantStatus(t, h.call(t, idemRawKey, toolBody, "session-1"), 503, "idempotency_unavailable")
 	if h.hits.Load() != 0 {
 		t.Fatal("request reached upstream")
@@ -326,17 +327,20 @@ func TestIdempotencyNeverRecordsRawKeyOrPayload(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "http://proxy.example.com/mcp", strings.NewReader(toolBody))
-	ex := newTestExchange(http.MethodPost, "/mcp", toolBody, nil)
+	ex := newExchange(httptest.NewRecorder(), req, "test")
 	ex.Idempotency = idempotencyAudit{Outcome: "replay", KeyHash: "abcd1234abcd1234"}
-	payload := h.s.auditPayloadForExchange(ex, req)
-	if payload["idempotency"] != "replay" || payload["idempotency_key_hash"] != "abcd1234abcd1234" {
+	payload := h.s.auditPayload(ex, 0)
+	if payload.Idempotency != "replay" || payload.IdempotencyKeyHash != "abcd1234abcd1234" {
 		t.Fatalf("audit payload = %#v", payload)
 	}
-	for k, v := range payload {
-		if s, ok := v.(string); ok && strings.Contains(s, idemRawKey) {
-			t.Fatalf("raw key in audit field %s", k)
-		}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if strings.Contains(string(raw), idemRawKey) {
+		t.Fatal("raw key in audit payload")
+	}
+
 }
 
 func TestIdempotencyContentEncodedReplyIsNotReplayable(t *testing.T) {
@@ -368,7 +372,7 @@ func TestIdempotencyRevokedOrExpiredSessionDeniedBeforeReplay(t *testing.T) {
 			wantStatus(t, h.call(t, idemRawKey, toolBody, "session-1"), 200, "done")
 			doc := idemPolicy(h.issuer.url)
 			mutate(doc)
-			h.s.snapshotPolicy(policySnapshot{Policy: doc, Ready: true, LoadedAt: time.Now()})
+			h.s.snapshotPolicy(readySnapshot(doc, time.Now()))
 			rec := h.call(t, idemRawKey, toolBody, "session-1")
 			if rec.Code == 200 || rec.Header().Get("Idempotency-Replayed") != "" {
 				t.Fatalf("replay served after session %s: %d %s", name, rec.Code, rec.Body.String())

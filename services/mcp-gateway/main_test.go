@@ -436,7 +436,7 @@ func TestHandleProxyRewritesUpstreamHostAndForwardedHeaders(t *testing.T) {
 		defaultPolicyVersion:  "test-policy",
 		oauthProviders:        map[string]*oauthProvider{},
 	}
-	proxy.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url), Ready: true})
+	proxy.snapshotPolicy(readySnapshot(oauthPolicy(issuer.url), time.Time{}))
 
 	req := httptest.NewRequest(http.MethodGet, "http://policy.example.local/mcp", nil)
 	req.Host = "policy.example.local"
@@ -509,14 +509,14 @@ func TestInspectRPCRequestAcceptsChunkedBody(t *testing.T) {
 	req.ContentLength = -1
 
 	inspection := inspectRPCRequest(req)
-	if inspection.Indeterminate {
+	if inspection.Indeterminate() {
 		t.Fatalf("inspection = %#v, want determinate request", inspection)
 	}
-	if !inspection.ToolCall {
-		t.Fatalf("inspection.ToolCall = %v, want true", inspection.ToolCall)
+	if !inspection.IsToolCall() {
+		t.Fatalf("inspection.IsToolCall() = %v, want true", inspection.IsToolCall())
 	}
-	if inspection.Method != "tools/call" {
-		t.Fatalf("inspection.Method = %q, want %q", inspection.Method, "tools/call")
+	if inspection.Method() != "tools/call" {
+		t.Fatalf("inspection.Method() = %q, want %q", inspection.Method(), "tools/call")
 	}
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -590,7 +590,7 @@ func TestAuditPayloadDoesNotPersistRawQueryString(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodGet, "http://proxy.example.com/mcp?code=secret&state=opaque", nil)
 
-	payload := proxy.auditPayload(
+	payload := auditPayloadForTest(proxy,
 		req,
 		"/mcp",
 		"",
@@ -603,10 +603,10 @@ func TestAuditPayloadDoesNotPersistRawQueryString(t *testing.T) {
 		34,
 	)
 
-	if _, exists := payload["query"]; exists {
+	if raw, _ := json.Marshal(payload); strings.Contains(string(raw), "secret") || strings.Contains(string(raw), "\"query\"") {
 		t.Fatalf("audit payload unexpectedly retained query string: %#v", payload)
 	}
-	if payload["would_deny"] != true || payload["would_deny_reason"] != "trust_too_low" {
+	if payload.WouldDeny != true || payload.WouldDenyReason != "trust_too_low" {
 		t.Fatalf("audit payload = %#v, want shadow-denial fields", payload)
 	}
 }
@@ -623,7 +623,7 @@ func TestAuditPayloadIncludesLatencyMetadata(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://proxy.example.com/mcp", strings.NewReader(`{"jsonrpc":"2.0"}`))
 	req.ContentLength = int64(len(`{"jsonrpc":"2.0"}`))
 
-	payload := proxy.auditPayload(
+	payload := auditPayloadForTest(proxy,
 		req,
 		"/mcp",
 		"tools/call",
@@ -641,38 +641,35 @@ func TestAuditPayloadIncludesLatencyMetadata(t *testing.T) {
 		91,
 	)
 
-	latencyMs, ok := payload["latency_ms"].(int64)
-	if !ok {
-		t.Fatalf("latency_ms type = %T, want int64", payload["latency_ms"])
-	}
+	latencyMs := payload.LatencyMS
 	if latencyMs != 27 {
 		t.Fatalf("latency_ms = %d, want 27", latencyMs)
 	}
-	if got := payload["method"]; got != http.MethodPost {
+	if got := payload.Method; got != http.MethodPost {
 		t.Fatalf("method = %#v, want %q", got, http.MethodPost)
 	}
-	if got := payload["path"]; got != "/mcp" {
+	if got := payload.Path; got != "/mcp" {
 		t.Fatalf("path = %#v, want %q", got, "/mcp")
 	}
-	if got := payload["status"]; got != http.StatusAccepted {
+	if got := payload.Status; got != http.StatusAccepted {
 		t.Fatalf("status = %#v, want %d", got, http.StatusAccepted)
 	}
-	if got := payload["rpc_method"]; got != "tools/call" {
+	if got := payload.RPCMethod; got != "tools/call" {
 		t.Fatalf("rpc_method = %#v, want %q", got, "tools/call")
 	}
-	if got := payload["tool_name"]; got != "echo" {
+	if got := payload.ToolName; got != "echo" {
 		t.Fatalf("tool_name = %#v, want %q", got, "echo")
 	}
-	if got := payload["bytes_in"]; got != req.ContentLength {
+	if got := payload.BytesIn; got != req.ContentLength {
 		t.Fatalf("bytes_in = %#v, want %d", got, req.ContentLength)
 	}
-	if got := payload["bytes_out"]; got != 91 {
+	if got := payload.BytesOut; got != 91 {
 		t.Fatalf("bytes_out = %#v, want %d", got, 91)
 	}
-	if got := payload["subject_team_id"]; got != "team-acme" {
+	if got := payload.SubjectTeamID; got != "team-acme" {
 		t.Fatalf("subject_team_id = %#v, want team-acme", got)
 	}
-	if got := payload["resource_team_id"]; got != "team-owner" {
+	if got := payload.ResourceTeamID; got != "team-owner" {
 		t.Fatalf("resource_team_id = %#v, want team-owner", got)
 	}
 }
@@ -700,7 +697,7 @@ func TestGatewayMetricsNotExposedOnMainListener(t *testing.T) {
 		defaultPolicyVersion:  "test-policy",
 		oauthProviders:        map[string]*oauthProvider{},
 	}
-	proxy.snapshotPolicy(policySnapshot{Policy: testPolicy()})
+	proxy.snapshotPolicy(seedSnapshot(testPolicy()))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", proxy.handleGateway)
@@ -851,7 +848,7 @@ func TestAuditPayloadIncludesToolRiskLevel(t *testing.T) {
 		}},
 	}
 
-	payload := proxy.auditPayload(
+	payload := auditPayloadForTest(proxy,
 		req,
 		"/mcp",
 		"tools/call",
@@ -864,7 +861,7 @@ func TestAuditPayloadIncludesToolRiskLevel(t *testing.T) {
 		2,
 	)
 
-	if got := payload["risk_level"]; got != "high" {
+	if got := payload.RiskLevel; got != "high" {
 		t.Fatalf("risk_level = %#v, want high", got)
 	}
 }
@@ -1281,7 +1278,7 @@ func newTestGatewayServer(t *testing.T, policy *policypkg.Document, upstream htt
 		defaultPolicyVersion:  "test-policy",
 		oauthProviders:        map[string]*oauthProvider{},
 	}
-	server.snapshotPolicy(policySnapshot{Policy: policy, Revision: policy.Revision, LoadedAt: time.Now(), Ready: true})
+	server.snapshotPolicy(readySnapshot(policy, time.Now()))
 	return server
 }
 

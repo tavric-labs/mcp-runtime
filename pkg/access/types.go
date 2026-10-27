@@ -1,9 +1,7 @@
 package access
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"mcp-runtime/pkg/mcpdefaults"
+	policypkg "mcp-runtime/pkg/policy"
 )
 
 // ServerName identifies an MCPServer resource by name.
@@ -57,7 +55,7 @@ type PolicyDecision string
 
 const (
 	DecisionAllow PolicyDecision = "allow"
-	DecisionDeny  PolicyDecision = mcpdefaults.PolicyDecisionDeny
+	DecisionDeny  PolicyDecision = policypkg.DecisionDeny
 	DecisionAudit PolicyDecision = "audit"
 )
 
@@ -83,7 +81,7 @@ type MCPAccessGrantSpec struct {
 	AllowedSideEffects []ToolSideEffect `json:"allowedSideEffects,omitempty"`
 	PolicyVersion      string           `json:"policyVersion,omitempty"`
 	Disabled           bool             `json:"disabled,omitempty"`
-	ExpiresAt          *metav1.Time     `json:"expiresAt,omitempty"`
+	ExpiresAt          *Time            `json:"expiresAt,omitempty"`
 	ToolRules          []ToolRule       `json:"toolRules,omitempty"`
 }
 
@@ -97,25 +95,9 @@ const (
 
 // MCPAccessGrantStatus captures observed grant state.
 type MCPAccessGrantStatus struct {
-	Phase      string             `json:"phase,omitempty"`
-	Message    string             `json:"message,omitempty"`
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
-// MCPAccessGrant grants a human or agent access to an MCPServer.
-type MCPAccessGrant struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   MCPAccessGrantSpec   `json:"spec,omitempty"`
-	Status MCPAccessGrantStatus `json:"status,omitempty"`
-}
-
-// MCPAccessGrantList contains a list of MCPAccessGrant.
-type MCPAccessGrantList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MCPAccessGrant `json:"items"`
+	Phase      string      `json:"phase,omitempty"`
+	Message    string      `json:"message,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
 // MCPAgentSessionSpec defines a consented server-side agent session.
@@ -123,7 +105,7 @@ type MCPAgentSessionSpec struct {
 	ServerRef              ServerReference `json:"serverRef"`
 	Subject                SubjectRef      `json:"subject"`
 	ConsentedTrust         TrustLevel      `json:"consentedTrust,omitempty"`
-	ExpiresAt              *metav1.Time    `json:"expiresAt,omitempty"`
+	ExpiresAt              *Time           `json:"expiresAt,omitempty"`
 	Revoked                bool            `json:"revoked,omitempty"`
 	UpstreamTokenSecretRef *SecretKeyRef   `json:"upstreamTokenSecretRef,omitempty"`
 	PolicyVersion          string          `json:"policyVersion,omitempty"`
@@ -131,23 +113,7 @@ type MCPAgentSessionSpec struct {
 
 // MCPAgentSessionStatus captures observed session state.
 type MCPAgentSessionStatus struct {
-	Phase      string             `json:"phase,omitempty"`
-	Message    string             `json:"message,omitempty"`
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
-// MCPAgentSession stores consent and upstream token state for an agent session.
-type MCPAgentSession struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   MCPAgentSessionSpec   `json:"spec,omitempty"`
-	Status MCPAgentSessionStatus `json:"status,omitempty"`
-}
-
-// MCPAgentSessionList contains a list of MCPAgentSession.
-type MCPAgentSessionList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MCPAgentSession `json:"items"`
+	Phase      string      `json:"phase,omitempty"`
+	Message    string      `json:"message,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 }

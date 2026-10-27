@@ -19,6 +19,7 @@ import (
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	chpkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
@@ -733,7 +734,7 @@ func (s *RuntimeServer) handleRuntimeServerDelete(w http.ResponseWriter, r *http
 	}
 	manager := s.accessMgr
 	if manager == nil && s.k8sClients != nil {
-		manager = mcpaccess.NewManager(s.k8sClients.Dynamic, s.k8sClients.Clientset)
+		manager = k8sstore.NewManager(s.k8sClients.Dynamic, s.k8sClients.Clientset)
 	}
 	if manager == nil {
 		writeAPIError(w, http.StatusServiceUnavailable, "access cleanup not available")

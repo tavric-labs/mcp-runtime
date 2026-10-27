@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
 )
 
 // PublicCatalogAPIPrefix serves anonymous public-mode catalog reads. Unlike
@@ -30,23 +30,23 @@ var publicCatalogPaths = map[string]string{
 func NewPublicCatalogProxy(runtimeBase *url.URL, enabled bool, httpClient *http.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !enabled || r.Method != http.MethodGet {
-			serviceutil.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
+			httpx.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 			return
 		}
 		suffix := strings.TrimPrefix(r.URL.Path, PublicCatalogAPIPrefix)
 		upstreamPath, ok := publicCatalogPaths[suffix]
 		if !ok {
-			serviceutil.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
+			httpx.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 			return
 		}
 		upstreamURL, err := resolveSessionProxyURL(runtimeBase, upstreamPath, r.URL.RawQuery)
 		if err != nil {
-			serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+			httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 			return
 		}
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, upstreamURL.String(), nil)
 		if err != nil {
-			serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+			httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 			return
 		}
 		req.Header.Set("accept", "application/json")
@@ -55,7 +55,7 @@ func NewPublicCatalogProxy(runtimeBase *url.URL, enabled bool, httpClient *http.
 
 		resp, err := httpClient.Do(req)
 		if err != nil {
-			serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+			httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 			return
 		}
 		defer func() { _ = resp.Body.Close() }()

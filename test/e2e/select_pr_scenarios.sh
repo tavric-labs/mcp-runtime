@@ -86,6 +86,20 @@ classify_path() {
       # uses the separate Staging E2E suite.
       return
       ;;
+    pkg/identity/tokens*)
+      add_observability
+      add_scenario "api-platform"
+      return
+      ;;
+    pkg/httpx/*)
+      add_scenario "api-platform"
+      add_observability
+      return
+      ;;
+    pkg/identity/oauth*)
+      add_scenario "oauth"
+      return
+      ;;
     internal/operator/ingress.go|internal/operator/route_ownership*.go)
       # Per-server Traefik routes and current-UID ownership: the request
       # paths that prove isolation are the gateway scenarios and the oauth
@@ -101,11 +115,11 @@ classify_path() {
       add_scenario "cli-platform"
       return
       ;;
-    pkg/credentialheaders/*|internal/agentadapter/credential_headers*)
+    pkg/identity/credentials*|pkg/identity/gateway*|pkg/identity/defaults*|internal/agentadapter/credential_headers*)
       # Delegated header auth at the gateway and adapter header mode.
-      # pkg/credentialheaders is also the broker header contract, so that
+      # Identity credential helpers also define the broker header contract, so that
       # path runs credential-broker as well as the gateway scenarios.
-      if [[ "${path}" == pkg/credentialheaders/* ]]; then
+      if [[ "${path}" == pkg/identity/* ]]; then
         add_scenario "credential-broker"
       fi
       add_scenario "governance"
@@ -133,7 +147,7 @@ classify_path() {
       add_scenario "cli-platform"
       return
       ;;
-    pkg/mcpdefaults/*)
+    pkg/policy/defaults.go|pkg/platforminventory/defaults.go)
       add_scenario "governance"
       add_scenario "trust"
       add_scenario "cli-platform"
@@ -255,7 +269,7 @@ classify_path() {
       add_scenario "api-platform"
       return
       ;;
-    pkg/oauthresource/*|pkg/authgateway/*)
+    pkg/authgateway/*)
       add_scenario "oauth"
       return
       ;;
@@ -281,7 +295,7 @@ classify_path() {
       add_scenario "adapter-certificates"
       return
       ;;
-    pkg/svcboot/*|services/ingest/*|services/processor/*|pkg/clickhouse/*|pkg/events/*|pkg/platformstack/*|pkg/serviceutil/*)
+    pkg/svcboot/*|services/ingest/*|services/processor/*|pkg/clickhouse/*|pkg/events/*|pkg/platformstack/*|pkg/envcfg/*|pkg/telemetry/*|pkg/transport/*|pkg/oidcdiscovery/*)
       add_observability
       return
       ;;

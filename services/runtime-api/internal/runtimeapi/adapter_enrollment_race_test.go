@@ -22,6 +22,7 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/access/k8sstore"
 	"mcp-runtime/pkg/certauth"
 	"mcp-runtime/pkg/sessionstate"
 )
@@ -56,14 +57,14 @@ func TestAdapterEnrollmentCompletionPreservesConcurrentRevocation(t *testing.T) 
 	if _, err := dyn.Resource(adapterMCPServerGVR).Namespace("mcp-team-acme").Update(t.Context(), server, metav1.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	session := &mcpaccess.MCPAgentSession{
+	session := &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "review-session", Namespace: "mcp-team-acme", UID: "session-uid", Annotations: map[string]string{
 			adapterEnrollmentPendingAnnotation: "true", sessionServerUIDAnnotation: "server-uid",
 		}},
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			ServerRef: mcpaccess.ServerReference{Name: "demo", Namespace: "mcp-team-acme"},
 			Subject:   mcpaccess.SubjectRef{HumanID: "user-123", AgentID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-acme"},
-			ExpiresAt: &metav1.Time{Time: time.Now().Add(time.Hour)},
+			ExpiresAt: &mcpaccess.Time{Time: time.Now().Add(time.Hour)},
 		},
 	}
 	client := &revocationAfterEnrollmentReadClient{fakeSessionClient: fakeSessionClient{row: sessionToState(session, "server-uid", "team-acme")}}

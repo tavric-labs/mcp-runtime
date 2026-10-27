@@ -9,8 +9,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/credentialheaders"
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/identity"
+	"mcp-runtime/pkg/platforminventory"
+	policypkg "mcp-runtime/pkg/policy"
+	"mcp-runtime/pkg/publicroutes"
 	"mcp-runtime/pkg/publishscope"
 )
 
@@ -107,12 +109,12 @@ func setDefaults(server *ServerMetadata) error {
 		server.ImageTag = "latest"
 	}
 	if server.Route == "" {
-		server.Route = mcpdefaults.DefaultIngressPath(server.Name)
+		server.Route = publicroutes.DefaultMCPPath(server.Name)
 	} else if server.Route[0] != '/' {
 		server.Route = "/" + server.Route
 	}
 	if server.Port == 0 {
-		server.Port = mcpdefaults.MCPServerPort
+		server.Port = platforminventory.MCPServerPort
 	}
 	if server.Replicas == nil {
 		replicas := int32(1)
@@ -122,24 +124,24 @@ func setDefaults(server *ServerMetadata) error {
 		if namespace, ok := publishscope.CatalogNamespace(scope); ok {
 			server.Namespace = namespace
 		} else {
-			server.Namespace = mcpdefaults.MCPServersNamespace
+			server.Namespace = platforminventory.MCPServersNamespace
 		}
 	}
-	if server.Auth != nil && strings.EqualFold(strings.TrimSpace(server.Auth.Mode), mcpdefaults.AuthModeHeader) {
+	if server.Auth != nil && strings.EqualFold(strings.TrimSpace(server.Auth.Mode), identity.AuthModeHeader) {
 		if server.Auth.CredentialPresence == "" {
-			server.Auth.CredentialPresence = mcpdefaults.CredentialPresenceAny
+			server.Auth.CredentialPresence = identity.CredentialPresenceAny
 		}
 		if server.Policy == nil {
 			server.Policy = &PolicyConfig{
 				Mode:            PolicyModeAllowList,
 				DefaultDecision: PolicyDecisionDeny,
-				EnforceOn:       mcpdefaults.PolicyEnforceOn,
-				PolicyVersion:   mcpdefaults.PolicyVersion,
+				EnforceOn:       policypkg.DefaultEnforceOn,
+				PolicyVersion:   policypkg.DefaultVersion,
 			}
 		}
 	} else if server.Auth != nil {
 		if server.Auth.TokenHeader == "" {
-			server.Auth.TokenHeader = mcpdefaults.AuthTokenHeader
+			server.Auth.TokenHeader = identity.AuthTokenHeader
 		}
 	}
 	if server.Policy != nil {
@@ -150,24 +152,24 @@ func setDefaults(server *ServerMetadata) error {
 			server.Policy.DefaultDecision = PolicyDecisionDeny
 		}
 		if server.Policy.EnforceOn == "" {
-			server.Policy.EnforceOn = mcpdefaults.PolicyEnforceOn
+			server.Policy.EnforceOn = policypkg.DefaultEnforceOn
 		}
 		if server.Policy.PolicyVersion == "" {
-			server.Policy.PolicyVersion = mcpdefaults.PolicyVersion
+			server.Policy.PolicyVersion = policypkg.DefaultVersion
 		}
 	}
 	if server.Session != nil {
 		if server.Session.Store == "" {
-			server.Session.Store = mcpdefaults.SessionStore
+			server.Session.Store = policypkg.DefaultSessionStore
 		}
 		if server.Session.MaxLifetime == "" {
-			server.Session.MaxLifetime = mcpdefaults.SessionMaxLife
+			server.Session.MaxLifetime = policypkg.DefaultSessionMaxLife
 		}
 		if server.Session.IdleTimeout == "" {
-			server.Session.IdleTimeout = mcpdefaults.SessionIdleTime
+			server.Session.IdleTimeout = policypkg.DefaultSessionIdleTime
 		}
 		if server.Session.UpstreamTokenHeader == "" {
-			server.Session.UpstreamTokenHeader = mcpdefaults.SessionUpstream
+			server.Session.UpstreamTokenHeader = policypkg.DefaultSessionUpstream
 		}
 	}
 	for i := range server.Tools {
@@ -177,7 +179,7 @@ func setDefaults(server *ServerMetadata) error {
 	}
 	if server.Gateway != nil && GatewayIsEnabled(server.Gateway) {
 		if server.Gateway.Port == 0 {
-			server.Gateway.Port = mcpdefaults.MCPGatewayPort
+			server.Gateway.Port = platforminventory.MCPGatewayPort
 		}
 		if server.Gateway.UpstreamURL == "" {
 			server.Gateway.UpstreamURL = fmt.Sprintf("http://127.0.0.1:%d", server.Port)
@@ -209,7 +211,7 @@ func setDefaults(server *ServerMetadata) error {
 }
 
 func validateHeaderAuth(server *ServerMetadata) error {
-	if server == nil || server.Auth == nil || !strings.EqualFold(strings.TrimSpace(server.Auth.Mode), mcpdefaults.AuthModeHeader) {
+	if server == nil || server.Auth == nil || !strings.EqualFold(strings.TrimSpace(server.Auth.Mode), identity.AuthModeHeader) {
 		if server != nil && server.Policy != nil && (len(server.Policy.DelegatedToolRules) > 0 || server.Policy.MaxSideEffect != "") {
 			return fmt.Errorf("delegated tool rules require auth.mode header")
 		}
@@ -221,14 +223,14 @@ func validateHeaderAuth(server *ServerMetadata) error {
 	if server.Auth.TokenHeader != "" || server.Auth.IssuerURL != "" || server.Auth.Audience != "" || len(server.Auth.Scopes) > 0 {
 		return fmt.Errorf("header mode cannot set tokenHeader, issuerURL, audience, or scopes")
 	}
-	if err := credentialheaders.NormalizeNames(server.Auth.Headers); err != nil {
+	if err := identity.ValidateCredentialHeaderNames(server.Auth.Headers); err != nil {
 		return err
 	}
-	if _, err := credentialheaders.NormalizePresence(server.Auth.CredentialPresence); err != nil {
+	if _, err := identity.NormalizeCredentialPresence(server.Auth.CredentialPresence); err != nil {
 		return err
 	}
 	if gateway := server.Auth.CredentialGateway; gateway != nil {
-		if err := credentialheaders.ValidateGateway(gateway.ValidationPath, gateway.SecretHeaders, server.Auth.Headers); err != nil {
+		if err := identity.ValidateGateway(gateway.ValidationPath, gateway.SecretHeaders, server.Auth.Headers); err != nil {
 			return err
 		}
 	}

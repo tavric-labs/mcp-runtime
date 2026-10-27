@@ -17,8 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	"mcp-runtime/pkg/platforminventory"
-	"mcp-runtime/pkg/serviceutil"
 	"mcp-runtime/pkg/sessionstate"
 	"mcp-runtime/pkg/workloadidentity"
 )
@@ -43,7 +44,7 @@ func (s *AccessService) HandleAdapterSessionItemPath(w http.ResponseWriter, r *h
 		writeAPIError(w, http.StatusServiceUnavailable, "kubernetes not available")
 		return
 	}
-	namespace, name, err := serviceutil.ExtractNamespacedResourceDelete(r, "/api/runtime/adapter/sessions/")
+	namespace, name, err := runtimeaccess.ExtractNamespacedResourceDelete(r, "/api/runtime/adapter/sessions/")
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return

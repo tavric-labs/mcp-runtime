@@ -5,23 +5,24 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"mcp-runtime/pkg/mcpdefaults"
+	"mcp-runtime/pkg/identity"
+	policypkg "mcp-runtime/pkg/policy"
 )
 
 // +kubebuilder:validation:Enum=allow-list;observe
 type PolicyMode string
 
 const (
-	PolicyModeAllowList PolicyMode = mcpdefaults.PolicyModeAllowList
-	PolicyModeObserve   PolicyMode = mcpdefaults.PolicyModeObserve
+	PolicyModeAllowList PolicyMode = policypkg.ModeAllowList
+	PolicyModeObserve   PolicyMode = policypkg.ModeObserve
 )
 
 // +kubebuilder:validation:Enum=allow;deny
 type PolicyDecision string
 
 const (
-	PolicyDecisionAllow PolicyDecision = mcpdefaults.PolicyDecisionAllow
-	PolicyDecisionDeny  PolicyDecision = mcpdefaults.PolicyDecisionDeny
+	PolicyDecisionAllow PolicyDecision = policypkg.DecisionAllow
+	PolicyDecisionDeny  PolicyDecision = policypkg.DecisionDeny
 )
 
 // +kubebuilder:validation:Enum=low;medium;high
@@ -290,7 +291,7 @@ type PolicyConfig struct {
 
 // AuthUsesHeaderMode reports upstream-delegated credential authentication.
 func AuthUsesHeaderMode(auth *AuthConfig) bool {
-	return auth != nil && strings.EqualFold(strings.TrimSpace(auth.Mode), mcpdefaults.AuthModeHeader)
+	return auth != nil && strings.EqualFold(strings.TrimSpace(auth.Mode), identity.AuthModeHeader)
 }
 
 // SessionConfig configures server-side agent session behavior.

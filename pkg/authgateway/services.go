@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"mcp-runtime/pkg/credentialheaders"
+	"mcp-runtime/pkg/identity"
 )
 
 // DefaultScope is the OAuth scope a derived gateway service requires. It is
@@ -99,7 +99,7 @@ func ServiceFor(in ServerInput, authHost, publicHost string) (DerivedService, er
 	if !strings.HasPrefix(in.IngressPath, "/") || strings.HasSuffix(in.IngressPath, "/") || strings.Contains(in.IngressPath, "//") {
 		return DerivedService{}, fmt.Errorf("%s: ingressPath must be an absolute path without a trailing slash", where)
 	}
-	if err := credentialheaders.ValidateGateway(in.ValidationPath, in.SecretHeaders, in.Headers); err != nil {
+	if err := identity.ValidateGateway(in.ValidationPath, in.SecretHeaders, in.Headers); err != nil {
 		return DerivedService{}, fmt.Errorf("%s: %w", where, err)
 	}
 	if strings.TrimSpace(authHost) == "" {
@@ -114,8 +114,8 @@ func ServiceFor(in ServerInput, authHost, publicHost string) (DerivedService, er
 		Source:         SourceForm,
 	}
 	for i, header := range in.Headers {
-		field := credentialheaders.GatewayFieldName(i)
-		service.FormFields = append(service.FormFields, FormField{Name: field, Label: header, Secret: credentialheaders.IsSecretHeader(header, in.SecretHeaders)})
+		field := identity.GatewayFieldName(i)
+		service.FormFields = append(service.FormFields, FormField{Name: field, Label: header, Secret: identity.IsSecretHeader(header, in.SecretHeaders)})
 		service.Headers = append(service.Headers, HeaderRule{Name: header, Type: "direct", Field: field})
 	}
 	return service, nil
