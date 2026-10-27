@@ -1,20 +1,19 @@
-package metadata
+package crdgen
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
+	"mcp-runtime/pkg/metadata"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
 // GenerateCRD generates a Kubernetes CRD YAML file for a single server metadata entry at the given output path.
-func GenerateCRD(server *ServerMetadata, outputPath string) error {
+func GenerateCRD(server *metadata.ServerMetadata, outputPath string) error {
 	// Convert metadata to CRD
 	mcpServer := &mcpv1alpha1.MCPServer{
 		TypeMeta: metav1.TypeMeta{
@@ -24,13 +23,13 @@ func GenerateCRD(server *ServerMetadata, outputPath string) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      server.Name,
 			Namespace: server.Namespace,
-			Labels:    publishScopeLabels(server.Scope),
+			Labels:    metadata.PublishScopeLabels(server.Scope),
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			CredentialBindings: append([]string(nil), server.CredentialBindings...),
 			Description:        server.Description,
 			TeamID:             server.TeamID,
-			Image:              imageRefForClusterPull(server.Image),
+			Image:              metadata.ImageRefForClusterPull(server.Image),
 			ImageTag:           server.ImageTag,
 			Port:               server.Port,
 			Replicas:           server.Replicas,
@@ -203,14 +202,7 @@ func GenerateCRD(server *ServerMetadata, outputPath string) error {
 	return nil
 }
 
-func publishScopeLabels(scope PublishScope) map[string]string {
-	if scope == "" {
-		return nil
-	}
-	return map[string]string{"mcpruntime.org/scope": string(scope)}
-}
-
-func convertInventoryItems(items []InventoryItem) []mcpv1alpha1.InventoryItem {
+func convertInventoryItems(items []metadata.InventoryItem) []mcpv1alpha1.InventoryItem {
 	if len(items) == 0 {
 		return nil
 	}
@@ -231,7 +223,7 @@ func convertInventoryItems(items []InventoryItem) []mcpv1alpha1.InventoryItem {
 	return converted
 }
 
-func convertResourceRequirements(resources *ResourceRequirements) *mcpv1alpha1.ResourceRequirements {
+func convertResourceRequirements(resources *metadata.ResourceRequirements) *mcpv1alpha1.ResourceRequirements {
 	if resources == nil {
 		return nil
 	}
@@ -251,77 +243,8 @@ func convertResourceRequirements(resources *ResourceRequirements) *mcpv1alpha1.R
 	return converted
 }
 
-func imageRefForClusterPull(image string) string {
-	image = strings.TrimSpace(image)
-	pullHost := ResolveRegistryPullHost()
-	if pullHost == "" {
-		return image
-	}
-	if pullHost == normalizeRegistryHost(ResolveRegistryHost()) {
-		return image
-	}
-	registry, hasRegistry := imageRegistryHost(image)
-	if hasRegistry && !isPlatformRegistryHost(registry) {
-		return image
-	}
-	if rewritten, ok := RewriteImageRegistryHost(image, pullHost); ok {
-		return rewritten
-	}
-	return image
-}
-
-func imageRegistryHost(image string) (string, bool) {
-	first, _, found := strings.Cut(image, "/")
-	if !found || !(strings.Contains(first, ".") || strings.Contains(first, ":") || first == "localhost") {
-		return "", false
-	}
-	return normalizeRegistryHost(first), true
-}
-
-func isPlatformRegistryHost(host string) bool {
-	host = normalizeRegistryHost(host)
-	if host == "" {
-		return false
-	}
-	for _, candidate := range []string{
-		os.Getenv(envMCPRegistryIngressHost),
-		os.Getenv(envMCPRegistryHost),
-		os.Getenv(envMCPRegistryEndpoint),
-		ResolveRegistryHost(),
-	} {
-		if normalized := normalizeRegistryHost(candidate); normalized != "" && normalized == host {
-			return true
-		}
-	}
-	if domain := platformDomainFromEnv(); domain != "" && host == registryHostForDomain(domain) {
-		return true
-	}
-	// The local default and loopback names are platform placeholders: images
-	// built for development are tagged with them and must still be rewritten
-	// to the in-cluster pull host once a real registry is configured.
-	if host == normalizeRegistryHost(DefaultRegistryHost) {
-		return true
-	}
-	name := host
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		name = h
-	}
-	return name == "localhost" || name == "127.0.0.1"
-}
-
-func normalizeRegistryHost(host string) string {
-	host = strings.TrimSpace(host)
-	if scheme := strings.Index(host, "://"); scheme >= 0 {
-		host = host[scheme+3:]
-	}
-	if before, _, found := strings.Cut(host, "/"); found {
-		host = before
-	}
-	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "/"))
-}
-
 // GenerateCRDsFromRegistry renders CRD YAML files for every server in a registry into outputDir.
-func GenerateCRDsFromRegistry(registry *RegistryFile, outputDir string) error {
+func GenerateCRDsFromRegistry(registry *metadata.RegistryFile, outputDir string) error {
 	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}

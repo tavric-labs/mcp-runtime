@@ -243,7 +243,7 @@ its own layer or a lower one, never a higher one.
 | Layer | Packages | Rule |
 |---|---|---|
 | Composers | `services/*`, `cmd/*`, `internal/*` (runtime-api, platform-api, operator, CLI) | Wire everything together; change most often |
-| Adapters | `k8sclient`, `kubeworkload`, `registrypush`, `controlplane`, `platformstack`, `operatorutil`, `resourcehistory`, `workloadidentity` | The only layer that imports Kubernetes libraries |
+| Adapters | `k8sclient`, `kubeworkload`, `registrypush`, `controlplane`, `platformstack`, `operatorutil`, `resourcehistory`, `workloadidentity`, `metadata/crdgen` | The only layer that imports Kubernetes libraries |
 | Domain | `policy`, `access`, `sessionstate`, `metadata`, `platformmode` | Rules and models; no Kubernetes or service infrastructure |
 | Leaves | `identity`, `events`, `credentialbroker`, `envcfg`, `httpx`, `publishscope`, `platforminventory` and similar | Import only other leaves; most stable |
 
@@ -251,9 +251,10 @@ Support packages (`apihttp`, `platformauth`, `telemetry`, `svcboot`, `clickhouse
 sit beside the domain and never import adapters. The `mcp-gateway` may use
 `policy`, `events` and `credentialbroker` but must not import an adapter.
 `TestSharedPackageLayerDesign` enforces this and fails for an unclassified new
-package. `pkg/access` and `pkg/metadata` still import Kubernetes libraries
-directly; they are pinned in `k8sInDomain` and may only be removed from it as
-each is split into a pure package and a Kubernetes store. Platform-specific
+package. `pkg/metadata` is Kubernetes-free: only the MCPServer CRD rendering
+lives in the `metadata/crdgen` adapter. `pkg/access` still imports Kubernetes
+libraries directly; it is pinned in `k8sInDomain` and may only be removed once
+it is split into a pure package and a Kubernetes store. Platform-specific
 logic belongs in platform-api; runtime-api stays the Kubernetes-manipulation
 service. Moving existing runtime-api handlers is tracked separately because it
 changes the API between the two services.

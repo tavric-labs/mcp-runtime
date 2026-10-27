@@ -65,7 +65,8 @@ var pkgLayers = map[string]layer{
 
 	// Adapters: the only layer that talks to Kubernetes.
 	"controlplane": adapter, "k8sclient": adapter, "kubeworkload": adapter,
-	"operatorutil": adapter, "platformstack": adapter, "registrypush": adapter,
+	"metadata/crdgen": adapter,
+	"operatorutil":    adapter, "platformstack": adapter, "registrypush": adapter,
 	"resourcehistory": adapter, "workloadidentity": adapter,
 }
 
@@ -75,7 +76,6 @@ var pkgLayers = map[string]layer{
 var k8sInDomain = map[string]string{
 	"access":                "types and manager use Kubernetes objects; split into pure access and a k8s store",
 	"access/specvalidation": "validates Kubernetes-typed specs; move with the access split",
-	"metadata":              "loader uses metav1 and sigs.k8s.io/yaml; separate the manifest model from the loader",
 }
 
 type pkgInfo struct {

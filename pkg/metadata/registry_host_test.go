@@ -49,8 +49,8 @@ func TestImageRefForClusterPull(t *testing.T) {
 		"docker.io/library/nginx:1":     "docker.io/library/nginx:1",
 		"registry.attacker.example/x:1": "registry.attacker.example/x:1",
 	} {
-		if got := imageRefForClusterPull(image); got != want {
-			t.Errorf("imageRefForClusterPull(%q) = %q, want %q", image, got, want)
+		if got := ImageRefForClusterPull(image); got != want {
+			t.Errorf("ImageRefForClusterPull(%q) = %q, want %q", image, got, want)
 		}
 	}
 }

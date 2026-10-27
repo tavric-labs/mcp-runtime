@@ -1,8 +1,6 @@
 package metadata
 
 import (
-	"os"
-	"strings"
 	"testing"
 )
 
@@ -46,37 +44,6 @@ func TestResolveRegistryPullHostIgnoresPlatformDomainFallback(t *testing.T) {
 	}
 }
 
-func TestGenerateCRDRewritesImageWhenOnlyIngressHostSet(t *testing.T) {
-	for _, k := range []string{envMCPRegistryPullHost, envMCPRegistryEndpoint, envMCPRegistryHost} {
-		t.Setenv(k, "")
-	}
-	t.Setenv(envMCPRegistryIngressHost, "registry.mcpruntime.org")
-
-	server := &ServerMetadata{
-		Name:      "acme-tools",
-		Namespace: "mcp-team-acme",
-		Image:     "registry.mcpruntime.org/acme/acme-tools",
-		ImageTag:  "v0.1.0",
-		Port:      8088,
-	}
-	tmp := t.TempDir()
-	path := tmp + "/acme-tools.yaml"
-	if err := GenerateCRD(server, path); err != nil {
-		t.Fatalf("GenerateCRD: %v", err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read generated CRD: %v", err)
-	}
-	content := string(data)
-	if !strings.Contains(content, "image: registry.registry.svc.cluster.local:5000/acme/acme-tools") {
-		t.Fatalf("expected cluster pull host image rewrite, got:\n%s", content)
-	}
-	if strings.Contains(content, "image: registry.mcpruntime.org/acme/acme-tools") {
-		t.Fatalf("image incorrectly kept public registry host:\n%s", content)
-	}
-}
-
 func TestRewriteImageRegistryHost(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -96,32 +63,6 @@ func TestRewriteImageRegistryHost(t *testing.T) {
 		if got != tc.want {
 			t.Fatalf("RewriteImageRegistryHost(%q, %q) = %q, want %q", tc.image, tc.registry, got, tc.want)
 		}
-	}
-}
-
-func TestGenerateCRDRewritesImageToPullHost(t *testing.T) {
-	t.Setenv(envMCPRegistryPullHost, "10.43.69.247:5000")
-	t.Setenv(envMCPRegistryIngressHost, "registry.mcpruntime.org")
-
-	server := &ServerMetadata{
-		Name:      "acme-tools",
-		Namespace: "mcp-team-acme",
-		Image:     "registry.mcpruntime.org/acme/acme-tools",
-		ImageTag:  "v0.1.0",
-		Port:      8088,
-	}
-	tmp := t.TempDir()
-	path := tmp + "/acme-tools.yaml"
-	if err := GenerateCRD(server, path); err != nil {
-		t.Fatalf("GenerateCRD: %v", err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read generated CRD: %v", err)
-	}
-	content := string(data)
-	if !strings.Contains(content, "image: 10.43.69.247:5000/acme/acme-tools") {
-		t.Fatalf("expected pull-host image rewrite, got:\n%s", content)
 	}
 }
 

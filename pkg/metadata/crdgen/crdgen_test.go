@@ -1,4 +1,4 @@
-package metadata
+package crdgen
 
 import (
 	"os"
@@ -7,18 +7,29 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"mcp-runtime/pkg/metadata"
+)
+
+// Environment names read by the registry-host helpers in pkg/metadata.
+const (
+	envMCPRegistryPullHost    = "MCP_REGISTRY_PULL_HOST"
+	envMCPRegistryEndpoint    = "MCP_REGISTRY_ENDPOINT"
+	envMCPRegistryHost        = "MCP_REGISTRY_HOST"
+	envMCPRegistryIngressHost = "MCP_REGISTRY_INGRESS_HOST"
+	envMCPPlatformDomain      = "MCP_PLATFORM_DOMAIN"
 )
 
 func TestGenerateCRD(t *testing.T) {
 	t.Run("generates valid CRD YAML", func(t *testing.T) {
 		clearRegistryImageEnv(t)
 		// Prevent registry host rewriting so we can test CRD field mapping in isolation.
-		t.Setenv(envMCPRegistryPullHost, DefaultRegistryHost)
+		t.Setenv(envMCPRegistryPullHost, metadata.DefaultRegistryHost)
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "test-server.yaml")
 
 		replicas := int32(2)
-		server := &ServerMetadata{
+		server := &metadata.ServerMetadata{
 			Name:             "test-server",
 			Description:      "Test server for CRD generation.",
 			Image:            "my-image",
@@ -29,7 +40,7 @@ func TestGenerateCRD(t *testing.T) {
 			Port:             9000,
 			Replicas:         &replicas,
 			Namespace:        "custom-ns",
-			Scope:            PublishScopeOrg,
+			Scope:            metadata.PublishScopeOrg,
 			TeamID:           "team-custom",
 		}
 
@@ -66,16 +77,16 @@ func TestGenerateCRD(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "resource-server.yaml")
 
-		server := &ServerMetadata{
+		server := &metadata.ServerMetadata{
 			Name:      "resource-server",
 			Image:     "my-image",
 			Namespace: "default",
-			Resources: &ResourceRequirements{
-				Limits: &ResourceList{
+			Resources: &metadata.ResourceRequirements{
+				Limits: &metadata.ResourceList{
 					CPU:    "500m",
 					Memory: "512Mi",
 				},
-				Requests: &ResourceList{
+				Requests: &metadata.ResourceList{
 					CPU:    "100m",
 					Memory: "128Mi",
 				},
@@ -103,11 +114,11 @@ func TestGenerateCRD(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "env-server.yaml")
 
-		server := &ServerMetadata{
+		server := &metadata.ServerMetadata{
 			Name:      "env-server",
 			Image:     "my-image",
 			Namespace: "default",
-			EnvVars: []EnvVar{
+			EnvVars: []metadata.EnvVar{
 				{Name: "DATABASE_URL", Value: "postgres://localhost"},
 				{Name: "LOG_LEVEL", Value: "debug"},
 			},
@@ -134,51 +145,51 @@ func TestGenerateCRD(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "gateway-server.yaml")
 
-		server := &ServerMetadata{
+		server := &metadata.ServerMetadata{
 			Name:      "gateway-server",
 			Image:     "my-image",
 			Namespace: "default",
-			Gateway: &GatewayConfig{
+			Gateway: &metadata.GatewayConfig{
 				Enabled:     boolPtr(true),
 				Image:       "example.com/mcp-gateway:latest",
 				Port:        8091,
 				UpstreamURL: "http://127.0.0.1:8088",
 				StripPrefix: "/gateway-server",
-				Resources: &ResourceRequirements{
-					Requests: &ResourceList{CPU: "5m", Memory: "32Mi"},
+				Resources: &metadata.ResourceRequirements{
+					Requests: &metadata.ResourceList{CPU: "5m", Memory: "32Mi"},
 				},
 			},
-			Auth: &AuthConfig{},
-			Policy: &PolicyConfig{
-				Mode:            PolicyMode("allow-list"),
-				DefaultDecision: PolicyDecision("deny"),
+			Auth: &metadata.AuthConfig{},
+			Policy: &metadata.PolicyConfig{
+				Mode:            metadata.PolicyMode("allow-list"),
+				DefaultDecision: metadata.PolicyDecision("deny"),
 			},
-			Session: &SessionConfig{
+			Session: &metadata.SessionConfig{
 				Required: true,
 			},
-			Tools: []ToolConfig{
-				{Name: "delete_user", Description: "Delete a user from the backing system.", RequiredTrust: TrustLevel("high"), SideEffect: ToolSideEffect("destructive")},
+			Tools: []metadata.ToolConfig{
+				{Name: "delete_user", Description: "Delete a user from the backing system.", RequiredTrust: metadata.TrustLevel("high"), SideEffect: metadata.ToolSideEffect("destructive")},
 			},
-			SecretEnvVars: []SecretEnvVar{
+			SecretEnvVars: []metadata.SecretEnvVar{
 				{
 					Name: "OPENAI_API_KEY",
-					SecretKeyRef: &SecretKeyRef{
+					SecretKeyRef: &metadata.SecretKeyRef{
 						Name: "provider-creds",
 						Key:  "openai",
 					},
 				},
 			},
-			Analytics: &AnalyticsConfig{
+			Analytics: &metadata.AnalyticsConfig{
 				IngestURL: "http://analytics.default.svc/api/events",
 				Source:    "gateway-server",
 				EventType: "mcp.request",
-				APIKeySecretRef: &SecretKeyRef{
+				APIKeySecretRef: &metadata.SecretKeyRef{
 					Name: "analytics-creds",
 					Key:  "api-key",
 				},
 			},
-			Rollout: &RolloutConfig{
-				Strategy:       RolloutStrategy("Canary"),
+			Rollout: &metadata.RolloutConfig{
+				Strategy:       metadata.RolloutStrategy("Canary"),
 				CanaryReplicas: int32Ptr(1),
 			},
 		}
@@ -261,7 +272,7 @@ func TestGenerateCRD(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "nested", "dirs", "server.yaml")
 
-		server := &ServerMetadata{
+		server := &metadata.ServerMetadata{
 			Name:      "nested-server",
 			Image:     "my-image",
 			Namespace: "default",
@@ -282,13 +293,13 @@ func TestGenerateCRDsFromRegistry(t *testing.T) {
 	t.Run("generates CRDs for all servers", func(t *testing.T) {
 		clearRegistryImageEnv(t)
 		// Prevent registry host rewriting so we can test CRD field mapping in isolation.
-		t.Setenv(envMCPRegistryPullHost, DefaultRegistryHost)
+		t.Setenv(envMCPRegistryPullHost, metadata.DefaultRegistryHost)
 		tmpDir := t.TempDir()
 
 		replicas := int32(1)
-		registry := &RegistryFile{
+		registry := &metadata.RegistryFile{
 			Version: "v1",
-			Servers: []ServerMetadata{
+			Servers: []metadata.ServerMetadata{
 				{
 					Name:      "server-one",
 					Image:     "image-one",
@@ -330,9 +341,9 @@ func TestGenerateCRDsFromRegistry(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputDir := filepath.Join(tmpDir, "new-dir")
 
-		registry := &RegistryFile{
+		registry := &metadata.RegistryFile{
 			Version: "v1",
-			Servers: []ServerMetadata{
+			Servers: []metadata.ServerMetadata{
 				{Name: "test", Image: "test", Namespace: "default"},
 			},
 		}
@@ -350,9 +361,9 @@ func TestGenerateCRDsFromRegistry(t *testing.T) {
 	t.Run("handles empty registry", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		registry := &RegistryFile{
+		registry := &metadata.RegistryFile{
 			Version: "v1",
-			Servers: []ServerMetadata{},
+			Servers: []metadata.ServerMetadata{},
 		}
 
 		err := GenerateCRDsFromRegistry(registry, tmpDir)
@@ -460,3 +471,64 @@ func clearRegistryImageEnv(t *testing.T) {
 		t.Setenv(k, "")
 	}
 }
+
+func TestGenerateCRDRewritesImageWhenOnlyIngressHostSet(t *testing.T) {
+	for _, k := range []string{envMCPRegistryPullHost, envMCPRegistryEndpoint, envMCPRegistryHost} {
+		t.Setenv(k, "")
+	}
+	t.Setenv(envMCPRegistryIngressHost, "registry.mcpruntime.org")
+
+	server := &metadata.ServerMetadata{
+		Name:      "acme-tools",
+		Namespace: "mcp-team-acme",
+		Image:     "registry.mcpruntime.org/acme/acme-tools",
+		ImageTag:  "v0.1.0",
+		Port:      8088,
+	}
+	tmp := t.TempDir()
+	path := tmp + "/acme-tools.yaml"
+	if err := GenerateCRD(server, path); err != nil {
+		t.Fatalf("GenerateCRD: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated CRD: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "image: registry.registry.svc.cluster.local:5000/acme/acme-tools") {
+		t.Fatalf("expected cluster pull host image rewrite, got:\n%s", content)
+	}
+	if strings.Contains(content, "image: registry.mcpruntime.org/acme/acme-tools") {
+		t.Fatalf("image incorrectly kept public registry host:\n%s", content)
+	}
+}
+
+func TestGenerateCRDRewritesImageToPullHost(t *testing.T) {
+	t.Setenv(envMCPRegistryPullHost, "10.43.69.247:5000")
+	t.Setenv(envMCPRegistryIngressHost, "registry.mcpruntime.org")
+
+	server := &metadata.ServerMetadata{
+		Name:      "acme-tools",
+		Namespace: "mcp-team-acme",
+		Image:     "registry.mcpruntime.org/acme/acme-tools",
+		ImageTag:  "v0.1.0",
+		Port:      8088,
+	}
+	tmp := t.TempDir()
+	path := tmp + "/acme-tools.yaml"
+	if err := GenerateCRD(server, path); err != nil {
+		t.Fatalf("GenerateCRD: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated CRD: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "image: 10.43.69.247:5000/acme/acme-tools") {
+		t.Fatalf("expected pull-host image rewrite, got:\n%s", content)
+	}
+}
+
+func boolPtr(v bool) *bool { return &v }
+
+func int32Ptr(v int32) *int32 { return &v }
