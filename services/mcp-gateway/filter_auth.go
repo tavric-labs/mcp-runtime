@@ -72,7 +72,7 @@ func (s *gatewayServer) authFilter(in PolicyRequest) (AuthenticatedRequest, *Fil
 			return deny(&authenticationFailure{status: http.StatusUnauthorized, reason: reason})
 		}
 		ex.Identity, ex.CallerKind = *certificateIdentity, CallerCertificate
-	} else if ex.Identity.SessionID != "" && ex.Policy.Session != nil && ex.Policy.Session.Store == "platform" && (ex.Inspection.IsToolCall() || ex.Inspection.Indeterminate()) {
+	} else if ex.Identity.SessionID != "" && ex.Policy.Session != nil && ex.Policy.Session.Store == "platform" && ex.Inspection.RequiresAuthorization() {
 		binding, err := s.sessionReader().Lookup(ex.R.Context(), SessionRef{Namespace: ex.Policy.Server.Namespace, ID: ex.Identity.SessionID}, s.currentTime())
 		if err == nil {
 			err = validateSessionBinding(binding, ex.Identity, s.currentTime())

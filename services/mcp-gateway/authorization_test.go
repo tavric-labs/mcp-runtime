@@ -36,7 +36,7 @@ func TestAuthorizationRequiresGrantAndConsent(t *testing.T) {
 		}},
 		{name: "revoked session", reason: "session_revoked", status: http.StatusUnauthorized, change: func(in *authorizationInput) { in.Policy.Sessions[0].Revoked = true }},
 		{name: "missing policy", reason: "policy_unavailable", status: http.StatusServiceUnavailable, change: func(in *authorizationInput) { in.Policy = nil; in.PolicyErr = errors.New("not loaded") }},
-		{name: "unparseable call", reason: "rpc_inspection_failed", status: http.StatusForbidden, change: func(in *authorizationInput) { in.Inspection = failedRPCInspection(inspectionMalformed, true) }},
+		{name: "unparseable call", reason: "rpc_inspection_failed", status: http.StatusForbidden, change: func(in *authorizationInput) { in.Inspection = failedRPCInspection(inspectionMalformed) }},
 		{name: "non tool traffic", reason: "allowed", status: http.StatusOK, change: func(in *authorizationInput) {
 			in.Inspection = inspectedRPC("tools/list", "", RPCRequest)
 			in.Identity = identityContext{}

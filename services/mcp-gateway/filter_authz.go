@@ -38,7 +38,7 @@ type authorizationInput struct {
 }
 
 func authorizeRequest(in authorizationInput, now time.Time) policypkg.Decision {
-	if !in.Inspection.IsToolCall() && !in.Inspection.Indeterminate() {
+	if !in.Inspection.RequiresAuthorization() {
 		// Non-tool traffic intentionally bypasses grant/session evaluation.
 		return policypkg.Allow(
 			"allowed",

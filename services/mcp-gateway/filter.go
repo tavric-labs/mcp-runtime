@@ -169,7 +169,7 @@ func (p Pipeline) Run(ex *Exchange) {
 		authorized, response = p.Authz.Handle(authenticated)
 		ex.Decision = authorized.Decision
 		ex.AuthorizationDecision = authorized.Decision
-		ex.AuthorizationObserved = inspected.Inspection.IsToolCall() || inspected.Inspection.Indeterminate() || !authorized.Decision.Allowed
+		ex.AuthorizationObserved = inspected.Inspection.RequiresAuthorization() || !authorized.Decision.Allowed
 		return response
 	}) {
 		return
