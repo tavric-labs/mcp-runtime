@@ -4,6 +4,7 @@ go 1.26.10
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.49.0
+	github.com/getkin/kin-openapi v0.152.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.28.0
@@ -25,7 +26,6 @@ require (
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
-	github.com/getkin/kin-openapi v0.152.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
@@ -66,7 +66,6 @@ require (
 	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
-	github.com/segmentio/kafka-go v0.4.51 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
