@@ -1,6 +1,9 @@
 package metadata
 
-import policypkg "mcp-runtime/pkg/policy"
+import (
+	"mcp-runtime/pkg/platforminventory"
+	policypkg "mcp-runtime/pkg/policy"
+)
 
 // +kubebuilder:validation:Enum=oauth
 // +kubebuilder:validation:Enum=allow-list;observe
@@ -54,15 +57,6 @@ const (
 	RolloutStrategyCanary        RolloutStrategy = "Canary"
 )
 
-// PublishScope selects the platform catalog or tenant boundary for publishing.
-type PublishScope string
-
-const (
-	PublishScopeTenant PublishScope = "tenant"
-	PublishScopeOrg    PublishScope = "org"
-	PublishScopePublic PublishScope = "public"
-)
-
 // ServerMetadata defines the metadata for an MCP server.
 type ServerMetadata struct {
 	// CredentialBindings references namespace-scoped broker binding metadata.
@@ -107,7 +101,7 @@ type ServerMetadata struct {
 	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 
 	// Scope selects a publish destination: tenant, org, or public.
-	Scope PublishScope `yaml:"scope,omitempty" json:"scope,omitempty"`
+	Scope platforminventory.Scope `yaml:"scope,omitempty" json:"scope,omitempty"`
 
 	// TeamID is the stable platform team identifier that owns the server.
 	TeamID string `yaml:"teamID,omitempty" json:"teamID,omitempty"`

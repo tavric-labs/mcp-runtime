@@ -1,6 +1,7 @@
 package crdgen
 
 import (
+	"mcp-runtime/pkg/platforminventory"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,7 +41,7 @@ func TestGenerateCRD(t *testing.T) {
 			Port:             9000,
 			Replicas:         &replicas,
 			Namespace:        "custom-ns",
-			Scope:            metadata.PublishScopeOrg,
+			Scope:            platforminventory.ScopeOrg,
 			TeamID:           "team-custom",
 		}
 

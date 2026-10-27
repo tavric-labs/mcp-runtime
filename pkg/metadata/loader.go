@@ -90,7 +90,7 @@ func setDefaults(server *ServerMetadata) error {
 	if err != nil {
 		return err
 	}
-	server.Scope = PublishScope(scope)
+	server.Scope = scope
 
 	// Set default image if not provided (will be updated by build command).
 	// ResolveRegistryHost names the platform registry for docker push/build. Pipeline

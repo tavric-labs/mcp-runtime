@@ -1,13 +1,14 @@
 package metadata
 
 import (
+	"mcp-runtime/pkg/platforminventory"
 	"net"
 	"os"
 	"strings"
 )
 
 // PublishScopeLabels returns the labels that record a server's publish scope.
-func PublishScopeLabels(scope PublishScope) map[string]string {
+func PublishScopeLabels(scope platforminventory.Scope) map[string]string {
 	if scope == "" {
 		return nil
 	}

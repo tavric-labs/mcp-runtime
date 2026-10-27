@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mcp-runtime/pkg/platforminventory"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -68,7 +69,7 @@ func TestInitServerCreatesMetadata(t *testing.T) {
 		t.Fatalf("registry = %#v", registry)
 	}
 	server := registry.Servers[0]
-	if server.Name != "payments" || server.Image != "payments" || server.ImageTag != "v1" || server.Scope != metadata.PublishScope("tenant") {
+	if server.Name != "payments" || server.Image != "payments" || server.ImageTag != "v1" || server.Scope != platforminventory.Scope("tenant") {
 		t.Fatalf("server metadata = %#v", server)
 	}
 	if server.Route != "/payments/mcp" || server.PublicPathPrefix != "payments" || server.Port != 8088 {

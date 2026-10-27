@@ -162,7 +162,7 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 		Description:      fmt.Sprintf("%s MCP server", name),
 		Image:            image,
 		ImageTag:         imageTag,
-		Scope:            metadata.PublishScope(scope),
+		Scope:            platforminventory.Scope(scope),
 		PublicPathPrefix: name,
 		Route:            platforminventory.DefaultMCPPath(name),
 		Port:             port,
