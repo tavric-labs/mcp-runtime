@@ -87,8 +87,8 @@ type CredentialFailure string
 func (e CredentialFailure) Error() string { return string(e) }
 
 const (
-	ErrInvalidCredentialConfig CredentialFailure = "invalid_credential_config"
-	ErrEmptyCredential         CredentialFailure = "empty_credential"
+	ErrInvalidCredentialConfig CredentialFailure = "invalid_credential_config" // #nosec G101 -- Public authentication failure code, not credential material.
+	ErrEmptyCredential         CredentialFailure = "empty_credential"          // #nosec G101 -- Public authentication failure code, not credential material.
 	ErrDuplicateCredential     CredentialFailure = "duplicate_credential"
 	ErrMissingCredential       CredentialFailure = "missing_credential"
 )
