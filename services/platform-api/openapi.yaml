@@ -112,6 +112,92 @@ paths:
         "403": {description: "Workload identity, current policy or binding denied"}
         "404": {description: Approved credential metadata absent}
         "503": {description: "Provider, store, Kubernetes or audit unavailable; no values returned"}
+  /api/v1/user/api-keys:
+    x-audience: platform
+    get:
+      operationId: listUserApiKeys
+      summary: List the caller's API keys
+      description: Non-secret metadata for the caller's keys. The raw key value is never returned after creation.
+      responses:
+        "200":
+          description: Key metadata; an empty list is [] and never null.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items: {$ref: "#/components/schemas/UserApiKey"}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      operationId: createUserApiKey
+      summary: Create an API key for the caller
+      description: The raw key is returned once, as api_key and one_time_key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: {type: string}
+      responses:
+        "200":
+          description: Key created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, api_key, one_time_key]
+                properties:
+                  key: {$ref: "#/components/schemas/UserApiKey"}
+                  api_key: {type: string}
+                  one_time_key: {type: string}
+        "400": {description: invalid request body or name, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/user/api-keys/{id}:
+    x-audience: platform
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    delete:
+      operationId: revokeUserApiKey
+      summary: Revoke one of the caller's API keys
+      description: Idempotent; a key that is already revoked returns its final metadata.
+      responses:
+        "200":
+          description: Revoked key metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key]
+                properties:
+                  key: {$ref: "#/components/schemas/UserApiKey"}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: key not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /api/v1/user/api-keys/{id}/revoke:
+    x-audience: platform
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    post:
+      operationId: revokeUserApiKeyAction
+      summary: Revoke one of the caller's API keys (action form)
+      description: Same effect as DELETE on the key; kept for existing clients.
+      responses:
+        "200":
+          description: Revoked key metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key]
+                properties:
+                  key: {$ref: "#/components/schemas/UserApiKey"}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: key not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
   /internal/identity/agents/{agent_id}/certificates:
     get:
       summary: Read recorded certificate issuance for an agent (internal service authentication)
@@ -1379,6 +1465,16 @@ components:
             $ref: "#/components/schemas/SessionChange"
         more:
           type: "boolean"
+    UserApiKey:
+      type: object
+      required: [id, name, prefix, created_at, revoked]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        prefix: {type: string}
+        created_at: {type: string, format: date-time}
+        revoked: {type: boolean}
+        revoked_at: {type: string, format: date-time}
     ErrorEnvelope:
       type: object
       required: [error, message]

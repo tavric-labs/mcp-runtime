@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Added
+
+- Every API response now carries an `X-Request-Id` header. A well-formed id sent by the caller is kept; otherwise one is generated. Audit events record the same id, so entries that used to have an empty `request_id` now carry one. The API reference documents the id, JSON naming and error conventions, and platform-api's `openapi.yaml` describes the user API key routes.
+
 ### Changed
 
 - **Breaking:** user API keys are now stored, hashed, in platform-api's Postgres database, and platform-api serves `/api/v1/user/api-keys`. They used to live in a Kubernetes Secret (`mcp-user-api-keys`) behind runtime-api, which platform-api queried over the network to authenticate a key, so the two services called each other on the auth path. Keys created before this release do not work after it: each user must create a new key (**Create key** in the console or `POST /api/v1/user/api-keys`). Operators may delete the orphaned `mcp-user-api-keys` Secret. Response bodies and status codes are unchanged. runtime-api loses its key store, its `/internal/auth/resolve` route and the Secret RBAC rule; platform-api loses `RUNTIME_CONTROL_URL`. The ingress route and the console's session proxy point at platform-api, so setup or `mcp-runtime update` must roll out the manifests together with the service images.

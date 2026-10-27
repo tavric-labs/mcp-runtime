@@ -24,6 +24,9 @@ import (
 )
 
 type apiServer struct {
+	// routeObserver, when set, is told every public pattern as it is registered.
+	// Tests use it to compare the routes with openapi.yaml.
+	routeObserver     func(pattern string)
 	apiKeys           map[string]struct{}
 	adminAPIKeys      map[string]struct{}
 	adminUsers        map[string]struct{}

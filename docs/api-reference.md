@@ -22,6 +22,13 @@ Platform login (`POST /api/v1/auth/login`) issues JWTs whose `aud` claim include
 
 Each API service also serves unauthenticated `GET /health` and `GET /ready` outside `/api/v1`. `/ready` reports dependency health and returns `503` when it is missing: Postgres for platform-api, the Kubernetes client for runtime-api, and ClickHouse for analytics-api. The `mcp-gateway` sidecar has its own `/health`, `/ready`, `/config/status`, and `/metrics` endpoints; see [`docs/runtime-operations.md`](runtime-operations.md#gateway-policy-snapshots).
 
+### Conventions
+
+- **Request IDs.** Every response from every service carries `X-Request-Id`. A caller's well-formed id (letters, digits, `.`, `_`, `-`, up to 128 characters) is kept so a trace can span services; anything else is replaced. Audit events record the same id in `request_id`. Quote it when reporting a problem.
+- **JSON field names.** Resources that mirror Kubernetes custom resources (access grants and sessions: `serverRef`, `maxTrust`, `policyVersion`) use camelCase, as the CRDs do. Everything else (users, teams, agents, API keys, audit) uses snake_case (`created_at`, `api_key`). A field never changes style between endpoints of the same resource.
+- **Errors.** Every API returns `{"error": "<code>", "message": "<text>"}`. Branch on `error`, not on `message`.
+- **Specs.** Each service serves its OpenAPI document at `/api/v1/openapi.yaml`. platform-api's tests fail when a public route is added without a spec entry; the routes still missing are listed in `route_spec_coverage_test.go`.
+
 ```mermaid
 flowchart LR
     Resources[MCPServer, MCPAccessGrant, MCPAgentSession] --> Operator
