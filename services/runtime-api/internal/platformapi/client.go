@@ -277,8 +277,8 @@ func (c *Client) DeleteTeamBySlug(ctx context.Context, slug string) error {
 }
 
 func (c *Client) PrincipalForUserID(ctx context.Context, userID string) (platformauth.Principal, error) {
-	var result apiwire.PrincipalResolveResponse
-	status, err := c.authorizedJSON(ctx, http.MethodPost, "/internal/identity/principal", apiwire.PrincipalResolveRequest{
+	var result platformauth.PrincipalResolveResponse
+	status, err := c.authorizedJSON(ctx, http.MethodPost, "/internal/identity/principal", platformauth.PrincipalResolveRequest{
 		UserID: userID,
 	}, &result)
 	if err != nil {

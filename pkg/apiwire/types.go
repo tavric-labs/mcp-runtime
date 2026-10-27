@@ -2,30 +2,7 @@ package apiwire
 
 import (
 	"time"
-
-	"mcp-runtime/pkg/platformauth"
 )
-
-// AuthResolveRequest is POST /internal/auth/resolve.
-type AuthResolveRequest struct {
-	APIKey string `json:"api_key"`
-}
-
-// AuthResolveResponse is POST /internal/auth/resolve.
-type AuthResolveResponse struct {
-	OK        bool                   `json:"ok"`
-	Principal platformauth.Principal `json:"principal,omitempty"`
-}
-
-// PrincipalResolveRequest is POST /internal/identity/principal.
-type PrincipalResolveRequest struct {
-	UserID string `json:"user_id"`
-}
-
-// PrincipalResolveResponse is POST /internal/identity/principal.
-type PrincipalResolveResponse struct {
-	Principal platformauth.Principal `json:"principal"`
-}
 
 // ResolveIDsRequest is POST /internal/identity/resolve-ids.
 type ResolveIDsRequest struct {

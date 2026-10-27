@@ -179,7 +179,7 @@ func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request apiwire.AuthResolveRequest
+	var request platformauth.AuthResolveRequest
 	if err := decodeJSON(r, &request); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -189,7 +189,7 @@ func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeAuthFailed, "failed to resolve API key")
 		return
 	}
-	writeJSON(w, http.StatusOK, apiwire.AuthResolveResponse{OK: ok, Principal: principal})
+	writeJSON(w, http.StatusOK, platformauth.AuthResolveResponse{OK: ok, Principal: principal})
 }
 
 // resolvePrincipalForAPIKey uses the platform's complete public authentication
@@ -212,7 +212,7 @@ func (h Handler) resolvePrincipal(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request apiwire.PrincipalResolveRequest
+	var request platformauth.PrincipalResolveRequest
 	if err := decodeJSON(r, &request); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -226,7 +226,7 @@ func (h Handler) resolvePrincipal(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to resolve principal")
 		return
 	}
-	writeJSON(w, http.StatusOK, apiwire.PrincipalResolveResponse{Principal: principal})
+	writeJSON(w, http.StatusOK, platformauth.PrincipalResolveResponse{Principal: principal})
 }
 
 func (h Handler) resolveIDs(w http.ResponseWriter, r *http.Request) {
