@@ -742,6 +742,13 @@ spec:
                 name: mcp-platform-api
                 port:
                   number: 8080
+          - path: /api/v1/user/api-keys
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-platform-api
+                port:
+                  number: 8080
           - path: /api/v1/user/registry-credentials
             pathType: Prefix
             backend:
@@ -783,13 +790,6 @@ spec:
                 name: mcp-runtime-api
                 port:
                   number: 8084
-          - path: /api/v1/user/api-keys
-            pathType: Prefix
-            backend:
-              service:
-                name: mcp-platform-api
-                port:
-                  number: 8080
           - path: /api/v1/admin
             pathType: Prefix
             backend:
