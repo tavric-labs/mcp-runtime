@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/httpx"
 )
@@ -29,14 +29,14 @@ func NewHandler(events EventReader) *Handler {
 }
 
 func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
-	limit, err := apihttp.ParseLimit(r, 100, 1000)
+	limit, err := apikit.ParseLimit(r, 100, 1000)
 	if err != nil {
-		apihttp.WriteError(w, nil, err)
+		apikit.WriteError(w, nil, err)
 		return
 	}
-	offset, err := apihttp.ParseCursor(r.URL.Query().Get("cursor"))
+	offset, err := apikit.ParseCursor(r.URL.Query().Get("cursor"))
 	if err != nil {
-		apihttp.WriteError(w, nil, err)
+		apikit.WriteError(w, nil, err)
 		return
 	}
 
@@ -44,7 +44,7 @@ func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 	if hasEventFilters(r) {
 		filters, filterErr := eventFiltersFromRequest(r, limit, time.Now().UTC())
 		if filterErr != nil {
-			apihttp.WriteError(w, nil, filterErr)
+			apikit.WriteError(w, nil, filterErr)
 			return
 		}
 		filters.Offset = offset
@@ -53,20 +53,20 @@ func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 		events, err = h.events.QueryEvents(r.Context(), limit, offset)
 	}
 	if err != nil {
-		apihttp.WriteError(w, nil, &apihttp.Error{
+		apikit.WriteError(w, nil, &apikit.Error{
 			Status:  http.StatusInternalServerError,
-			Code:    apihttp.CodeQueryFailed,
+			Code:    apikit.CodeQueryFailed,
 			Message: "query failed",
 			Cause:   err,
 		})
 		return
 	}
-	meta := apihttp.ListMeta(limit, offset, len(events))
+	meta := apikit.ListMeta(limit, offset, len(events))
 	body := map[string]any{
 		"events": events,
 		"meta":   meta,
 	}
-	if next := apihttp.NextLink(r, meta.NextCursor, limit); next != "" {
+	if next := apikit.NextLink(r, meta.NextCursor, limit); next != "" {
 		body["next"] = next
 	}
 	httpx.WriteJSON(w, http.StatusOK, body)
@@ -75,9 +75,9 @@ func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
 	count, err := h.events.QueryStats(r.Context())
 	if err != nil {
-		apihttp.WriteError(w, nil, &apihttp.Error{
+		apikit.WriteError(w, nil, &apikit.Error{
 			Status:  http.StatusInternalServerError,
-			Code:    apihttp.CodeQueryFailed,
+			Code:    apikit.CodeQueryFailed,
 			Message: "query failed",
 			Cause:   err,
 		})
@@ -89,9 +89,9 @@ func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Sources(w http.ResponseWriter, r *http.Request) {
 	sources, err := h.events.QuerySources(r.Context())
 	if err != nil {
-		apihttp.WriteError(w, nil, &apihttp.Error{
+		apikit.WriteError(w, nil, &apikit.Error{
 			Status:  http.StatusInternalServerError,
-			Code:    apihttp.CodeQueryFailed,
+			Code:    apikit.CodeQueryFailed,
 			Message: "query failed",
 			Cause:   err,
 		})
@@ -103,9 +103,9 @@ func (h *Handler) Sources(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) EventTypes(w http.ResponseWriter, r *http.Request) {
 	eventTypes, err := h.events.QueryEventTypes(r.Context())
 	if err != nil {
-		apihttp.WriteError(w, nil, &apihttp.Error{
+		apikit.WriteError(w, nil, &apikit.Error{
 			Status:  http.StatusInternalServerError,
-			Code:    apihttp.CodeQueryFailed,
+			Code:    apikit.CodeQueryFailed,
 			Message: "query failed",
 			Cause:   err,
 		})
@@ -152,25 +152,25 @@ func eventFiltersFromRequest(r *http.Request, limit int, now time.Time) (clickho
 	for _, key := range []string{"subject_team_id", "resource_team_id"} {
 		value := q.Get(key)
 		if len(value) > 256 || strings.TrimSpace(value) != value {
-			return filters, apihttp.BadRequest(apihttp.CodeInvalidQueryParam, key+" must be an exact team ID of at most 256 bytes")
+			return filters, apikit.BadRequest(apikit.CodeInvalidQueryParam, key+" must be an exact team ID of at most 256 bytes")
 		}
 	}
 	for _, pair := range []struct{ name, namespace string }{{"matched_grant", "matched_grant_namespace"}, {"matched_session", "matched_session_namespace"}} {
 		name, namespace := q.Get(pair.name), q.Get(pair.namespace)
 		if (name == "") != (namespace == "") {
-			return filters, apihttp.BadRequest(apihttp.CodeInvalidQueryParam, fmt.Sprintf("%s and %s must be supplied together", pair.name, pair.namespace))
+			return filters, apikit.BadRequest(apikit.CodeInvalidQueryParam, fmt.Sprintf("%s and %s must be supplied together", pair.name, pair.namespace))
 		}
 		if len(name) > 256 || len(namespace) > 256 || strings.TrimSpace(name) != name || strings.TrimSpace(namespace) != namespace {
-			return filters, apihttp.BadRequest(apihttp.CodeInvalidQueryParam, "matched access names and namespaces must be exact values of at most 256 bytes")
+			return filters, apikit.BadRequest(apikit.CodeInvalidQueryParam, "matched access names and namespaces must be exact values of at most 256 bytes")
 		}
 	}
 	if filters.MatchedGrant != "" || filters.MatchedSession != "" || q.Has("since") || q.Has("until") {
 		var err error
-		filters.Since, err = apihttp.QueryRFC3339Time(r, "since")
+		filters.Since, err = apikit.QueryRFC3339Time(r, "since")
 		if err != nil {
 			return filters, err
 		}
-		filters.Until, err = apihttp.QueryRFC3339Time(r, "until")
+		filters.Until, err = apikit.QueryRFC3339Time(r, "until")
 		if err != nil {
 			return filters, err
 		}
@@ -181,10 +181,10 @@ func eventFiltersFromRequest(r *http.Request, limit int, now time.Time) (clickho
 			filters.Since = filters.Until.Add(-7 * 24 * time.Hour)
 		}
 		if !filters.Since.Before(filters.Until) {
-			return filters, apihttp.BadRequest(apihttp.CodeInvalidQueryParam, "since must be earlier than until")
+			return filters, apikit.BadRequest(apikit.CodeInvalidQueryParam, "since must be earlier than until")
 		}
 		if filters.Until.Sub(filters.Since) > 365*24*time.Hour {
-			return filters, apihttp.BadRequest(apihttp.CodeInvalidQueryParam, "event time window must not exceed 365 days")
+			return filters, apikit.BadRequest(apikit.CodeInvalidQueryParam, "event time window must not exceed 365 days")
 		}
 	}
 	return filters, nil

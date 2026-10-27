@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	identitypkg "mcp-runtime/pkg/identity"
 )
 
@@ -46,14 +46,14 @@ func (a Authenticator) Middleware(next http.Handler) http.Handler {
 		p, ok, err := a.AuthenticateRequest(r)
 		if err != nil {
 			log.Printf("auth error: %v", err)
-			apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeAuthFailed, "authentication failed")
+			apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeAuthFailed, "authentication failed")
 			return
 		}
 		if !ok && a.PublicFallback != nil {
 			p, ok = a.PublicFallback(r)
 		}
 		if !ok {
-			apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "authentication required")
+			apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "authentication required")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(WithPrincipal(r.Context(), p)))
@@ -64,7 +64,7 @@ func (a Authenticator) RequireRole(role string, next http.Handler) http.Handler 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := FromContext(r.Context())
 		if !ok || p.Role != role {
-			apihttp.WriteEnvelope(w, http.StatusForbidden, apihttp.CodeForbidden, "insufficient permissions")
+			apikit.WriteEnvelope(w, http.StatusForbidden, apikit.CodeForbidden, "insufficient permissions")
 			return
 		}
 		next.ServeHTTP(w, r)

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/internalapi"
 	"mcp-runtime/pkg/platformauth"
@@ -76,9 +76,9 @@ func (c *Client) requestJSON(ctx context.Context, method, path string, body any,
 			Message string `json:"message"`
 		}
 		if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&envelope); err != nil || envelope.Message == "" || envelope.Code == "" {
-			return resp.StatusCode, apihttp.Internal("platform identity request failed")
+			return resp.StatusCode, apikit.Internal("platform identity request failed")
 		}
-		return resp.StatusCode, &apihttp.Error{Status: resp.StatusCode, Code: envelope.Code, Message: envelope.Message}
+		return resp.StatusCode, &apikit.Error{Status: resp.StatusCode, Code: envelope.Code, Message: envelope.Message}
 	}
 	if out != nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {

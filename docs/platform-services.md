@@ -600,7 +600,7 @@ operator-controlled service logs rather than unauthenticated probe responses.
 ### API services
 
 Traefik routes `/api/v1/*` by path prefix to three HTTP services. There is no `/api/*` compatibility
-layer. Each service publishes `GET /api/v1/openapi.yaml` and uses `pkg/apihttp`
+layer. Each service publishes `GET /api/v1/openapi.yaml` and uses `pkg/apikit`
 stable error envelopes.
 
 | Service | Deployment | Port / metrics | Owns |

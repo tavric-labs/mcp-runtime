@@ -1,4 +1,4 @@
-package apihttp
+package apikit
 
 // Stable machine-readable error codes. Wording in human messages may change;
 // codes must not be derived from message text at runtime.

@@ -6,7 +6,7 @@ import (
 
 	"mcp-platform-api/internal/apiauth"
 	"mcp-platform-api/internal/platformstore"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 )
 
 const (
@@ -46,7 +46,7 @@ const (
 	namespaceScopeUser     = platformstore.NamespaceScopeUser
 	namespaceScopeTeam     = platformstore.NamespaceScopeTeam
 	oidcProviderPrefix     = platformstore.OIDCProviderPrefix
-	accessApplyMaxBytes    = apihttp.ApplyMaxBytes
+	accessApplyMaxBytes    = apikit.ApplyMaxBytes
 )
 
 func newPlatformStore(ctx context.Context, dsn string, jwtSecret []byte) (*platformStore, error) {
@@ -90,7 +90,7 @@ func withPrincipal(ctx context.Context, p principal) context.Context {
 }
 
 func writeBodyDecodeError(w http.ResponseWriter, err error) {
-	apihttp.WriteBodyDecodeError(w, err)
+	apikit.WriteBodyDecodeError(w, err)
 }
 
 func requestIP(r *http.Request) string {

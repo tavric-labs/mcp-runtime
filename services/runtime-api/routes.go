@@ -11,7 +11,7 @@ import (
 	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime-api/internal/runtimeapi"
 	runtimehandlers "mcp-runtime-api/runtime"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/openapi"
 	"mcp-runtime/pkg/platformauth"
@@ -185,11 +185,11 @@ func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 func (s *server) handleReady(w http.ResponseWriter, _ *http.Request) {
 	if s.runtimeInit != "" {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "runtime unavailable")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "runtime unavailable")
 		return
 	}
 	if s.runtime == nil || !s.runtime.KubernetesAvailable() {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "kubernetes not available")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "kubernetes not available")
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})

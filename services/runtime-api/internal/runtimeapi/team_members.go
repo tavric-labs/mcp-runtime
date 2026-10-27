@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"mcp-runtime-api/internal/runtimeapi/k8sprovision"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 )
 
@@ -227,7 +227,7 @@ func (s *RuntimeServer) handleRuntimeTeamUserCreate(w http.ResponseWriter, r *ht
 	u, membership, err := s.identity.CreateTeamUser(ctx, teamSlug, req.Email, req.Password, teamRole)
 	if err != nil {
 		diagnostic := "platform identity request failed"
-		var upstream *apihttp.Error
+		var upstream *apikit.Error
 		if errors.As(err, &upstream) {
 			diagnostic = fmt.Sprintf("status=%d code=%s", upstream.Status, upstream.Code)
 			switch upstream.Message {
@@ -249,11 +249,11 @@ func (s *RuntimeServer) handleRuntimeTeamUserCreate(w http.ResponseWriter, r *ht
 }
 
 func writeIdentityError(w http.ResponseWriter, err error) {
-	var upstream *apihttp.Error
+	var upstream *apikit.Error
 	if errors.As(err, &upstream) {
 		// Log only status/code: upstream messages may contain submitted user data.
 		log.Printf("platform identity request failed: status=%d code=%s", upstream.Status, upstream.Code)
-		apihttp.WriteError(w, nil, upstream)
+		apikit.WriteError(w, nil, upstream)
 		return
 	}
 	writeAPIError(w, http.StatusInternalServerError, "platform identity request failed")

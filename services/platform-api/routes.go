@@ -8,7 +8,7 @@ import (
 	"mcp-platform-api/internal/platforminternal"
 	"mcp-platform-api/internal/sessionapi"
 	"mcp-platform-api/registry"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/openapi"
 	"mcp-runtime/pkg/platformauth"
@@ -108,11 +108,11 @@ func (s *apiServer) handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 func (s *apiServer) handleReady(w http.ResponseWriter, r *http.Request) {
 	if s.platform == nil {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "postgres not configured")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "postgres not configured")
 		return
 	}
 	if err := s.platform.Ping(r.Context()); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "postgres unavailable")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "postgres unavailable")
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})

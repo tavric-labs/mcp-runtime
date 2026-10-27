@@ -1,4 +1,4 @@
-package apihttp
+package apikit
 
 import (
 	"fmt"

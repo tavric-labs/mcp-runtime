@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/openapi"
 	"mcp-runtime/pkg/platformauth"
@@ -44,11 +44,11 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 func (s *server) handleReady(w http.ResponseWriter, r *http.Request) {
 	if s.usage == nil || s.usage.DB == nil {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "clickhouse not configured")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "clickhouse not configured")
 		return
 	}
 	if err := s.usage.DB.Ping(r.Context()); err != nil {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "clickhouse unavailable")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "clickhouse unavailable")
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})

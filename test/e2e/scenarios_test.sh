@@ -211,7 +211,7 @@ selector_expect "ui-flow-harness" "smoke-auth,ui-auth" "test/e2e/ui_auth_flows.p
 selector_expect "api-flow-harness" "smoke-auth,api-platform,multitenancy" "test/e2e/api_platform_flows.py"
 selector_expect "cert-harness" "smoke-auth,adapter-certificates" "test/e2e/lib/adapter-certificates.sh"
 selector_expect "platform-auth" "smoke-auth,api-platform,multitenancy,ui-auth" "pkg/platformauth/middleware.go"
-selector_expect "api-shared" "smoke-auth,api-platform" "pkg/apihttp/errors.go"
+selector_expect "api-shared" "smoke-auth,api-platform" "pkg/apikit/errors.go"
 selector_expect "oauth-resource" "smoke-auth,oauth" "pkg/identity/oauth.go"
 selector_expect "cli-login-store" "smoke-auth,cli-platform" "internal/cli/authfile/store.go"
 selector_expect "access" "smoke-auth,governance,trust" "pkg/policy/evaluator.go"

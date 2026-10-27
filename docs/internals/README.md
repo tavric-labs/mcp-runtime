@@ -76,7 +76,7 @@ flowchart LR
 | Control-plane helpers | `pkg/controlplane/` | Shared MCPServer Kubernetes operations and status projection used outside HTTP/CLI glue. |
 | Shared policy and events | `pkg/policy/`, `pkg/events/`, `pkg/clickhouse/` | Gateway policy contracts/evaluation plus event envelopes and ClickHouse query/insert helpers. |
 | Shared infrastructure and workload helpers | `pkg/envcfg/`, `pkg/httpx/`, `pkg/transport/`, `pkg/telemetry/`, `pkg/svcboot/`, `pkg/kubeworkload/` | Configuration, HTTP primitives, transport support, observability, service startup and restricted Kubernetes workload defaults. |
-| API service internals | `services/runtime-api/internal/runtimeapi/`, `services/platform-api/internal/platformstore/`, `pkg/apihttp/`, `pkg/platformauth/`, `pkg/internalapi/` | Split API modules: runtime HTTP/Kubernetes orchestration, platform Postgres persistence, shared HTTP contract helpers. |
+| API service internals | `services/runtime-api/internal/runtimeapi/`, `services/platform-api/internal/platformstore/`, `pkg/apikit/`, `pkg/platformauth/`, `pkg/internalapi/` | Split API modules: runtime HTTP/Kubernetes orchestration, platform Postgres persistence, shared HTTP contract helpers. |
 | Metadata helpers | [`metadata.md`](metadata.md) | Covers `.mcp` metadata loading, host resolution, and CRD generation helpers. |
 | Manifests and examples | [`config-and-examples.md`](config-and-examples.md) | Explains Kustomize overlays, registry/ingress config, and example MCP servers. |
 | Tests | [`testing.md`](testing.md) | Maps unit, golden, integration, and QA E2E coverage. |
@@ -218,7 +218,7 @@ Shared infrastructure has explicit owners instead of `pkg/serviceutil`:
 | `pkg/oidcdiscovery` | Issuer metadata, redirect validation and existing discovery retry behavior |
 | `pkg/telemetry` | Service tracing setup, correlated logs, request metrics and response correlation |
 | `pkg/telemetry/kafkatrace` | Kafka header adaptation, imported by producers and consumers |
-| `pkg/apihttp` | Structured API errors, error logging and request/query validation |
+| `pkg/apikit` | Structured API errors, error logging and request/query validation |
 | `services/runtime-api/internal/runtimeapi/access` | Grant/session action-path parsing beside its owning handlers |
 
 The parent `pkg/transport/` directory groups transport packages; it is not an
@@ -246,7 +246,7 @@ its own layer or a lower one, never a higher one.
 | Domain | `policy`, `access`, `sessionstate`, `metadata` | Rules and models; no Kubernetes or service infrastructure |
 | Leaves | `identity`, `events`, `credentialbroker`, `envcfg`, `httpx`, `platforminventory` and similar | Import only other leaves; most stable |
 
-Support packages (`apihttp`, `platformauth`, `telemetry`, `svcboot`, `clickhouse`)
+Support packages (`apikit`, `platformauth`, `telemetry`, `svcboot`, `clickhouse`)
 sit beside the domain and never import adapters. The `mcp-gateway` may use
 `policy`, `events` and `credentialbroker` but must not import an adapter.
 `TestSharedPackageLayerDesign` enforces this and fails for an unclassified new

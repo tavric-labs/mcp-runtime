@@ -10,7 +10,7 @@ import (
 
 	"mcp-platform-api/internal/httperrors"
 	"mcp-platform-api/internal/platformstore"
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/internalapi"
 	"mcp-runtime/pkg/platformauth"
@@ -61,7 +61,7 @@ func HandleUserLifecycle(w http.ResponseWriter, r *http.Request, store UserLifec
 		case errors.Is(err, platformstore.ErrActorInactive):
 			httperrors.Forbidden(w, "administrator account is no longer active")
 		case errors.Is(err, platformstore.ErrSelfDeactivation), errors.Is(err, platformstore.ErrLastAdministrator), errors.Is(err, platformstore.ErrLastTeamOwner):
-			apihttp.WriteEnvelope(w, http.StatusConflict, apihttp.CodeConflict, err.Error())
+			apikit.WriteEnvelope(w, http.StatusConflict, apikit.CodeConflict, err.Error())
 		default:
 			httperrors.Internal(w, "account cleanup was not confirmed; retry the idempotent deactivation command")
 		}

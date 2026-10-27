@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/apikit"
 	identitypkg "mcp-runtime/pkg/identity"
 )
 
@@ -47,7 +47,7 @@ func (h ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ExchangePath(h.Target) == "" || h.Auth.Audience != AudiencePlatform || len(h.Auth.Secret) == 0 || h.Auth.Principals == nil {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "token exchange unavailable")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "token exchange unavailable")
 		return
 	}
 	token := identitypkg.ExtractBearer(r.Header.Get("Authorization"))
@@ -66,16 +66,16 @@ func (h ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil || claims.IsService {
-		apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "platform user token required")
+		apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "platform user token required")
 		return
 	}
 	p, ok, err := h.Auth.currentPrincipal(r.Context(), ToPrincipal(claims))
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "identity unavailable")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "identity unavailable")
 		return
 	}
 	if !ok || p.IsService {
-		apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "platform user token required")
+		apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "platform user token required")
 		return
 	}
 	now := time.Now().UTC()
@@ -85,13 +85,13 @@ func (h ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// Account resolution may have taken us past the source's expiration.
 	if !expires.After(now) {
-		apihttp.WriteEnvelope(w, http.StatusUnauthorized, apihttp.CodeUnauthorized, "platform user token expired")
+		apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "platform user token expired")
 		return
 	}
 	p.AuthType = "platform_jwt"
 	exchanged, err := signUntil(h.Auth.Secret, p, now, expires, []string{h.Target})
 	if err != nil {
-		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "token exchange unavailable")
+		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "token exchange unavailable")
 		return
 	}
 	w.Header().Set("Authorization", "Bearer "+exchanged)
