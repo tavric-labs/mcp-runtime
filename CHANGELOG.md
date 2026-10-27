@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Changed
+
+- QA E2E failures now upload redacted, size-capped logs from the analytics-api, ingest, processor and ClickHouse pods (`setup-<app>.log` in the run artifact), so a 5xx such as `query_failed` carries its backend error. No deployment or fresh-setup change is required.
+
 ## [0.13.1] - 2026-10-26
 
 Console, Grafana sign-in, credential connector and service-image security fixes.

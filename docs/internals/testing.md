@@ -113,7 +113,10 @@ Collection uses only the explicit E2E kubeconfig after confirming its
 collection-gap files. Failed setup also captures redacted platform workload
 status and warning events before teardown, including in the scoped Cilium
 workflow. It also retains only allowlisted runtime initialization error lines,
-with credentials redacted. The fake-tool regression
+with credentials redacted. Any failed E2E run additionally saves the last 15
+minutes (200 lines) of the analytics-api, ingest, processor and ClickHouse pod
+logs as `setup-<app>.log`, so an API `query_failed` response comes with the
+backend error; the same redaction and size cap apply. The fake-tool regression
 `bash test/e2e/rollout_diagnostics_test.sh` checks failure preservation,
 redaction, and collection before cleanup without contacting a cluster.
 

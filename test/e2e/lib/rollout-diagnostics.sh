@@ -89,6 +89,10 @@ if label == "runtime-init-logs":
             rows.append(message.rstrip())
     print("\n".join(rows) if rows else "collection_gap: no runtime initialization failure was logged")
     raise SystemExit(0)
+if label == "service-logs":
+    text = sys.stdin.read()
+    sys.stdout.write(text if text.strip() else "collection_gap: no service log lines were available\n")
+    raise SystemExit(0)
 if label in ("operator-logs", "gateway-logs"):
     allowed = ("ts", "time", "timestamp", "level", "logger", "msg", "error", "name", "namespace", "controller", "reconcileID", "generation", "port")
     rows, skipped = [], 0
@@ -227,6 +231,19 @@ e2e_collect_setup_diagnostics() {
   done
   e2e_diag_capture "runtime-init-logs" "${directory}/setup-runtime-init.log" \
     logs -n mcp-platform -l app=mcp-runtime-api --all-containers=true --prefix=true --since=10m --tail=80
+  e2e_collect_analytics_service_logs "${directory}"
+}
+
+# A 5xx from an analytics endpoint only says query_failed; the backend error is
+# in the service's own log. Capture the analytics path's recent lines on any
+# E2E failure (the redactor and size cap in e2e_diag_capture still apply).
+e2e_collect_analytics_service_logs() {
+  local directory="$1"
+  local app
+  for app in mcp-analytics-api mcp-ingest mcp-processor clickhouse; do
+    e2e_diag_capture "service-logs" "${directory}/setup-${app}.log" \
+      logs -n mcp-observability -l "app=${app}" --all-containers=true --prefix=true --since=15m --tail=200
+  done
 }
 
 rollout_status_with_logs() {

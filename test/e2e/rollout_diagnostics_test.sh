@@ -53,6 +53,11 @@ elif args[:2] == ["get", "events"]:
         raise SystemExit(1)
     print(json.dumps({"items":[{"type":"Warning","reason":"FailedScheduling","message":"insufficient memory",
       "count":2,"involvedObject":{"kind":"Pod","name":"demo-abc"}}]}))
+elif args[:1] == ["logs"] and "app=mcp-analytics-api" in args:
+    print('[pod/mcp-analytics-api-0/analytics-api] 2026/10/27 07:30:00 user analytics usage query failed window_days=30 limit=3 err=code: 241, message: Memory limit exceeded')
+    print('[pod/mcp-analytics-api-0/analytics-api] request header authorization: Bearer never-upload-token')
+elif args[:1] == ["logs"] and "-l" in args and any(arg in ("app=mcp-ingest", "app=mcp-processor", "app=clickhouse") for arg in args):
+    print("[pod/" + args[args.index("-l") + 1].split("=", 1)[1] + "-0/c] ready")
 elif args[:1] == ["logs"] and "-l" in args:
     print('[pod/runtime-api/container] 2026/10/17 14:00:00 workload network policy reconciliation failed: Get "https://user:never-upload-password@10.96.0.1:443/api/v1/namespaces": context deadline exceeded')
     print('unrelated request payload: never-upload-payload')
@@ -121,6 +126,12 @@ for namespace in mcp-platform mcp-observability mcp-runtime; do
 done
 grep -F 'ImagePullBackOff' "${diag_dir}/setup-mcp-platform-workloads.json" >/dev/null
 grep -F 'context deadline exceeded' "${diag_dir}/setup-runtime-init.log" >/dev/null
+# A failure after setup (for example an analytics 500) needs the service's own
+# log, which is where the real backend error is written.
+for app in mcp-analytics-api mcp-ingest mcp-processor clickhouse; do
+  [[ -s "${diag_dir}/setup-${app}.log" ]]
+done
+grep -F 'Memory limit exceeded' "${diag_dir}/setup-mcp-analytics-api.log" >/dev/null
 if grep -R -E 'never-upload|Bearer never-upload' "${diag_dir}"; then
   echo '[fail] setup diagnostics leaked credentials or pod environment' >&2
   exit 1
