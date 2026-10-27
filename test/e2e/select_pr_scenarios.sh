@@ -128,7 +128,7 @@ classify_path() {
       add_scenario "adapter-proxy"
       return
       ;;
-    pkg/publicroutes/*|pkg/platformmode/*)
+    pkg/platforminventory/routes.go|pkg/platforminventory/mode.go)
       # Public route and platform-mode config shared by setup, the UI and APIs.
       add_scenario "ui-auth"
       add_scenario "api-platform"
@@ -264,7 +264,7 @@ classify_path() {
       add_scenario "ui-auth"
       return
       ;;
-    pkg/apihttp/*|pkg/internalapi/*|pkg/platform/*|pkg/publishscope/*|pkg/registrypush/*)
+    pkg/apihttp/*|pkg/internalapi/*|pkg/platforminventory/scope.go|pkg/registrypush/*)
       # Shared HTTP, DTO, publish-scope and registry-push code under the APIs.
       add_scenario "api-platform"
       return

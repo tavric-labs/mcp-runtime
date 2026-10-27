@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"encoding/json"
 	"log"
+	"mcp-runtime/pkg/platforminventory"
 
 	"net/http"
 	"strings"
@@ -12,7 +13,6 @@ import (
 
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/publicroutes"
 	"mcp-ui/internal/session"
 )
 
@@ -31,7 +31,7 @@ type Server struct {
 	Attempts          *AttemptTracker
 	Hooks             *Hooks
 	ForceSecureCookie bool
-	PublicRoutes      publicroutes.Routes
+	PublicRoutes      platforminventory.Routes
 }
 
 const (

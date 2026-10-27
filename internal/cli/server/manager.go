@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mcp-runtime/pkg/platforminventory"
 	"os"
 	"path/filepath"
 	"sort"
@@ -29,8 +30,6 @@ import (
 	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/metadata/crdgen"
 	policypkg "mcp-runtime/pkg/policy"
-	"mcp-runtime/pkg/publicroutes"
-	"mcp-runtime/pkg/publishscope"
 )
 
 // ServerManager handles MCP server operations with injected dependencies.
@@ -111,9 +110,9 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 	}
 	scope = strings.TrimSpace(scope)
 	if scope == "" {
-		scope = string(publishscope.Tenant)
+		scope = string(platforminventory.ScopeTenant)
 	}
-	if _, err := publishscope.Normalize(scope); err != nil {
+	if _, err := platforminventory.NormalizeScope(scope); err != nil {
 		return err
 	}
 	policyMode = strings.TrimSpace(policyMode)
@@ -165,7 +164,7 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 		ImageTag:         imageTag,
 		Scope:            metadata.PublishScope(scope),
 		PublicPathPrefix: name,
-		Route:            publicroutes.DefaultMCPPath(name),
+		Route:            platforminventory.DefaultMCPPath(name),
 		Port:             port,
 		Tools:            nil,
 		Auth:             nil,
@@ -584,7 +583,7 @@ func (m *ServerManager) CreateServer(name, namespace, image, imageTag string) er
 			Replicas:    1,
 			Port:        core.GetDefaultServerPort(),
 			ServicePort: 80,
-			IngressPath: publicroutes.DefaultMCPPath(name),
+			IngressPath: platforminventory.DefaultMCPPath(name),
 		},
 	}
 
@@ -644,8 +643,8 @@ func (m *ServerManager) DeployServer(name, namespace, team, scope, image, imageT
 		if scope == "" {
 			scope = string(selectedMetadata.Scope)
 		}
-		if namespace == "" && team == "" && (scope == "" || scope == string(publishscope.Tenant)) {
-			if !(scope == string(publishscope.Tenant) && strings.TrimSpace(selectedMetadata.Namespace) == core.NamespaceMCPServers) {
+		if namespace == "" && team == "" && (scope == "" || scope == string(platforminventory.ScopeTenant)) {
+			if !(scope == string(platforminventory.ScopeTenant) && strings.TrimSpace(selectedMetadata.Namespace) == core.NamespaceMCPServers) {
 				namespace = selectedMetadata.Namespace
 			}
 		}
@@ -656,16 +655,16 @@ func (m *ServerManager) DeployServer(name, namespace, team, scope, image, imageT
 			imageTag = selectedMetadata.ImageTag
 		}
 	}
-	if _, err := publishscope.Normalize(scope); err != nil {
+	if _, err := platforminventory.NormalizeScope(scope); err != nil {
 		return err
 	}
 	if namespace != "" && team != "" {
 		return core.NewWithBase(nil, "use either --namespace or --team, not both")
 	}
-	if scope != "" && namespace != "" && scope != string(publishscope.Tenant) {
+	if scope != "" && namespace != "" && scope != string(platforminventory.ScopeTenant) {
 		return core.NewWithBase(nil, "--scope public/org resolves the platform catalog namespace; use --scope tenant when passing --namespace")
 	}
-	if scope != "" && team != "" && scope != string(publishscope.Tenant) {
+	if scope != "" && team != "" && scope != string(platforminventory.ScopeTenant) {
 		return core.NewWithBase(nil, "--scope public/org cannot be combined with --team")
 	}
 	plat, err := platformapi.NewPlatformClient()
@@ -679,7 +678,7 @@ func (m *ServerManager) DeployServer(name, namespace, team, scope, image, imageT
 		}
 		namespace = t.Namespace
 	}
-	if namespace == "" && scope == string(publishscope.Tenant) {
+	if namespace == "" && scope == string(platforminventory.ScopeTenant) {
 		principal, err := plat.CurrentPrincipal(context.Background())
 		if err != nil {
 			return err

@@ -1,10 +1,8 @@
-package platformmode
+package platforminventory
 
 import (
 	"reflect"
 	"testing"
-
-	"mcp-runtime/pkg/publishscope"
 )
 
 func TestNormalize(t *testing.T) {
@@ -25,24 +23,24 @@ func TestNormalize(t *testing.T) {
 		{"random", ModeOrg, false},
 	}
 	for _, tc := range cases {
-		got, ok := Normalize(tc.in)
+		got, ok := NormalizeMode(tc.in)
 		if got != tc.want || ok != tc.known {
-			t.Errorf("Normalize(%q) = (%v, %v), want (%v, %v)", tc.in, got, ok, tc.want, tc.known)
+			t.Errorf("NormalizeMode(%q) = (%v, %v), want (%v, %v)", tc.in, got, ok, tc.want, tc.known)
 		}
 	}
 }
 
 func TestTwoModesAndThreePublishScopes(t *testing.T) {
-	if _, ok := Normalize("tenant"); ok {
+	if _, ok := NormalizeMode("tenant"); ok {
 		t.Fatal("tenant must only be a publish scope")
 	}
-	if got, ok := Normalize(""); !ok || got != ModeOrg {
+	if got, ok := NormalizeMode(""); !ok || got != ModeOrg {
 		t.Fatalf("default mode=%s known=%t", got, ok)
 	}
-	if got := ModeOrg.EnabledPublishScopes(); !reflect.DeepEqual(got, []publishscope.Scope{publishscope.Tenant, publishscope.Org}) {
+	if got := ModeOrg.EnabledPublishScopes(); !reflect.DeepEqual(got, []Scope{ScopeTenant, ScopeOrg}) {
 		t.Fatalf("org scopes=%v", got)
 	}
-	if got := ModePublic.EnabledPublishScopes(); !reflect.DeepEqual(got, []publishscope.Scope{publishscope.Tenant, publishscope.Org, publishscope.Public}) {
+	if got := ModePublic.EnabledPublishScopes(); !reflect.DeepEqual(got, []Scope{ScopeTenant, ScopeOrg, ScopePublic}) {
 		t.Fatalf("public scopes=%v", got)
 	}
 }
@@ -50,13 +48,13 @@ func TestTwoModesAndThreePublishScopes(t *testing.T) {
 func TestPublicNamespacesNeverIncludeOrganizationOverrides(t *testing.T) {
 	t.Setenv("PLATFORM_ORG_NAMESPACE", "private-org")
 	t.Setenv("PLATFORM_CATALOG_NAMESPACES", "private-org,mcp-servers-org,preview-extra")
-	if got := ModePublic.CatalogNamespacesForScope(publishscope.Public); !reflect.DeepEqual(got, []string{DefaultPublicCatalogNamespace, "preview-extra"}) {
+	if got := ModePublic.CatalogNamespacesForScope(ScopePublic); !reflect.DeepEqual(got, []string{DefaultPublicCatalogNamespace, "preview-extra"}) {
 		t.Fatalf("public namespaces=%v", got)
 	}
-	if got := ModePublic.CatalogNamespacesForScope(publishscope.Org); !reflect.DeepEqual(got, []string{"private-org"}) {
+	if got := ModePublic.CatalogNamespacesForScope(ScopeOrg); !reflect.DeepEqual(got, []string{"private-org"}) {
 		t.Fatalf("org namespaces=%v", got)
 	}
-	if scope, ok := ModePublic.CatalogScope("private-org"); !ok || scope != publishscope.Org {
+	if scope, ok := ModePublic.CatalogScope("private-org"); !ok || scope != ScopeOrg {
 		t.Fatalf("private-org scope=%s ok=%t", scope, ok)
 	}
 }
@@ -64,23 +62,23 @@ func TestPublicNamespacesNeverIncludeOrganizationOverrides(t *testing.T) {
 func TestFromEnvPrefersPlatformMode(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
 	t.Setenv("MCP_PLATFORM_MODE", "public")
-	if got := FromEnv(); got != ModeOrg {
-		t.Fatalf("FromEnv() = %v, want %v", got, ModeOrg)
+	if got := ModeFromEnv(); got != ModeOrg {
+		t.Fatalf("ModeFromEnv() = %v, want %v", got, ModeOrg)
 	}
 }
 
 func TestFromEnvFallsBackToMCPPlatformMode(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "")
 	t.Setenv("MCP_PLATFORM_MODE", "public")
-	if got := FromEnv(); got != ModePublic {
-		t.Fatalf("FromEnv() = %v, want %v", got, ModePublic)
+	if got := ModeFromEnv(); got != ModePublic {
+		t.Fatalf("ModeFromEnv() = %v, want %v", got, ModePublic)
 	}
 }
 
 func TestFromEnvUnknownFallsBackToTenant(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "weird")
-	if got := FromEnv(); got != ModeOrg {
-		t.Fatalf("FromEnv() = %v, want %v", got, ModeOrg)
+	if got := ModeFromEnv(); got != ModeOrg {
+		t.Fatalf("ModeFromEnv() = %v, want %v", got, ModeOrg)
 	}
 }
 

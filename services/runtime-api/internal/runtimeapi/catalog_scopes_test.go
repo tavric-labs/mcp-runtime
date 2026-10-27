@@ -2,6 +2,7 @@ package runtimeapi
 
 import (
 	"context"
+	"mcp-runtime/pkg/platforminventory"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -13,7 +14,6 @@ import (
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/publishscope"
 )
 
 func TestPublicModeScopeRoutingKeepsOrgAndPublicSeparate(t *testing.T) {
@@ -22,8 +22,8 @@ func TestPublicModeScopeRoutingKeepsOrgAndPublicSeparate(t *testing.T) {
 		p := principal{Role: role, Subject: "publisher", AuthType: "user_api_key"}
 		ctx := withPrincipal(context.Background(), p)
 		server := &RuntimeServer{}
-		for _, scope := range []publishscope.Scope{publishscope.Org, publishscope.Public} {
-			wantNS, _ := publishscope.CatalogNamespace(scope)
+		for _, scope := range []platforminventory.Scope{platforminventory.ScopeOrg, platforminventory.ScopePublic} {
+			wantNS, _ := platforminventory.ScopeCatalogNamespace(scope)
 			gotNS, err := server.scopedNamespaceForServerApply(ctx, "", scope)
 			if err != nil || gotNS != wantNS {
 				t.Fatalf("role=%s scope=%s deploy namespace=%q err=%v, want %q", role, scope, gotNS, err, wantNS)
@@ -33,7 +33,7 @@ func TestPublicModeScopeRoutingKeepsOrgAndPublicSeparate(t *testing.T) {
 				t.Fatalf("role=%s scope=%s push namespace=%q err=%v, want %q", role, scope, pushNS, err, wantNS)
 			}
 			other := defaultOrgCatalogNamespace
-			if scope == publishscope.Org {
+			if scope == platforminventory.ScopeOrg {
 				other = defaultPublicCatalogNamespace
 			}
 			if _, err := server.scopedNamespaceForServerApply(ctx, other, scope); err == nil {

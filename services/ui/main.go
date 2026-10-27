@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"log"
+	"mcp-runtime/pkg/platforminventory"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,9 +17,7 @@ import (
 	_ "go.uber.org/automaxprocs" // align GOMAXPROCS with container CPU quota
 
 	"mcp-runtime/pkg/envcfg"
-	"mcp-runtime/pkg/platformmode"
 	policypkg "mcp-runtime/pkg/policy"
-	"mcp-runtime/pkg/publishscope"
 	"mcp-runtime/pkg/telemetry"
 	"mcp-ui/internal/assets"
 	"mcp-ui/internal/auth"
@@ -195,20 +194,20 @@ func newMux(apiBase, apiUpstream, apiKey, apiKeys, adminAPIKeys string) (*http.S
 }
 
 func normalizedPlatformMode() string {
-	return string(platformmode.FromEnv())
+	return string(platforminventory.ModeFromEnv())
 }
 
 func catalogNamespacesForMode(mode string) []string {
-	normalized, _ := platformmode.Normalize(mode)
-	if normalized == platformmode.ModePublic {
+	normalized, _ := platforminventory.NormalizeMode(mode)
+	if normalized == platforminventory.ModePublic {
 		// This list powers anonymous proxy reads, so exclude org catalogs.
-		return normalized.CatalogNamespacesForScope(publishscope.Public)
+		return normalized.CatalogNamespacesForScope(platforminventory.ScopePublic)
 	}
 	return normalized.CatalogNamespaces()
 }
 
 func defaultCatalogNamespaceForMode(mode string) string {
-	normalized, _ := platformmode.Normalize(mode)
+	normalized, _ := platforminventory.NormalizeMode(mode)
 	return normalized.DefaultCatalogNamespace()
 }
 

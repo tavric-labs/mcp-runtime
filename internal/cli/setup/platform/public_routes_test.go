@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"mcp-runtime/pkg/platforminventory"
 	"os"
 	"strings"
 	"testing"
@@ -8,14 +9,13 @@ import (
 	"gopkg.in/yaml.v3"
 	"mcp-runtime/internal/cli/core"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
-	"mcp-runtime/pkg/publicroutes"
 )
 
 func TestPublicRouteSettingsReachComponents(t *testing.T) {
 	previous := core.DefaultCLIConfig
 	t.Cleanup(func() { core.DefaultCLIConfig = previous })
 	configured := *previous
-	configured.PublicRoutes = publicroutes.Routes{Platform: "/console", Grafana: "/monitoring", Docs: "/help", DocsURL: "https://docs.example.com/", Registry: "/images"}
+	configured.PublicRoutes = platforminventory.Routes{Platform: "/console", Grafana: "/monitoring", Docs: "/help", DocsURL: "https://docs.example.com/", Registry: "/images"}
 	core.DefaultCLIConfig = &configured
 	raw, err := os.ReadFile("../../../../k8s/01-config.yaml")
 	if err != nil {

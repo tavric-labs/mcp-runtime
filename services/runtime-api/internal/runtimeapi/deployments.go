@@ -29,7 +29,6 @@ import (
 	"mcp-runtime/pkg/kubeworkload"
 	"mcp-runtime/pkg/metadata"
 	"mcp-runtime/pkg/platforminventory"
-	"mcp-runtime/pkg/publishscope"
 )
 
 const (
@@ -825,7 +824,7 @@ func defaultImageRepositoryScope(namespace, teamSlug string) string {
 		return teamSlug
 	}
 	if scope, ok := catalogScopeForNamespace(namespace); ok {
-		alias, _ := publishscope.RegistryAlias(scope)
+		alias, _ := platforminventory.ScopeRegistryAlias(scope)
 		return alias
 	}
 	return strings.TrimSpace(namespace)
@@ -841,7 +840,7 @@ func allowedImageRepositoryScopes(namespace, teamSlug string) []string {
 		values = append(values, expected)
 	}
 	if scope, ok := catalogScopeForNamespace(namespace); ok {
-		alias, _ := publishscope.RegistryAlias(scope)
+		alias, _ := platforminventory.ScopeRegistryAlias(scope)
 		values = append(values, alias)
 	}
 	return dedupeNonEmptyStrings(values)

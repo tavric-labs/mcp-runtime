@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"log"
+	"mcp-runtime/pkg/platforminventory"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"mcp-platform-api/internal/httperrors"
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/publishscope"
 )
 
 const authChallenge = `Basic realm="mcp-runtime-registry"`
@@ -183,12 +183,12 @@ func (cfg *AuthzConfig) catalogScopeWritable(scope string) bool {
 	}
 	scope = strings.TrimSpace(scope)
 	switch cfg.mode {
-	case string(publishscope.Public):
-		if scope == publishscope.PublicRegistryAlias || scope == publishscope.OrgRegistryAlias {
+	case string(platforminventory.ScopePublic):
+		if scope == platforminventory.PublicRegistryAlias || scope == platforminventory.OrgRegistryAlias {
 			return true
 		}
-	case string(publishscope.Org):
-		if scope == publishscope.OrgRegistryAlias {
+	case string(platforminventory.ScopeOrg):
+		if scope == platforminventory.OrgRegistryAlias {
 			return true
 		}
 	default:
@@ -203,7 +203,7 @@ func (cfg *AuthzConfig) sharedCatalogWritableForUsers() bool {
 		return false
 	}
 	switch cfg.mode {
-	case string(publishscope.Public), string(publishscope.Org):
+	case string(platforminventory.ScopePublic), string(platforminventory.ScopeOrg):
 		return true
 	default:
 		return false

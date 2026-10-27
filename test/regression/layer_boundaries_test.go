@@ -49,13 +49,13 @@ var pkgLayers = map[string]layer{
 	"authzmatrix": leaf, "credentialbroker": leaf, "egresscidrs": leaf,
 	"envcfg": leaf, "events": leaf, "httpx": leaf,
 	"identity": leaf, "oidcdiscovery": leaf, "openapi": leaf,
-	"platforminventory": leaf, "publicroutes": leaf,
-	"publishscope": leaf, "registryauth": leaf,
+	"platforminventory":   leaf,
+	"registryauth":        leaf,
 	"transport/httptrace": leaf, "transport/tlsconfig": leaf,
 
 	// Domain: rules and models, no Kubernetes or service infrastructure.
 	"access": domain, "access/specvalidation": domain, "metadata": domain,
-	"platformmode": domain, "policy": domain, "sessionstate": domain,
+	"policy": domain, "sessionstate": domain,
 
 	// Support: HTTP, telemetry and bootstrap shared by services.
 	"apihttp": support, "authgateway": support,

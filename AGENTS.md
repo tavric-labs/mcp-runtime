@@ -94,8 +94,8 @@ identity, revocation and database-restore contract.
 Platform modes are `org` (default) and `public`; publish scopes are `tenant`
 (a team), `org`, and `public`. Public mode accepts all three scopes, but
 anonymous catalog reads must remain limited to public namespaces. Shared mode
-and catalog-namespace rules live in `pkg/platformmode`.
-Public paths are validated by `pkg/publicroutes`; see `docs/self-hosting.md` and
+and catalog-namespace rules live in `pkg/platforminventory`.
+Public paths are validated by `pkg/platforminventory`; see `docs/self-hosting.md` and
 `config/deployments/single-host.env.example`. Preserve platform API, registry,
 dashboard asset/session and MCP Auth discovery routes when changing prefixes.
 

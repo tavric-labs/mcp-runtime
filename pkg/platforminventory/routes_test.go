@@ -1,4 +1,4 @@
-package publicroutes
+package platforminventory
 
 import "testing"
 

@@ -3,6 +3,7 @@ package setup
 
 import (
 	"fmt"
+	"mcp-runtime/pkg/platforminventory"
 	"net/url"
 	"os"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	setupplan "mcp-runtime/internal/cli/setup/plan"
 	setupplatform "mcp-runtime/internal/cli/setup/platform"
 	"mcp-runtime/pkg/egresscidrs"
-	"mcp-runtime/pkg/publicroutes"
 )
 
 // loadEnvFile reads KEY=VALUE pairs from path and sets any that are not already
@@ -51,7 +51,7 @@ func newManager(runtime *core.Runtime, clusterMgr setupplatform.ClusterManagerAP
 // composition root so setup does not import the cluster command package.
 func New(runtime *core.Runtime, clusterMgr setupplatform.ClusterManagerAPI) *cobra.Command {
 	var envFile string
-	var routes publicroutes.Routes
+	var routes platforminventory.Routes
 	var registryType string
 	var registryStorageSize string
 	var registryMode string
@@ -368,7 +368,7 @@ will use to push and pull container images.`,
 	cmd.Flags().StringVar(&routes.Grafana, "grafana-path-prefix", "/grafana", "Public admin-only Grafana path prefix")
 	cmd.Flags().StringVar(&routes.Registry, "registry-path", "/registry", "Public registry browser entry path; Docker and Kubernetes clients still use /v2/")
 	cmd.Flags().StringVar(&routes.Docs, "docs-path", "/docs", "Public path that redirects to the configured documentation URL")
-	cmd.Flags().StringVar(&routes.DocsURL, "docs-url", publicroutes.DefaultDocsURL, "HTTPS documentation destination used by the docs route and dashboard links")
+	cmd.Flags().StringVar(&routes.DocsURL, "docs-url", platforminventory.DefaultDocsURL, "HTTPS documentation destination used by the docs route and dashboard links")
 	cmd.Flags().StringVar(&envFile, "env-file", "", "Path to an env file to source before setup (e.g. config/deployments/mcpruntime-org.env); variables already in the environment are not overridden")
 	cmd.Flags().StringVar(&registryType, "registry-type", "docker", "Registry type (docker; harbor coming soon)")
 	cmd.Flags().StringVar(&registryStorageSize, "registry-storage", "20Gi", "Registry storage size (default: 20Gi)")

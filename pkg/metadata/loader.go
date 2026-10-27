@@ -12,8 +12,6 @@ import (
 	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/platforminventory"
 	policypkg "mcp-runtime/pkg/policy"
-	"mcp-runtime/pkg/publicroutes"
-	"mcp-runtime/pkg/publishscope"
 )
 
 const DefaultRegistryHost = "registry.local"
@@ -88,7 +86,7 @@ func setDefaults(server *ServerMetadata) error {
 			seen[name] = true
 		}
 	}
-	scope, err := publishscope.Normalize(string(server.Scope))
+	scope, err := platforminventory.NormalizeScope(string(server.Scope))
 	if err != nil {
 		return err
 	}
@@ -100,7 +98,7 @@ func setDefaults(server *ServerMetadata) error {
 	// ResolveRegistryPullHost for kubelet pulls, while preserving external registries.
 	if server.Image == "" {
 		repository := server.Name
-		if alias, ok := publishscope.RegistryAlias(scope); ok {
+		if alias, ok := platforminventory.ScopeRegistryAlias(scope); ok {
 			repository = alias + "/" + repository
 		}
 		server.Image = fmt.Sprintf("%s/%s", ResolveRegistryHost(), repository)
@@ -109,7 +107,7 @@ func setDefaults(server *ServerMetadata) error {
 		server.ImageTag = "latest"
 	}
 	if server.Route == "" {
-		server.Route = publicroutes.DefaultMCPPath(server.Name)
+		server.Route = platforminventory.DefaultMCPPath(server.Name)
 	} else if server.Route[0] != '/' {
 		server.Route = "/" + server.Route
 	}
@@ -121,7 +119,7 @@ func setDefaults(server *ServerMetadata) error {
 		server.Replicas = &replicas
 	}
 	if server.Namespace == "" {
-		if namespace, ok := publishscope.CatalogNamespace(scope); ok {
+		if namespace, ok := platforminventory.ScopeCatalogNamespace(scope); ok {
 			server.Namespace = namespace
 		} else {
 			server.Namespace = platforminventory.MCPServersNamespace

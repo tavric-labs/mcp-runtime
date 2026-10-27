@@ -10,6 +10,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"mcp-runtime/pkg/platforminventory"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +25,6 @@ import (
 	"mcp-runtime/internal/cli/registry/ref"
 	"mcp-runtime/internal/cli/registry/resolve"
 	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/publishscope"
 )
 
 const buildTenantScopeTimeout = 30 * time.Second
@@ -115,7 +115,7 @@ func metadataScopeForBuild(serverName, metadataFile, metadataDir string) (string
 	if err != nil || !ok {
 		return "", false
 	}
-	scope, err := publishscope.Normalize(string(server.Scope))
+	scope, err := platforminventory.NormalizeScope(string(server.Scope))
 	if err != nil || scope == "" {
 		return "", false
 	}
@@ -130,11 +130,11 @@ func scopedRepositoryNameForBuild(ctx context.Context, serverName, metadataFile,
 	if !ok {
 		return serverName, nil
 	}
-	scope, err := publishscope.Normalize(string(server.Scope))
+	scope, err := platforminventory.NormalizeScope(string(server.Scope))
 	if err != nil {
 		return serverName, nil
 	}
-	if scope == publishscope.Tenant {
+	if scope == platforminventory.ScopeTenant {
 		repository := serverName
 		if image := strings.TrimSpace(server.Image); image != "" {
 			imageRepository, _ := ref.SplitImage(image)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mcp-runtime/pkg/platforminventory"
 	"net/http"
 	"os"
 	"sort"
@@ -25,7 +26,6 @@ import (
 	"mcp-runtime/pkg/controlplane"
 	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/metadata"
-	"mcp-runtime/pkg/publishscope"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -151,7 +151,7 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 		writeAPIError(w, http.StatusBadRequest, "name and spec.image are required")
 		return
 	}
-	scope, err := publishscope.Normalize(req.Scope)
+	scope, err := platforminventory.NormalizeScope(req.Scope)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return
@@ -492,7 +492,7 @@ func (s *RuntimeServer) defaultAnalyticsAPIKey(ctx context.Context) (string, err
 	return "", nil
 }
 
-func (s *RuntimeServer) scopedNamespaceForServerApply(ctx context.Context, requested string, scope publishscope.Scope) (string, error) {
+func (s *RuntimeServer) scopedNamespaceForServerApply(ctx context.Context, requested string, scope platforminventory.Scope) (string, error) {
 	requested = strings.TrimSpace(requested)
 	if scope == "" {
 		return s.Access().scopedNamespaceForPrincipal(ctx, requested)
@@ -506,16 +506,16 @@ func (s *RuntimeServer) scopedNamespaceForServerApply(ctx context.Context, reque
 		return "", err
 	}
 	switch scope {
-	case publishscope.Public, publishscope.Org:
+	case platforminventory.ScopePublic, platforminventory.ScopeOrg:
 		return scopedModeCatalogNamespaceForApply(p, requested, scope)
-	case publishscope.Tenant:
+	case platforminventory.ScopeTenant:
 		return scopedTenantNamespaceForApply(p, requested)
 	default:
 		return "", errors.New("invalid publish scope")
 	}
 }
 
-func scopedModeCatalogNamespaceForApply(p principal, requested string, scope publishscope.Scope) (string, error) {
+func scopedModeCatalogNamespaceForApply(p principal, requested string, scope platforminventory.Scope) (string, error) {
 	namespace := defaultCatalogNamespaceForScope(scope)
 	if namespace == "" {
 		return "", errors.New("catalog namespace is not configured for scope")
@@ -563,7 +563,7 @@ func principalDefaultTeamNamespace(p principal) string {
 	return ""
 }
 
-func scopeLabelForNamespace(namespace string, scope publishscope.Scope) string {
+func scopeLabelForNamespace(namespace string, scope platforminventory.Scope) string {
 	if scope != "" {
 		return string(scope)
 	}
@@ -571,7 +571,7 @@ func scopeLabelForNamespace(namespace string, scope publishscope.Scope) string {
 		return string(catalogScope)
 	}
 	if namespace != "" {
-		return string(publishscope.Tenant)
+		return string(platforminventory.ScopeTenant)
 	}
 	return ""
 }

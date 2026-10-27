@@ -1,4 +1,4 @@
-package publishscope
+package platforminventory
 
 import (
 	"fmt"
@@ -8,9 +8,9 @@ import (
 type Scope string
 
 const (
-	Tenant Scope = "tenant"
-	Org    Scope = "org"
-	Public Scope = "public"
+	ScopeTenant Scope = "tenant"
+	ScopeOrg    Scope = "org"
+	ScopePublic Scope = "public"
 
 	DefaultOrgCatalogNamespace    = "mcp-servers-org"
 	DefaultPublicCatalogNamespace = "mcp-servers-public"
@@ -19,34 +19,34 @@ const (
 	PublicRegistryAlias = "public"
 )
 
-func Normalize(raw string) (Scope, error) {
+func NormalizeScope(raw string) (Scope, error) {
 	value := Scope(strings.ToLower(strings.TrimSpace(raw)))
 	switch value {
 	case "":
 		return "", nil
-	case Tenant, Org, Public:
+	case ScopeTenant, ScopeOrg, ScopePublic:
 		return value, nil
 	default:
 		return "", fmt.Errorf("scope %q is invalid (use tenant, org, or public)", raw)
 	}
 }
 
-func CatalogNamespace(scope Scope) (string, bool) {
+func ScopeCatalogNamespace(scope Scope) (string, bool) {
 	switch scope {
-	case Org:
+	case ScopeOrg:
 		return DefaultOrgCatalogNamespace, true
-	case Public:
+	case ScopePublic:
 		return DefaultPublicCatalogNamespace, true
 	default:
 		return "", false
 	}
 }
 
-func RegistryAlias(scope Scope) (string, bool) {
+func ScopeRegistryAlias(scope Scope) (string, bool) {
 	switch scope {
-	case Org:
+	case ScopeOrg:
 		return OrgRegistryAlias, true
-	case Public:
+	case ScopePublic:
 		return PublicRegistryAlias, true
 	default:
 		return "", false

@@ -2,10 +2,9 @@
 package ingressmanifest
 
 import (
+	"mcp-runtime/pkg/platforminventory"
 	"strconv"
 	"strings"
-
-	"mcp-runtime/pkg/publicroutes"
 )
 
 const (
@@ -40,8 +39,8 @@ const (
 // loaded by the platform Ingress. An HTTP Ingress on the web entrypoint sends
 // plain requests to the UI, which redirects to HTTPS. The prod overlay
 // disables Traefik's entrypoint redirect so HTTP-01 challenges keep working.
-func RenderPlatformUIIngress(host, issuerName string, tlsEnabled bool, platformNamespace, observabilityNamespace string, configured ...publicroutes.Routes) string {
-	routes := publicroutes.Routes{}.WithDefaults()
+func RenderPlatformUIIngress(host, issuerName string, tlsEnabled bool, platformNamespace, observabilityNamespace string, configured ...platforminventory.Routes) string {
+	routes := platforminventory.Routes{}.WithDefaults()
 	if len(configured) > 0 {
 		routes = configured[0].WithDefaults()
 	}

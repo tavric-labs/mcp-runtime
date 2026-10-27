@@ -1,10 +1,9 @@
 package runtimeapi
 
 import (
+	"mcp-runtime/pkg/platforminventory"
 	"strings"
 	"testing"
-
-	"mcp-runtime/pkg/publishscope"
 )
 
 // Registry push and server deploy must agree on which scopes a platform
@@ -13,15 +12,15 @@ func TestPublishScopeConsistentAcrossPushAndDeploy(t *testing.T) {
 	admin := principal{Role: roleAdmin}
 	cases := []struct {
 		mode    string
-		scope   publishscope.Scope
+		scope   platforminventory.Scope
 		enabled bool
 	}{
-		{mode: "org", scope: publishscope.Org, enabled: true},
-		{mode: "org", scope: publishscope.Public, enabled: false},
-		{mode: "public", scope: publishscope.Public, enabled: true},
-		{mode: "public", scope: publishscope.Org, enabled: true},
-		{mode: "org", scope: publishscope.Tenant, enabled: true},
-		{mode: "public", scope: publishscope.Tenant, enabled: true},
+		{mode: "org", scope: platforminventory.ScopeOrg, enabled: true},
+		{mode: "org", scope: platforminventory.ScopePublic, enabled: false},
+		{mode: "public", scope: platforminventory.ScopePublic, enabled: true},
+		{mode: "public", scope: platforminventory.ScopeOrg, enabled: true},
+		{mode: "org", scope: platforminventory.ScopeTenant, enabled: true},
+		{mode: "public", scope: platforminventory.ScopeTenant, enabled: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.mode+"/"+string(tc.scope), func(t *testing.T) {
@@ -46,7 +45,7 @@ func TestPublishScopeConsistentAcrossPushAndDeploy(t *testing.T) {
 
 func TestPublishScopeEnabledErrorIsActionable(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
-	err := publishScopeEnabledError(publishscope.Public)
+	err := publishScopeEnabledError(platforminventory.ScopePublic)
 	if err == nil {
 		t.Fatal("expected public scope to be disabled in org mode")
 	}
@@ -56,7 +55,7 @@ func TestPublishScopeEnabledErrorIsActionable(t *testing.T) {
 			t.Fatalf("error %q does not mention %q", msg, want)
 		}
 	}
-	if err := publishScopeEnabledError(publishscope.Tenant); err != nil {
+	if err := publishScopeEnabledError(platforminventory.ScopeTenant); err != nil {
 		t.Fatalf("tenant scope must always be enabled: %v", err)
 	}
 	if err := publishScopeEnabledError(""); err != nil {

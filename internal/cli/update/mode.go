@@ -15,7 +15,6 @@ import (
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/platformrelease"
 	"mcp-runtime/pkg/platforminventory"
-	"mcp-runtime/pkg/platformmode"
 )
 
 var modeDependents = []string{"runtime-api", "platform-api", "ui"}
@@ -24,7 +23,7 @@ func validatePlatformModeOptions(opts Options) error {
 	if opts.PlatformMode == "" {
 		return nil
 	}
-	if _, ok := platformmode.Normalize(opts.PlatformMode); !ok || strings.TrimSpace(opts.PlatformMode) == "" {
+	if _, ok := platforminventory.NormalizeMode(opts.PlatformMode); !ok || strings.TrimSpace(opts.PlatformMode) == "" {
 		return core.NewWithBase(core.ErrUpdateInvalidFlag, "--platform-mode must be org or public; tenant is a publish scope")
 	}
 	if len(opts.Only) > 0 {
@@ -36,7 +35,7 @@ func validatePlatformModeOptions(opts Options) error {
 // setManifestPlatformMode moves configuration-only rollouts into update: callers
 // no longer need to manufacture ConfigMap/restart entries in a release manifest.
 func setManifestPlatformMode(ctx context.Context, cs kubernetes.Interface, m *platformrelease.Manifest, raw string) error {
-	mode, _ := platformmode.Normalize(raw)
+	mode, _ := platforminventory.NormalizeMode(raw)
 	for _, ns := range []string{platforminventory.PlatformNamespace, platforminventory.ObservabilityNamespace} {
 		_, err := cs.CoreV1().ConfigMaps(ns).Get(ctx, "mcp-shared-config", metav1.GetOptions{})
 		if apierrors.IsNotFound(err) && ns == platforminventory.ObservabilityNamespace {
@@ -78,7 +77,7 @@ func setManifestPlatformMode(ctx context.Context, cs kubernetes.Interface, m *pl
 // catalogTargets resolves only the target cluster's configuration. The
 // workstation's PLATFORM_* environment must never affect production namespaces.
 func catalogTargets(data map[string]string) (map[string]string, error) {
-	mode, valid := platformmode.Normalize(data["PLATFORM_MODE"])
+	mode, valid := platforminventory.NormalizeMode(data["PLATFORM_MODE"])
 	if !valid || strings.TrimSpace(data["PLATFORM_MODE"]) == "" {
 		return nil, fmt.Errorf("PLATFORM_MODE must explicitly be org or public")
 	}
@@ -90,18 +89,18 @@ func catalogTargets(data map[string]string) (map[string]string, error) {
 		}
 		return fallback
 	}
-	org := value(platformmode.DefaultOrgCatalogNamespace, "PLATFORM_ORG_NAMESPACE")
+	org := value(platforminventory.DefaultOrgCatalogNamespace, "PLATFORM_ORG_NAMESPACE")
 	primary := org
-	if mode == platformmode.ModePublic {
-		primary = value(platformmode.DefaultPublicCatalogNamespace, "PLATFORM_PUBLIC_NAMESPACE")
+	if mode == platforminventory.ModePublic {
+		primary = value(platforminventory.DefaultPublicCatalogNamespace, "PLATFORM_PUBLIC_NAMESPACE")
 	}
 	primary = value(primary, "PLATFORM_CATALOG_NAMESPACE", "MCP_PLATFORM_CATALOG_NAMESPACE")
 	extra := value("", "PLATFORM_CATALOG_NAMESPACES", "MCP_PLATFORM_CATALOG_NAMESPACES")
-	if extra == "" && mode == platformmode.ModePublic {
+	if extra == "" && mode == platforminventory.ModePublic {
 		extra = value("", "PLATFORM_PUBLIC_NAMESPACES", "MCP_PLATFORM_PUBLIC_NAMESPACES")
 	}
 	targets := map[string]string{}
-	if mode == platformmode.ModePublic {
+	if mode == platforminventory.ModePublic {
 		targets[org] = "org"
 	}
 	for _, name := range append([]string{primary}, strings.Split(extra, ",")...) {
@@ -109,7 +108,7 @@ func catalogTargets(data map[string]string) (map[string]string, error) {
 		if name == "" {
 			continue
 		}
-		if mode == platformmode.ModePublic && (name == org || name == platformmode.DefaultOrgCatalogNamespace) {
+		if mode == platforminventory.ModePublic && (name == org || name == platforminventory.DefaultOrgCatalogNamespace) {
 			return nil, fmt.Errorf("organization catalog %q cannot be a public catalog", name)
 		}
 		targets[name] = string(mode)

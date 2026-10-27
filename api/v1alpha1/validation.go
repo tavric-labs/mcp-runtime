@@ -19,7 +19,6 @@ import (
 	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/platforminventory"
 	policypkg "mcp-runtime/pkg/policy"
-	"mcp-runtime/pkg/publicroutes"
 )
 
 var (
@@ -60,7 +59,7 @@ func defaultIngressPathFromName(name string) string {
 	if strings.TrimSpace(name) == "" {
 		return ""
 	}
-	return publicroutes.DefaultMCPPath(strings.TrimSpace(name))
+	return platforminventory.DefaultMCPPath(strings.TrimSpace(name))
 }
 
 func defaultPublicPathPrefixFromName(name string) string {
