@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
-	"mcp-runtime/pkg/blueprint"
+	"mcp-runtime/internal/blueprint"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"

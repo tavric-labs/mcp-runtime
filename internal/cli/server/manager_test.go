@@ -19,10 +19,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
+	"mcp-runtime/internal/blueprint"
 	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/blueprint"
 )
 
 func newKubeTestServerManager(kubectl *core.KubectlClient) *ServerManager {

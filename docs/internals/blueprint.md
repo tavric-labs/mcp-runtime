@@ -1,6 +1,6 @@
 # Server Blueprint (`.mcp`)
 
-Package `pkg/blueprint` is the `.mcp` server definition used by the authoring
+Package `internal/blueprint` is the `.mcp` server definition used by the authoring
 flow. It loads lightweight server definition files and applies defaults and
 validation. Hostname and registry resolution live in `pkg/topology`, and
 rendering a definition into an `MCPServer` manifest lives in
@@ -9,7 +9,7 @@ rendering a definition into an `MCPServer` manifest lives in
 Refresh the package reference with:
 
 ```bash
-go doc -all ./pkg/blueprint
+go doc -all ./internal/blueprint
 ```
 
 ## Metadata Schema
@@ -75,7 +75,7 @@ such as `ghcr.io/owner/image` remain unchanged.
 `crdgen.GenerateCRD` (package `internal/cli/server/crdgen`) converts one `ServerMetadata`
 into an `MCPServer` YAML manifest. `crdgen.GenerateCRDsFromRegistry` writes one
 manifest per server to an output directory. The generator is the only part of the
-blueprint flow that imports Kubernetes types; `pkg/blueprint` itself stays
+blueprint flow that imports Kubernetes types; `internal/blueprint` itself stays
 Kubernetes-free, and `topology.ImageRefForClusterPull` supplies the pull host.
 
 Generation should be deterministic:
@@ -89,15 +89,15 @@ Generation should be deterministic:
 
 When changing blueprint behavior:
 
-1. Update the `pkg/blueprint` schema and the `internal/cli/server/crdgen` mapping.
-2. Add or update fixtures in `pkg/blueprint/testdata` when useful.
+1. Update the `internal/blueprint` schema and the `internal/cli/server/crdgen` mapping.
+2. Add or update fixtures in `internal/blueprint/testdata` when useful.
 3. Update user docs for `.mcp` authoring if the field is user-facing.
 4. Check examples that rely on generated manifests.
 
 Run:
 
 ```bash
-go test ./pkg/blueprint/... ./internal/cli/server/... -count=1
+go test ./internal/blueprint/... ./internal/cli/server/... -count=1
 go test ./internal/cli/server -run 'TestGenerate|TestBuild' -count=1
 ```
 

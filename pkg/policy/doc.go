@@ -1,4 +1,4 @@
-// Package policy is the gateway authorization model.
+// Package policy is the gateway authorization model: policy documents, compilation and per-request decisions.
 //
 // A rendered Document holds tools, grants and session bindings. Compile indexes
 // it, and Authorize evaluates one MCP request into a Decision with a status,

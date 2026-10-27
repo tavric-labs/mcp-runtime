@@ -54,7 +54,7 @@ var pkgLayers = map[string]layer{
 	"transport/httptrace": leaf, "transport/tlsconfig": leaf,
 
 	// Domain: rules and models, no Kubernetes or service infrastructure.
-	"access": domain, "access/specvalidation": domain, "blueprint": domain,
+	"access": domain, "access/specvalidation": domain,
 	"policy": domain, "sessionstate": domain,
 
 	// Support: HTTP, telemetry and bootstrap shared by services.

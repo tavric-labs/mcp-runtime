@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"mcp-runtime/internal/blueprint"
 	"mcp-runtime/internal/cli/core"
 	registrycli "mcp-runtime/internal/cli/registry"
-	"mcp-runtime/pkg/blueprint"
 	"mcp-runtime/pkg/topology"
 )
 

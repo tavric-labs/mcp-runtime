@@ -9,10 +9,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"mcp-runtime/pkg/blueprint"
+	"mcp-runtime/internal/blueprint"
 )
 
-// Environment names read by the registry-host helpers in pkg/blueprint.
+// Environment names read by the registry-host helpers in internal/blueprint.
 const (
 	envMCPRegistryPullHost    = "MCP_REGISTRY_PULL_HOST"
 	envMCPRegistryEndpoint    = "MCP_REGISTRY_ENDPOINT"

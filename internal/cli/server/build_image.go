@@ -19,12 +19,12 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
+	"mcp-runtime/internal/blueprint"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
 	"mcp-runtime/internal/cli/registry"
 	"mcp-runtime/internal/cli/registry/ref"
 	"mcp-runtime/internal/cli/registry/resolve"
-	"mcp-runtime/pkg/blueprint"
 )
 
 const buildTenantScopeTimeout = 30 * time.Second

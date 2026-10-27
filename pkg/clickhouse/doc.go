@@ -1,4 +1,4 @@
-// Package clickhouse is the analytics store client.
+// Package clickhouse is the analytics store client: connection setup, the event model and the dashboard queries.
 //
 // It builds a ClickHouse connection from Config (address, database, optional
 // TLS through transport/tlsconfig), validates database names, and exposes the

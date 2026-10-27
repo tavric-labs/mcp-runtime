@@ -3,7 +3,7 @@ package server
 import (
 	"testing"
 
-	"mcp-runtime/pkg/blueprint"
+	"mcp-runtime/internal/blueprint"
 )
 
 // server deploy must send only the auth values the user wrote in .mcp

@@ -28,7 +28,7 @@ explicit isolated Kind kubeconfig from the contributor guide.
 | API types | `go test ./api/v1alpha1/... -count=1` | CRD structs, validation, deepcopy, scheme registration |
 | CLI | `go test ./internal/cli/... -count=1` | command routing, command behavior, setup planning, registry helpers, doctor checks |
 | Operator | `go test ./internal/operator/... -race -count=1` | reconciliation defaults, owned resources, status, registry/image behavior |
-| Metadata | `go test ./pkg/blueprint/... -count=1` | `.mcp` loading, host resolution, manifest generation |
+| Metadata | `go test ./internal/blueprint/... -count=1` | `.mcp` loading, host resolution, manifest generation |
 | Platform services | `go test -race -count=1 ./...` in each service module | API, UI, ingest, processor, proxy service logic |
 
 ### Gateway filter boundaries
@@ -141,6 +141,21 @@ services or discover a cluster:
 
 ```bash
 hack/ci/go-test.sh . -count=1 ./test/regression -run TestSharedInfrastructureDependencyBoundaries
+```
+
+### Package layout guards
+
+Three offline tests in `test/regression` keep `pkg/` from drifting. They parse
+imports and `go list` output only; they do not contact a cluster.
+
+| Test | Fails when |
+|---|---|
+| `TestSharedPackageLayerDesign` | a `pkg/` package imports a higher layer, imports Kubernetes libraries below the adapter layer, or is not assigned a layer |
+| `TestPkgHoldsOnlyCodeSharedAcrossModules` | a `pkg/` package is used by fewer than two Go modules (the root module and each `services/*` module count separately; test files and use through another `pkg/` package count). Move single-consumer code to that module's `internal/` tree, or add a reasoned `soleModuleExceptions` entry |
+| `TestEveryPackageDocumentsItsPurpose` | a `pkg/` package has no package doc, or its first sentence is too short to say what the package does |
+
+```bash
+hack/ci/go-test.sh . -count=1 ./test/regression -run 'TestSharedPackageLayerDesign|TestPkgHoldsOnlyCodeSharedAcrossModules|TestEveryPackageDocumentsItsPurpose'
 ```
 
 ## Golden CLI Tests

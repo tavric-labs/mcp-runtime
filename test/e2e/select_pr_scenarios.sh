@@ -197,7 +197,7 @@ classify_path() {
       add_scenario "adapter-certificates"
       return
       ;;
-    api/*|cmd/operator/*|internal/operator/*|config/*|k8s/*|pkg/controlplane/*|pkg/k8sclient/*|pkg/kubeworkload/*|internal/cli/manifest/*|pkg/blueprint/*)
+    api/*|cmd/operator/*|internal/operator/*|config/*|k8s/*|pkg/controlplane/*|pkg/k8sclient/*|pkg/kubeworkload/*|internal/cli/manifest/*|internal/blueprint/*)
       # Setup plus the namespace-placement check in smoke-auth covers install
       # and reconcile. Product flows are selected from their own paths.
       return

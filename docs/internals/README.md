@@ -153,7 +153,7 @@ flowchart TB
     CLIAdapter[internal/cli/adapter] --> AgentAdapter[internal/agentadapter]
     CLIRoot --> CLICommands[CLI command packages]
     CLICommands --> CLICore[internal/cli/core]
-    CLICommands --> Blueprint[pkg/blueprint]
+    CLICommands --> Blueprint[internal/blueprint]
     CLICommands --> Manifest[internal/cli/manifest]
     CLICommands --> K8sClient[pkg/k8sclient]
     CLICommands --> Access[pkg/access]
@@ -201,7 +201,6 @@ authoritative description; this table is the map.
 | `apikit` | support | API conventions: typed errors and envelope, pagination, query and body helpers, and the platform-api wire types shared across modules |
 | `authgateway` | support | Deployment contract of the optional credential gateway |
 | `authzmatrix` | leaf | Authn/authz expectation matrix and role credentials for conformance tests |
-| `blueprint` | domain | The `.mcp` server definition: schema, defaults, validation and loader |
 | `clickhouse` | support | Analytics store client, event model and dashboard queries |
 | `controlplane` | adapter | List, apply and report on MCPServer resources and their Deployments |
 | `credentialbroker` | leaf | Metadata-only credential contract and gateway resolution interface |
@@ -279,14 +278,14 @@ its own layer or a lower one, never a higher one.
 |---|---|---|
 | Composers | `services/*`, `cmd/*`, `internal/*` (runtime-api, platform-api, operator, CLI) | Wire everything together; change most often |
 | Adapters | `k8sclient`, `kubeworkload`, `registrypush`, `controlplane`, `resourcehistory` | The only layer that imports Kubernetes libraries |
-| Domain | `policy`, `access`, `sessionstate`, `blueprint` | Rules and models; no Kubernetes or service infrastructure |
+| Domain | `policy`, `access`, `sessionstate` | Rules and models; no Kubernetes or service infrastructure |
 | Leaves | `identity`, `events`, `credentialbroker`, `envcfg`, `httpx`, `topology` and similar | Import only other leaves; most stable |
 
 Support packages (`apikit`, `passport`, `telemetry`, `svcboot`, `clickhouse`)
 sit beside the domain and never import adapters. The `mcp-gateway` may use
 `policy`, `events` and `credentialbroker` but must not import an adapter.
 `TestSharedPackageLayerDesign` enforces this and fails for an unclassified new
-package. `pkg/blueprint` is Kubernetes-free: the MCPServer CRD rendering
+package. `internal/blueprint` is Kubernetes-free: the MCPServer CRD rendering
 lives in `internal/cli/server/crdgen`, which only the CLI uses. `pkg/access` is Kubernetes-free too: it
 holds the grant and session specs, request contracts and validation, with its own
 `access.Time` and `access.Condition` that marshal exactly like `metav1.Time` and
@@ -335,7 +334,7 @@ workflows.
 |---|---|---|
 | Add or change a CLI flag | `internal/cli/root`, `internal/cli/<command>`, `internal/cli/core`, `cmd/mcp-runtime`, golden CLI tests | `go test ./internal/cli/... ./test/golden/... -count=1` |
 | Change a CRD field | `api/v1alpha1`, CRD YAML, operator reconciliation, docs/API reference | `go test ./api/v1alpha1/... ./internal/operator/... -count=1` |
-| Change generated manifests | `pkg/blueprint`, `internal/cli/manifest`, `config/`, examples | targeted package tests plus manifest diff review |
+| Change generated manifests | `internal/blueprint`, `internal/cli/manifest`, `config/`, examples | targeted package tests plus manifest diff review |
 | Change reconciliation behavior | `internal/operator`, API types, k8s helpers | `go test ./internal/operator/... -race -count=1` |
 | Change governance policy | `pkg/access`, `pkg/policy`, `services/runtime-api`, `services/mcp-gateway`, access CRDs | targeted package/service tests plus e2e policy scenario |
 | Change agent adapters | `internal/agentadapter`, `internal/cli/adapter`, `docs/connect-clients.md` | `go test ./internal/agentadapter ./internal/cli/adapter -count=1` |

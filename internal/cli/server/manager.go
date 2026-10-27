@@ -22,13 +22,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
+	"mcp-runtime/internal/blueprint"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/kube"
 	"mcp-runtime/internal/cli/kubeerr"
 	"mcp-runtime/internal/cli/platformapi"
 	registrycli "mcp-runtime/internal/cli/registry"
 	"mcp-runtime/internal/cli/server/crdgen"
-	"mcp-runtime/pkg/blueprint"
 	policypkg "mcp-runtime/pkg/policy"
 )
 

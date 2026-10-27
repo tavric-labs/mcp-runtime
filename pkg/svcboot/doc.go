@@ -1,4 +1,4 @@
-// Package svcboot is service startup.
+// Package svcboot starts every service the same way: server, request IDs, metrics and tracing.
 //
 // Run(Config) builds the http.Server with safe timeouts, wraps the handler with
 // request IDs, request metrics and tracing, and serves until shutdown.
