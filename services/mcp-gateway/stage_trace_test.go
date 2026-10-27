@@ -23,7 +23,7 @@ func TestPipelineStageTraceContextsAreRestored(t *testing.T) {
 	ctx, root := provider.Tracer("test").Start(context.Background(), "request")
 	s := minimalServer()
 	pipeline := s.buildPipeline()
-	pipeline.Upstream = FilterFunc[PermittedRequest, AuthorizedRequest](func(permitted PermittedRequest) (AuthorizedRequest, *FilterResponse) {
+	pipeline.Upstream = FilterFunc[PermittedRequest, EvaluatedRequest](func(permitted PermittedRequest) (EvaluatedRequest, *FilterResponse) {
 		in := permitted.request
 		active := trace.SpanFromContext(in.R.Context()).SpanContext()
 		if active.SpanID() == root.SpanContext().SpanID() || active.TraceID() != root.SpanContext().TraceID() {

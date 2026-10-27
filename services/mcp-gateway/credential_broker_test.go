@@ -62,7 +62,7 @@ func TestGatewayBrokerUsesVerifiedSessionAndPrivateRotatingUpstreamDelivery(t *t
 		ex := newTestExchange(http.MethodPost, "/mcp", `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search"}}`, nil)
 		ex.Policy = &policy.Document{CredentialBindings: []string{"upstream"}}
 		ex.Inspection = inspectedRPC("tools/call", "search", RPCRequest)
-		ex.Identity = identityContext{SessionID: "session", Session: &policy.Binding{Name: "session", Namespace: "team", HumanID: "human", AgentID: "verified-agent"}}
+		ex.Caller = verifiedTestCaller(identityContext{SessionID: "session", Session: &policy.Binding{Name: "session", Namespace: "team", HumanID: "human", AgentID: "verified-agent"}})
 		ex.Decision = policy.Allow("fixture", "v1")
 		ex.R.Header.Set(cb.HeaderPrefix+"Token", "caller-forged")
 		ex.R.Header.Set(cb.HeaderPrefix+"Forged", "caller-forged")
@@ -82,7 +82,9 @@ func TestGatewayBrokerUsesVerifiedSessionAndPrivateRotatingUpstreamDelivery(t *t
 		t.Fatal("broker value was cached")
 	}
 	ex := newExchange()
-	ex.Identity.Session = nil
+	unsessioned := ex.Identity()
+	unsessioned.Session = nil
+	ex.Caller = verifiedTestCaller(unsessioned)
 	if ex.upstream(s) == nil || ex.Decision.Allowed || ex.W.ResponseWriter.(*httptest.ResponseRecorder).Code != 503 || calls.Load() != 2 || upstreamCalls != 2 {
 		t.Fatal("sessionless call reached broker/upstream")
 	}

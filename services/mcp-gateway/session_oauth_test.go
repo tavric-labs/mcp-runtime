@@ -24,8 +24,8 @@ func TestOAuthSIDResolvesExternalConsentBinding(t *testing.T) {
 	server.sessionSync = &gatewaySessionSync{lastSync: time.Now(), staleWindow: time.Minute, sessions: map[string]sessionstate.Session{namespace + "/session": {Binding: binding}}}
 	token := issuer.sign(t, jwt.MapClaims{"iss": issuer.url, "aud": "http://proxy.example.com/mcp", "sub": "human", "azp": "agent", "team_id": "team-id", "sid": "session", "exp": time.Now().Add(time.Hour).Unix()})
 	ex.R.Header.Set("Authorization", "Bearer "+token)
-	if result := ex.authenticate(server); result != nil || ex.Identity.Session == nil || ex.Identity.Session.ConsentedTrust != "low" {
-		t.Fatalf("result=%v identity=%+v decision=%+v", result, ex.Identity, ex.Decision)
+	if result := ex.authenticate(server); result != nil || ex.Identity().Session == nil || ex.Identity().Session.ConsentedTrust != "low" {
+		t.Fatalf("result=%v identity=%+v decision=%+v", result, ex.Identity(), ex.Decision)
 	}
 	// An identity mismatch must never receive another principal's consent.
 	binding.HumanID = "other-human"
