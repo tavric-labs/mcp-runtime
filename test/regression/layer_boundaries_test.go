@@ -66,7 +66,7 @@ var pkgLayers = map[string]layer{
 	// Adapters: the only layer that talks to Kubernetes.
 	"controlplane": adapter, "k8sclient": adapter, "kubeworkload": adapter,
 	"metadata/crdgen": adapter, "access/k8sstore": adapter,
-	"operatorutil": adapter, "platformstack": adapter, "registrypush": adapter,
+	"platformstack": adapter, "registrypush": adapter,
 	"resourcehistory": adapter, "workloadidentity": adapter,
 }
 

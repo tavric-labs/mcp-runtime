@@ -20,7 +20,6 @@ import (
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	"mcp-runtime/pkg/controlplane"
-	"mcp-runtime/pkg/operatorutil"
 )
 
 func (r *MCPServerReconciler) checkPolicyConfigMapReady(ctx context.Context, mcpServer *mcpv1alpha1.MCPServer) (bool, error) {
@@ -173,12 +172,12 @@ func (r *MCPServerReconciler) updateStatus(ctx context.Context, mcpServer *mcpv1
 	latest.Status.URL = mcpServer.CanonicalResourceURL(r.publicURLOptions())
 
 	// Update all conditions using the centralized helper
-	operatorutil.SetCondition(&latest.Status.Conditions, operatorutil.DeploymentReady, readiness.Deployment, phase, message, latest.Generation)
-	operatorutil.SetCondition(&latest.Status.Conditions, operatorutil.ServiceReady, readiness.Service, phase, message, latest.Generation)
-	operatorutil.SetCondition(&latest.Status.Conditions, operatorutil.IngressReady, readiness.Ingress, phase, message, latest.Generation)
-	operatorutil.SetCondition(&latest.Status.Conditions, operatorutil.GatewayReady, readiness.Gateway, phase, message, latest.Generation)
-	operatorutil.SetCondition(&latest.Status.Conditions, operatorutil.PolicyReady, readiness.Policy, phase, message, latest.Generation)
-	operatorutil.SetCondition(&latest.Status.Conditions, operatorutil.CanaryReady, readiness.Canary, phase, message, latest.Generation)
+	SetCondition(&latest.Status.Conditions, DeploymentReady, readiness.Deployment, phase, message, latest.Generation)
+	SetCondition(&latest.Status.Conditions, ServiceReady, readiness.Service, phase, message, latest.Generation)
+	SetCondition(&latest.Status.Conditions, IngressReady, readiness.Ingress, phase, message, latest.Generation)
+	SetCondition(&latest.Status.Conditions, GatewayReady, readiness.Gateway, phase, message, latest.Generation)
+	SetCondition(&latest.Status.Conditions, PolicyReady, readiness.Policy, phase, message, latest.Generation)
+	SetCondition(&latest.Status.Conditions, CanaryReady, readiness.Canary, phase, message, latest.Generation)
 
 	// Use Status().Update() which only updates the status subresource
 	if err := r.Status().Update(ctx, latest); err != nil {

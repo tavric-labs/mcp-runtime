@@ -1,4 +1,4 @@
-package operatorutil
+package operator
 
 import (
 	"testing"
