@@ -1,4 +1,4 @@
-package serviceutil
+package httptrace
 
 import (
 	"context"

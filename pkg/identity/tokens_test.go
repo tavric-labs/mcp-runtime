@@ -1,5 +1,4 @@
-// Package serviceutil provides tests for authentication utilities.
-package serviceutil
+package identity
 
 import (
 	"testing"

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/transport/httptrace"
 )
 
 // PrincipalForUserID deliberately does not cache positive account state.
@@ -41,7 +41,7 @@ func (r *HTTPUserKeyResolver) PrincipalForUserID(ctx context.Context, userID str
 		client = http.DefaultClient
 	}
 	// #nosec G704 -- same validated internal service endpoint as NewRequest.
-	resp, err := serviceutil.DoHTTP(client, req)
+	resp, err := httptrace.DoHTTP(client, req)
 	if err != nil {
 		return Principal{}, err
 	}

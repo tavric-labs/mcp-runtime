@@ -16,9 +16,11 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/events"
 	policypkg "mcp-runtime/pkg/policy"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/telemetry"
+	"mcp-runtime/pkg/transport/httptrace"
 )
 
 const upstreamResponseHeaderTimeout = 30 * time.Second
@@ -53,11 +55,11 @@ func newUpstreamTransport(responseHeaderTimeout time.Duration) http.RoundTripper
 	transport.IdleConnTimeout = 90 * time.Second
 	transport.TLSHandshakeTimeout = 5 * time.Second
 	transport.ResponseHeaderTimeout = responseHeaderTimeout
-	return newResilientUpstreamTransport(serviceutil.TracedTransport(credentialTrailerTransport{base: transport}), responseHeaderTimeout, 128, 32, 5, 5*time.Second)
+	return newResilientUpstreamTransport(httptrace.TracedTransport(credentialTrailerTransport{base: transport}), responseHeaderTimeout, 128, 32, 5, 5*time.Second)
 }
 
 func handleUpstreamError(w http.ResponseWriter, r *http.Request, err error) {
-	w = serviceutil.CorrelateResponse(w, r.Context())
+	w = telemetry.CorrelateResponse(w, r.Context())
 	logMessage := "gateway upstream error"
 	status := http.StatusBadGateway
 	errorCode := "upstream_error"
@@ -73,9 +75,9 @@ func handleUpstreamError(w http.ResponseWriter, r *http.Request, err error) {
 		message = "upstream response timeout"
 	}
 	markUpstreamOutcome(r, status, errorCode, gate.reason != "")
-	serviceutil.RecordSpanFailure(r.Context(), "gateway.upstream", errorCode, status, nil)
-	serviceutil.LogfCtx(r.Context(), "event=gateway.upstream service=%q message=%q status=%d reason=%q",
-		serviceutil.EnvOr("OTEL_SERVICE_NAME", "mcp-gateway"), logMessage, status, errorCode)
+	telemetry.RecordSpanFailure(r.Context(), "gateway.upstream", errorCode, status, nil)
+	telemetry.LogfCtx(r.Context(), "event=gateway.upstream service=%q message=%q status=%d reason=%q",
+		envcfg.EnvOr("OTEL_SERVICE_NAME", "mcp-gateway"), logMessage, status, errorCode)
 
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
@@ -94,7 +96,7 @@ func isUpstreamTimeout(err error) bool {
 // It runs the five ordered filters (inspect → policy → auth → authz → upstream)
 // and then unconditionally runs stage 6 (audit/analytics finalization).
 func (s *gatewayServer) handleGateway(w http.ResponseWriter, r *http.Request) {
-	ex := newExchange(serviceutil.CorrelateResponse(w, r.Context()), r, s.defaultPolicyVersion)
+	ex := newExchange(telemetry.CorrelateResponse(w, r.Context()), r, s.defaultPolicyVersion)
 	// ReverseProxy aborts a partially written response on body read failure.
 	// Audit must still run during that unwind, after upstream outcome capture.
 	defer func() { s.recordGatewayOutcome(ex); s.emitAuditFromExchange(ex) }()
@@ -149,7 +151,7 @@ func (s *gatewayServer) handleGateway(w http.ResponseWriter, r *http.Request) {
 // handleUpstreamError.
 func (s *gatewayServer) recordGatewayOutcome(ex *Exchange) {
 	status := ex.W.status
-	if !serviceutil.IsProbePath(ex.R) || status >= http.StatusBadRequest {
+	if !telemetry.IsProbePath(ex.R) || status >= http.StatusBadRequest {
 		decision := "allow"
 		if !ex.Decision.Allowed && !ex.SkipAudit {
 			decision = "deny"
@@ -170,8 +172,8 @@ func (s *gatewayServer) recordGatewayOutcome(ex *Exchange) {
 				}
 			}
 		}
-		serviceutil.LogfCtx(ex.R.Context(), "event=gateway.request service=%q namespace=%q server=%q tool=%q policy_version=%q method=%q status=%d decision=%q reason=%q duration_ms=%.3f",
-			serviceutil.EnvOr("OTEL_SERVICE_NAME", "mcp-gateway"), scope.Namespace, scope.Server, tool, ex.Decision.PolicyVersion, metricRPCMethod(ex.Inspection.Method()), status,
+		telemetry.LogfCtx(ex.R.Context(), "event=gateway.request service=%q namespace=%q server=%q tool=%q policy_version=%q method=%q status=%d decision=%q reason=%q duration_ms=%.3f",
+			envcfg.EnvOr("OTEL_SERVICE_NAME", "mcp-gateway"), scope.Namespace, scope.Server, tool, ex.Decision.PolicyVersion, metricRPCMethod(ex.Inspection.Method()), status,
 			decision, ex.Decision.Reason, float64(time.Since(ex.StartTime))/float64(time.Millisecond))
 	}
 	denied := !ex.Decision.Allowed && !ex.SkipAudit
@@ -187,8 +189,8 @@ func (s *gatewayServer) recordGatewayOutcome(ex *Exchange) {
 	}
 	method := metricRPCMethod(ex.Inspection.Method())
 	ctx := ex.R.Context()
-	serviceutil.RecordSpanFailure(ctx, "gateway.request", reason, status, nil)
-	serviceutil.LogfCtx(ctx, "gateway request rejected method=%q status=%d reason=%q duration=%s",
+	telemetry.RecordSpanFailure(ctx, "gateway.request", reason, status, nil)
+	telemetry.LogfCtx(ctx, "gateway request rejected method=%q status=%d reason=%q duration=%s",
 		method, status, reason, time.Since(ex.StartTime))
 }
 

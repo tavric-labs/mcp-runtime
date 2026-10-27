@@ -1,5 +1,4 @@
-// Package serviceutil provides tests for environment utilities.
-package serviceutil
+package envcfg
 
 import (
 	"os"

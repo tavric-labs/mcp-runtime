@@ -17,7 +17,6 @@ import (
 
 	"mcp-runtime/pkg/identity"
 	policypkg "mcp-runtime/pkg/policy"
-	"mcp-runtime/pkg/serviceutil"
 )
 
 type oauthMetadataResponse struct {
@@ -389,9 +388,9 @@ func extractToken(headerName, value string) string {
 		return ""
 	}
 	if strings.EqualFold(strings.TrimSpace(headerName), "authorization") {
-		return serviceutil.ExtractBearer(value)
+		return identity.ExtractBearer(value)
 	}
-	if token := serviceutil.ExtractBearer(value); token != "" {
+	if token := identity.ExtractBearer(value); token != "" {
 		return token
 	}
 	return value

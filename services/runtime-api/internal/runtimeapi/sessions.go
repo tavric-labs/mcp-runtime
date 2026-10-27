@@ -12,7 +12,6 @@ import (
 	runtimeaccess "mcp-runtime-api/internal/runtimeapi/access"
 	mcpaccess "mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/serviceutil"
 )
 
 type accessSessionRequest = mcpaccess.SessionApplyRequest
@@ -46,7 +45,7 @@ func (s *AccessService) HandleSessionItemPath(w http.ResponseWriter, r *http.Req
 		s.handleSessionGet(w, r, ns, name)
 		return
 	case http.MethodDelete:
-		ns, name, err := serviceutil.ExtractNamespacedResourceDelete(r, "/api/runtime/sessions/")
+		ns, name, err := runtimeaccess.ExtractNamespacedResourceDelete(r, "/api/runtime/sessions/")
 		if err != nil {
 			writeAPIError(w, http.StatusBadRequest, err.Error())
 			return
@@ -183,9 +182,9 @@ func (s *AccessService) handleSessionPatch(w http.ResponseWriter, r *http.Reques
 
 // handleSessionPostTogglePath handles legacy POST /api/runtime/sessions/{namespace}/{name}/revoke|unrevoke.
 func (s *AccessService) handleSessionPostTogglePath(w http.ResponseWriter, r *http.Request) {
-	params, err := serviceutil.ExtractSessionActionParams(r, "/api/runtime/sessions/")
+	params, err := runtimeaccess.ExtractSessionActionParams(r, "/api/runtime/sessions/")
 	if err != nil {
-		if errors.Is(err, serviceutil.ErrMethodNotAllowed) {
+		if errors.Is(err, runtimeaccess.ErrMethodNotAllowed) {
 			writeAPIError(w, http.StatusMethodNotAllowed, err.Error())
 		} else {
 			writeAPIError(w, http.StatusBadRequest, err.Error())
@@ -193,7 +192,7 @@ func (s *AccessService) handleSessionPostTogglePath(w http.ResponseWriter, r *ht
 		return
 	}
 
-	revoke := !serviceutil.IsActionEnabled(params.Action)
+	revoke := !runtimeaccess.IsActionEnabled(params.Action)
 	s.handleSessionToggle(w, r, params.Namespace, params.Name, revoke)
 }
 

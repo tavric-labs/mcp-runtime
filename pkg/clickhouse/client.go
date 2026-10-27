@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"mcp-runtime/pkg/serviceutil"
+
+	"mcp-runtime/pkg/transport/tlsconfig"
 )
 
 // Client wraps a ClickHouse connection.
@@ -62,7 +63,7 @@ func NewClient(cfg Config) (*Client, error) {
 func Options(cfg Config) (*clickhouse.Options, error) {
 	if cfg.TLS == nil {
 		var err error
-		cfg.TLS, err = serviceutil.ClientTLSFromEnv("CLICKHOUSE")
+		cfg.TLS, err = tlsconfig.ClientTLSFromEnv("CLICKHOUSE")
 		if err != nil {
 			return nil, err
 		}

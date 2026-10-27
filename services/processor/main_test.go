@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/telemetry/kafkatrace"
 )
 
 func TestMessageInputForBatchPausesAtConfiguredLimit(t *testing.T) {
@@ -38,7 +38,7 @@ func TestContextFromKafkaTraceHeadersExtractsTraceparent(t *testing.T) {
 	parentSpanID := trace.SpanID{3, 6, 9, 12, 15, 18, 21, 24}
 	traceparent := "00-" + traceID.String() + "-" + parentSpanID.String() + "-01"
 
-	ctx := serviceutil.ExtractKafkaHeaders(context.Background(), []kafka.Header{
+	ctx := kafkatrace.ExtractKafkaHeaders(context.Background(), []kafka.Header{
 		{Key: "TraceParent", Value: []byte(traceparent)},
 	})
 	spanContext := trace.SpanContextFromContext(ctx)

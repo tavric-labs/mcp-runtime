@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"mcp-runtime/pkg/apihttp"
-	"mcp-runtime/pkg/serviceutil"
+	identitypkg "mcp-runtime/pkg/identity"
 )
 
 type UserKeyResolver interface {
@@ -83,7 +83,7 @@ func (a Authenticator) AuthenticateRequest(r *http.Request) (Principal, bool, er
 			}
 		}
 	}
-	token := serviceutil.ExtractBearer(r.Header.Get("authorization"))
+	token := identitypkg.ExtractBearer(r.Header.Get("authorization"))
 	if token == "" {
 		return Principal{}, false, nil
 	}

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-
-	"mcp-runtime/pkg/serviceutil"
 )
 
 const ApplyMaxBytes = 64 * 1024
@@ -28,9 +26,4 @@ func WriteMethodNotAllowed(w http.ResponseWriter, methods ...string) {
 		w.Header().Set("Allow", strings.Join(methods, ", "))
 	}
 	WriteEnvelope(w, http.StatusMethodNotAllowed, CodeMethodNotAllowed, "method not allowed")
-}
-
-// WriteJSON writes a success payload with Content-Type application/json.
-func WriteJSON(w http.ResponseWriter, status int, payload any) {
-	serviceutil.WriteJSON(w, status, payload)
 }

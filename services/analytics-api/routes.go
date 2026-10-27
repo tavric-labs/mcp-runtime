@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/openapi"
 	"mcp-runtime/pkg/platformauth"
 )
@@ -38,7 +39,7 @@ func (s *server) registerRoutes(mux *http.ServeMux) {
 }
 
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
-	apihttp.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *server) handleReady(w http.ResponseWriter, r *http.Request) {
@@ -50,5 +51,5 @@ func (s *server) handleReady(w http.ResponseWriter, r *http.Request) {
 		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "clickhouse unavailable")
 		return
 	}
-	apihttp.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

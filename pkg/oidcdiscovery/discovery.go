@@ -1,4 +1,4 @@
-package serviceutil
+package oidcdiscovery
 
 import (
 	"context"

@@ -1,14 +1,11 @@
-// Package serviceutil provides OpenTelemetry utilities for MCP services.
-package serviceutil
+package telemetry
 
 import (
 	"context"
 	"net/url"
 	"os"
-	"sort"
 	"strings"
 
-	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
@@ -16,13 +13,15 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"mcp-runtime/pkg/envcfg"
 )
 
 // OTLPTraceOptions configures OTLP HTTP exporter options.
 // It sets up the endpoint URL and configures secure/insecure connections
 // based on whether the endpoint uses HTTPS or HTTP.
 func OTLPTraceOptions(endpoint string) []otlptracehttp.Option {
-	insecure, insecureSet := BoolEnv("OTEL_EXPORTER_OTLP_INSECURE")
+	insecure, insecureSet := envcfg.BoolEnv("OTEL_EXPORTER_OTLP_INSECURE")
 	if u, err := url.Parse(endpoint); err == nil {
 		// Handle URLs with schemes (http://host:port/path)
 		if u.Scheme != "" && u.Host == "" {
@@ -96,39 +95,6 @@ func ContextWithTraceContext(ctx context.Context, headers map[string]string) con
 		return ctx
 	}
 	return otel.GetTextMapPropagator().Extract(ctx, propagation.MapCarrier(headers))
-}
-
-// InjectKafkaHeaders appends the active trace context to Kafka headers.
-func InjectKafkaHeaders(ctx context.Context, headers []kafka.Header) []kafka.Header {
-	traceHeaders := CaptureTraceContext(ctx)
-	if len(traceHeaders) == 0 {
-		return headers
-	}
-	keys := make([]string, 0, len(traceHeaders))
-	for key := range traceHeaders {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		headers = append(headers, kafka.Header{Key: key, Value: []byte(traceHeaders[key])})
-	}
-	return headers
-}
-
-// ExtractKafkaHeaders extracts trace context from Kafka headers into ctx.
-func ExtractKafkaHeaders(ctx context.Context, headers []kafka.Header) context.Context {
-	if len(headers) == 0 {
-		return ContextWithTraceContext(ctx, nil)
-	}
-	carrier := make(map[string]string, len(headers))
-	for _, header := range headers {
-		key := strings.ToLower(strings.TrimSpace(header.Key))
-		if key == "" || len(header.Value) == 0 {
-			continue
-		}
-		carrier[key] = string(header.Value)
-	}
-	return ContextWithTraceContext(ctx, carrier)
 }
 
 // TraceIDFromContext returns the active span trace ID, or an empty string when

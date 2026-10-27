@@ -125,6 +125,24 @@ real service authorization, certificate enforcement or live cluster readiness.
 Use Kind/Staging E2E and the dashboard QA skill for those gates. Failed browser
 runs retain screenshots and traces in `frontend/test-results` (ignored by Git).
 
+## Shared infrastructure boundaries
+
+Existing helper tests move with their owner: environment parsing to `pkg/envcfg`,
+TLS validation and renewal to `pkg/transport/tlsconfig`, outbound HTTP propagation
+to `pkg/transport/httptrace`, request metrics/logging/correlation to
+`pkg/telemetry`, Kafka propagation to `pkg/telemetry/kafkatrace`, and discovery to
+`pkg/oidcdiscovery`. Generic HTTP primitives live in `pkg/httpx`; grant/session
+routing tests live beside runtime-api's access handlers. These are source moves,
+with the existing timeout, error, authentication and telemetry contracts retained.
+
+The root regression suite also checks transitive dependency boundaries using
+`go list` in the root and gateway modules. It does not create clients, contact
+services or discover a cluster:
+
+```bash
+hack/ci/go-test.sh . -count=1 ./test/regression -run TestSharedInfrastructureDependencyBoundaries
+```
+
 ## Golden CLI Tests
 
 CLI help and stable output snapshots live under `test/golden/cli`.

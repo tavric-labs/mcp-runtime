@@ -11,6 +11,7 @@ import (
 	"mcp-platform-api/internal/httperrors"
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/platform"
 	"mcp-runtime/pkg/platformauth"
 )
@@ -66,5 +67,5 @@ func HandleUserLifecycle(w http.ResponseWriter, r *http.Request, store UserLifec
 		}
 		return
 	}
-	apihttp.WriteJSON(w, http.StatusOK, out)
+	httpx.WriteJSON(w, http.StatusOK, out)
 }

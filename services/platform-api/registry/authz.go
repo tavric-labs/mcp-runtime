@@ -10,8 +10,8 @@ import (
 	"mcp-platform-api/internal/apiauth"
 	"mcp-platform-api/internal/httperrors"
 	"mcp-platform-api/internal/platformstore"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/publishscope"
-	"mcp-runtime/pkg/serviceutil"
 )
 
 const authChallenge = `Basic realm="mcp-runtime-registry"`
@@ -53,7 +53,7 @@ func HandleAuthz(w http.ResponseWriter, r *http.Request, deps Dependencies) {
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
-	serviceutil.WriteJSON(w, status, payload)
+	httpx.WriteJSON(w, status, payload)
 }
 
 func writeRegistryAuthChallenge(w http.ResponseWriter) {

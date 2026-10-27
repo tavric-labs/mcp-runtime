@@ -86,6 +86,16 @@ classify_path() {
       # uses the separate Staging E2E suite.
       return
       ;;
+    pkg/identity/tokens*)
+      add_observability
+      add_scenario "api-platform"
+      return
+      ;;
+    pkg/httpx/*)
+      add_scenario "api-platform"
+      add_observability
+      return
+      ;;
     pkg/identity/oauth*)
       add_scenario "oauth"
       return
@@ -285,7 +295,7 @@ classify_path() {
       add_scenario "adapter-certificates"
       return
       ;;
-    pkg/svcboot/*|services/ingest/*|services/processor/*|pkg/clickhouse/*|pkg/events/*|pkg/platformstack/*|pkg/serviceutil/*)
+    pkg/svcboot/*|services/ingest/*|services/processor/*|pkg/clickhouse/*|pkg/events/*|pkg/platformstack/*|pkg/envcfg/*|pkg/telemetry/*|pkg/transport/*|pkg/oidcdiscovery/*)
       add_observability
       return
       ;;

@@ -1,7 +1,4 @@
-// Package serviceutil provides shared utilities for MCP services.
-// This package centralizes common helper functions to avoid duplication
-// across service implementations.
-package serviceutil
+package envcfg
 
 import (
 	"os"

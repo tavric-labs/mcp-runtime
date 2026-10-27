@@ -13,7 +13,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/telemetry"
 )
 
 // A handler behind the shared middleware must be able to outlive the
@@ -22,7 +22,7 @@ import (
 func TestWrapHandlerAllowsExtendingReadDeadline(t *testing.T) {
 	const readTimeout = 200 * time.Millisecond
 
-	handler := WrapHandler("svcboot-test", serviceutil.NewRequestMetrics(prometheus.NewRegistry()), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := WrapHandler("svcboot-test", telemetry.NewRequestMetrics(prometheus.NewRegistry()), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := http.NewResponseController(w).SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			t.Errorf("SetReadDeadline through middleware: %v", err)
 		}
@@ -72,7 +72,7 @@ func TestWrapHandlerAlignsConfiguredServiceAcrossLogsAndMetrics(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /demo", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
-	handler := WrapHandler("mcp-runtime-api", serviceutil.NewRequestMetrics(registry), mux)
+	handler := WrapHandler("mcp-runtime-api", telemetry.NewRequestMetrics(registry), mux)
 	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/demo", nil))
 	if !strings.Contains(logs.String(), `service="custom-runtime-api"`) {
 		t.Fatalf("log identity differs from configured tracing service: %s", logs.String())

@@ -12,8 +12,8 @@ import (
 
 	"mcp-runtime-api/internal/platformclient"
 	mcpaccess "mcp-runtime/pkg/access"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/internalapi"
-	"mcp-runtime/pkg/serviceutil"
 )
 
 type agentCreateRequest struct {
@@ -118,7 +118,7 @@ func (s *RuntimeServer) HandleRuntimeTeamAgents(w http.ResponseWriter, r *http.R
 
 // HandleRuntimeAgentPath reads, renames, deactivates, or reactivates one agent.
 func (s *RuntimeServer) HandleRuntimeAgentPath(w http.ResponseWriter, r *http.Request) {
-	path := strings.Trim(strings.TrimPrefix(serviceutil.NormalizePublicAPIPath(r.URL.Path), "/runtime/agents/"), "/")
+	path := strings.Trim(strings.TrimPrefix(httpx.NormalizePublicAPIPath(r.URL.Path), "/runtime/agents/"), "/")
 	if !s.identityConfigured() {
 		writeAPIError(w, http.StatusServiceUnavailable, "platform identity database not configured")
 		return

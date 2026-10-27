@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
 )
 
 // configStatus is the sanitized view of the active policy snapshot exposed at
@@ -30,11 +30,11 @@ func (s *gatewayServer) handleReady(w http.ResponseWriter, _ *http.Request) {
 		if snapshot.Err != nil {
 			payload["last_reload_error"] = snapshot.Err.Error()
 		}
-		serviceutil.WriteJSON(w, http.StatusServiceUnavailable, payload)
+		httpx.WriteJSON(w, http.StatusServiceUnavailable, payload)
 		return
 	}
 	if snapshot.Policy != nil && snapshot.Policy.Session != nil && snapshot.Policy.Session.Store == "platform" && !s.sessionReader().Fresh(s.currentTime()) {
-		serviceutil.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "reason": "session_sync_unavailable"})
+		httpx.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "reason": "session_sync_unavailable"})
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -67,5 +67,5 @@ func (s *gatewayServer) handleConfigStatus(w http.ResponseWriter, _ *http.Reques
 		}
 		s.sessionSync.mu.RUnlock()
 	}
-	serviceutil.WriteJSON(w, http.StatusOK, status)
+	httpx.WriteJSON(w, http.StatusOK, status)
 }

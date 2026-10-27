@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -36,7 +37,7 @@ type Handler struct {
 	Authenticate func(context.Context, string) (sessionstate.Server, error)
 }
 
-func write(w http.ResponseWriter, status int, item any) { apihttp.WriteJSON(w, status, item) }
+func write(w http.ResponseWriter, status int, item any) { httpx.WriteJSON(w, status, item) }
 func fail(w http.ResponseWriter, status int, message string) {
 	codes := map[int]string{400: apihttp.CodeInvalidRequestBody, 401: apihttp.CodeUnauthorized, 403: apihttp.CodeForbidden, 404: apihttp.CodeNotFound, 409: apihttp.CodeConflict, 410: "sync_cursor_expired", 503: apihttp.CodeServiceUnavailable}
 	code := codes[status]

@@ -9,7 +9,7 @@ import (
 
 	"mcp-runtime/pkg/apihttp"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
 )
 
 type EventReader interface {
@@ -69,7 +69,7 @@ func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 	if next := apihttp.NextLink(r, meta.NextCursor, limit); next != "" {
 		body["next"] = next
 	}
-	serviceutil.WriteJSON(w, http.StatusOK, body)
+	httpx.WriteJSON(w, http.StatusOK, body)
 }
 
 func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +83,7 @@ func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	serviceutil.WriteJSON(w, http.StatusOK, map[string]any{"events_total": count})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"events_total": count})
 }
 
 func (h *Handler) Sources(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +97,7 @@ func (h *Handler) Sources(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	serviceutil.WriteJSON(w, http.StatusOK, map[string]any{"sources": sources})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"sources": sources})
 }
 
 func (h *Handler) EventTypes(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +111,7 @@ func (h *Handler) EventTypes(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	serviceutil.WriteJSON(w, http.StatusOK, map[string]any{"event_types": eventTypes})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"event_types": eventTypes})
 }
 
 func hasEventFilters(r *http.Request) bool {

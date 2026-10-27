@@ -17,7 +17,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/telemetry"
 )
 
 func startTestSpan(t *testing.T) (context.Context, *tracetest.SpanRecorder, *bytes.Buffer, func()) {
@@ -43,7 +43,7 @@ func TestHandleUpstreamErrorRecordsErrorSpanAndTraceLog(t *testing.T) {
 	if recorder.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadGateway)
 	}
-	if got := recorder.Result().Header.Get(serviceutil.TraceResponseHeader); got != serviceutil.TraceIDFromContext(ctx) {
+	if got := recorder.Result().Header.Get(telemetry.TraceResponseHeader); got != telemetry.TraceIDFromContext(ctx) {
 		t.Fatalf("response trace ID = %q", got)
 	}
 	ended := spans.Ended()
@@ -53,7 +53,7 @@ func TestHandleUpstreamErrorRecordsErrorSpanAndTraceLog(t *testing.T) {
 	if strings.Contains(logs.String(), "private-url-token") {
 		t.Fatal("upstream error detail leaked")
 	}
-	if !strings.Contains(logs.String(), "trace_id="+serviceutil.TraceIDFromContext(ctx)) {
+	if !strings.Contains(logs.String(), "trace_id="+telemetry.TraceIDFromContext(ctx)) {
 		t.Fatalf("log %q missing trace_id", logs.String())
 	}
 }
@@ -73,7 +73,7 @@ func TestGatewayRejectedRequestRecordsErrorSpanAndTraceLog(t *testing.T) {
 	server.handleGateway(recorder, req)
 	end()
 
-	if got := recorder.Result().Header.Get(serviceutil.TraceResponseHeader); got != serviceutil.TraceIDFromContext(ctx) {
+	if got := recorder.Result().Header.Get(telemetry.TraceResponseHeader); got != telemetry.TraceIDFromContext(ctx) {
 		t.Fatalf("denial trace ID = %q", got)
 	}
 	if recorder.Code != http.StatusUnauthorized {
@@ -84,7 +84,7 @@ func TestGatewayRejectedRequestRecordsErrorSpanAndTraceLog(t *testing.T) {
 		t.Fatalf("spans = %#v, want one error span", ended)
 	}
 	line := logs.String()
-	if !strings.Contains(line, "trace_id="+serviceutil.TraceIDFromContext(ctx)) ||
+	if !strings.Contains(line, "trace_id="+telemetry.TraceIDFromContext(ctx)) ||
 		!strings.Contains(line, "gateway request rejected") ||
 		!strings.Contains(line, "status=401") {
 		t.Fatalf("log %q missing correlated rejection line", line)
@@ -103,7 +103,7 @@ func TestGatewaySuccessfulCompletionHasCorrelatedBoundedLog(t *testing.T) {
 	ex.Inspection = inspectedRPC("arbitrary-private-method", "", RPCRequest)
 	server.recordGatewayOutcome(ex)
 	line := logs.String()
-	for _, want := range []string{"event=gateway.request", "status=200", `decision="skip"`, "trace_id=" + serviceutil.TraceIDFromContext(ctx)} {
+	for _, want := range []string{"event=gateway.request", "status=200", `decision="skip"`, "trace_id=" + telemetry.TraceIDFromContext(ctx)} {
 		if !strings.Contains(line, want) {
 			t.Errorf("log %q missing %q", line, want)
 		}
@@ -119,7 +119,7 @@ func TestProxyCannotOverrideResponseTraceID(t *testing.T) {
 	ctx, _, _, end := startTestSpan(t)
 	defer end()
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(serviceutil.TraceResponseHeader, "upstream-private-id")
+		w.Header().Set(telemetry.TraceResponseHeader, "upstream-private-id")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	}))
@@ -129,12 +129,12 @@ func TestProxyCannotOverrideResponseTraceID(t *testing.T) {
 		t.Fatal(err)
 	}
 	recorder := httptest.NewRecorder()
-	newUpstreamReverseProxy(target).ServeHTTP(serviceutil.CorrelateResponse(recorder, ctx), httptest.NewRequest(http.MethodGet, "/mcp", nil).WithContext(ctx))
+	newUpstreamReverseProxy(target).ServeHTTP(telemetry.CorrelateResponse(recorder, ctx), httptest.NewRequest(http.MethodGet, "/mcp", nil).WithContext(ctx))
 	if recorder.Code != http.StatusOK || recorder.Body.String() != "ok" {
 		t.Fatalf("response changed: %d %s", recorder.Code, recorder.Body.String())
 	}
-	values := recorder.Result().Header.Values(serviceutil.TraceResponseHeader)
-	if len(values) != 1 || values[0] != serviceutil.TraceIDFromContext(ctx) {
+	values := recorder.Result().Header.Values(telemetry.TraceResponseHeader)
+	if len(values) != 1 || values[0] != telemetry.TraceIDFromContext(ctx) {
 		t.Fatalf("response trace IDs = %v", values)
 	}
 }

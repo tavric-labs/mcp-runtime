@@ -946,7 +946,7 @@ See [CLI → ops](cli-reference.md#ops) for component keys and flag details.
 
 ## Repository structure note
 
-Services live in `services/`, manifests in `k8s/`, and shared libraries in `pkg/`. `pkg/access`, `pkg/policy`, `pkg/controlplane`, `pkg/events`, `pkg/clickhouse`, `pkg/serviceutil`, `pkg/kubeworkload`, `pkg/platformstack`, and `pkg/k8sclient` are used by the CLI, operator, or platform services according to their ownership boundaries.
+Services live in `services/`, manifests in `k8s/`, and shared libraries in `pkg/`. `pkg/access`, `pkg/policy`, `pkg/controlplane`, `pkg/events`, `pkg/clickhouse`, `pkg/envcfg`, `pkg/httpx`, `pkg/telemetry`, `pkg/transport`, `pkg/kubeworkload`, `pkg/platformstack`, and `pkg/k8sclient` are used by the CLI, operator, or platform services according to their ownership boundaries.
 
 ## Next
 

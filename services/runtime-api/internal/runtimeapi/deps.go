@@ -10,9 +10,10 @@ import (
 
 	"mcp-runtime-api/internal/platformclient"
 	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/envcfg"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/platformauth"
 	"mcp-runtime/pkg/platforminventory"
-	"mcp-runtime/pkg/serviceutil"
 )
 
 const (
@@ -71,7 +72,7 @@ func withPrincipal(ctx context.Context, p principal) context.Context {
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
-	serviceutil.WriteJSON(w, status, payload)
+	httpx.WriteJSON(w, status, payload)
 }
 
 func writeBodyDecodeError(w http.ResponseWriter, err error) {
@@ -143,7 +144,7 @@ func auditIdentityLabel(p principal) string {
 }
 
 func envOr(key, fallback string) string {
-	return serviceutil.EnvOr(key, fallback)
+	return envcfg.EnvOr(key, fallback)
 }
 
 // NormalizeTeamSlug canonicalizes a team slug using the platform store rules shared with identity APIs.

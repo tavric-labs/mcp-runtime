@@ -75,7 +75,7 @@ flowchart LR
 | Component inventory | [`component-inventory.md`](component-inventory.md) | Stable workload identity, ownership and validated namespace layout resolution. |
 | Control-plane helpers | `pkg/controlplane/` | Shared MCPServer Kubernetes operations and status projection used outside HTTP/CLI glue. |
 | Shared policy and events | `pkg/policy/`, `pkg/events/`, `pkg/clickhouse/` | Gateway policy contracts/evaluation plus event envelopes and ClickHouse query/insert helpers. |
-| Service and workload helpers | `pkg/serviceutil/`, `pkg/kubeworkload/` | Shared service HTTP/env/OTel helpers and restricted Kubernetes workload defaults. |
+| Shared infrastructure and workload helpers | `pkg/envcfg/`, `pkg/httpx/`, `pkg/transport/`, `pkg/telemetry/`, `pkg/svcboot/`, `pkg/kubeworkload/` | Configuration, HTTP primitives, transport support, observability, service startup and restricted Kubernetes workload defaults. |
 | API service internals | `services/runtime-api/internal/runtimeapi/`, `services/platform-api/internal/platformstore/`, `pkg/apihttp/`, `pkg/platformauth/`, `pkg/internalapi/` | Split API modules: runtime HTTP/Kubernetes orchestration, platform Postgres persistence, shared HTTP contract helpers. |
 | Metadata helpers | [`metadata.md`](metadata.md) | Covers `.mcp` metadata loading, host resolution, and CRD generation helpers. |
 | Manifests and examples | [`config-and-examples.md`](config-and-examples.md) | Explains Kustomize overlays, registry/ingress config, and example MCP servers. |
@@ -165,7 +165,12 @@ flowchart TB
     Operator --> K8sClient
     Operator --> Manifest
     Operator --> Access
-    Services[services/*] --> ServiceUtil[pkg/serviceutil]
+    Services[services/*] --> Env[pkg/envcfg]
+    Services --> Telemetry[pkg/telemetry]
+    Services --> HTTP[pkg/httpx]
+    Services --> Transport[pkg/transport]
+    BrokerServices[ingest and processor] --> KafkaTrace[pkg/telemetry/kafkatrace]
+    KafkaTrace --> Telemetry
     Services --> ControlPlane
     Services --> Access
     Services --> ClickHouse[pkg/clickhouse]
@@ -202,11 +207,41 @@ This follows the Go team's [package naming guidance](https://go.dev/blog/package
 and [module organization guidance](https://go.dev/doc/modules/layout), reviewed
 2026-10-25.
 
+Shared infrastructure has explicit owners instead of `pkg/serviceutil`:
+
+| Package | Responsibility and dependency boundary |
+|---|---|
+| `pkg/envcfg` | Environment parsing and fallback semantics; standard library only |
+| `pkg/httpx` | JSON response and API-path primitives; standard library only |
+| `pkg/identity` | Token/header and identity contracts; standard library only |
+| `pkg/transport/tlsconfig` | Existing TLS loading, validation and renewal callbacks; standard library only |
+| `pkg/transport/httptrace` | Instrument existing HTTP clients and round-trippers; no exporter, Prometheus or Kafka dependencies |
+| `pkg/oidcdiscovery` | Issuer metadata, redirect validation and existing discovery retry behavior |
+| `pkg/telemetry` | Service tracing setup, correlated logs, request metrics and response correlation |
+| `pkg/telemetry/kafkatrace` | Kafka header adaptation, imported by producers and consumers |
+| `pkg/apihttp` | Structured API errors, error logging and request/query validation |
+| `services/runtime-api/internal/runtimeapi/access` | Grant/session action-path parsing beside its owning handlers |
+
+The parent `pkg/transport/` directory groups transport packages; it is not an
+umbrella Go package. The future HTTP factory in
+[#868](https://github.com/tavric-labs/mcp-runtime/issues/868) can fit at
+`pkg/transport/httpclient` without importing service telemetry or business
+rules. This PR moves existing behavior; it does not implement the factory or
+change client construction, budgets, redirects, proxy rules, tracing fields,
+TLS behavior or stream handling. Each binary remains its composition root.
+No forwarding `serviceutil` package is retained; source consumers update imports.
+
+`TestSharedInfrastructureDependencyBoundaries` checks transitive build graphs:
+foundational helpers stay standard-library only; authentication and HTTP
+instrumentation stay free of exporters, Prometheus and Kafka; policy stays
+free of service infrastructure; and the gateway stays free of Kubernetes and
+Kafka clients. Run it through the isolated test wrapper in `test/regression`.
+
 MCP protocol revisions remain dated identifiers: the `2025-11-25` interaction
 model and the `2026-07-28` stateless model have different transport/lifecycle
 requirements. Runtime governance sessions are separate from MCP transport
 sessions. The gateway observation contract retains open RPC method names and
-distinguishes requests from notifications without retaining raw params.
+preserves current audit fields without retaining raw params.
 Full dual-revision conformance remains tracked in
 [#662](https://github.com/tavric-labs/mcp-runtime/issues/662). This refactor does
 not add draft MCP Events extension support. Platform audit events and

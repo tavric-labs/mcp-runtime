@@ -10,10 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"mcp-ui/internal/session"
-
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/platformauth"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-ui/internal/session"
 )
 
 const (
@@ -218,31 +217,31 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	write := unsafeHTTPMethod(r.Method)
 	_, upstreamPath, ok := sessionProxyRoute(r.URL.Path)
 	if !ok {
-		serviceutil.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
+		httpx.WriteJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 		return
 	}
 	if write {
 		suffix := strings.TrimPrefix(upstreamPath, "/api/v1")
 		if !sessionProxyWriteAllowed(r.Method, suffix) {
 			w.Header().Set("allow", sessionProxyAllowHeader(suffix))
-			serviceutil.WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
+			httpx.WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
 			return
 		}
 	}
 	sess, ok := p.store.FromRequest(r)
 	if !ok {
-		serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
 	authHeader, apiKey, ok := sessionUpstreamCredential(sess)
 	if !ok {
-		serviceutil.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		httpx.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
 	if status := verifyCSRF(r, sess); status != 0 {
 		// #nosec G706 -- path-only telemetry; no credential or token material.
 		log.Printf("ui session proxy csrf rejection method=%q path=%q", r.Method, r.URL.Path)
-		serviceutil.WriteJSON(w, status, map[string]string{"error": "csrf_failed"})
+		httpx.WriteJSON(w, status, map[string]string{"error": "csrf_failed"})
 		return
 	}
 
@@ -261,12 +260,12 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	upstreamURL, err := resolveSessionProxyURL(base, upstreamPath, r.URL.RawQuery)
 	if err != nil {
-		serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+		httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 		return
 	}
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstreamURL.String(), body)
 	if err != nil {
-		serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+		httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 		return
 	}
 	if accept := strings.TrimSpace(r.Header.Get("accept")); accept != "" {
@@ -294,7 +293,7 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(err, platformauth.ErrExchangeUnauthorized) {
 				status = http.StatusUnauthorized
 			}
-			serviceutil.WriteJSON(w, status, map[string]string{"error": "token_exchange_failed"})
+			httpx.WriteJSON(w, status, map[string]string{"error": "token_exchange_failed"})
 			return
 		}
 		req.Header.Set("authorization", authHeader)
@@ -306,12 +305,12 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			serviceutil.WriteJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "request_too_large"})
+			httpx.WriteJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "request_too_large"})
 			return
 		}
 		// #nosec G706 -- path-only telemetry; upstream URL and credentials are omitted.
 		log.Printf("ui session proxy upstream error path=%q", r.URL.Path)
-		serviceutil.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
+		httpx.WriteJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream_error"})
 		return
 	}
 	copySessionProxyResponse(w, resp, true)

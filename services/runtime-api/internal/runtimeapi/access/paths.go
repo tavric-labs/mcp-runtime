@@ -5,12 +5,12 @@ import (
 	"strings"
 
 	mcpaccess "mcp-runtime/pkg/access"
-	serviceutil "mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
 )
 
 func ExtractNamespacedPath(path, prefix string, expectedParts int) (string, string, error) {
-	path = serviceutil.NormalizePublicAPIPath(path)
-	prefix = serviceutil.NormalizePublicAPIPath(prefix)
+	path = httpx.NormalizePublicAPIPath(path)
+	prefix = httpx.NormalizePublicAPIPath(prefix)
 	path = strings.TrimPrefix(path, prefix)
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) != expectedParts {

@@ -14,9 +14,12 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 
 	"mcp-platform-api/registry"
+	"mcp-runtime/pkg/envcfg"
+	"mcp-runtime/pkg/httpx"
+	identitypkg "mcp-runtime/pkg/identity"
+	"mcp-runtime/pkg/oidcdiscovery"
 	"mcp-runtime/pkg/platformauth"
 	"mcp-runtime/pkg/registryauth"
-	"mcp-runtime/pkg/serviceutil"
 	"mcp-runtime/pkg/svcboot"
 )
 
@@ -79,7 +82,7 @@ func main() {
 		}
 		if jwksURL == "" {
 			var err error
-			jwksURL, err = serviceutil.DiscoverOIDCJWKSURLWithRetry(context.Background(), oidcIssuer, 5, time.Second)
+			jwksURL, err = oidcdiscovery.DiscoverOIDCJWKSURLWithRetry(context.Background(), oidcIssuer, 5, time.Second)
 			if err != nil {
 				log.Fatalf("OIDC_JWKS_URL is not configured and issuer discovery failed: %v", err)
 			}
@@ -107,7 +110,7 @@ func main() {
 
 	var store *platformStore
 	if dsn := platformDSNFromEnv(); dsn != "" {
-		startupTimeout := serviceutil.EnvDuration("PLATFORM_DB_STARTUP_TIMEOUT", defaultPlatformStoreStartupTimeout)
+		startupTimeout := envcfg.EnvDuration("PLATFORM_DB_STARTUP_TIMEOUT", defaultPlatformStoreStartupTimeout)
 		ctx, cancel := context.WithTimeout(context.Background(), startupTimeout)
 		defer cancel()
 		jwtSecret, err := jwtSecretFromEnv()
@@ -267,7 +270,7 @@ func (s *apiServer) authenticateOIDCToken(ctx context.Context, token string) (pr
 	if claims["iss"] != s.oidcIssuer {
 		return principal{}, false, nil
 	}
-	if !serviceutil.AudienceMatches(claims["aud"], s.oidcAudience) {
+	if !identitypkg.AudienceMatches(claims["aud"], s.oidcAudience) {
 		return principal{}, false, nil
 	}
 	sub := strings.TrimSpace(fmt.Sprint(claims["sub"]))
@@ -336,8 +339,8 @@ func openPlatformStoreWithRetry(ctx context.Context, dsn string, jwtSecret []byt
 	}
 }
 
-func boolEnv(key string) (bool, bool)   { return serviceutil.BoolEnv(key) }
-func envOr(key, fallback string) string { return serviceutil.EnvOr(key, fallback) }
+func boolEnv(key string) (bool, bool)   { return envcfg.BoolEnv(key) }
+func envOr(key, fallback string) string { return envcfg.EnvOr(key, fallback) }
 
 func splitCSVSet(raw string) map[string]struct{} {
 	out := map[string]struct{}{}
@@ -351,7 +354,7 @@ func splitCSVSet(raw string) map[string]struct{} {
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
-	serviceutil.WriteJSON(w, status, payload)
+	httpx.WriteJSON(w, status, payload)
 }
 
 func oidcProvider(issuer string) string {

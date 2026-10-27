@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/apihttp"
-	"mcp-runtime/pkg/serviceutil"
+	identitypkg "mcp-runtime/pkg/identity"
 )
 
 const ExchangeTTL = time.Minute
@@ -50,7 +50,7 @@ func (h ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "token exchange unavailable")
 		return
 	}
-	token := serviceutil.ExtractBearer(r.Header.Get("Authorization"))
+	token := identitypkg.ExtractBearer(r.Header.Get("Authorization"))
 	claims, err := Verify(h.Auth.Secret, token, AudiencePlatform)
 	// The CLI historically sends its credential in both headers. Recognize a
 	// duplicated, verified platform bearer and remove its X-Api-Key copy before
@@ -122,7 +122,7 @@ func ExchangeBearer(ctx context.Context, client *http.Client, platform *url.URL,
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return "", ErrExchangeUnauthorized
 	}
-	if resp.StatusCode != http.StatusOK || serviceutil.ExtractBearer(resp.Header.Get("Authorization")) == "" {
+	if resp.StatusCode != http.StatusOK || identitypkg.ExtractBearer(resp.Header.Get("Authorization")) == "" {
 		return "", errors.New("token exchange refused")
 	}
 	return resp.Header.Get("Authorization"), nil

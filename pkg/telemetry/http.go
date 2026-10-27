@@ -1,9 +1,7 @@
-// Package serviceutil provides HTTP utilities for MCP services.
-package serviceutil
+package telemetry
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -12,23 +10,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
 
-// WriteJSON writes a JSON response with the specified status code.
-// It sets appropriate Content-Type headers and handles JSON marshaling errors.
-// It first marshals the payload to check for encoding errors before writing headers.
-func WriteJSON(w http.ResponseWriter, status int, payload any) {
-	data, err := json.Marshal(payload)
-	if err != nil {
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to encode response"})
-		return
-	}
-	w.Header().Set("content-type", "application/json")
-	w.WriteHeader(status)
-	_, _ = w.Write(data)
-}
+	"mcp-runtime/pkg/envcfg"
+)
 
 // StartMetricsServer starts a Prometheus metrics server with /metrics and /health.
 func StartMetricsServer(port string) (func(context.Context) error, <-chan error) {
@@ -111,7 +95,7 @@ func (r *statusRecorder) Flush() {
 // LogRequests emits correlated logfmt completion records using route templates.
 // Raw URLs, headers and bodies are deliberately excluded; healthy probes are quiet.
 func LogRequests(next http.Handler) http.Handler {
-	return LogRequestsForService(EnvOr("OTEL_SERVICE_NAME", "mcp-service"), next)
+	return LogRequestsForService(envcfg.EnvOr("OTEL_SERVICE_NAME", "mcp-service"), next)
 }
 
 // LogRequestsForService keeps bootstrap service identity aligned with metrics.

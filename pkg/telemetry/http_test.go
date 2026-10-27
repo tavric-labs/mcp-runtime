@@ -1,4 +1,4 @@
-package serviceutil
+package telemetry
 
 import (
 	"net/http"

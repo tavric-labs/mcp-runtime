@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
 )
 
 // HandleRuntimeNamespaces lists namespaces visible to the caller, including catalog namespace entries for the current platform mode.
@@ -87,7 +87,7 @@ func (s *RuntimeServer) HandleRuntimeNamespaceItem(w http.ResponseWriter, r *htt
 		writeAPIError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	namespace := strings.TrimSpace(strings.TrimPrefix(serviceutil.NormalizePublicAPIPath(r.URL.Path), "/runtime/namespaces/"))
+	namespace := strings.TrimSpace(strings.TrimPrefix(httpx.NormalizePublicAPIPath(r.URL.Path), "/runtime/namespaces/"))
 	namespace = strings.Trim(namespace, "/")
 	if namespace == "" {
 		writeAPIError(w, http.StatusBadRequest, "namespace required")

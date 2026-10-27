@@ -21,8 +21,11 @@ import (
 	_ "go.uber.org/automaxprocs" // align GOMAXPROCS with container CPU quota
 
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
+	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/events"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/telemetry"
+	"mcp-runtime/pkg/telemetry/kafkatrace"
+	"mcp-runtime/pkg/transport/tlsconfig"
 )
 
 var (
@@ -45,19 +48,19 @@ func init() {
 // configures batch processing parameters, initializes tracing,
 // and starts consuming events from Kafka to insert into ClickHouse.
 func main() {
-	brokers := strings.Split(serviceutil.EnvOr("KAFKA_BROKERS", "kafka:9092"), ",")
-	topic := serviceutil.EnvOr("KAFKA_TOPIC", "mcp.events")
-	groupID := serviceutil.EnvOr("KAFKA_GROUP", "mcp-processor")
-	metricsPort := serviceutil.EnvOr("METRICS_PORT", "9102")
+	brokers := strings.Split(envcfg.EnvOr("KAFKA_BROKERS", "kafka:9092"), ",")
+	topic := envcfg.EnvOr("KAFKA_TOPIC", "mcp.events")
+	groupID := envcfg.EnvOr("KAFKA_GROUP", "mcp-processor")
+	metricsPort := envcfg.EnvOr("METRICS_PORT", "9102")
 
-	clickhouseAddr := serviceutil.EnvOr("CLICKHOUSE_ADDR", "clickhouse:9000")
-	dbName := serviceutil.EnvOr("CLICKHOUSE_DB", "mcp")
+	clickhouseAddr := envcfg.EnvOr("CLICKHOUSE_ADDR", "clickhouse:9000")
+	dbName := envcfg.EnvOr("CLICKHOUSE_DB", "mcp")
 	if err := clickhousepkg.ValidateDBName(dbName); err != nil {
 		log.Fatalf("invalid CLICKHOUSE_DB: %v", err)
 	}
 
-	batchSize := serviceutil.EnvInt("BATCH_SIZE", 500)
-	flushInterval := serviceutil.EnvDuration("FLUSH_INTERVAL", 2*time.Second)
+	batchSize := envcfg.EnvInt("BATCH_SIZE", 500)
+	flushInterval := envcfg.EnvDuration("FLUSH_INTERVAL", 2*time.Second)
 	if batchSize <= 0 {
 		log.Printf("invalid BATCH_SIZE=%d; using default 500", batchSize)
 		batchSize = 500
@@ -77,7 +80,7 @@ func main() {
 	}
 	defer clickhouseClient.Close()
 
-	kafkaTLS, err := serviceutil.ClientTLSFromEnv("KAFKA")
+	kafkaTLS, err := tlsconfig.ClientTLSFromEnv("KAFKA")
 	if err != nil {
 		log.Fatalf("configure Kafka TLS: %v", err)
 	}
@@ -91,7 +94,7 @@ func main() {
 	})
 	defer reader.Close()
 
-	metricsShutdown, metricsErrs := serviceutil.StartMetricsServer(metricsPort)
+	metricsShutdown, metricsErrs := telemetry.StartMetricsServer(metricsPort)
 	defer func() {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
@@ -103,7 +106,7 @@ func main() {
 		}
 	}()
 
-	shutdown, err := serviceutil.InitTracer("mcp-processor")
+	shutdown, err := telemetry.InitTracer("mcp-processor")
 	if err != nil {
 		log.Printf("otel init failed: %v", err)
 	} else {
@@ -198,7 +201,7 @@ func main() {
 			shutdownFlushCancel()
 			return
 		case msg := <-messageInput:
-			consumeCtx := serviceutil.ExtractKafkaHeaders(ctx, msg.Headers)
+			consumeCtx := kafkatrace.ExtractKafkaHeaders(ctx, msg.Headers)
 			consumeCtx, span := tracer.Start(consumeCtx, "kafka.consume",
 				trace.WithSpanKind(trace.SpanKindConsumer),
 				trace.WithAttributes(
@@ -220,7 +223,7 @@ func main() {
 			}
 
 			payload.EnsureTimestamp(time.Now().UTC())
-			payload.SetTraceID(serviceutil.TraceIDFromContext(consumeCtx))
+			payload.SetTraceID(telemetry.TraceIDFromContext(consumeCtx))
 
 			batch = append(batch, payload)
 			batchMessages = append(batchMessages, msg)

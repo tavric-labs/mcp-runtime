@@ -18,6 +18,7 @@ import (
 	"mcp-runtime-api/internal/runtimeapi"
 	runtimehandlers "mcp-runtime-api/runtime"
 	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/openapi"
 	"mcp-runtime/pkg/platformauth"
 )
@@ -141,7 +142,7 @@ func (rr runtimeRoutes) registerRoutes(mux *http.ServeMux) {
 		admin.HandleOperations(w, r, admin.Dependencies{
 			Platform:  rr.platform,
 			Runtime:   runtimeServer,
-			WriteJSON: apihttp.WriteJSON,
+			WriteJSON: httpx.WriteJSON,
 		})
 	})))
 	rr.mount("/admin/deployments", rr.adminOnly(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -190,10 +191,10 @@ func (rr runtimeRoutes) registerRoutes(mux *http.ServeMux) {
 
 func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	if s.runtimeInit != "" {
-		apihttp.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false})
+		httpx.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false})
 		return
 	}
-	apihttp.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *server) handleReady(w http.ResponseWriter, _ *http.Request) {
@@ -205,7 +206,7 @@ func (s *server) handleReady(w http.ResponseWriter, _ *http.Request) {
 		apihttp.WriteEnvelope(w, http.StatusServiceUnavailable, apihttp.CodeServiceUnavailable, "kubernetes not available")
 		return
 	}
-	apihttp.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (rr runtimeRoutes) handleUserAPIKeys(w http.ResponseWriter, r *http.Request) {
@@ -221,7 +222,7 @@ func (rr runtimeRoutes) handleUserAPIKeys(w http.ResponseWriter, r *http.Request
 			apihttp.WriteEnvelope(w, http.StatusInternalServerError, apihttp.CodeQueryFailed, "failed to list user api keys")
 			return
 		}
-		apihttp.WriteJSON(w, http.StatusOK, map[string]any{"keys": keys})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"keys": keys})
 	case http.MethodPost:
 		var req struct {
 			Name string `json:"name"`
@@ -238,7 +239,7 @@ func (rr runtimeRoutes) handleUserAPIKeys(w http.ResponseWriter, r *http.Request
 			return
 		}
 		rr.platform.WriteAudit(r.Context(), platformAuditEvent(p, "api_key_create", key.ID, "success", "", r))
-		apihttp.WriteJSON(w, http.StatusOK, map[string]any{"key": key, "api_key": cleartext, "one_time_key": cleartext})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"key": key, "api_key": cleartext, "one_time_key": cleartext})
 	default:
 		w.Header().Set("allow", "GET, POST")
 		apihttp.WriteEnvelope(w, http.StatusMethodNotAllowed, apihttp.CodeMethodNotAllowed, "method not allowed")
@@ -272,7 +273,7 @@ func (rr runtimeRoutes) handleUserAPIKeyItem(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	rr.platform.WriteAudit(r.Context(), platformAuditEvent(p, "api_key_revoke", key.ID, "success", "", r))
-	apihttp.WriteJSON(w, http.StatusOK, map[string]any{"key": key})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"key": key})
 }
 
 func platformAuditEvent(p platformauth.Principal, action, resource, status, message string, r *http.Request) platformclient.AuditEvent {

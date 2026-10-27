@@ -1,5 +1,4 @@
-// Package serviceutil provides authentication utilities for MCP services.
-package serviceutil
+package identity
 
 import (
 	"strings"

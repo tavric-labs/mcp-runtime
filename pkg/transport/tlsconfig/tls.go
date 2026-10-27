@@ -1,4 +1,4 @@
-package serviceutil
+package tlsconfig
 
 import (
 	"bytes"

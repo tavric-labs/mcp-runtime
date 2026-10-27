@@ -1,5 +1,4 @@
-// Package serviceutil provides HTTP routing utilities for MCP services.
-package serviceutil
+package access
 
 import (
 	"errors"
@@ -7,6 +6,8 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+
+	"mcp-runtime/pkg/httpx"
 )
 
 // Predefined errors for routing validation.
@@ -34,20 +35,6 @@ func validResourceName(name string) bool {
 	// Kubernetes DNS-1123 subdomain format with some relaxations for resource names
 	validName := regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
 	return validName.MatchString(name) && len(name) <= 253
-}
-
-// NormalizePublicAPIPath strips the public API version prefix so handlers can
-// match on /runtime/... paths whether the request arrived as /api/v1/runtime/*
-// or legacy /api/runtime/*.
-func NormalizePublicAPIPath(path string) string {
-	switch {
-	case strings.HasPrefix(path, "/api/v1/"):
-		return strings.TrimPrefix(path, "/api/v1")
-	case strings.HasPrefix(path, "/api/"):
-		return strings.TrimPrefix(path, "/api")
-	default:
-		return path
-	}
 }
 
 // Expected path format: /api/runtime/grants/{namespace}/{name}/{action}
@@ -129,7 +116,7 @@ func ExtractNamespacedResourceDelete(r *http.Request, prefix string) (namespace,
 }
 
 func splitNamespacedPath(r *http.Request, prefix string, expectedParts int, expectedShape string) ([]string, error) {
-	path := strings.TrimPrefix(NormalizePublicAPIPath(r.URL.Path), NormalizePublicAPIPath(prefix))
+	path := strings.TrimPrefix(httpx.NormalizePublicAPIPath(r.URL.Path), httpx.NormalizePublicAPIPath(prefix))
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) != expectedParts {
 		return nil, fmt.Errorf("%w: %s, got %d path parts", ErrInvalidPath, expectedShape, len(parts))

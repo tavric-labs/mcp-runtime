@@ -1,4 +1,4 @@
-package serviceutil
+package httptrace
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
+	"mcp-runtime/pkg/telemetry"
 )
 
 func TestDoHTTPPropagatesParentAndPreservesClient(t *testing.T) {
@@ -19,7 +21,7 @@ func TestDoHTTPPropagatesParentAndPreservesClient(t *testing.T) {
 	recorder := tracetest.NewSpanRecorder()
 	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
 	otel.SetTracerProvider(provider)
-	ConfigureTracePropagation()
+	telemetry.ConfigureTracePropagation()
 	t.Cleanup(func() { otel.SetTracerProvider(previous); otel.SetTextMapPropagator(propagator) })
 	ctx, parent := provider.Tracer("test").Start(context.Background(), "caller")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

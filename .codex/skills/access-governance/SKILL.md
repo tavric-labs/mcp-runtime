@@ -163,6 +163,10 @@ Kubernetes field causes and platform error text when changing these boundaries.
   outcomes and the runner renders denials/metadata. Upstream receives a
   `PermittedRequest`; session/OAuth dependencies can be injected through the
   read-only consumer interfaces in `dependencies.go`.
+- Transport support: `pkg/transport/tlsconfig` owns existing TLS loading and
+  renewal; `pkg/transport/httptrace` instruments caller-owned HTTP clients.
+  `pkg/telemetry` owns service observation; only ingest/processor import
+  `pkg/telemetry/kafkatrace`. The HTTP factory remains tracked separately in #868.
 - Audit wire payload: `pkg/events.MCPRequest`; this is a platform audit record,
   independent of any draft MCP Events extension.
 - Adapters: `internal/cli/adapter/`, `internal/agentadapter/`, `services/runtime-api/internal/runtimeapi/adapter.go`

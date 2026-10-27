@@ -9,6 +9,7 @@ import (
 	"mcp-runtime-api/internal/platformclient"
 	"mcp-runtime-api/internal/runtimeapi"
 	"mcp-runtime/pkg/apihttp"
+	"mcp-runtime/pkg/httpx"
 )
 
 // Handler serves runtime-api internal endpoints for peer services.
@@ -59,7 +60,7 @@ func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
-		apihttp.WriteJSON(w, http.StatusOK, map[string]any{"ok": false})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": false})
 		return
 	}
 	if h.Platform != nil && h.Platform.Configured() && strings.TrimSpace(principal.Subject) != "" {
@@ -70,5 +71,5 @@ func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 			principal = enriched
 		}
 	}
-	apihttp.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "principal": principal})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "principal": principal})
 }

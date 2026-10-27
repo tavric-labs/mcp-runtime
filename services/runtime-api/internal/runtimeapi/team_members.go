@@ -7,13 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"mcp-runtime-api/internal/runtimeapi/k8sprovision"
 	"net/http"
 	"strings"
 	"time"
 
+	"mcp-runtime-api/internal/runtimeapi/k8sprovision"
 	"mcp-runtime/pkg/apihttp"
-	"mcp-runtime/pkg/serviceutil"
+	"mcp-runtime/pkg/httpx"
 )
 
 // HandleRuntimeTeamItemPath routes team detail and membership operations after role checks.
@@ -27,7 +27,7 @@ func (s *RuntimeServer) HandleRuntimeTeamItemPath(w http.ResponseWriter, r *http
 		writeAPIError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	path := strings.Trim(strings.TrimPrefix(serviceutil.NormalizePublicAPIPath(r.URL.Path), "/runtime/teams/"), "/")
+	path := strings.Trim(strings.TrimPrefix(httpx.NormalizePublicAPIPath(r.URL.Path), "/runtime/teams/"), "/")
 	parts := strings.Split(path, "/")
 	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
 		writeAPIError(w, http.StatusBadRequest, "invalid path")
