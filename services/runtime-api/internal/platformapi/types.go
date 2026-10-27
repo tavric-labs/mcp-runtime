@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/internalapi"
-	"mcp-runtime/pkg/platform"
 )
 
 // Team is a managed platform team and its Kubernetes namespace.
@@ -14,7 +13,7 @@ type Agent = internalapi.Agent
 type AgentPage = internalapi.AgentPage
 
 // TeamMembership is the platform team membership API contract.
-type TeamMembership = platform.TeamMembership
+type TeamMembership = internalapi.TeamMembership
 
 // User is a platform user record returned by identity APIs.
 type User = internalapi.User

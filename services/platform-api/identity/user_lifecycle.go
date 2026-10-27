@@ -12,12 +12,12 @@ import (
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/apihttp"
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platform"
+	"mcp-runtime/pkg/internalapi"
 	"mcp-runtime/pkg/platformauth"
 )
 
 type UserLifecycleStore interface {
-	DeactivateUser(context.Context, string, string, platformstore.AuditEvent) (platform.UserDeactivationResult, error)
+	DeactivateUser(context.Context, string, string, platformstore.AuditEvent) (internalapi.UserDeactivationResult, error)
 	WriteAudit(context.Context, platformstore.AuditEvent)
 }
 

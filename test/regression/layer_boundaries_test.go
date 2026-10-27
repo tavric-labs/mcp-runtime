@@ -49,7 +49,7 @@ var pkgLayers = map[string]layer{
 	"authzmatrix": leaf, "credentialbroker": leaf, "egresscidrs": leaf,
 	"envcfg": leaf, "errx": leaf, "events": leaf, "httpx": leaf,
 	"identity": leaf, "manifest": leaf, "oidcdiscovery": leaf, "openapi": leaf,
-	"platform": leaf, "platforminventory": leaf, "publicroutes": leaf,
+	"platforminventory": leaf, "publicroutes": leaf,
 	"publishscope": leaf, "registryauth": leaf, "runtimeconfig": leaf,
 	"transport/httptrace": leaf, "transport/tlsconfig": leaf,
 

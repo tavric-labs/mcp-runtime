@@ -1,12 +1,13 @@
 // Package internalapi holds shared request/response DTOs for platform-api
-// /internal/* endpoints. Provider and consumer services import these structs so
-// field renames become compile errors across the split.
+// endpoints, including the /internal/* endpoints and the team-membership and
+// user-deactivation records the CLI and runtime-api also consume. Provider and
+// consumer services import these structs so field renames become compile
+// errors across the split.
 package internalapi
 
 import (
 	"time"
 
-	"mcp-runtime/pkg/platform"
 	"mcp-runtime/pkg/platformauth"
 )
 
@@ -132,8 +133,17 @@ type TeamMembersListResponse struct {
 	Members []TeamMembership `json:"members"`
 }
 
-// TeamMembership is the platform team membership API contract.
-type TeamMembership = platform.TeamMembership
+// TeamMembership is the shared API contract for platform team membership data.
+type TeamMembership struct {
+	TeamID        string    `json:"team_id"`
+	TeamSlug      string    `json:"team_slug"`
+	TeamName      string    `json:"team_name"`
+	TeamNamespace string    `json:"team_namespace"`
+	UserID        string    `json:"user_id"`
+	Email         string    `json:"email,omitempty"`
+	Role          string    `json:"role"`
+	CreatedAt     time.Time `json:"created_at"`
+}
 
 // CreateUserRequest is POST /internal/identity/users.
 type CreateUserRequest struct {
@@ -170,4 +180,16 @@ type User struct {
 // NamespacesListResponse is GET /internal/identity/namespaces.
 type NamespacesListResponse struct {
 	Namespaces []map[string]any `json:"namespaces"`
+}
+
+// UserDeactivationResult contains non-secret, transactionally committed cleanup counts.
+type UserDeactivationResult struct {
+	UserID                     string `json:"user_id"`
+	Status                     string `json:"status"`
+	AlreadyDeactivated         bool   `json:"already_deactivated"`
+	RevokedAPIKeys             int64  `json:"revoked_api_keys"`
+	RevokedRegistryCredentials int64  `json:"revoked_registry_credentials"`
+	RevokedRefreshTokens       int64  `json:"revoked_refresh_tokens"`
+	RevokedSessions            int64  `json:"revoked_sessions"`
+	RemovedMemberships         int64  `json:"removed_memberships"`
 }
