@@ -11,13 +11,12 @@ import (
 	"mcp-platform-api/internal/httperrors"
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/apikit"
-	"mcp-runtime/pkg/apiwire"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/platformauth"
 )
 
 type UserLifecycleStore interface {
-	DeactivateUser(context.Context, string, string, platformstore.AuditEvent) (apiwire.UserDeactivationResult, error)
+	DeactivateUser(context.Context, string, string, platformstore.AuditEvent) (apikit.UserDeactivationResult, error)
 	WriteAudit(context.Context, platformstore.AuditEvent)
 }
 

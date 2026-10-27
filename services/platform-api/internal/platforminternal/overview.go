@@ -3,7 +3,6 @@ package platforminternal
 import (
 	"context"
 	"mcp-runtime/pkg/apikit"
-	"mcp-runtime/pkg/apiwire"
 	"net/http"
 )
 
@@ -13,7 +12,7 @@ func (h Handler) overviewCounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	store, ok := h.Store.(interface {
-		OverviewCounts(context.Context) (apiwire.OverviewCounts, error)
+		OverviewCounts(context.Context) (apikit.OverviewCounts, error)
 	})
 	if !ok {
 		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "overview unavailable")

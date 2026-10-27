@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"mcp-runtime/pkg/apiwire"
+	"mcp-runtime/pkg/apikit"
 )
 
 func TestAgentCertificatesCountsAllMatchingRowsButBoundsHistory(t *testing.T) {
@@ -18,7 +18,7 @@ func TestAgentCertificatesCountsAllMatchingRowsButBoundsHistory(t *testing.T) {
 		}
 		store := &Store{db: db}
 		now := time.Now().UTC()
-		item := apiwire.CertificateIssuance{Session: "session-1", Namespace: "team-a", Serial: "123", NotAfter: now.Add(time.Hour)}
+		item := apikit.CertificateIssuance{Session: "session-1", Namespace: "team-a", Serial: "123", NotAfter: now.Add(time.Hour)}
 		data, _ := json.Marshal(item)
 		mock.ExpectQuery(regexp.QuoteMeta(agentCertificateQuery)).WithArgs("agent-1", sqlmock.AnyArg(), sqlmock.AnyArg(), human).
 			WillReturnRows(sqlmock.NewRows([]string{"message", "created_at", "count"}).AddRow(string(data), now, 125))

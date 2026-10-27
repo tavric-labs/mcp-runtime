@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/apikit"
-	"mcp-runtime/pkg/apiwire"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/platformauth"
 	"mcp-runtime/pkg/transport/httptrace"
@@ -89,7 +88,7 @@ func (c *Client) requestJSON(ctx context.Context, method, path string, body any,
 }
 
 func (c *Client) ListTeams(ctx context.Context) ([]Team, error) {
-	var result apiwire.TeamsListResponse
+	var result apikit.TeamsListResponse
 	status, err := c.authorizedJSON(ctx, http.MethodGet, "/internal/identity/teams", nil, &result)
 	if err != nil {
 		return nil, err
@@ -117,7 +116,7 @@ func (c *Client) GetTeamBySlug(ctx context.Context, slug string) (Team, bool, er
 
 func (c *Client) CreateTeam(ctx context.Context, slug, name, createdByUserID string) (Team, error) {
 	var team Team
-	status, err := c.authorizedJSON(ctx, http.MethodPost, "/internal/identity/teams", apiwire.TeamCreateRequest{
+	status, err := c.authorizedJSON(ctx, http.MethodPost, "/internal/identity/teams", apikit.TeamCreateRequest{
 		Slug:            slug,
 		Name:            name,
 		CreatedByUserID: createdByUserID,
@@ -134,7 +133,7 @@ func (c *Client) CreateTeam(ctx context.Context, slug, name, createdByUserID str
 func (c *Client) CreateAgent(ctx context.Context, teamSlug, name, createdBy string) (Agent, error) {
 	var item Agent
 	path := "/internal/identity/teams/" + url.PathEscape(teamSlug) + "/agents"
-	status, err := c.authorizedJSON(ctx, http.MethodPost, path, apiwire.AgentCreateRequest{Name: name, CreatedBy: createdBy}, &item)
+	status, err := c.authorizedJSON(ctx, http.MethodPost, path, apikit.AgentCreateRequest{Name: name, CreatedBy: createdBy}, &item)
 	if err != nil {
 		return Agent{}, err
 	}
@@ -185,12 +184,12 @@ func (c *Client) ListAgents(ctx context.Context, teamSlug, statusFilter, q, curs
 	return page, nil
 }
 
-func (c *Client) AgentCertificates(ctx context.Context, id, humanID string) (apiwire.CertificateActivity, error) {
+func (c *Client) AgentCertificates(ctx context.Context, id, humanID string) (apikit.CertificateActivity, error) {
 	path := "/internal/identity/agents/" + url.PathEscape(id) + "/certificates"
 	if humanID != "" {
 		path += "?human_id=" + url.QueryEscape(humanID)
 	}
-	var out apiwire.CertificateActivity
+	var out apikit.CertificateActivity
 	status, err := c.authorizedJSON(ctx, http.MethodGet, path, nil, &out)
 	if err != nil {
 		return out, err
@@ -218,7 +217,7 @@ func (c *Client) GetAgent(ctx context.Context, id string) (Agent, bool, error) {
 
 func (c *Client) RenameAgent(ctx context.Context, id, name string) (Agent, error) {
 	var item Agent
-	status, err := c.authorizedJSON(ctx, http.MethodPatch, "/internal/identity/agents/"+url.PathEscape(id), apiwire.AgentRenameRequest{Name: name}, &item)
+	status, err := c.authorizedJSON(ctx, http.MethodPatch, "/internal/identity/agents/"+url.PathEscape(id), apikit.AgentRenameRequest{Name: name}, &item)
 	if err != nil {
 		return Agent{}, err
 	}
@@ -294,7 +293,7 @@ func (c *Client) PrincipalForUserID(ctx context.Context, userID string) (platfor
 }
 
 func (c *Client) ListNamespaces(ctx context.Context) ([]map[string]any, error) {
-	var result apiwire.NamespacesListResponse
+	var result apikit.NamespacesListResponse
 	status, err := c.authorizedJSON(ctx, http.MethodGet, "/internal/identity/namespaces", nil, &result)
 	if err != nil {
 		return nil, err
@@ -321,7 +320,7 @@ func (c *Client) GetNamespace(ctx context.Context, namespace string) (map[string
 }
 
 func (c *Client) ListTeamMemberships(ctx context.Context, teamSlug string) ([]TeamMembership, error) {
-	var result apiwire.TeamMembersListResponse
+	var result apikit.TeamMembersListResponse
 	path := "/internal/identity/teams/" + url.PathEscape(teamSlug) + "/members"
 	status, err := c.authorizedJSON(ctx, http.MethodGet, path, nil, &result)
 	if err != nil {
@@ -334,9 +333,9 @@ func (c *Client) ListTeamMemberships(ctx context.Context, teamSlug string) ([]Te
 }
 
 func (c *Client) UpsertTeamMembership(ctx context.Context, teamSlug, userID, role string) (TeamMembership, error) {
-	var result apiwire.TeamMembershipResponse
+	var result apikit.TeamMembershipResponse
 	path := "/internal/identity/teams/" + url.PathEscape(teamSlug) + "/members/" + url.PathEscape(userID)
-	status, err := c.requestJSON(ctx, http.MethodPut, path, apiwire.TeamMembershipPutRequest{
+	status, err := c.requestJSON(ctx, http.MethodPut, path, apikit.TeamMembershipPutRequest{
 		Role: role,
 	}, &result, true)
 	if err != nil {
@@ -367,8 +366,8 @@ func (c *Client) DeleteTeamMembership(ctx context.Context, teamSlug, userID stri
 }
 
 func (c *Client) CreatePasswordUser(ctx context.Context, email, password, role string) (User, error) {
-	var result apiwire.CreateUserResponse
-	status, err := c.requestJSON(ctx, http.MethodPost, "/internal/identity/users", apiwire.CreateUserRequest{
+	var result apikit.CreateUserResponse
+	status, err := c.requestJSON(ctx, http.MethodPost, "/internal/identity/users", apikit.CreateUserRequest{
 		Email:    email,
 		Password: password,
 		Role:     role,
@@ -383,9 +382,9 @@ func (c *Client) CreatePasswordUser(ctx context.Context, email, password, role s
 }
 
 func (c *Client) CreateTeamUser(ctx context.Context, teamSlug, email, password, role string) (User, TeamMembership, error) {
-	var result apiwire.TeamUserCreateResponse
+	var result apikit.TeamUserCreateResponse
 	path := "/internal/identity/teams/" + url.PathEscape(teamSlug) + "/users"
-	status, err := c.requestJSON(ctx, http.MethodPost, path, apiwire.TeamUserCreateRequest{
+	status, err := c.requestJSON(ctx, http.MethodPost, path, apikit.TeamUserCreateRequest{
 		Email:    email,
 		Password: password,
 		Role:     role,

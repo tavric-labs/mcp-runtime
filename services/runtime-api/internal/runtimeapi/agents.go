@@ -13,7 +13,7 @@ import (
 	"mcp-runtime-api/internal/k8sstore"
 	"mcp-runtime-api/internal/platformapi"
 	mcpaccess "mcp-runtime/pkg/access"
-	"mcp-runtime/pkg/apiwire"
+	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 )
 
@@ -166,7 +166,7 @@ func (s *RuntimeServer) HandleRuntimeAgentPath(w http.ResponseWriter, r *http.Re
 		// Directory/access stays usable when the independent history store fails.
 		response["certificates_error"] = "Recorded certificate history is unavailable."
 		if reader, ok := s.identity.(interface {
-			AgentCertificates(context.Context, string, string) (apiwire.CertificateActivity, error)
+			AgentCertificates(context.Context, string, string) (apikit.CertificateActivity, error)
 		}); ok {
 			humanID := p.UserID()
 			if manager {

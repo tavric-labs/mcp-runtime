@@ -11,20 +11,20 @@ import (
 	"github.com/spf13/cobra"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/apiwire"
+	"mcp-runtime/pkg/apikit"
 )
 
 func New(_ *core.Runtime) *cobra.Command {
-	return newCommand(func(ctx context.Context, id string) (apiwire.UserDeactivationResult, error) {
+	return newCommand(func(ctx context.Context, id string) (apikit.UserDeactivationResult, error) {
 		client, err := platformapi.NewPlatformClient()
 		if err != nil {
-			return apiwire.UserDeactivationResult{}, err
+			return apikit.UserDeactivationResult{}, err
 		}
 		return client.DeactivateUser(ctx, id)
 	})
 }
 
-func newCommand(deactivate func(context.Context, string) (apiwire.UserDeactivationResult, error)) *cobra.Command {
+func newCommand(deactivate func(context.Context, string) (apikit.UserDeactivationResult, error)) *cobra.Command {
 	cmd := &cobra.Command{Use: "user", Short: "Manage platform accounts as an administrator"}
 	var yes, jsonOutput bool
 	action := &cobra.Command{Use: "deactivate [user-id]", Short: "Permanently deactivate an account and revoke its access", Long: "Permanently disable a platform account, remove its team memberships, and revoke its API keys, registry credentials, refresh tokens and MCP sessions. Audit history and the identity tombstone remain. Transfer sole team ownership first. This differs from team user remove, which removes only one membership.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {

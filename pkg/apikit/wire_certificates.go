@@ -1,4 +1,4 @@
-package apiwire
+package apikit
 
 import "time"
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"mcp-runtime/pkg/apiwire"
+	"mcp-runtime/pkg/apikit"
 )
 
 type certificateStore struct {
@@ -15,9 +15,9 @@ type certificateStore struct {
 	agent, human string
 }
 
-func (s *certificateStore) AgentCertificates(_ context.Context, agent, human string) (apiwire.CertificateActivity, error) {
+func (s *certificateStore) AgentCertificates(_ context.Context, agent, human string) (apikit.CertificateActivity, error) {
 	s.agent, s.human = agent, human
-	return apiwire.CertificateActivity{Recorded: 2, Recent: []apiwire.CertificateIssuance{}}, nil
+	return apikit.CertificateActivity{Recorded: 2, Recent: []apikit.CertificateIssuance{}}, nil
 }
 
 func TestAgentCertificateHistoryRequiresInternalAuthAndExactFilters(t *testing.T) {

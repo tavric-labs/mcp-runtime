@@ -1,4 +1,4 @@
-package apiwire
+package apikit
 
 // OverviewCounts contains complete platform directory totals, never page lengths.
 type OverviewCounts struct {

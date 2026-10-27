@@ -13,7 +13,6 @@ import (
 
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/apikit"
-	"mcp-runtime/pkg/apiwire"
 	"mcp-runtime/pkg/platformauth"
 )
 
@@ -73,7 +72,7 @@ func (h Handler) agentPath(w http.ResponseWriter, r *http.Request) {
 	id := parts[0]
 	if len(parts) == 2 && parts[1] == "certificates" && r.Method == http.MethodGet {
 		reader, ok := h.Store.(interface {
-			AgentCertificates(context.Context, string, string) (apiwire.CertificateActivity, error)
+			AgentCertificates(context.Context, string, string) (apikit.CertificateActivity, error)
 		})
 		if !ok {
 			apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeQueryFailed, "certificate history unavailable")
@@ -106,7 +105,7 @@ func (h Handler) agentPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(parts) == 1 && r.Method == http.MethodPatch {
-		var request apiwire.AgentRenameRequest
+		var request apikit.AgentRenameRequest
 		if err := decodeJSON(r, &request); err != nil {
 			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 			return
@@ -157,8 +156,8 @@ func writeAgentStoreError(w http.ResponseWriter, err error) {
 	}
 }
 
-func agentToInternal(item platformstore.Agent) apiwire.Agent {
-	return apiwire.Agent{ID: item.ID, TeamID: item.TeamID, TeamSlug: item.TeamSlug, Name: item.Name, Status: item.Status,
+func agentToInternal(item platformstore.Agent) apikit.Agent {
+	return apikit.Agent{ID: item.ID, TeamID: item.TeamID, TeamSlug: item.TeamSlug, Name: item.Name, Status: item.Status,
 		CreatedBy: item.CreatedBy, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, DeactivatedAt: item.DeactivatedAt, DeactivatedBy: item.DeactivatedBy}
 }
 
@@ -234,7 +233,7 @@ func (h Handler) resolveIDs(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request apiwire.ResolveIDsRequest
+	var request apikit.ResolveIDsRequest
 	if err := decodeJSON(r, &request); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -249,7 +248,7 @@ func (h Handler) resolveIDs(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to resolve team ids")
 		return
 	}
-	writeJSON(w, http.StatusOK, apiwire.ResolveIDsResponse{Users: users, Teams: teams})
+	writeJSON(w, http.StatusOK, apikit.ResolveIDsResponse{Users: users, Teams: teams})
 }
 
 func (h Handler) audit(w http.ResponseWriter, r *http.Request) {
@@ -257,7 +256,7 @@ func (h Handler) audit(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var event apiwire.AuditEvent
+	var event apikit.AuditEvent
 	if err := decodeJSON(r, &event); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -274,9 +273,9 @@ func (h Handler) teams(w http.ResponseWriter, r *http.Request) {
 			apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to list teams")
 			return
 		}
-		writeJSON(w, http.StatusOK, apiwire.TeamsListResponse{Teams: teamsToInternal(teams)})
+		writeJSON(w, http.StatusOK, apikit.TeamsListResponse{Teams: teamsToInternal(teams)})
 	case http.MethodPost:
-		var request apiwire.TeamCreateRequest
+		var request apikit.TeamCreateRequest
 		if err := decodeJSON(r, &request); err != nil {
 			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 			return
@@ -324,7 +323,7 @@ func (h Handler) teamPath(w http.ResponseWriter, r *http.Request) {
 
 func (h Handler) teamAgents(w http.ResponseWriter, r *http.Request, slug string) {
 	if r.Method == http.MethodPost {
-		var request apiwire.AgentCreateRequest
+		var request apikit.AgentCreateRequest
 		if err := decodeJSON(r, &request); err != nil {
 			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 			return
@@ -367,7 +366,7 @@ func (h Handler) teamAgents(w http.ResponseWriter, r *http.Request, slug string)
 		}
 		return
 	}
-	out := apiwire.AgentPage{Agents: make([]apiwire.Agent, 0, len(page.Agents)), NextCursor: page.NextCursor}
+	out := apikit.AgentPage{Agents: make([]apikit.Agent, 0, len(page.Agents)), NextCursor: page.NextCursor}
 	for _, item := range page.Agents {
 		out.Agents = append(out.Agents, agentToInternal(item))
 	}
@@ -405,11 +404,11 @@ func (h Handler) teamMembersList(w http.ResponseWriter, r *http.Request, slug st
 		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to list team members")
 		return
 	}
-	writeJSON(w, http.StatusOK, apiwire.TeamMembersListResponse{Members: members})
+	writeJSON(w, http.StatusOK, apikit.TeamMembersListResponse{Members: members})
 }
 
 func (h Handler) teamMembersUpsertBody(w http.ResponseWriter, r *http.Request, slug string) {
-	var request apiwire.TeamMembershipUpsertRequest
+	var request apikit.TeamMembershipUpsertRequest
 	if err := decodeJSON(r, &request); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -427,11 +426,11 @@ func (h Handler) teamMembersUpsertBody(w http.ResponseWriter, r *http.Request, s
 		writeMembershipError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, apiwire.TeamMembershipResponse{Membership: membership})
+	writeJSON(w, http.StatusOK, apikit.TeamMembershipResponse{Membership: membership})
 }
 
 func (h Handler) teamMemberUpsert(w http.ResponseWriter, r *http.Request, slug, userID string) {
-	var request apiwire.TeamMembershipPutRequest
+	var request apikit.TeamMembershipPutRequest
 	if r.Method == http.MethodPut {
 		if err := decodeJSON(r, &request); err != nil {
 			apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
@@ -451,7 +450,7 @@ func (h Handler) teamMemberUpsert(w http.ResponseWriter, r *http.Request, slug, 
 		writeMembershipError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, apiwire.TeamMembershipResponse{Membership: membership})
+	writeJSON(w, http.StatusOK, apikit.TeamMembershipResponse{Membership: membership})
 }
 
 func (h Handler) teamMemberDelete(w http.ResponseWriter, r *http.Request, slug, userID string) {
@@ -467,7 +466,7 @@ func (h Handler) teamMemberDelete(w http.ResponseWriter, r *http.Request, slug, 
 }
 
 func (h Handler) teamUserCreate(w http.ResponseWriter, r *http.Request, teamSlug string) {
-	var request apiwire.TeamUserCreateRequest
+	var request apikit.TeamUserCreateRequest
 	if err := decodeJSON(r, &request); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -481,7 +480,7 @@ func (h Handler) teamUserCreate(w http.ResponseWriter, r *http.Request, teamSlug
 		writeUserCreateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, apiwire.TeamUserCreateResponse{User: userToInternal(user), Membership: membership})
+	writeJSON(w, http.StatusCreated, apikit.TeamUserCreateResponse{User: userToInternal(user), Membership: membership})
 }
 
 func (h Handler) createUser(w http.ResponseWriter, r *http.Request) {
@@ -489,7 +488,7 @@ func (h Handler) createUser(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request apiwire.CreateUserRequest
+	var request apikit.CreateUserRequest
 	if err := decodeJSON(r, &request); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -503,7 +502,7 @@ func (h Handler) createUser(w http.ResponseWriter, r *http.Request) {
 		writeUserCreateError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, apiwire.CreateUserResponse{User: userToInternal(user)})
+	writeJSON(w, http.StatusCreated, apikit.CreateUserResponse{User: userToInternal(user)})
 }
 
 func (h Handler) operationsSnapshot(w http.ResponseWriter, r *http.Request) {
@@ -577,7 +576,7 @@ func (h Handler) namespaces(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to list namespaces")
 		return
 	}
-	writeJSON(w, http.StatusOK, apiwire.NamespacesListResponse{Namespaces: namespaces})
+	writeJSON(w, http.StatusOK, apikit.NamespacesListResponse{Namespaces: namespaces})
 }
 
 func (h Handler) namespaceItem(w http.ResponseWriter, r *http.Request) {
@@ -611,8 +610,8 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func teamToInternal(team platformstore.Team) apiwire.Team {
-	return apiwire.Team{
+func teamToInternal(team platformstore.Team) apikit.Team {
+	return apikit.Team{
 		ID:        team.ID,
 		Slug:      team.Slug,
 		Name:      team.Name,
@@ -621,16 +620,16 @@ func teamToInternal(team platformstore.Team) apiwire.Team {
 	}
 }
 
-func teamsToInternal(teams []platformstore.Team) []apiwire.Team {
-	out := make([]apiwire.Team, len(teams))
+func teamsToInternal(teams []platformstore.Team) []apikit.Team {
+	out := make([]apikit.Team, len(teams))
 	for i, team := range teams {
 		out[i] = teamToInternal(team)
 	}
 	return out
 }
 
-func userToInternal(user platformstore.User) apiwire.User {
-	return apiwire.User{
+func userToInternal(user platformstore.User) apikit.User {
+	return apikit.User{
 		ID:    user.ID,
 		Email: user.Email,
 		Role:  user.Role,

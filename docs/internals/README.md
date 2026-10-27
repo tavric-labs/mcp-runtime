@@ -76,7 +76,7 @@ flowchart LR
 | Control-plane helpers | `pkg/controlplane/` | Shared MCPServer Kubernetes operations and status projection used outside HTTP/CLI glue. |
 | Shared policy and events | `pkg/policy/`, `pkg/events/`, `pkg/clickhouse/` | Gateway policy contracts/evaluation plus event envelopes and ClickHouse query/insert helpers. |
 | Shared infrastructure and workload helpers | `pkg/envcfg/`, `pkg/httpx/`, `pkg/transport/`, `pkg/telemetry/`, `pkg/svcboot/`, `pkg/kubeworkload/` | Configuration, HTTP primitives, transport support, observability, service startup and restricted Kubernetes workload defaults. |
-| API service internals | `services/runtime-api/internal/runtimeapi/`, `services/platform-api/internal/platformstore/`, `pkg/apikit/`, `pkg/platformauth/`, `pkg/apiwire/` | Split API modules: runtime HTTP/Kubernetes orchestration, platform Postgres persistence, shared HTTP contract helpers. |
+| API service internals | `services/runtime-api/internal/runtimeapi/`, `services/platform-api/internal/platformstore/`, `pkg/apikit/`, `pkg/platformauth/`, `pkg/apikit/` | Split API modules: runtime HTTP/Kubernetes orchestration, platform Postgres persistence, shared HTTP contract helpers. |
 | Server blueprint | [`blueprint.md`](blueprint.md) | Covers `.mcp` definition loading and defaults; hostname resolution lives in `pkg/topology` and CRD generation in `internal/cli/server/crdgen`. |
 | Manifests and examples | [`config-and-examples.md`](config-and-examples.md) | Explains Kustomize overlays, registry/ingress config, and example MCP servers. |
 | Tests | [`testing.md`](testing.md) | Maps unit, golden, integration, and QA E2E coverage. |
@@ -198,8 +198,7 @@ authoritative description; this table is the map.
 | Package | Layer | What it does |
 |---|---|---|
 | `access` | domain | Kubernetes-free model of grants and agent sessions: specs, requests, summaries and validation |
-| `apikit` | support | API conventions: typed errors and error envelope, pagination, query and body helpers |
-| `apiwire` | support | Request and response types for platform-api endpoints shared across modules |
+| `apikit` | support | API conventions: typed errors and envelope, pagination, query and body helpers, and the platform-api wire types shared across modules |
 | `authgateway` | support | Deployment contract of the optional credential gateway |
 | `authzmatrix` | leaf | Authn/authz expectation matrix and role credentials for conformance tests |
 | `blueprint` | domain | The `.mcp` server definition: schema, defaults, validation and loader |
