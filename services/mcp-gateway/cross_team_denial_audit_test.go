@@ -53,15 +53,15 @@ func TestCertificateDenialPreservesOnlyVerifiedKnownActor(t *testing.T) {
 				t.Fatalf("result=%v decision=%+v", result, ex.Decision)
 			}
 			if tc.wantActor {
-				if ex.Identity.TeamID != "team-b" || ex.Identity.HumanID != "human-b" || ex.Identity.SessionID != "binding" {
-					t.Fatalf("actor=%+v", ex.Identity)
+				if ex.Identity().TeamID != "team-b" || ex.Identity().HumanID != "human-b" || ex.Identity().SessionID != "binding" {
+					t.Fatalf("actor=%+v", ex.Identity())
 				}
-				payload := auditPayloadForTest(s, ex.R, "/mcp", "tools/call", "aaa-ping", ex.Identity, ex.Policy, ex.Decision, http.StatusUnauthorized, 0, 0)
+				payload := auditPayloadForTest(s, ex.R, "/mcp", "tools/call", "aaa-ping", ex.Identity(), ex.Policy, ex.Decision, http.StatusUnauthorized, 0, 0)
 				if payload.SubjectTeamID != "team-b" || payload.ResourceTeamID != "team-a" {
 					t.Fatalf("denial attribution=%+v", payload)
 				}
-			} else if ex.Identity != (identityContext{}) {
-				t.Fatalf("unverified identity leaked into audit: %+v", ex.Identity)
+			} else if ex.Identity() != (identityContext{}) {
+				t.Fatalf("unverified identity leaked into audit: %+v", ex.Identity())
 			}
 		})
 	}

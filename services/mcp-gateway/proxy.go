@@ -129,7 +129,7 @@ func (s *gatewayServer) handleGateway(w http.ResponseWriter, r *http.Request) {
 	if ex.Decision.PolicyVersion == "" {
 		ex.Decision.PolicyVersion = s.defaultPolicyVersion
 	}
-	policyDecisionObserved = ex.Inspection.IsToolCall() || ex.Inspection.Indeterminate()
+	policyDecisionObserved = ex.Inspection.RequiresAuthorization()
 	if !policyDecisionObserved && !ex.Decision.Allowed && !ex.SkipAudit {
 		policyDecisionObserved = true
 	}

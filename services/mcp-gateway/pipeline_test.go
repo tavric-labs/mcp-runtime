@@ -23,7 +23,7 @@ import (
 // filterFixture retains phase outputs for tests that exercise several boundaries.
 // Tests can also call any typed filter directly with only its required input.
 type filterFixture struct {
-	AuthorizedRequest
+	EvaluatedRequest
 	W            *statusRecorder
 	OriginalPath string
 	SkipAudit    bool
@@ -35,7 +35,7 @@ func newTestExchange(method, target, body string, headers map[string]string) *fi
 		r.Header.Set(k, v)
 	}
 	return &filterFixture{
-		AuthorizedRequest: AuthorizedRequest{
+		EvaluatedRequest: EvaluatedRequest{
 			AuthenticatedRequest: AuthenticatedRequest{
 				PolicyRequest: PolicyRequest{
 					InspectedRequest: InspectedRequest{RequestInput: &RequestInput{
@@ -81,19 +81,19 @@ func (f *filterFixture) authenticate(s *gatewayServer) *FilterResponse {
 
 func (f *filterFixture) authorize(s *gatewayServer) *FilterResponse {
 	out, response := s.authzFilter(f.AuthenticatedRequest)
-	f.AuthorizedRequest = out
+	f.EvaluatedRequest = out
 	f.record(response)
 	return response
 }
 
 func (f *filterFixture) upstream(s *gatewayServer) *FilterResponse {
-	permitted, response := permitRequest(f.AuthorizedRequest, f.W)
+	permitted, response := permitRequest(f.EvaluatedRequest, f.W)
 	if response != nil {
 		f.record(response)
 		return response
 	}
 	out, response := s.upstreamFilter(permitted)
-	f.AuthorizedRequest = out
+	f.EvaluatedRequest = out
 	f.record(response)
 	return response
 }
@@ -145,7 +145,7 @@ func TestInspectFilterSetsInspection(t *testing.T) {
 func TestPolicyFilterContinuesForNonOAuthPath(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
-	s.snapshotPolicy(policySnapshot{Policy: testPolicy()})
+	s.snapshotPolicy(seedSnapshot(testPolicy()))
 	ex := newTestExchange(http.MethodPost, "/mcp", `{}`, map[string]string{"Content-Type": "application/json"})
 
 	if got := ex.policy(s); got != nil {
@@ -160,7 +160,7 @@ func TestPolicyFilterRespondsForOAuthMetadataPath(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	issuer := newTestJWTIssuer(t)
-	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
+	s.snapshotPolicy(seedSnapshot(oauthPolicy(issuer.url)))
 	ex := newTestExchange(http.MethodGet, "/.well-known/oauth-protected-resource", "", nil)
 
 	if got := ex.policy(s); got == nil {
@@ -178,7 +178,7 @@ func TestPolicyFilterSetsSkipAuditForOAuthMetadataPath(t *testing.T) {
 	// orchestrator does not emit a spurious audit event with no identity.
 	s := minimalServer()
 	issuer := newTestJWTIssuer(t)
-	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
+	s.snapshotPolicy(seedSnapshot(oauthPolicy(issuer.url)))
 	ex := newTestExchange(http.MethodGet, "/.well-known/oauth-protected-resource", "", nil)
 
 	ex.policy(s)
@@ -192,14 +192,14 @@ func TestPolicyFilterPolicySnapshotIsImmutableForExchange(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	snap := testPolicy()
-	s.snapshotPolicy(policySnapshot{Policy: snap})
+	s.snapshotPolicy(seedSnapshot(snap))
 	ex := newTestExchange(http.MethodPost, "/mcp", "", nil)
 
 	ex.policy(s)
 	captured := ex.Policy
 
 	// Replace the gateway snapshot mid-exchange — the Exchange copy must be unaffected.
-	s.snapshotPolicy(policySnapshot{Policy: &policypkg.Document{Server: policypkg.Server{Name: "other"}}})
+	s.snapshotPolicy(seedSnapshot(&policypkg.Document{Server: policypkg.Server{Name: "other"}}))
 	if ex.Policy != captured {
 		t.Fatal("Exchange.Policy changed after snapshot was replaced — not immutable for exchange lifetime")
 	}
@@ -272,10 +272,10 @@ func TestAuthFilterAdapterRequiresMatchingOAuthAndUsesCertificateIdentity(t *tes
 	if got := ex.authenticate(s); got != nil {
 		t.Fatalf("authFilter adapter = %v, want continuation", got)
 	}
-	if ex.Identity.HumanID != "human-1" || ex.Identity.AgentID != "agent-1" || ex.Identity.SessionID != "session-1" {
-		t.Fatalf("identity = %#v, want rendered session identity", ex.Identity)
+	if ex.Identity().HumanID != "human-1" || ex.Identity().AgentID != "agent-1" || ex.Identity().SessionID != "session-1" {
+		t.Fatalf("identity = %#v, want rendered session identity", ex.Identity())
 	}
-	if ex.OAuthToken != token {
+	if ex.OAuthToken() != token {
 		t.Fatal("validated OAuth token was not retained for the upstream MCP resource")
 	}
 }
@@ -296,8 +296,8 @@ func TestAuthFilterAdapterCertificateOnlyWhenOAuthDisabled(t *testing.T) {
 	if got := ex.authenticate(s); got != nil {
 		t.Fatalf("authFilter adapter without OAuth = %v, want continuation", got)
 	}
-	if ex.Identity.HumanID != "human-1" || ex.Identity.AgentID != "agent-1" || ex.Identity.SessionID != "session-1" {
-		t.Fatalf("identity = %#v, want certificate session identity", ex.Identity)
+	if ex.Identity().HumanID != "human-1" || ex.Identity().AgentID != "agent-1" || ex.Identity().SessionID != "session-1" {
+		t.Fatalf("identity = %#v, want certificate session identity", ex.Identity())
 	}
 }
 
@@ -373,8 +373,8 @@ func TestAuthFilterMTLSRejectsForgedHeaderWithoutMTLS(t *testing.T) {
 	if ex.Decision.Reason != "missing_client_certificate" {
 		t.Fatalf("reason = %q, want missing_client_certificate", ex.Decision.Reason)
 	}
-	if ex.Identity != (identityContext{}) {
-		t.Fatalf("identity = %#v, want empty (forged header must not be trusted)", ex.Identity)
+	if ex.Identity() != (identityContext{}) {
+		t.Fatalf("identity = %#v, want empty (forged header must not be trusted)", ex.Identity())
 	}
 }
 
@@ -390,8 +390,8 @@ func TestAuthFilterWithoutVerifiedHeaderAllowsDirectWhenOAuthDisabled(t *testing
 	if got := ex.authenticate(s); got != nil {
 		t.Fatalf("authFilter = %v, want continuation", got)
 	}
-	if ex.Identity != (identityContext{}) {
-		t.Fatalf("identity = %#v, want empty direct identity", ex.Identity)
+	if ex.Identity() != (identityContext{}) {
+		t.Fatalf("identity = %#v, want empty direct identity", ex.Identity())
 	}
 }
 
@@ -507,11 +507,11 @@ func TestAuthFilterAlwaysRunsBeforeAuthz(t *testing.T) {
 	t.Parallel()
 	s := minimalServer()
 	issuer := newTestJWTIssuer(t)
-	s.snapshotPolicy(policySnapshot{Policy: oauthPolicy(issuer.url)})
+	s.snapshotPolicy(seedSnapshot(oauthPolicy(issuer.url)))
 	pipeline := s.buildPipeline()
-	pipeline.Authz = FilterFunc[AuthenticatedRequest, AuthorizedRequest](func(in AuthenticatedRequest) (AuthorizedRequest, *FilterResponse) {
+	pipeline.Authz = FilterFunc[AuthenticatedRequest, EvaluatedRequest](func(in AuthenticatedRequest) (EvaluatedRequest, *FilterResponse) {
 		t.Fatal("authorization reached after failed authentication")
-		return AuthorizedRequest{AuthenticatedRequest: in}, nil
+		return EvaluatedRequest{AuthenticatedRequest: in}, nil
 	})
 	ex := newExchange(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/mcp", nil), "test")
 	pipeline.Run(ex)
@@ -528,7 +528,7 @@ func TestAuthzFilterContinuesForNonToolCall(t *testing.T) {
 	ex := newTestExchange(http.MethodPost, "/mcp", `{"method":"tools/list"}`, map[string]string{"Content-Type": "application/json"})
 	ex.inspect(s)
 	ex.Policy = testPolicy()
-	ex.Identity = identityContext{HumanID: "human-1", AgentID: "client-1", TeamID: "team-acme"}
+	ex.Caller = verifiedTestCaller(identityContext{HumanID: "human-1", AgentID: "client-1", TeamID: "team-acme"})
 
 	if got := ex.authorize(s); got != nil {
 		t.Fatalf("authzFilter tools/list = %v, want continuation", got)
@@ -594,7 +594,7 @@ func TestAuthzFilterRejectsDeniedToolCall(t *testing.T) {
 		},
 	}
 	// No matching grant → default deny.
-	ex.Identity = identityContext{HumanID: "unknown", AgentID: "unknown"}
+	ex.Caller = verifiedTestCaller(identityContext{HumanID: "unknown", AgentID: "unknown"})
 
 	if got := ex.authorize(s); got == nil {
 		t.Fatalf("authzFilter denied tool call = %v, want denial response", got)
@@ -624,7 +624,7 @@ func TestAuthzFilterMonitorVsEnforceGrant(t *testing.T) {
 			s := minimalServer()
 			ex := newTestExchange(http.MethodPost, "/mcp", `{"method":"tools/call","params":{"name":"echo"}}`, map[string]string{"Content-Type": "application/json"})
 			ex.inspect(s)
-			ex.Identity = identityContext{HumanID: "human-1"}
+			ex.Caller = verifiedTestCaller(identityContext{HumanID: "human-1"})
 			ex.Policy = &policypkg.Document{
 				Policy: &policypkg.Config{Mode: "allow-list", DefaultDecision: "deny"},
 				Tools:  []policypkg.Tool{{Name: "echo", RequiredTrust: "high", SideEffect: "write"}},
@@ -647,13 +647,13 @@ func TestAuthzFilterAuthorizationInputsUnchangedAfterDecision(t *testing.T) {
 	fixture := newTestExchange(http.MethodPost, "/mcp", "", nil)
 	fixture.Inspection = inspectedRPC("tools/list", "", RPCRequest)
 	fixture.Policy = testPolicy()
-	fixture.Identity = identityContext{HumanID: "human-1", AgentID: "client-1", TeamID: "team-acme"}
+	fixture.Caller = verifiedTestCaller(identityContext{HumanID: "human-1", AgentID: "client-1", TeamID: "team-acme"})
 	in := fixture.AuthenticatedRequest
 	out, response := s.authzFilter(in)
 	if response != nil || !out.Decision.Allowed {
 		t.Fatalf("unexpected terminal response: %+v", response)
 	}
-	if out.Policy != in.Policy || out.Identity != in.Identity || in.Identity != fixture.Identity {
+	if out.Policy != in.Policy || out.Identity() != in.Identity() || in.Identity() != fixture.Identity() {
 		t.Fatal("authorization changed its input snapshot")
 	}
 }

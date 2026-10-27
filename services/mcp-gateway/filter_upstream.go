@@ -28,12 +28,12 @@ type dispatchOutcome struct {
 }
 
 // upstreamFilter dispatches only a capability issued by the authorization gate.
-func (s *gatewayServer) upstreamFilter(in PermittedRequest) (AuthorizedRequest, *FilterResponse) {
+func (s *gatewayServer) upstreamFilter(in PermittedRequest) (EvaluatedRequest, *FilterResponse) {
 	request := in.request
-	if !in.valid || in.writer == nil || in.outcome == nil || !request.Decision.Allowed {
+	if !in.ok() {
 		return request, denyResponse(policypkg.Deny(http.StatusForbidden, "undecided", request.Decision.PolicyVersion))
 	}
-	ex := &upstreamContext{R: request.R, W: in.writer, Inspection: request.Inspection, Policy: request.Policy, Identity: request.Identity, dispatchOutcome: in.outcome}
+	ex := &upstreamContext{R: request.R, W: in.writer, Inspection: request.Inspection, Policy: request.Policy, Identity: request.Identity(), dispatchOutcome: in.outcome}
 	if len(ex.R.Header.Values(idempotencyKeyHeader)) > 0 {
 		s.idempotentUpstream(ex)
 	} else {

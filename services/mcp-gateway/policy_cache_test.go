@@ -56,11 +56,11 @@ func TestReloadPolicyRetainsLastKnownGoodOnInvalidUpdate(t *testing.T) {
 		t.Fatalf("reloadPolicy() error = %v", err)
 	}
 	snap := s.loadPolicySnapshot()
-	if !snap.Ready {
+	if !snap.Ready() {
 		t.Fatal("snapshot not ready after a valid load")
 	}
-	if snap.Revision != good.Revision {
-		t.Fatalf("revision = %q, want %q", snap.Revision, good.Revision)
+	if snap.Revision() != good.Revision {
+		t.Fatalf("revision = %q, want %q", snap.Revision(), good.Revision)
 	}
 
 	// Replace the file with an unsupported schema version: an invalid update.
@@ -74,13 +74,13 @@ func TestReloadPolicyRetainsLastKnownGoodOnInvalidUpdate(t *testing.T) {
 		t.Fatal("reloadPolicy() error = nil, want validation error")
 	}
 	snap = s.loadPolicySnapshot()
-	if !snap.Ready {
+	if !snap.Ready() {
 		t.Fatal("snapshot should remain ready (last-known-good retained)")
 	}
-	if snap.Revision != good.Revision {
-		t.Fatalf("revision changed to %q on invalid update, want retained %q", snap.Revision, good.Revision)
+	if snap.Revision() != good.Revision {
+		t.Fatalf("revision changed to %q on invalid update, want retained %q", snap.Revision(), good.Revision)
 	}
-	if snap.Err == nil {
+	if snap.ReloadErr() == nil {
 		t.Fatal("expected last reload error to be recorded")
 	}
 	// Traffic continues on the last-known-good policy: no policy_unavailable.
@@ -156,7 +156,7 @@ func TestPolicyReloadConcurrentAuthorization(t *testing.T) {
 			t.Fatal("accepted invalid reload")
 		}
 		after := server.loadPolicySnapshot()
-		if after.Policy != before.Policy || after.Revision != before.Revision || !after.Ready {
+		if after.Document() != before.Document() || after.Revision() != before.Revision() || !after.Ready() {
 			t.Fatal("invalid reload replaced compiled snapshot")
 		}
 	}
@@ -171,7 +171,7 @@ func TestReadyFailsUntilValidPolicyLoaded(t *testing.T) {
 	s := newCacheTestServer("")
 	// Seed the unready default snapshot, as startPolicyCache does before the
 	// first reload.
-	s.snapshotPolicy(policySnapshot{Policy: s.defaultPolicyDocument()})
+	s.snapshotPolicy(seedSnapshot(s.defaultPolicyDocument()))
 
 	recorder := httptest.NewRecorder()
 	s.handleReady(recorder, httptest.NewRequest(http.MethodGet, "/ready", nil))

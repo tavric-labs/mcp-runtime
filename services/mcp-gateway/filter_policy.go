@@ -15,7 +15,7 @@ func (s *gatewayServer) policyFilter(in InspectedRequest) (PolicyRequest, *Filte
 			"oauth_metadata",
 			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(ex.Policy), s.defaultPolicyVersion),
 		)
-		return ex, &FilterResponse{Decision: decision, kind: responseMetadata, metadata: metadata}
+		return ex, metadataResponse(decision, metadata)
 	}
 	return ex, nil
 }

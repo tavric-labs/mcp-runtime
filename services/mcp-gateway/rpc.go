@@ -26,26 +26,26 @@ func inspectRPCRequest(r *http.Request) rpcInspection {
 	if contentType != "" && !strings.Contains(contentType, "application/json") {
 		// Clearly not a JSON-RPC client (e.g. text/plain probe). Not an audit-worthy
 		// MCP attempt.
-		return failedRPCInspection(inspectionContentType, false)
+		return failedRPCInspection(inspectionContentType)
 	}
 	// From here on the content-type is JSON (or absent), so treat failures as
 	// genuine MCP client attempts that should produce audit events.
 	if r.Body == nil || r.ContentLength == 0 {
-		return failedRPCInspection(inspectionMissingBody, true)
+		return failedRPCInspection(inspectionMissingBody)
 	}
 	if r.ContentLength > maxRPCBodyBytes {
-		return failedRPCInspection(inspectionBodyTooLarge, true)
+		return failedRPCInspection(inspectionBodyTooLarge)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxRPCBodyBytes+1))
 	if err != nil {
-		return failedRPCInspection(inspectionReadFailed, true)
+		return failedRPCInspection(inspectionReadFailed)
 	}
 	if len(body) == 0 {
-		return failedRPCInspection(inspectionMissingBody, true)
+		return failedRPCInspection(inspectionMissingBody)
 	}
 	if len(body) > maxRPCBodyBytes {
-		return failedRPCInspection(inspectionBodyTooLarge, true)
+		return failedRPCInspection(inspectionBodyTooLarge)
 	}
 	r.Body = io.NopCloser(bytes.NewReader(body))
 	return inspectRPCBody(body)
@@ -55,17 +55,17 @@ func inspectRPCRequest(r *http.Request) rpcInspection {
 // the gateway's size limit even when called independently of body capture.
 func inspectRPCBody(body []byte) rpcInspection {
 	if len(body) == 0 {
-		return failedRPCInspection(inspectionMissingBody, true)
+		return failedRPCInspection(inspectionMissingBody)
 	}
 	if len(body) > maxRPCBodyBytes {
-		return failedRPCInspection(inspectionBodyTooLarge, true)
+		return failedRPCInspection(inspectionBodyTooLarge)
 	}
 	var req rpcRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		return failedRPCInspection(inspectionMalformed, true)
+		return failedRPCInspection(inspectionMalformed)
 	}
 	if strings.TrimSpace(req.Method) == "" {
-		return failedRPCInspection(inspectionMissingMethod, true)
+		return failedRPCInspection(inspectionMissingMethod)
 	}
 
 	var toolName string

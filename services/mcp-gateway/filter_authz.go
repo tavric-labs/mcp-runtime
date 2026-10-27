@@ -9,13 +9,20 @@ import (
 
 // authzFilter consumes a complete identity and the captured policy snapshot.
 // Non-tool traffic gets an explicit allow; tool calls evaluate grants/sessions.
-func (s *gatewayServer) authzFilter(in AuthenticatedRequest) (AuthorizedRequest, *FilterResponse) {
+func (s *gatewayServer) authzFilter(in AuthenticatedRequest) (EvaluatedRequest, *FilterResponse) {
 	now := s.currentTime()
-	ex := AuthorizedRequest{
+	if !in.Caller.Usable() {
+		// Unreachable through the pipeline (authentication already denied), but a
+		// rejected actor kept for audit must never become an authorized caller.
+		decision := policypkg.Deny(http.StatusUnauthorized, "authentication_failed",
+			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(in.Policy), s.defaultPolicyVersion))
+		return EvaluatedRequest{AuthenticatedRequest: in, Decision: decision}, denyResponse(decision)
+	}
+	ex := EvaluatedRequest{
 		AuthenticatedRequest: in,
 		Decision: authorizeRequest(authorizationInput{
 			Policy: in.Policy, PolicyErr: in.PolicyErr,
-			Inspection: in.Inspection, Identity: in.Identity,
+			Inspection: in.Inspection, Identity: in.Identity(),
 			SessionSyncReady:     s.sessionReader().Fresh(now),
 			DefaultPolicyVersion: s.defaultPolicyVersion,
 		}, now),
@@ -38,7 +45,7 @@ type authorizationInput struct {
 }
 
 func authorizeRequest(in authorizationInput, now time.Time) policypkg.Decision {
-	if !in.Inspection.IsToolCall() && !in.Inspection.Indeterminate() {
+	if !in.Inspection.RequiresAuthorization() {
 		// Non-tool traffic intentionally bypasses grant/session evaluation.
 		return policypkg.Allow(
 			"allowed",
