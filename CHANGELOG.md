@@ -9,7 +9,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
-- QA E2E failures now upload redacted, size-capped logs from the analytics-api, ingest, processor and ClickHouse pods (`setup-<app>.log` in the run artifact), so a 5xx such as `query_failed` carries its backend error. No deployment or fresh-setup change is required.
+- QA E2E failures now upload redacted, size-capped logs from every pod in the platform namespaces (`pod-logs/<namespace>/<pod>.log`, plus `<pod>.previous.log` for restarted containers in the run artifact), so a 5xx such as `query_failed` or a crash loop carries its backend error. Collection is bounded to 30 pods per namespace and 150 seconds. No deployment or fresh-setup change is required.
 
 ## [0.13.1] - 2026-10-26
 

@@ -53,11 +53,29 @@ elif args[:2] == ["get", "events"]:
         raise SystemExit(1)
     print(json.dumps({"items":[{"type":"Warning","reason":"FailedScheduling","message":"insufficient memory",
       "count":2,"involvedObject":{"kind":"Pod","name":"demo-abc"}}]}))
-elif args[:1] == ["logs"] and "app=mcp-analytics-api" in args:
-    print('[pod/mcp-analytics-api-0/analytics-api] 2026/10/27 07:30:00 user analytics usage query failed window_days=30 limit=3 err=code: 241, message: Memory limit exceeded')
-    print('[pod/mcp-analytics-api-0/analytics-api] request header authorization: Bearer never-upload-token')
-elif args[:1] == ["logs"] and "-l" in args and any(arg in ("app=mcp-ingest", "app=mcp-processor", "app=clickhouse") for arg in args):
-    print("[pod/" + args[args.index("-l") + 1].split("=", 1)[1] + "-0/c] ready")
+elif args[:2] == ["get", "pods"] and args[-2:] == ["-o", "name"]:
+    pods = {
+        "mcp-platform": ["mcp-platform-api-0", "mcp-runtime-api-1", "mcp-ui-0"],
+        "mcp-observability": ["mcp-analytics-api-0", "mcp-ingest-0", "clickhouse-0"],
+        "mcp-servers": ["server-%02d" % n for n in range(45)],
+    }
+    namespace = args[args.index("-n") + 1]
+    if namespace not in pods:
+        print('Error from server (NotFound): namespaces "' + namespace + '" not found', file=sys.stderr)
+        raise SystemExit(1)
+    print("\n".join("pod/" + name for name in pods[namespace]))
+elif args[:1] == ["logs"] and any(arg.startswith("pod/") for arg in args):
+    pod = next(arg for arg in args if arg.startswith("pod/"))[4:]
+    if "--previous" in args:
+        if pod != "mcp-runtime-api-1":
+            print('Error from server (BadRequest): previous terminated container "app" in pod "' + pod + '" not found', file=sys.stderr)
+            raise SystemExit(1)
+        print("[pod/" + pod + "/app] panic: nil pointer dereference in reconcile loop")
+    elif pod == "mcp-analytics-api-0":
+        print('[pod/mcp-analytics-api-0/analytics-api] 2026/10/27 07:30:00 user analytics usage query failed window_days=30 limit=3 err=code: 241, message: Memory limit exceeded')
+        print('[pod/mcp-analytics-api-0/analytics-api] request header authorization: Bearer never-upload-token')
+    else:
+        print("[pod/" + pod + "/app] ready")
 elif args[:1] == ["logs"] and "-l" in args:
     print('[pod/runtime-api/container] 2026/10/17 14:00:00 workload network policy reconciliation failed: Get "https://user:never-upload-password@10.96.0.1:443/api/v1/namespaces": context deadline exceeded')
     print('unrelated request payload: never-upload-payload')
@@ -105,8 +123,9 @@ PY
 python3 - "${diag_dir}" <<'PY'
 from pathlib import Path
 import sys
-for path in Path(sys.argv[1]).iterdir():
-    assert path.stat().st_size <= 65536, f"unbounded diagnostic: {path.name} ({path.stat().st_size} bytes)"
+for path in Path(sys.argv[1]).rglob("*"):
+    if path.is_file():
+        assert path.stat().st_size <= 65536, f"unbounded diagnostic: {path.name} ({path.stat().st_size} bytes)"
 PY
 
 # API/RBAC outages are represented as explicit collection gaps and do not
@@ -126,12 +145,30 @@ for namespace in mcp-platform mcp-observability mcp-runtime; do
 done
 grep -F 'ImagePullBackOff' "${diag_dir}/setup-mcp-platform-workloads.json" >/dev/null
 grep -F 'context deadline exceeded' "${diag_dir}/setup-runtime-init.log" >/dev/null
-# A failure after setup (for example an analytics 500) needs the service's own
-# log, which is where the real backend error is written.
-for app in mcp-analytics-api mcp-ingest mcp-processor clickhouse; do
-  [[ -s "${diag_dir}/setup-${app}.log" ]]
+# A failure after setup (for example an analytics 500) needs the failing
+# service's own log, wherever it runs: every pod of every platform namespace.
+pod_logs="${diag_dir}/pod-logs"
+for entry in mcp-platform/mcp-platform-api-0 mcp-platform/mcp-runtime-api-1 mcp-platform/mcp-ui-0 \
+  mcp-observability/mcp-analytics-api-0 mcp-observability/mcp-ingest-0 mcp-observability/clickhouse-0; do
+  [[ -s "${pod_logs}/${entry}.log" ]]
 done
-grep -F 'Memory limit exceeded' "${diag_dir}/setup-mcp-analytics-api.log" >/dev/null
+grep -F 'Memory limit exceeded' "${pod_logs}/mcp-observability/mcp-analytics-api-0.log" >/dev/null
+# A crashed container's last words are in its previous log; pods that never
+# restarted have none, and that absence is not reported as a gap.
+grep -F 'nil pointer dereference' "${pod_logs}/mcp-platform/mcp-runtime-api-1.previous.log" >/dev/null
+[[ ! -e "${pod_logs}/mcp-platform/mcp-platform-api-0.previous.log" ]]
+# A namespace that is absent is recorded, and does not stop the others.
+grep -F 'collection_gap: pod-names unavailable' "${pod_logs}/registry/_pods.txt" >/dev/null
+# Collection is bounded per namespace.
+server_logs="$(find "${pod_logs}/mcp-servers" -name 'server-*.log' ! -name '*.previous.log' | wc -l | tr -d ' ')"
+[[ "${server_logs}" -eq 30 ]]
+grep -F 'more pods were not collected' "${pod_logs}/mcp-servers/_pods.txt" >/dev/null
+# A slow or unavailable API server cannot stall cleanup: collection stops at
+# the time budget and says so.
+budget_dir="${TMP}/budget"
+mkdir -p "${budget_dir}"
+E2E_DIAG_POD_LOG_BUDGET_SECONDS=-1 e2e_collect_pod_logs "${budget_dir}"
+grep -F 'truncated: pod log collection stopped' "${budget_dir}/pod-logs/_truncated.txt" >/dev/null
 if grep -R -E 'never-upload|Bearer never-upload' "${diag_dir}"; then
   echo '[fail] setup diagnostics leaked credentials or pod environment' >&2
   exit 1
