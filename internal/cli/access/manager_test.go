@@ -13,8 +13,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/authfile"
 )
 
 func newKubeTestAccessManager(kubectl *core.KubectlClient) *AccessManager {

@@ -213,7 +213,7 @@ selector_expect "cert-harness" "smoke-auth,adapter-certificates" "test/e2e/lib/a
 selector_expect "platform-auth" "smoke-auth,api-platform,multitenancy,ui-auth" "pkg/platformauth/middleware.go"
 selector_expect "api-shared" "smoke-auth,api-platform" "pkg/apihttp/errors.go"
 selector_expect "oauth-resource" "smoke-auth,oauth" "pkg/identity/oauth.go"
-selector_expect "cli-login-store" "smoke-auth,cli-platform" "pkg/authfile/store.go"
+selector_expect "cli-login-store" "smoke-auth,cli-platform" "internal/cli/authfile/store.go"
 selector_expect "access" "smoke-auth,governance,trust" "pkg/policy/evaluator.go"
 selector_expect "observability" "smoke-auth,governance,trust,oauth,observability" "services/ingest/main.go"
 selector_expect "environment-config" "smoke-auth,governance,trust,oauth,observability" "pkg/envcfg/env.go"

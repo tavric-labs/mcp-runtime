@@ -20,10 +20,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"mcp-runtime/internal/adapterd"
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/authfile"
-	"mcp-runtime/pkg/runtimeconfig"
+	"mcp-runtime/internal/cli/runtimeconfig"
 )
 
 func newServiceCmd(_ *core.Runtime) *cobra.Command {

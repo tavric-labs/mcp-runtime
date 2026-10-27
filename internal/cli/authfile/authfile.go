@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"mcp-runtime/pkg/runtimeconfig"
+	"mcp-runtime/internal/cli/runtimeconfig"
 )
 
 // ErrNotFound is returned when no credentials file exists or it is empty.

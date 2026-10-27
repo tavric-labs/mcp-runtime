@@ -19,9 +19,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/term"
 
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/authfile"
 )
 
 // apiTestHook, if set, runs instead of the default API probe (unit tests only).

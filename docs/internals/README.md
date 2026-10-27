@@ -154,7 +154,7 @@ flowchart TB
     CLIRoot --> CLICommands[CLI command packages]
     CLICommands --> CLICore[internal/cli/core]
     CLICommands --> Metadata[pkg/metadata]
-    CLICommands --> Manifest[pkg/manifest]
+    CLICommands --> Manifest[internal/cli/manifest]
     CLICommands --> K8sClient[pkg/k8sclient]
     CLICommands --> Access[pkg/access]
     CmdOp[cmd/operator] --> Operator[internal/operator]
@@ -300,7 +300,7 @@ workflows.
 |---|---|---|
 | Add or change a CLI flag | `internal/cli/root`, `internal/cli/<command>`, `internal/cli/core`, `cmd/mcp-runtime`, golden CLI tests | `go test ./internal/cli/... ./test/golden/... -count=1` |
 | Change a CRD field | `api/v1alpha1`, CRD YAML, operator reconciliation, docs/API reference | `go test ./api/v1alpha1/... ./internal/operator/... -count=1` |
-| Change generated manifests | `pkg/metadata`, `pkg/manifest`, `config/`, examples | targeted package tests plus manifest diff review |
+| Change generated manifests | `pkg/metadata`, `internal/cli/manifest`, `config/`, examples | targeted package tests plus manifest diff review |
 | Change reconciliation behavior | `internal/operator`, API types, k8s helpers | `go test ./internal/operator/... -race -count=1` |
 | Change governance policy | `pkg/access`, `pkg/policy`, `services/runtime-api`, `services/mcp-gateway`, access CRDs | targeted package/service tests plus e2e policy scenario |
 | Change agent adapters | `internal/agentadapter`, `internal/cli/adapter`, `docs/connect-clients.md` | `go test ./internal/agentadapter ./internal/cli/adapter -count=1` |

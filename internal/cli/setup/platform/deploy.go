@@ -17,11 +17,11 @@ import (
 	clusterdoctor "mcp-runtime/internal/cli/cluster/doctor"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/kube"
+	"mcp-runtime/internal/cli/manifest"
 	"mcp-runtime/internal/cli/registry/config"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
 	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/kubeworkload"
-	"mcp-runtime/pkg/manifest"
 )
 
 func deployAnalyticsStepCmd(logger *zap.Logger, images AnalyticsImageSet, storageMode, platformMode string, deps SetupDeps) error {

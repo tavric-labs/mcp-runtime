@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
-	"mcp-runtime/pkg/authfile"
 )
 
 func TestVerifyPlatformAPIToken(t *testing.T) {

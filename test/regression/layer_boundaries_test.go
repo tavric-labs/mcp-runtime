@@ -47,10 +47,10 @@ func canImport(from, to layer) bool {
 var pkgLayers = map[string]layer{
 	// Leaves: no repository imports outside this layer.
 	"authzmatrix": leaf, "credentialbroker": leaf, "egresscidrs": leaf,
-	"envcfg": leaf, "errx": leaf, "events": leaf, "httpx": leaf,
-	"identity": leaf, "manifest": leaf, "oidcdiscovery": leaf, "openapi": leaf,
+	"envcfg": leaf, "events": leaf, "httpx": leaf,
+	"identity": leaf, "oidcdiscovery": leaf, "openapi": leaf,
 	"platforminventory": leaf, "publicroutes": leaf,
-	"publishscope": leaf, "registryauth": leaf, "runtimeconfig": leaf,
+	"publishscope": leaf, "registryauth": leaf,
 	"transport/httptrace": leaf, "transport/tlsconfig": leaf,
 
 	// Domain: rules and models, no Kubernetes or service infrastructure.
@@ -58,7 +58,7 @@ var pkgLayers = map[string]layer{
 	"platformmode": domain, "policy": domain, "sessionstate": domain,
 
 	// Support: HTTP, telemetry and bootstrap shared by services.
-	"apihttp": support, "authfile": support, "authgateway": support,
+	"apihttp": support, "authgateway": support,
 	"certauth": support, "clickhouse": support, "internalapi": support,
 	"platformauth": support, "svcboot": support, "telemetry": support,
 	"telemetry/kafkatrace": support,

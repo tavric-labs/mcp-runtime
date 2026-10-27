@@ -10,7 +10,7 @@
       "should_trigger": true
     },
     {
-      "query": "write a unit test for pkg/errx only",
+      "query": "write a unit test for internal/errx only",
       "should_trigger": false
     }
   ]

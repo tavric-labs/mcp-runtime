@@ -18,9 +18,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/platformapi"
-	"mcp-runtime/pkg/authfile"
 	"mcp-runtime/pkg/metadata"
 )
 

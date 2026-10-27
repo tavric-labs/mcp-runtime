@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"mcp-runtime/pkg/errx"
+	"mcp-runtime/internal/errx"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"

@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"mcp-runtime/internal/cli/authfile"
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/internal/cli/registry/resolve"
-	"mcp-runtime/pkg/authfile"
 	"mcp-runtime/pkg/metadata"
 )
 
