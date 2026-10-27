@@ -13,12 +13,12 @@ import (
 
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/apikit"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 type PlatformStore interface {
-	PrincipalForUserID(ctx context.Context, userID string) (platformauth.Principal, error)
-	AuthenticateUserAPIKey(ctx context.Context, rawKey string) (platformauth.Principal, bool, error)
+	PrincipalForUserID(ctx context.Context, userID string) (passport.Principal, error)
+	AuthenticateUserAPIKey(ctx context.Context, rawKey string) (passport.Principal, bool, error)
 	ResolveUserIDs(ctx context.Context, ids []string) (map[string]string, error)
 	ResolveTeamIDs(ctx context.Context, ids []string) (map[string]string, error)
 	WriteAudit(ctx context.Context, event platformstore.AuditEvent)
@@ -44,7 +44,7 @@ type PlatformStore interface {
 type Handler struct {
 	Store               PlatformStore
 	Token               string
-	AuthenticateRequest func(*http.Request) (platformauth.Principal, bool, error)
+	AuthenticateRequest func(*http.Request) (passport.Principal, bool, error)
 }
 
 func (h Handler) Register(mux *http.ServeMux) {
@@ -178,7 +178,7 @@ func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request platformauth.AuthResolveRequest
+	var request passport.AuthResolveRequest
 	if err := decodeJSON(r, &request); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -188,7 +188,7 @@ func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeAuthFailed, "failed to resolve API key")
 		return
 	}
-	writeJSON(w, http.StatusOK, platformauth.AuthResolveResponse{OK: ok, Principal: principal})
+	writeJSON(w, http.StatusOK, passport.AuthResolveResponse{OK: ok, Principal: principal})
 }
 
 // resolvePrincipalForAPIKey uses the platform's complete public authentication
@@ -196,7 +196,7 @@ func (h Handler) resolveAuth(w http.ResponseWriter, r *http.Request) {
 // store keeps the handler useful in isolated tests and older embedders, while
 // the production route can now resolve both user API keys and configured
 // service/admin API keys consistently with /api/v1/auth/me.
-func (h Handler) resolvePrincipalForAPIKey(r *http.Request, rawKey string) (platformauth.Principal, bool, error) {
+func (h Handler) resolvePrincipalForAPIKey(r *http.Request, rawKey string) (passport.Principal, bool, error) {
 	if h.AuthenticateRequest != nil {
 		clone := r.Clone(r.Context())
 		clone.Header.Set("x-api-key", strings.TrimSpace(rawKey))
@@ -211,7 +211,7 @@ func (h Handler) resolvePrincipal(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteMethodNotAllowed(w)
 		return
 	}
-	var request platformauth.PrincipalResolveRequest
+	var request passport.PrincipalResolveRequest
 	if err := decodeJSON(r, &request); err != nil {
 		apikit.WriteEnvelope(w, http.StatusBadRequest, apikit.CodeInvalidRequestBody, "invalid request body")
 		return
@@ -225,7 +225,7 @@ func (h Handler) resolvePrincipal(w http.ResponseWriter, r *http.Request) {
 		apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeQueryFailed, "failed to resolve principal")
 		return
 	}
-	writeJSON(w, http.StatusOK, platformauth.PrincipalResolveResponse{Principal: principal})
+	writeJSON(w, http.StatusOK, passport.PrincipalResolveResponse{Principal: principal})
 }
 
 func (h Handler) resolveIDs(w http.ResponseWriter, r *http.Request) {

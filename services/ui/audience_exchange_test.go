@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 type exchangeUIPrincipal struct {
@@ -19,36 +19,36 @@ type exchangeUIPrincipal struct {
 	calls    atomic.Int32
 }
 
-func (p *exchangeUIPrincipal) PrincipalForUserID(context.Context, string) (platformauth.Principal, error) {
+func (p *exchangeUIPrincipal) PrincipalForUserID(context.Context, string) (passport.Principal, error) {
 	p.calls.Add(1)
 	if p.inactive.Load() {
-		return platformauth.Principal{}, sql.ErrNoRows
+		return passport.Principal{}, sql.ErrNoRows
 	}
-	return platformauth.Principal{Subject: "ui-user", Role: platformauth.RoleUser}, nil
+	return passport.Principal{Subject: "ui-user", Role: passport.RoleUser}, nil
 }
 
 func TestUISessionProxyUsesRealAudienceExchangeAndCSRF(t *testing.T) {
 	t.Setenv("UI_PUBLIC_ORIGIN", "http://ui.example")
 	secret := []byte("ui-exchange-secret")
 	resolver := &exchangeUIPrincipal{}
-	platformAuth := platformauth.Authenticator{Secret: secret, Audience: platformauth.AudiencePlatform, Principals: resolver}
+	platformAuth := passport.Authenticator{Secret: secret, Audience: passport.AudiencePlatform, Principals: resolver}
 	mux := http.NewServeMux()
-	for _, target := range []string{platformauth.AudienceRuntime, platformauth.AudienceAnalytics} {
-		mux.Handle(platformauth.ExchangePath(target), platformauth.ExchangeHandler{Auth: platformAuth, Target: target})
+	for _, target := range []string{passport.AudienceRuntime, passport.AudienceAnalytics} {
+		mux.Handle(passport.ExchangePath(target), passport.ExchangeHandler{Auth: platformAuth, Target: target})
 	}
 	platform := httptest.NewServer(mux)
 	defer platform.Close()
 	var capturedRuntime atomic.Value
 	var calls atomic.Int32
 	backend := func(target string) *httptest.Server {
-		auth := platformauth.Authenticator{Secret: secret, Audience: target, Principals: resolver}
+		auth := passport.Authenticator{Secret: secret, Audience: target, Principals: resolver}
 		server := httptest.NewServer(auth.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			calls.Add(1)
-			claims, err := platformauth.Verify(secret, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), target)
+			claims, err := passport.Verify(secret, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), target)
 			if err != nil || len(claims.Audience) != 1 || claims.ExpiresAt.Sub(claims.IssuedAt.Time) > time.Minute {
 				t.Error("invalid upstream audience or expiry")
 			}
-			if target == platformauth.AudienceRuntime {
+			if target == passport.AudienceRuntime {
 				capturedRuntime.Store(r.Header.Get("Authorization"))
 			}
 			if r.Header.Get("Cookie") != "" || r.Header.Get(csrfHeaderName) != "" || r.Header.Get("X-Api-Key") != "" {
@@ -61,14 +61,14 @@ func TestUISessionProxyUsesRealAudienceExchangeAndCSRF(t *testing.T) {
 		t.Cleanup(server.Close)
 		return server
 	}
-	runtime := backend(platformauth.AudienceRuntime)
-	analytics := backend(platformauth.AudienceAnalytics)
+	runtime := backend(passport.AudienceRuntime)
+	analytics := backend(passport.AudienceAnalytics)
 	platformBase, _ := url.Parse(platform.URL)
 	runtimeBase, _ := url.Parse(runtime.URL)
 	analyticsBase, _ := url.Parse(analytics.URL)
 	store := newUISessionStore(time.Now)
 	proxy := newSessionProxyWithUpstreams(platformBase, runtimeBase, analyticsBase, store)
-	source, err := platformauth.Sign(secret, platformauth.Principal{Subject: "ui-user", Role: platformauth.RoleAdmin}, 15*time.Minute, []string{platformauth.AudiencePlatform})
+	source, err := passport.Sign(secret, passport.Principal{Subject: "ui-user", Role: passport.RoleAdmin}, 15*time.Minute, []string{passport.AudiencePlatform})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,16 +117,16 @@ func TestUISessionProxyUsesRealAudienceExchangeAndCSRF(t *testing.T) {
 		t.Fatalf("CSRF-valid write status=%d", rec.Code)
 	}
 	// A source bearer cannot authenticate directly to either split backend.
-	for _, target := range []string{platformauth.AudienceRuntime, platformauth.AudienceAnalytics} {
-		auth := platformauth.Authenticator{Secret: secret, Audience: target}
+	for _, target := range []string{passport.AudienceRuntime, passport.AudienceAnalytics} {
+		auth := passport.Authenticator{Secret: secret, Audience: target}
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer "+source)
 		if _, ok, _ := auth.AuthenticateRequest(req); ok {
 			t.Fatalf("platform bearer accepted directly by %s", target)
 		}
 	}
-	for _, target := range []string{platformauth.AudiencePlatform, platformauth.AudienceAnalytics} {
-		auth := platformauth.Authenticator{Secret: secret, Audience: target}
+	for _, target := range []string{passport.AudiencePlatform, passport.AudienceAnalytics} {
+		auth := passport.Authenticator{Secret: secret, Audience: target}
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", capturedRuntime.Load().(string))
 		if _, ok, _ := auth.AuthenticateRequest(req); ok {

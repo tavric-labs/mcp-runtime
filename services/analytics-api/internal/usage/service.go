@@ -10,7 +10,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"mcp-analytics-api/internal/identity"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/topology"
 )
 
@@ -200,7 +200,7 @@ func applyAdminScopeFilters(r *http.Request, scope *QueryScope) {
 	}
 }
 
-func PrincipalOwnedScope(p platformauth.Principal) PrincipalScope {
+func PrincipalOwnedScope(p passport.Principal) PrincipalScope {
 	var scope PrincipalScope
 	addNamespace := func(namespace string) {
 		namespace = strings.TrimSpace(namespace)
@@ -224,7 +224,7 @@ func PrincipalOwnedScope(p platformauth.Principal) PrincipalScope {
 	return scope
 }
 
-func principalScopeForNamespace(p platformauth.Principal, namespace string) (PrincipalScope, bool) {
+func principalScopeForNamespace(p passport.Principal, namespace string) (PrincipalScope, bool) {
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" || namespace == sharedCatalogNamespace {
 		return PrincipalScope{}, false

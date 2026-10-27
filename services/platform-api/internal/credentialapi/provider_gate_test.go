@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	cb "mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func TestProvidersRegistersOnlyKubernetes(t *testing.T) {
@@ -26,7 +26,7 @@ func TestManagementRefusesCloudSourcesWithReadableError(t *testing.T) {
 		`{"namespace":"ns","name":"src","provider":"vault","resource":"secret/a","key":"k","user_id":"` + hID + `"}`,
 	} {
 		r := httptest.NewRequest(http.MethodPut, cb.ManagementPath+"/ns/sources/src", strings.NewReader(body))
-		r = r.WithContext(platformauth.WithPrincipal(r.Context(), platformauth.Principal{Subject: hID}))
+		r = r.WithContext(passport.WithPrincipal(r.Context(), passport.Principal{Subject: hID}))
 		w := httptest.NewRecorder()
 		f.handler.Management(w, r)
 		if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "not yet supported") || f.store.put {

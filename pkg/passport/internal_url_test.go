@@ -1,4 +1,4 @@
-package platformauth
+package passport
 
 import "testing"
 

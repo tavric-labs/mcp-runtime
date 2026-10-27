@@ -448,7 +448,7 @@ jobs:
         run: |
           set -euo pipefail
           export KUBECONFIG="$(mktemp)" GOMAXPROCS=4 GOFLAGS=-p=4
-          hack/ci/go-test.sh . -run='^$' -bench='Benchmark(Reconcile|Authorize|SessionLookup|VerifyPlatformBearer|SessionCertificateChain|SessionMTLSTransport)' -benchmem -benchtime=100ms -count=3 ./test/benchmark/... ./pkg/policy ./pkg/platformauth ./pkg/identity | tee benchmarks-root.txt
+          hack/ci/go-test.sh . -run='^$' -bench='Benchmark(Reconcile|Authorize|SessionLookup|VerifyPlatformBearer|SessionCertificateChain|SessionMTLSTransport)' -benchmem -benchtime=100ms -count=3 ./test/benchmark/... ./pkg/policy ./pkg/passport ./pkg/identity | tee benchmarks-root.txt
           hack/ci/go-test.sh services/mcp-gateway -run='^$' -bench='Benchmark(SessionCertificateAuthorization|EmitAnalyticsEvent)' -benchmem -benchtime=100ms -count=3 ./... | tee benchmarks-gateway.txt
 
       - name: Preserve raw microbenchmark samples

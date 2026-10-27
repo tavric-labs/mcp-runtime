@@ -18,7 +18,7 @@ import (
 	"mcp-runtime/pkg/httpx"
 	identitypkg "mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/oidcdiscovery"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/registryauth"
 	"mcp-runtime/pkg/svcboot"
 )
@@ -40,7 +40,7 @@ type apiServer struct {
 	registryAuthzOnce sync.Once
 	platform          *platformStore
 	internalAuthToken string
-	authentic         platformauth.Authenticator
+	authentic         passport.Authenticator
 }
 
 const defaultPlatformStoreStartupTimeout = 90 * time.Second
@@ -143,14 +143,14 @@ func main() {
 	}
 	// User API keys live in this service's Postgres store; there is no other
 	// place to resolve them.
-	var userResolver platformauth.UserKeyResolver
+	var userResolver passport.UserKeyResolver
 	if store != nil {
 		userResolver = storeAPIKeyResolver{store: store}
 	}
-	server.authentic = platformauth.Authenticator{
+	server.authentic = passport.Authenticator{
 		Principals:      storeAPIKeyResolver{store: store},
 		Secret:          jwtSecret,
-		Audience:        platformauth.AudiencePlatform,
+		Audience:        passport.AudiencePlatform,
 		ServiceAPIKeys:  apiKeys,
 		AdminAPIKeys:    adminAPIKeys,
 		UserKeyResolver: userResolver,
@@ -203,22 +203,22 @@ type storeAPIKeyResolver struct {
 	store *platformStore
 }
 
-func (r storeAPIKeyResolver) ResolveAPIKey(ctx context.Context, rawKey string) (platformauth.Principal, bool, error) {
+func (r storeAPIKeyResolver) ResolveAPIKey(ctx context.Context, rawKey string) (passport.Principal, bool, error) {
 	if r.store == nil {
-		return platformauth.Principal{}, false, nil
+		return passport.Principal{}, false, nil
 	}
 	p, ok, err := r.store.AuthenticateUserAPIKey(ctx, rawKey)
-	return platformauth.Principal(p), ok, err
+	return passport.Principal(p), ok, err
 }
 
-func (r storeAPIKeyResolver) PrincipalForUserID(ctx context.Context, userID string) (platformauth.Principal, error) {
+func (r storeAPIKeyResolver) PrincipalForUserID(ctx context.Context, userID string) (passport.Principal, error) {
 	if r.store == nil {
-		return platformauth.Principal{}, fmt.Errorf("platform identity database unavailable")
+		return passport.Principal{}, fmt.Errorf("platform identity database unavailable")
 	}
 	return r.store.PrincipalForUserID(ctx, userID)
 }
 
-func (s *apiServer) oidcVerifier() platformauth.OIDCVerifier {
+func (s *apiServer) oidcVerifier() passport.OIDCVerifier {
 	if s.jwks == nil {
 		return nil
 	}
@@ -231,9 +231,9 @@ type oidcPrincipalVerifier struct {
 	server *apiServer
 }
 
-func (v oidcPrincipalVerifier) Verify(ctx context.Context, token string) (platformauth.Principal, bool, error) {
+func (v oidcPrincipalVerifier) Verify(ctx context.Context, token string) (passport.Principal, bool, error) {
 	p, ok, err := v.server.authenticateOIDCToken(ctx, token)
-	return platformauth.Principal(p), ok, err
+	return passport.Principal(p), ok, err
 }
 
 func (s *apiServer) authenticateOIDCToken(ctx context.Context, token string) (principal, bool, error) {

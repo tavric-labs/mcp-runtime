@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-ui/internal/session"
 )
 
@@ -37,7 +37,7 @@ type Server struct {
 const (
 	loginFailureLogEvery = 3
 	loginRequestMaxBytes = 8 * 1024
-	loginClientUnknownIP = platformauth.UnknownRequestIP
+	loginClientUnknownIP = passport.UnknownRequestIP
 )
 
 func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerFunc {
@@ -174,7 +174,7 @@ func (s *Server) Login(apiKey, upstreamAPIKey, apiUpstream string) http.HandlerF
 }
 
 func loginClientID(r *http.Request) string {
-	return platformauth.RequestIP(r)
+	return passport.RequestIP(r)
 }
 
 func (s *Server) Logout() http.HandlerFunc {

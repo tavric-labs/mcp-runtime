@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func (s *apiServer) requireRole(role string, next http.Handler) http.Handler {
@@ -41,13 +41,13 @@ type fakeUserKeyResolver struct {
 	fake *fakeUserAPIKeyStore
 }
 
-func (f fakeUserKeyResolver) ResolveAPIKey(ctx context.Context, rawKey string) (platformauth.Principal, bool, error) {
+func (f fakeUserKeyResolver) ResolveAPIKey(ctx context.Context, rawKey string) (passport.Principal, bool, error) {
 	p, ok, err := f.fake.AuthenticateUserAPIKey(ctx, rawKey)
-	return platformauth.Principal(p), ok, err
+	return passport.Principal(p), ok, err
 }
 
 func testAuthenticator(s *apiServer) {
-	resolver := platformauth.UserKeyResolver(nil)
+	resolver := passport.UserKeyResolver(nil)
 	if s.userKeys != nil {
 		switch keys := s.userKeys.(type) {
 		case *platformStore:
@@ -58,8 +58,8 @@ func testAuthenticator(s *apiServer) {
 			resolver = fakeUserKeyResolver{fake: keys}
 		}
 	}
-	s.authentic = platformauth.Authenticator{
-		Audience:        platformauth.AudiencePlatform,
+	s.authentic = passport.Authenticator{
+		Audience:        passport.AudiencePlatform,
 		ServiceAPIKeys:  s.apiKeys,
 		AdminAPIKeys:    s.adminAPIKeys,
 		UserKeyResolver: resolver,

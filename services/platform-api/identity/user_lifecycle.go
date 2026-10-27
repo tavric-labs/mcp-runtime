@@ -12,7 +12,7 @@ import (
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 type UserLifecycleStore interface {
@@ -21,12 +21,12 @@ type UserLifecycleStore interface {
 }
 
 func HandleUserLifecycle(w http.ResponseWriter, r *http.Request, store UserLifecycleStore) {
-	p, ok := platformauth.FromContext(r.Context())
+	p, ok := passport.FromContext(r.Context())
 	if !ok {
 		httperrors.Unauthorized(w)
 		return
 	}
-	if p.Role != platformauth.RoleAdmin {
+	if p.Role != passport.RoleAdmin {
 		httperrors.Forbidden(w, "administrator role required")
 		return
 	}
@@ -45,7 +45,7 @@ func HandleUserLifecycle(w http.ResponseWriter, r *http.Request, store UserLifec
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	event := platformstore.AuditEvent{UserID: p.UserID(), Action: "user_deactivate", Resource: parts[0], ActorIP: platformauth.RequestIP(r), Source: platformauth.AuditSource(r, p), AuthIdentity: platformauth.AuditIdentityLabel(p)}
+	event := platformstore.AuditEvent{UserID: p.UserID(), Action: "user_deactivate", Resource: parts[0], ActorIP: passport.RequestIP(r), Source: passport.AuditSource(r, p), AuthIdentity: passport.AuditIdentityLabel(p)}
 	out, err := store.DeactivateUser(ctx, parts[0], p.UserID(), event)
 	if err != nil {
 		event.Status = "error"

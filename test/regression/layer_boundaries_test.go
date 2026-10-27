@@ -59,8 +59,8 @@ var pkgLayers = map[string]layer{
 
 	// Support: HTTP, telemetry and bootstrap shared by services.
 	"apikit": support, "authgateway": support,
-	"clickhouse":   support,
-	"platformauth": support, "svcboot": support, "telemetry": support,
+	"clickhouse": support,
+	"passport":   support, "svcboot": support, "telemetry": support,
 	"telemetry/kafkatrace": support,
 
 	// Adapters: the only layer that talks to Kubernetes.

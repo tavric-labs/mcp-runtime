@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	mcpv1 "mcp-runtime/api/v1alpha1"
 	cb "mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,14 +41,14 @@ type fakeStore struct {
 	put        bool
 }
 
-func (s *fakeStore) ListCredentials(context.Context, platformauth.Principal, string, string) ([]json.RawMessage, error) {
+func (s *fakeStore) ListCredentials(context.Context, passport.Principal, string, string) ([]json.RawMessage, error) {
 	return []json.RawMessage{json.RawMessage(`{"name":"b1"}`)}, nil
 }
-func (s *fakeStore) PutCredential(context.Context, platformauth.Principal, *cb.Source, *cb.Binding) (json.RawMessage, error) {
+func (s *fakeStore) PutCredential(context.Context, passport.Principal, *cb.Source, *cb.Binding) (json.RawMessage, error) {
 	s.put = true
 	return json.RawMessage(`{"ok":true}`), nil
 }
-func (s *fakeStore) DeleteCredential(context.Context, platformauth.Principal, string, string, string, int64) error {
+func (s *fakeStore) DeleteCredential(context.Context, passport.Principal, string, string, string, int64) error {
 	s.deleted = true
 	return nil
 }
@@ -252,7 +252,7 @@ func TestManagementRejectsRawValuesUnknownKindsAndRequiresPrincipalAndRevision(t
 	do := func(method, path, body string, authed bool) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, path, strings.NewReader(body))
 		if authed {
-			r = r.WithContext(platformauth.WithPrincipal(r.Context(), platformauth.Principal{Subject: hID}))
+			r = r.WithContext(passport.WithPrincipal(r.Context(), passport.Principal{Subject: hID}))
 		}
 		w := httptest.NewRecorder()
 		f.handler.Management(w, r)
@@ -284,7 +284,7 @@ func TestBindingManagementChecksLiveServerUIDAndTools(t *testing.T) {
 		mut(&b)
 		body, _ := json.Marshal(b)
 		r := httptest.NewRequest(http.MethodPut, cb.ManagementPath+"/ns/bindings/b1", bytes.NewReader(body))
-		r = r.WithContext(platformauth.WithPrincipal(r.Context(), platformauth.Principal{Subject: hID}))
+		r = r.WithContext(passport.WithPrincipal(r.Context(), passport.Principal{Subject: hID}))
 		w := httptest.NewRecorder()
 		f.handler.Management(w, r)
 		return w.Code

@@ -30,7 +30,7 @@ user-owned credential or activity operations even when its role is admin.
 | `admin-key`      | `x-api-key` matching `ADMIN_API_KEYS` entry                  | `mcp-platform-api-credentials` `ADMIN_API_KEYS` in `mcp-platform` |
 | `ingest-key`     | `x-api-key` matching `INGEST_API_KEYS` entry                 | `mcp-ingest-credentials` `INGEST_API_KEYS` in `mcp-observability` |
 
-`admin-role` is enforced by `platformauth.Authenticator.RequireRole` wraps in
+`admin-role` is enforced by `passport.Authenticator.RequireRole` wraps in
 each split service's `routes.go`. `user-cookie` and `user-key` distinguish which
 calls require browser identity vs accept a bearer-style key.
 When `ADMIN_API_KEYS` is unset, static `API_KEYS` authenticate as `user`

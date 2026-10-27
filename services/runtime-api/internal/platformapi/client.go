@@ -18,7 +18,7 @@ import (
 
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/transport/httptrace"
 )
 
@@ -275,19 +275,19 @@ func (c *Client) DeleteTeamBySlug(ctx context.Context, slug string) error {
 	return nil
 }
 
-func (c *Client) PrincipalForUserID(ctx context.Context, userID string) (platformauth.Principal, error) {
-	var result platformauth.PrincipalResolveResponse
-	status, err := c.authorizedJSON(ctx, http.MethodPost, "/internal/identity/principal", platformauth.PrincipalResolveRequest{
+func (c *Client) PrincipalForUserID(ctx context.Context, userID string) (passport.Principal, error) {
+	var result passport.PrincipalResolveResponse
+	status, err := c.authorizedJSON(ctx, http.MethodPost, "/internal/identity/principal", passport.PrincipalResolveRequest{
 		UserID: userID,
 	}, &result)
 	if err != nil {
-		return platformauth.Principal{}, err
+		return passport.Principal{}, err
 	}
 	if status == http.StatusNotFound {
-		return platformauth.Principal{}, sql.ErrNoRows
+		return passport.Principal{}, sql.ErrNoRows
 	}
 	if status != http.StatusOK {
-		return platformauth.Principal{}, fmt.Errorf("resolve principal: status %d", status)
+		return passport.Principal{}, fmt.Errorf("resolve principal: status %d", status)
 	}
 	return result.Principal, nil
 }

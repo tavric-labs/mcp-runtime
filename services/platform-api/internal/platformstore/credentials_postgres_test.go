@@ -20,7 +20,7 @@ import (
 	"mcp-platform-api/internal/credentialapi"
 	mcpv1 "mcp-runtime/api/v1alpha1"
 	cb "mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -74,7 +74,7 @@ func TestPostgresCredentialBrokerAPIIsolationRotationRevocationAndAudit(t *testi
 	}}
 	// Exercise real signed human authentication for management, with live
 	// directory refresh rather than synthetic namespace/role headers.
-	auth := platformauth.Authenticator{Secret: s.jwtSecret, Audience: platformauth.AudiencePlatform, Principals: s}
+	auth := passport.Authenticator{Secret: s.jwtSecret, Audience: passport.AudiencePlatform, Principals: s}
 	management := auth.Middleware(http.HandlerFunc(h.Management))
 	call := func(user User, method, path string, value any) *httptest.ResponseRecorder {
 		t.Helper()
@@ -139,7 +139,7 @@ func TestPostgresCredentialBrokerAPIIsolationRotationRevocationAndAudit(t *testi
 	}
 	// Unknown raw-value fields are refused without echoing their content.
 	r := httptest.NewRequest(http.MethodPut, path+"/sources/provider", strings.NewReader(`{"secret_value":"fixture-upstream-value-forbidden"}`))
-	r = r.WithContext(platformauth.WithPrincipal(r.Context(), platformauth.Principal{Role: "admin", Subject: admin.ID}))
+	r = r.WithContext(passport.WithPrincipal(r.Context(), passport.Principal{Role: "admin", Subject: admin.ID}))
 	w = httptest.NewRecorder()
 	h.Management(w, r)
 	if w.Code != 400 || strings.Contains(w.Body.String(), "fixture-upstream") {
@@ -240,7 +240,7 @@ func TestPostgresCredentialBrokerAPIIsolationRotationRevocationAndAudit(t *testi
 	// Delete and recreate the source with different content during the read.
 	// Revisions restart, so name+revision alone would match; content must not.
 	currentSource := func() cb.Source {
-		items, listErr := s.ListCredentials(ctx, platformauth.Principal{Role: "admin", Subject: admin.ID}, team.Namespace, "sources")
+		items, listErr := s.ListCredentials(ctx, passport.Principal{Role: "admin", Subject: admin.ID}, team.Namespace, "sources")
 		if listErr != nil || len(items) != 1 {
 			t.Fatalf("list sources: %v %d", listErr, len(items))
 		}
@@ -290,13 +290,13 @@ func TestPostgresCredentialBrokerAPIIsolationRotationRevocationAndAudit(t *testi
 	}
 	source.Revision = 1
 	source.Disabled = true
-	if _, err = s.PutCredential(ctx, platformauth.Principal{Role: "admin", Subject: admin.ID}, &source, nil); err == nil {
+	if _, err = s.PutCredential(ctx, passport.Principal{Role: "admin", Subject: admin.ID}, &source, nil); err == nil {
 		t.Fatal("metadata committed without audit")
 	}
 	if _, err = s.db.ExecContext(ctx, `ALTER TABLE audit_logs_unavailable RENAME TO audit_logs`); err != nil {
 		t.Fatal(err)
 	}
-	items, err := s.ListCredentials(ctx, platformauth.Principal{Role: "admin", Subject: admin.ID}, team.Namespace, "sources")
+	items, err := s.ListCredentials(ctx, passport.Principal{Role: "admin", Subject: admin.ID}, team.Namespace, "sources")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,10 +308,10 @@ func TestPostgresCredentialBrokerAPIIsolationRotationRevocationAndAudit(t *testi
 	if authentications.Load() < 6 {
 		t.Fatal("runtime authentication not performed per request")
 	}
-	if err = s.DeleteCredential(ctx, platformauth.Principal{Subject: owner.ID}, team.Namespace, "bindings", "token", binding.Revision); err != nil {
+	if err = s.DeleteCredential(ctx, passport.Principal{Subject: owner.ID}, team.Namespace, "bindings", "token", binding.Revision); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.DeleteCredential(ctx, platformauth.Principal{Subject: admin.ID}, team.Namespace, "sources", "provider", source.Revision); err != nil && !errors.Is(err, cb.ErrConflict) {
+	if err = s.DeleteCredential(ctx, passport.Principal{Subject: admin.ID}, team.Namespace, "sources", "provider", source.Revision); err != nil && !errors.Is(err, cb.ErrConflict) {
 		t.Fatal(err)
 	}
 }

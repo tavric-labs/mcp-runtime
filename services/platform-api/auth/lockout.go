@@ -155,7 +155,7 @@ func lockoutDurationForFailures(failures int) time.Duration {
 // spraying many email addresses from one address. Tradeoffs:
 //   - Shared NAT / corporate egress: all users behind the same public IP share
 //     one lockout bucket.
-//   - X-Forwarded-For trust: platformauth.RequestIP trusts only explicitly
+//   - X-Forwarded-For trust: passport.RequestIP trusts only explicitly
 //     configured proxy CIDRs, walks from the right to the first untrusted hop,
 //     and otherwise uses the socket peer. Invalid chains fall back to the peer.
 func normalizeLoginAttemptKey(key string) string {

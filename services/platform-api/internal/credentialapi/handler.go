@@ -16,16 +16,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	mcpv1 "mcp-runtime/api/v1alpha1"
 	cb "mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Store interface {
-	ListCredentials(context.Context, platformauth.Principal, string, string) ([]json.RawMessage, error)
-	PutCredential(context.Context, platformauth.Principal, *cb.Source, *cb.Binding) (json.RawMessage, error)
-	DeleteCredential(context.Context, platformauth.Principal, string, string, string, int64) error
+	ListCredentials(context.Context, passport.Principal, string, string) ([]json.RawMessage, error)
+	PutCredential(context.Context, passport.Principal, *cb.Source, *cb.Binding) (json.RawMessage, error)
+	DeleteCredential(context.Context, passport.Principal, string, string, string, int64) error
 	// UseCredentials calls authorize before and again after fetch. fetch (provider
 	// I/O) must run without holding shared locks; the value is returned only if
 	// the second authorize, run after re-reading current state, still allows it.
@@ -45,7 +45,7 @@ type Handler struct {
 
 func (h Handler) Management(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	p, ok := platformauth.FromContext(r.Context())
+	p, ok := passport.FromContext(r.Context())
 	if !ok {
 		respondError(w, cb.ErrDenied)
 		return
@@ -214,7 +214,7 @@ func (h Handler) Resolve(w http.ResponseWriter, r *http.Request) {
 		if state == authRenewable {
 			allowed = limits.AllowRenewal(key)
 		} else {
-			allowed = limits.AllowColdReview(platformauth.RequestIP(r))
+			allowed = limits.AllowColdReview(passport.RequestIP(r))
 		}
 		if !allowed {
 			respondError(w, errRateLimited)

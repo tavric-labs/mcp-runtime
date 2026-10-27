@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/apikit"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/topology"
 )
 
@@ -62,8 +62,8 @@ type User struct {
 	Namespace string `json:"namespace"`
 }
 
-type Principal = platformauth.Principal
-type PrincipalTeam = platformauth.PrincipalTeam
+type Principal = passport.Principal
+type PrincipalTeam = passport.PrincipalTeam
 
 // Team is a managed platform team and its Kubernetes namespace.
 type Team struct {

@@ -14,7 +14,7 @@ import (
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/openapi"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func (s *server) registerRoutes(mux *http.ServeMux) {
@@ -23,7 +23,7 @@ func (s *server) registerRoutes(mux *http.ServeMux) {
 
 	auth := s.authentic.Middleware
 	adminOnly := func(h http.Handler) http.Handler {
-		return auth(s.authentic.RequireRole(platformauth.RoleAdmin, h))
+		return auth(s.authentic.RequireRole(passport.RoleAdmin, h))
 	}
 
 	register := func(pattern string, handler http.Handler) {

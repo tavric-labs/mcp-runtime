@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-ui/internal/session"
 )
 
@@ -259,7 +259,7 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		body = http.MaxBytesReader(w, r.Body, sessionProxyMaxWriteBody)
 	}
 
-	targetAudience := platformauth.AudienceRuntime
+	targetAudience := passport.AudienceRuntime
 	base := p.runtimeBase
 	platformTarget := sessionProxyPathAllowed(strings.TrimPrefix(upstreamPath, "/api/v1"), sessionProxyPlatformPrefixes)
 	switch {
@@ -269,7 +269,7 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		strings.HasPrefix(upstreamPath, "/api/v1/analytics/usage") ||
 		strings.HasPrefix(upstreamPath, "/api/v1/user/analytics/usage"):
 		base = p.analyticsBase
-		targetAudience = platformauth.AudienceAnalytics
+		targetAudience = passport.AudienceAnalytics
 	}
 	upstreamURL, err := resolveSessionProxyURL(base, upstreamPath, r.URL.RawQuery)
 	if err != nil {
@@ -302,10 +302,10 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if authHeader != "" && platformTarget {
 		req.Header.Set("authorization", authHeader)
 	} else if authHeader != "" {
-		authHeader, err = platformauth.ExchangeBearer(r.Context(), client, p.platformBase, authHeader, targetAudience)
+		authHeader, err = passport.ExchangeBearer(r.Context(), client, p.platformBase, authHeader, targetAudience)
 		if err != nil {
 			status := http.StatusBadGateway
-			if errors.Is(err, platformauth.ErrExchangeUnauthorized) {
+			if errors.Is(err, passport.ErrExchangeUnauthorized) {
 				status = http.StatusUnauthorized
 			}
 			httpx.WriteJSON(w, status, map[string]string{"error": "token_exchange_failed"})

@@ -1,4 +1,4 @@
-package platformauth
+package passport
 
 // Wire contracts of the platform-api principal endpoints that the resolvers in
 // this package call.

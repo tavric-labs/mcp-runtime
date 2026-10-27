@@ -15,7 +15,7 @@ import (
 	"mcp-runtime-api/internal/runtimeapi"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/envcfg"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/svcboot"
 )
 
@@ -23,7 +23,7 @@ type server struct {
 	runtime     *runtimeapi.RuntimeServer
 	runtimeInit string
 	platform    *platformapi.Client
-	authentic   platformauth.Authenticator
+	authentic   passport.Authenticator
 }
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("invalid CLICKHOUSE_DB: %v", err)
 	}
 
-	jwtSecret, err := platformauth.JWTSecretFromEnv()
+	jwtSecret, err := passport.JWTSecretFromEnv()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -73,8 +73,8 @@ func main() {
 	srv := &server{
 		runtime:  runtimeServer,
 		platform: platformClient,
-		authentic: platformauth.NewAudienceAuthenticator(platformauth.AudienceConfig{
-			Audience:       platformauth.AudienceRuntime,
+		authentic: passport.NewAudienceAuthenticator(passport.AudienceConfig{
+			Audience:       passport.AudienceRuntime,
 			Secret:         jwtSecret,
 			PlatformAPIURL: platformAPIURL,
 			InternalToken:  internalToken,

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	cb "mcp-runtime/pkg/credentialbroker"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/sessionstate"
 )
 
@@ -29,8 +29,8 @@ type credentialQuery interface {
 
 // CheckCredentialNamespace reads current ownership, never JWT team claims. A
 // namespace admission grant alone does not authorize managing its credentials.
-func credentialNamespace(ctx context.Context, q credentialQuery, p platformauth.Principal, ns string, manage bool) error {
-	if p.IsService && p.Role == platformauth.RoleAdmin {
+func credentialNamespace(ctx context.Context, q credentialQuery, p passport.Principal, ns string, manage bool) error {
+	if p.IsService && p.Role == passport.RoleAdmin {
 		return nil
 	}
 	if p.UserID() == "" {
@@ -51,8 +51,8 @@ func credentialNamespace(ctx context.Context, q credentialQuery, p platformauth.
 	return nil
 }
 
-func credentialAdmin(ctx context.Context, q credentialQuery, p platformauth.Principal) error {
-	if p.IsService && p.Role == platformauth.RoleAdmin {
+func credentialAdmin(ctx context.Context, q credentialQuery, p passport.Principal) error {
+	if p.IsService && p.Role == passport.RoleAdmin {
 		return nil
 	}
 	var allowed bool
@@ -65,8 +65,8 @@ func credentialAdmin(ctx context.Context, q credentialQuery, p platformauth.Prin
 	return nil
 }
 
-func credentialSourceAuthority(ctx context.Context, q credentialQuery, p platformauth.Principal, source cb.Source) error {
-	if p.IsService && p.Role == platformauth.RoleAdmin {
+func credentialSourceAuthority(ctx context.Context, q credentialQuery, p passport.Principal, source cb.Source) error {
+	if p.IsService && p.Role == passport.RoleAdmin {
 		return nil
 	}
 	var allowed bool
@@ -82,7 +82,7 @@ func credentialSourceAuthority(ctx context.Context, q credentialQuery, p platfor
 	return nil
 }
 
-func credentialActor(p platformauth.Principal) string {
+func credentialActor(p passport.Principal) string {
 	if p.IsService {
 		return ""
 	}
@@ -101,7 +101,7 @@ func credentialRead(ctx context.Context, q credentialQuery, ns, kind, name strin
 	return json.Unmarshal(data, out)
 }
 
-func (s *Store) ListCredentials(ctx context.Context, p platformauth.Principal, ns, kind string) ([]json.RawMessage, error) {
+func (s *Store) ListCredentials(ctx context.Context, p passport.Principal, ns, kind string) ([]json.RawMessage, error) {
 	if kind != "sources" && kind != "bindings" {
 		return nil, cb.ErrDenied
 	}
@@ -137,7 +137,7 @@ func (s *Store) ListCredentials(ctx context.Context, p platformauth.Principal, n
 
 // PutCredential persists only validated typed metadata. Revision zero creates;
 // updates require the exact existing revision, preventing stale policy writes.
-func (s *Store) PutCredential(ctx context.Context, p platformauth.Principal, source *cb.Source, binding *cb.Binding) (json.RawMessage, error) {
+func (s *Store) PutCredential(ctx context.Context, p passport.Principal, source *cb.Source, binding *cb.Binding) (json.RawMessage, error) {
 	var ns, name, kind string
 	var revision int64
 	var value any
@@ -228,7 +228,7 @@ func (s *Store) PutCredential(ctx context.Context, p platformauth.Principal, sou
 	return raw, nil
 }
 
-func (s *Store) DeleteCredential(ctx context.Context, p platformauth.Principal, ns, kind, name string, revision int64) error {
+func (s *Store) DeleteCredential(ctx context.Context, p passport.Principal, ns, kind, name string, revision int64) error {
 	if kind != "sources" && kind != "bindings" {
 		return cb.ErrDenied
 	}

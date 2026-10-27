@@ -16,14 +16,14 @@ import (
 	"mcp-analytics-api/internal/usage"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/envcfg"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/svcboot"
 )
 
 type server struct {
 	usage     *usage.Service
 	events    *analytics.Handler
-	authentic platformauth.Authenticator
+	authentic passport.Authenticator
 }
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("invalid CLICKHOUSE_DB: %v", err)
 	}
 
-	jwtSecret, err := platformauth.JWTSecretFromEnv()
+	jwtSecret, err := passport.JWTSecretFromEnv()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -69,8 +69,8 @@ func main() {
 			},
 		},
 		events: analytics.NewHandler(&clickhousepkg.Client{Conn: conn, DBName: dbName}),
-		authentic: platformauth.NewAudienceAuthenticator(platformauth.AudienceConfig{
-			Audience:       platformauth.AudienceAnalytics,
+		authentic: passport.NewAudienceAuthenticator(passport.AudienceConfig{
+			Audience:       passport.AudienceAnalytics,
 			Secret:         jwtSecret,
 			PlatformAPIURL: platformAPIURL,
 			InternalToken:  internalToken,

@@ -1,4 +1,4 @@
-package platformauth
+package passport
 
 const (
 	AudiencePlatform  = "platform-api"

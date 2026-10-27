@@ -12,13 +12,13 @@ import (
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/httpx"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/topology"
 )
 
 const (
-	roleAdmin               = platformauth.RoleAdmin
-	roleUser                = platformauth.RoleUser
+	roleAdmin               = passport.RoleAdmin
+	roleUser                = passport.RoleUser
 	sharedCatalogNamespace  = topology.MCPServersNamespace
 	teamNamespacePrefix     = "mcp-team-"
 	teamRoleOwner           = "owner"
@@ -31,9 +31,9 @@ const (
 )
 
 // Principal is the authenticated platform identity contract shared by runtime handlers.
-type Principal = platformauth.Principal
-type principal = platformauth.Principal
-type principalTeam = platformauth.PrincipalTeam
+type Principal = passport.Principal
+type principal = passport.Principal
+type principalTeam = passport.PrincipalTeam
 type teamRecord = platformapi.Team
 type teamMembershipRecord = platformapi.TeamMembership
 type auditEvent = platformapi.AuditEvent
@@ -63,11 +63,11 @@ type auditWriter interface {
 }
 
 func principalFromContext(ctx context.Context) (principal, bool) {
-	return platformauth.FromContext(ctx)
+	return passport.FromContext(ctx)
 }
 
 func withPrincipal(ctx context.Context, p principal) context.Context {
-	return platformauth.WithPrincipal(ctx, p)
+	return passport.WithPrincipal(ctx, p)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
@@ -131,15 +131,15 @@ func newAPIError(status int, code, message string, cause ...error) *apikit.Error
 }
 
 func requestIP(r *http.Request) string {
-	return platformauth.RequestIP(r)
+	return passport.RequestIP(r)
 }
 
 func auditSource(r *http.Request, p principal) string {
-	return platformauth.AuditSource(r, p)
+	return passport.AuditSource(r, p)
 }
 
 func auditIdentityLabel(p principal) string {
-	return platformauth.AuditIdentityLabel(p)
+	return passport.AuditIdentityLabel(p)
 }
 
 func envOr(key, fallback string) string {

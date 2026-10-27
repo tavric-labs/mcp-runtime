@@ -10,7 +10,7 @@ import (
 
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/apikit"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 type lifecycleStoreStub struct {
@@ -37,7 +37,7 @@ func TestAccountLifecycleAdminOnlyAndFailureDoesNotClaimSuccess(t *testing.T) {
 		s := &lifecycleStoreStub{err: tc.err}
 		r := httptest.NewRequest(http.MethodPost, "/api/v1/users/8d852676-a996-4cc8-9ad8-206f58f92028/deactivate", nil)
 		if tc.role != "" {
-			r = r.WithContext(platformauth.WithPrincipal(r.Context(), platformauth.Principal{Role: tc.role, Subject: "actor"}))
+			r = r.WithContext(passport.WithPrincipal(r.Context(), passport.Principal{Role: tc.role, Subject: "actor"}))
 		}
 		w := httptest.NewRecorder()
 		HandleUserLifecycle(w, r, s)

@@ -11,15 +11,15 @@ import (
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/openapi"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 func (s *apiServer) registerRoutes(mux *http.ServeMux) {
 	s.registerCredentials(mux)
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/ready", s.handleReady)
-	for _, target := range []string{platformauth.AudienceRuntime, platformauth.AudienceAnalytics} {
-		mux.Handle(platformauth.ExchangePath(target), platformauth.ExchangeHandler{Auth: s.authentic, Target: target})
+	for _, target := range []string{passport.AudienceRuntime, passport.AudienceAnalytics} {
+		mux.Handle(passport.ExchangePath(target), passport.ExchangeHandler{Auth: s.authentic, Target: target})
 	}
 
 	platforminternal.Handler{
@@ -35,7 +35,7 @@ func (s *apiServer) registerRoutes(mux *http.ServeMux) {
 
 	auth := s.authentic.Middleware
 	adminOnly := func(h http.Handler) http.Handler {
-		return auth(s.authentic.RequireRole(platformauth.RoleAdmin, h))
+		return auth(s.authentic.RequireRole(passport.RoleAdmin, h))
 	}
 
 	register := func(pattern string, handler http.Handler) {

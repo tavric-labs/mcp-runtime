@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 // ErrEmailAlreadyRegistered is safe to report without exposing SQL or user data.
@@ -401,7 +401,7 @@ func (s *Store) CreateAccessToken(u User, ttl time.Duration) (string, error) {
 		p = resolved
 	}
 	p.AuthType = "platform_jwt"
-	return platformauth.Sign(s.jwtSecret, p, ttl, []string{platformauth.AudiencePlatform})
+	return passport.Sign(s.jwtSecret, p, ttl, []string{passport.AudiencePlatform})
 }
 
 // AuthenticateJWT validates a platform JWT and resolves it to the current principal.
@@ -409,11 +409,11 @@ func (s *Store) AuthenticateJWT(token string) (Principal, bool) {
 	if s == nil || len(s.jwtSecret) == 0 {
 		return Principal{}, false
 	}
-	claims, err := platformauth.Verify(s.jwtSecret, token, platformauth.AudiencePlatform)
+	claims, err := passport.Verify(s.jwtSecret, token, passport.AudiencePlatform)
 	if err != nil {
 		return Principal{}, false
 	}
-	return platformauth.ToPrincipal(claims), true
+	return passport.ToPrincipal(claims), true
 }
 
 // AuthenticateUserAPIKey validates a user API key and resolves its principal.

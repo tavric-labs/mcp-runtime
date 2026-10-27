@@ -76,7 +76,7 @@ flowchart LR
 | Control-plane helpers | `pkg/controlplane/` | Shared MCPServer Kubernetes operations and status projection used outside HTTP/CLI glue. |
 | Shared policy and events | `pkg/policy/`, `pkg/events/`, `pkg/clickhouse/` | Gateway policy contracts/evaluation plus event envelopes and ClickHouse query/insert helpers. |
 | Shared infrastructure and workload helpers | `pkg/envcfg/`, `pkg/httpx/`, `pkg/transport/`, `pkg/telemetry/`, `pkg/svcboot/`, `pkg/kubeworkload/` | Configuration, HTTP primitives, transport support, observability, service startup and restricted Kubernetes workload defaults. |
-| API service internals | `services/runtime-api/internal/runtimeapi/`, `services/platform-api/internal/platformstore/`, `pkg/apikit/`, `pkg/platformauth/`, `pkg/apikit/` | Split API modules: runtime HTTP/Kubernetes orchestration, platform Postgres persistence, shared HTTP contract helpers. |
+| API service internals | `services/runtime-api/internal/runtimeapi/`, `services/platform-api/internal/platformstore/`, `pkg/apikit/`, `pkg/passport/` | Split API modules: runtime HTTP/Kubernetes orchestration, platform Postgres persistence, shared HTTP contract helpers. |
 | Server blueprint | [`blueprint.md`](blueprint.md) | Covers `.mcp` definition loading and defaults; hostname resolution lives in `pkg/topology` and CRD generation in `internal/cli/server/crdgen`. |
 | Manifests and examples | [`config-and-examples.md`](config-and-examples.md) | Explains Kustomize overlays, registry/ingress config, and example MCP servers. |
 | Tests | [`testing.md`](testing.md) | Maps unit, golden, integration, and QA E2E coverage. |
@@ -213,7 +213,7 @@ authoritative description; this table is the map.
 | `kubeworkload` | adapter | Restricted workload security defaults, NetworkPolicy and egress CIDRs |
 | `oidcdiscovery` | leaf | OIDC issuer metadata and signing-key location validation |
 | `openapi` | leaf | Load, serve and validate OpenAPI specs |
-| `platformauth` | support | Platform JWTs, principals, token exchange and API-key resolution |
+| `passport` | support | Platform JWTs, principals, token exchange and API-key resolution |
 | `policy` | domain | Gateway policy document, compilation and authorization decisions |
 | `registryauth` | leaf | Short-lived registry access tokens |
 | `registrypush` | adapter | Push a Docker archive into the in-cluster registry through a helper Pod |
@@ -282,7 +282,7 @@ its own layer or a lower one, never a higher one.
 | Domain | `policy`, `access`, `sessionstate`, `blueprint` | Rules and models; no Kubernetes or service infrastructure |
 | Leaves | `identity`, `events`, `credentialbroker`, `envcfg`, `httpx`, `topology` and similar | Import only other leaves; most stable |
 
-Support packages (`apikit`, `platformauth`, `telemetry`, `svcboot`, `clickhouse`)
+Support packages (`apikit`, `passport`, `telemetry`, `svcboot`, `clickhouse`)
 sit beside the domain and never import adapters. The `mcp-gateway` may use
 `policy`, `events` and `credentialbroker` but must not import an adapter.
 `TestSharedPackageLayerDesign` enforces this and fails for an unclassified new

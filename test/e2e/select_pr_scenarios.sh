@@ -257,7 +257,7 @@ classify_path() {
       add_scenario "api-platform"
       return
       ;;
-    pkg/platformauth/*|pkg/authzmatrix/*)
+    pkg/passport/*|pkg/authzmatrix/*)
       # API key/bearer auth and the role matrix every API and the UI proxy use.
       add_scenario "api-platform"
       add_scenario "multitenancy"

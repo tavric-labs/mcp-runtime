@@ -4,38 +4,38 @@ import (
 	"context"
 	"net/http"
 
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 )
 
 const (
-	RoleAdmin        = platformauth.RoleAdmin
-	RoleUser         = platformauth.RoleUser
-	UnknownRequestIP = platformauth.UnknownRequestIP
+	RoleAdmin        = passport.RoleAdmin
+	RoleUser         = passport.RoleUser
+	UnknownRequestIP = passport.UnknownRequestIP
 )
 
-type Principal = platformauth.Principal
-type PrincipalTeam = platformauth.PrincipalTeam
+type Principal = passport.Principal
+type PrincipalTeam = passport.PrincipalTeam
 
 func WithPrincipal(ctx context.Context, p Principal) context.Context {
-	return platformauth.WithPrincipal(ctx, p)
+	return passport.WithPrincipal(ctx, p)
 }
 
 func FromContext(ctx context.Context) (Principal, bool) {
-	return platformauth.FromContext(ctx)
+	return passport.FromContext(ctx)
 }
 
 func RequestIP(r *http.Request) string {
-	return platformauth.RequestIP(r)
+	return passport.RequestIP(r)
 }
 
 func RequestSource(r *http.Request) string {
-	return platformauth.RequestSource(r)
+	return passport.RequestSource(r)
 }
 
 func AuditSource(r *http.Request, p Principal) string {
-	return platformauth.AuditSource(r, p)
+	return passport.AuditSource(r, p)
 }
 
 func AuditIdentityLabel(p Principal) string {
-	return platformauth.AuditIdentityLabel(p)
+	return passport.AuditIdentityLabel(p)
 }

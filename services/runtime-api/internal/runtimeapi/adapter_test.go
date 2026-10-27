@@ -14,7 +14,7 @@ import (
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	mcpaccess "mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/k8sclient"
-	"mcp-runtime/pkg/platformauth"
+	"mcp-runtime/pkg/passport"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -100,7 +100,7 @@ func newAdapterTestFixture(t *testing.T, grants ...mcpv1alpha1.MCPAccessGrant) a
 			Email:     "user@example.org",
 			Namespace: "mcp-team-acme",
 			Role:      roleUser,
-			Teams: []platformauth.PrincipalTeam{
+			Teams: []passport.PrincipalTeam{
 				{ID: "team-acme", Namespace: "mcp-team-acme"},
 			},
 		},
@@ -390,7 +390,7 @@ func TestAdapterSessionIssuesCrossTeamSessionFromGrantedTeam(t *testing.T) {
 	fx := newAdapterTestFixture(t, grant)
 	fx.setAgentTeam("team-globex")
 	fx.principal.Namespace = "mcp-team-globex"
-	fx.principal.Teams = []platformauth.PrincipalTeam{
+	fx.principal.Teams = []passport.PrincipalTeam{
 		{ID: "team-globex", Namespace: "mcp-team-globex"},
 	}
 	req := adapterRequest(t, adapterSessionRequest{
