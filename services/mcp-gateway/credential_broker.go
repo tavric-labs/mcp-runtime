@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"net/url"
 	"os"
@@ -44,7 +45,7 @@ func newCredentialBroker(baseURL, tokenFile, caFile string) (*credentialBroker, 
 		}
 		transport.TLSClientConfig.RootCAs = roots
 	}
-	return &credentialBroker{endpoint: strings.TrimSuffix(baseURL, "/") + cb.ResolvePath, token: newTokenFileSource(tokenFile), client: &http.Client{Timeout: 5 * time.Second, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	return &credentialBroker{endpoint: strings.TrimSuffix(baseURL, "/") + cb.ResolvePath, token: newTokenFileSource(tokenFile), client: &http.Client{Timeout: 5 * time.Second, Transport: httptrace.TracedTransport(transport), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 
 func (b *credentialBroker) resolve(ctx context.Context, request cb.ResolutionRequest) (cb.Delivery, error) {

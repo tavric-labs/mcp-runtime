@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"log"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"net/url"
 	"os"
@@ -117,7 +118,7 @@ func main() {
 		srv.sessionSync = &gatewaySessionSync{
 			server:  sessionstate.Server{Name: srv.serverName, Namespace: srv.serverNamespace, UID: strings.TrimSpace(os.Getenv("MCP_SERVER_UID"))},
 			baseURL: baseURL, token: newTokenFileSource(strings.TrimSpace(os.Getenv("SESSION_SYNC_TOKEN_FILE"))),
-			client:      &http.Client{Timeout: 3 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }},
+			client:      &http.Client{Timeout: 3 * time.Second, Transport: httptrace.TracedTransport(nil), CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }},
 			staleWindow: staleWindow,
 		}
 		if srv.sessionSync.server.UID == "" {

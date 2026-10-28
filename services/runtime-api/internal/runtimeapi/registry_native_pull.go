@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"net/url"
 	"os"
@@ -70,7 +71,7 @@ func (s *DeploymentService) ensureNativeRegistryPullSecret(ctx context.Context, 
 		}
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("x-api-key", key)
-		httpClient := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		httpClient := &http.Client{Timeout: 10 * time.Second, Transport: httptrace.TracedTransport(nil), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 		// #nosec G704 -- URL comes only from operator PLATFORM_API_URL, never request input.
 		response, err := httpClient.Do(request)
 		if err != nil {

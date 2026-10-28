@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"net/url"
 	"os"
@@ -86,7 +87,7 @@ func newInClusterServiceAccountAuthenticator(audience, serviceAccount string) (*
 		serviceAccount: serviceAccount,
 		client: &http.Client{
 			Timeout:   5 * time.Second,
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}},
+			Transport: httptrace.TracedTransport(&http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}}),
 		},
 		readToken: func() (string, error) {
 			b, err := os.ReadFile(inClusterTokenPath)

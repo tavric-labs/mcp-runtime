@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"mcp-runtime/pkg/topology"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net"
 	"net/http"
 	"net/url"
@@ -33,7 +34,7 @@ var (
 	loginAttempts          = auth.NewAttemptTracker(time.Now, loginAttemptConfig)
 	sessions               = session.NewStore(time.Now)
 	authLoginHooks         auth.Hooks
-	authHTTPClient         = &http.Client{Timeout: 10 * time.Second}
+	authHTTPClient         = &http.Client{Timeout: 10 * time.Second, Transport: httptrace.TracedTransport(nil)}
 	sessionProxyHTTPClient = uiproxy.NewHTTPClient()
 	forceSecureCookie      = boolEnvOr("UI_FORCE_SECURE_COOKIE", false)
 )

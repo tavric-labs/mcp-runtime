@@ -2,7 +2,6 @@ package platformstore
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"os"
 	"strconv"
@@ -10,11 +9,13 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+
+	"mcp-runtime/pkg/telemetry/sqltrace"
 )
 
 // Open connects to Postgres, applies schema migrations, and returns a Store.
 func Open(ctx context.Context, dsn string, jwtSecret []byte) (*Store, error) {
-	db, err := sql.Open("postgres", dsn)
+	db, err := sqltrace.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
 	}

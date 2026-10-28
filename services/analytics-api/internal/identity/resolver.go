@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"strings"
 )
@@ -52,7 +53,7 @@ func (r *HTTPResolver) resolve(ctx context.Context, userIDs, teamIDs []string) (
 	if client == nil {
 		client = http.DefaultClient
 	}
-	resp, err := client.Do(req)
+	resp, err := httptrace.DoHTTP(client, req)
 	if err != nil {
 		return nil, nil, err
 	}
