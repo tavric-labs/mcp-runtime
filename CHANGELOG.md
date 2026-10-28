@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- `cluster doctor` and `setup` no longer misread a k3s cluster as generic when the API answers slowly. Distribution detection now allows each node lookup 10 seconds and retries once when `kubectl` fails. A 2-second limit made the hosted production deploy (v0.14.0, from a remote runner) fail its preflight looking for a repo-managed Traefik that k3s does not have. No setup change is needed.
+
 ## [0.14.0] - 2026-10-28
 
 Breaking `0.x` release: deploy with `mcp-runtime update` (no fresh setup or restore). Existing user API keys stop working and each user creates a new one; the admin console's `#/admin/analytics` page is now `#/admin/requests`.
