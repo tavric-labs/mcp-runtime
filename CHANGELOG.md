@@ -7,9 +7,9 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
-### Changed
+## [0.14.0] - 2026-10-28
 
-- **Breaking:** `POST /api/v1/user/api-keys` now returns `201 Created` (it returned `200`), like every other create. The `POST …/{id}/revoke` forms for user API keys and registry credentials are removed; revoke with `DELETE …/{id}` only. The unmounted duplicate registry-credential handlers in `identity` are gone. platform-api's `openapi.yaml` now describes every public route, and its Role no longer grants Secret creation. No fresh setup is required, but clients that checked for `200` on key creation or called `POST …/revoke` must change.
+Breaking `0.x` release: deploy with `mcp-runtime update` (no fresh setup or restore). Existing user API keys stop working and each user creates a new one; the admin console's `#/admin/analytics` page is now `#/admin/requests`.
 
 ### Added
 
@@ -19,6 +19,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
+- **Breaking:** `POST /api/v1/user/api-keys` now returns `201 Created` (it returned `200`), like every other create. The `POST …/{id}/revoke` forms for user API keys and registry credentials are removed; revoke with `DELETE …/{id}` only. The unmounted duplicate registry-credential handlers in `identity` are gone. platform-api's `openapi.yaml` now describes every public route, and its Role no longer grants Secret creation. No fresh setup is required, but clients that checked for `200` on key creation or called `POST …/revoke` must change.
 - **Breaking:** user API keys are now stored, hashed, in platform-api's Postgres database, and platform-api serves `/api/v1/user/api-keys`. They used to live in a Kubernetes Secret (`mcp-user-api-keys`) behind runtime-api, which platform-api queried over the network to authenticate a key, so the two services called each other on the auth path. Keys created before this release do not work after it: each user must create a new key (**Create key** in the console or `POST /api/v1/user/api-keys`). Operators may delete the orphaned `mcp-user-api-keys` Secret. Response bodies are unchanged. runtime-api loses its key store, its `/internal/auth/resolve` route and the Secret RBAC rule; platform-api loses `RUNTIME_CONTROL_URL`. The ingress route and the console's session proxy point at platform-api, so setup or `mcp-runtime update` must roll out the manifests together with the service images.
 - runtime-api and analytics-api no longer call platform-api to re-read the account on every request. Platform-api's token exchange already refreshes the account and memberships immediately before it mints the 60-second, single-audience token, so the services verify that token locally. A deactivated account or changed membership takes effect at the next exchange, and an already minted token stays valid for at most 60 seconds. User API keys are still checked by platform-api on every call, so a revoked key fails at once. No setup or data change is required.
 - QA E2E failures now upload redacted, size-capped logs from every pod in the platform namespaces (`pod-logs/<namespace>/<pod>.log`, plus `<pod>.previous.log` for restarted containers in the run artifact), so a 5xx such as `query_failed` or a crash loop carries its backend error. Collection is bounded to 30 pods per namespace and 150 seconds. No deployment or fresh-setup change is required.
@@ -686,7 +687,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.12.0...v0.12.1
