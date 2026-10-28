@@ -54,7 +54,9 @@ export function traceExploreURL(traceID: string): string | undefined {
     queries: [
       {
         refId: "A",
-        queryType: "traceId",
+        // Grafana 10 resolves a bare trace id through the TraceQL query type;
+        // the older "traceId" type opens Explore with an empty query.
+        queryType: "traceql",
         query: traceID,
         datasource: { type: "tempo", uid: "tempo" },
       },

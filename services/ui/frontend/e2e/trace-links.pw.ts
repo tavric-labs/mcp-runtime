@@ -46,6 +46,7 @@ test("audit trail entries link to their trace in Grafana", async ({ page, contex
   const left = JSON.parse(url.searchParams.get("left") || "{}");
   expect(left.datasource).toBe("tempo");
   expect(left.queries[0].query).toBe(TRACE);
+  expect(left.queries[0].queryType).toBe("traceql");
   await popup.close();
 
   await table.getByTestId("audit-inspect").first().click();

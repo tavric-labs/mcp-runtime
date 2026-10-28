@@ -186,6 +186,8 @@ it("applies the time range and HTTP outcome to the analytics query", async () =>
 it("never constructs links from arbitrary trace values", () => {
   expect(traceExploreURL("javascript:alert(1)")).toBeUndefined();
   expect(traceExploreURL("")).toBeUndefined();
+  const query = JSON.parse(decodeURIComponent(String(traceExploreURL("a".repeat(32))).split("left=")[1])).queries[0];
+  expect(query).toMatchObject({ queryType: "traceql", query: "a".repeat(32) });
 });
 
 it("keeps advanced filters out of the initial layout and retains their values when collapsed", async () => {
