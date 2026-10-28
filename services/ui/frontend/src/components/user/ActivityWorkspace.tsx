@@ -98,7 +98,7 @@ export function ActivityWorkspace({ auth, onSignIn }: ActivityWorkspaceProps) {
         <EmptyState
           icon="activity"
           title="This view is for tenant accounts."
-          detail="Administrators see org-wide usage in Administration → Usage analytics."
+          detail="Administrators see org-wide usage in Administration → Requests."
           testId="activity-admin-hidden"
         />
       </>

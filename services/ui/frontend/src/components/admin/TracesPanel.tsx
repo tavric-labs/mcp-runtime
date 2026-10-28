@@ -9,7 +9,6 @@ import { Button, ButtonLink } from "../../ui/Button";
 import { DataTable, buildColumns } from "../../ui/DataTable";
 import { TextField } from "../../ui/Field";
 import { FilterBar, FilterSummary, type FilterChip } from "../../ui/FilterBar";
-import { PageHeader } from "../../ui/PageHeader";
 import { formatAbsolute, formatTimestamp } from "../../lib/format";
 import {
   TRACE_KIND_LABEL,
@@ -25,6 +24,7 @@ type TracesPanelProps = {
 
 const LOADED_NOTE = `loaded entries (the API returns at most ${OPERATIONS_LIMIT} per source)`;
 
+// A section of the Requests page: the page owns the header and Refresh.
 export function TracesPanel({ onSignIn }: TracesPanelProps) {
   const [draft, setDraft] = useState("");
   const [traceId, setTraceId] = useState("");
@@ -146,17 +146,6 @@ export function TracesPanel({ onSignIn }: TracesPanelProps) {
 
   return (
     <>
-      <PageHeader
-        title="Request traces"
-        breadcrumb={[{ label: "Administration" }, { label: "Request traces" }]}
-        description="Every traced operation on the platform: tool calls through the gateway, and CLI, console and API actions. Select a trace id to see everything that ran under it."
-        actions={
-          <Button variant="secondary" icon="refresh" onClick={reload} data-testid="traces-refresh">
-            Refresh
-          </Button>
-        }
-      />
-
       <FilterBar label="Filter traces" onSubmit={apply}>
         <TextField
           label="Trace id"

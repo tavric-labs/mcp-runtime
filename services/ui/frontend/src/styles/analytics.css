@@ -91,3 +91,6 @@
   .analytics-context > span:last-child { display: none; }
   .analytics-callers-panel summary > span { display: block; margin: 8px 0 0 16px; }
 }
+
+.requests-section > summary + * { margin-top: 20px; }
+.requests-section .analytics-page { padding: 0; }

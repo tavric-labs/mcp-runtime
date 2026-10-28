@@ -66,7 +66,8 @@ export function traceExploreURL(traceID: string): string | undefined {
   return `${grafanaPath()}/explore?left=${encodeURIComponent(JSON.stringify(left))}`;
 }
 
-export function UsageAnalyticsPanel({ onSignIn }: Props) {
+// `embedded` leaves the page header and the gateway decisions table to the host page.
+export function UsageAnalyticsPanel({ onSignIn, embedded = false }: Props & { embedded?: boolean }) {
   const [limit, setLimit] = useState("25");
   const [filters, setFilters] = useState<UsageFilterParams>({
     window_hours: "24",
@@ -153,9 +154,9 @@ export function UsageAnalyticsPanel({ onSignIn }: Props) {
   ] : [];
   const timeLabel = WINDOW_OPTIONS.find(option => option.value === filters.window_hours)?.label || "Selected time range";
   return <div className="analytics-page">
-    <PageHeader title="Usage analytics" breadcrumb={[{ label: "Administration" }, { label: "Usage analytics" }]}
+    {embedded ? null : <PageHeader title="Usage analytics" breadcrumb={[{ label: "Administration" }, { label: "Usage analytics" }]}
       description="Understand gateway traffic, policy decisions, and request reliability."
-      actions={<><ButtonLink variant="secondary" href={`${grafanaPath()}/explore`} target="_blank" rel="noreferrer" trailingIcon="external" data-testid="analytics-detailed-activity">Detailed activity</ButtonLink><Button variant="secondary" icon="refresh" onClick={reload} busy={query.isFetching && !query.isPending} data-testid="analytics-refresh">Refresh</Button></>} />
+      actions={<><ButtonLink variant="secondary" href={`${grafanaPath()}/explore`} target="_blank" rel="noreferrer" trailingIcon="external" data-testid="analytics-detailed-activity">Detailed activity</ButtonLink><Button variant="secondary" icon="refresh" onClick={reload} busy={query.isFetching && !query.isPending} data-testid="analytics-refresh">Refresh</Button></>} />}
     <section className="analytics-filter-panel" aria-label="Filter analytics">
       <FilterBar label="Analytics filters">
         <div className="analytics-primary-filters">
@@ -210,6 +211,6 @@ export function UsageAnalyticsPanel({ onSignIn }: Props) {
         <details className="analytics-data-note"><summary>About this data</summary><p>Recorded gateway requests only. Servers without a gateway and requests whose analytics were not delivered are not included. HTTP errors include responses with status 400 or higher, including denials; server errors are HTTP 5xx. Active users count identified callers, not anonymous requests.</p></details>
       </> : null}
     </AsyncSection>
-    <div className="analytics-audit"><GatewayAuditPanel /></div>
+    {embedded ? null : <div className="analytics-audit"><GatewayAuditPanel /></div>}
   </div>;
 }

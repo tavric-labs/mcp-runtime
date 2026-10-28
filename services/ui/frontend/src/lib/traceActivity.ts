@@ -1,7 +1,7 @@
 import { eventToolName, eventRpcMethod } from "../api/types";
 import type { AuditLogEntry, GatewayEvent } from "../api/types";
 
-export type TraceActivityKind = "tool" | "cli" | "console" | "platform";
+export type TraceActivityKind = "tool" | "cli" | "console" | "api" | "platform";
 
 export type TraceActivityRow = {
   key: string;
@@ -19,6 +19,7 @@ export const TRACE_KIND_LABEL: Record<TraceActivityKind, string> = {
   tool: "Tool call",
   cli: "CLI",
   console: "Console",
+  api: "API",
   platform: "Platform",
 };
 
@@ -27,9 +28,11 @@ export function isTraceID(value: string): boolean {
 }
 
 function auditKind(source: string | undefined): TraceActivityKind {
-  const value = (source || "").trim().toLowerCase();
+  // Sources are recorded as "<kind>" or "<kind>:<identity>", e.g. "cli:platform_jwt".
+  const value = (source || "").trim().toLowerCase().split(":")[0];
   if (value === "cli") return "cli";
   if (value === "ui" || value === "console") return "console";
+  if (value === "api") return "api";
   return "platform";
 }
 

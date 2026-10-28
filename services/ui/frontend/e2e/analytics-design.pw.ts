@@ -33,7 +33,7 @@ for (const width of [1440, 390]) for (const theme of ["dark", "light"]) {
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/#/admin/analytics");
+    await page.goto("/#/admin/requests");
     await expect(page.getByTestId("analytics-stats")).toContainText("1,200");
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
     await page.waitForTimeout(200);
@@ -68,9 +68,10 @@ for (const width of [1440, 390]) for (const theme of ["dark", "light"]) {
 
 test("analytics outage does not hide the independent gateway audit", async ({ page }) => {
   await fixture(page, true);
-  await page.goto("/#/admin/analytics");
+  await page.goto("/#/admin/requests");
   await expect(page.getByTestId("analytics-error")).toBeVisible();
   await expect(page.getByTestId("analytics-stats")).toHaveCount(0);
+  await page.getByTestId("requests-section-decisions").locator("summary").click();
   await page.getByRole("button", { name: "Load gateway decisions" }).click();
   await expect(page.getByTestId("gateway-audit-table")).toBeVisible();
 });

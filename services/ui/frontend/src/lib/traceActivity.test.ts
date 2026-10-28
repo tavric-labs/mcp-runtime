@@ -20,6 +20,18 @@ describe("mergeTraceActivity", () => {
     expect(rows[1].requestId).toBe("req-1");
   });
 
+  it("reads the kind from audit sources recorded as kind:identity", () => {
+    const rows = mergeTraceActivity(
+      [
+        { action: "agent.created", resource: "a", status: "success", source: "cli:platform_jwt" },
+        { action: "login", resource: "u", status: "success", source: "ui:password" },
+        { action: "login", resource: "u", status: "success", source: "api:password" },
+      ],
+      []
+    );
+    expect(rows.map((row) => row.kind).sort()).toEqual(["api", "cli", "console"]);
+  });
+
   it("labels an unknown audit source as a platform operation", () => {
     const [row] = mergeTraceActivity([{ action: "x", resource: "y", status: "ok", source: "operator" }], []);
     expect(row.kind).toBe("platform");

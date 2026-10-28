@@ -1,4 +1,4 @@
-export type AdminSectionId = "overview" | "teams" | "operations" | "traces" | "analytics";
+export type AdminSectionId = "overview" | "teams" | "operations" | "requests";
 
 export type AdminSection = {
   id: AdminSectionId;
@@ -31,16 +31,10 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     description: "Platform users, the audit trail, and image activity.",
   },
   {
-    id: "traces",
-    label: "Request traces",
+    id: "requests",
+    label: "Requests",
     group: "Platform",
-    description: "Every traced operation (tool calls, CLI and console actions) with its trace id.",
-  },
-  {
-    id: "analytics",
-    label: "Usage analytics",
-    group: "Platform",
-    description: "Gateway events aggregated across the platform.",
+    description: "Gateway usage, every traced request (tool calls, CLI, console and API actions) and policy decisions.",
   },
 ];
 

@@ -73,7 +73,7 @@ describe("admin workspace navigation", () => {
     await user.click(tab);
     expect(await screen.findByTestId("teams-table")).toBeInTheDocument();
     const primary = screen.getByRole("navigation", { name: "Primary", exact: true });
-    for (const section of ["overview", "teams", "operations", "analytics"]) {
+    for (const section of ["overview", "teams", "operations", "requests"]) {
       expect(primary).toContainElement(screen.getByTestId(`admin-section-${section}`));
     }
     expect(screen.queryByRole("navigation", { name: "Administration sections" })).not.toBeInTheDocument();

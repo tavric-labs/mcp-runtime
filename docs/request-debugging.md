@@ -203,7 +203,7 @@ The Grafana data sources remain behind the existing administrative access bounda
 
 ## Finding a request by trace id in the console
 
-Platform administrators can open **Administration → Request traces**. It merges
+Platform administrators can open **Administration → Requests → Recent requests**. It merges
 the gateway's tool-call events with the platform audit trail (CLI, console and
 API actions) into one list, newest first, and shows the trace id of each row.
 Select an id to filter both sources to that trace, or paste a 32-digit trace id

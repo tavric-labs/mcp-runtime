@@ -387,7 +387,7 @@ back/forward work. Drive coverage from these URLs rather than clicking through:
 | `#/servers?tool=<ns>/<server>/<tool>` | Tool inspector open |
 | `#/activity` | Tenant activity |
 | `#/keys` | Personal API keys |
-| `#/access` `#/admin/teams` `#/admin/operations` `#/admin/overview` `#/admin/analytics` | Administration sections |
+| `#/access` `#/admin/teams` `#/admin/operations` `#/admin/overview` `#/admin/requests` | Administration sections |
 | `#/signin` | Sign-in |
 
 Things that changed and will break an older script:

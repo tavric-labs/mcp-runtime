@@ -371,7 +371,7 @@ Signed-out Grafana page navigations redirect to platform sign-in with a
 validated same-origin return path. After platform administrator sign-in, the
 browser returns to Grafana, where the separate Grafana login still applies.
 Denied API calls keep their JSON 401 response.
-Administration → Usage analytics opens `/grafana/explore`; admins retain access
+Administration → Requests opens `/grafana/explore`; admins retain access
 to Prometheus, Loki, and Tempo without tenant filters. Server cards link eligible
 viewers to the provisioned **MCP Server** dashboard. Panels 2–5 show one-hour
 tools/call rate, policy deny count, tools/call p95, and allowed upstream 5xx rate.
@@ -981,7 +981,7 @@ signed-in user. Team owners can follow **Manage members** to
 `#/workspace/team?team=<slug>`; member accounts cannot manage memberships.
 
 Admin-only Organization links include **Platform overview** (`#/admin/overview`),
-Teams and Operations; Platform links include Usage analytics. Platform overview
+Teams and Operations; Platform links include Requests. Platform overview
 combines resource totals and service health on one page, including component
 readiness, Grafana, confirmed restarts, and expandable platform maintenance. The
 overview uses complete database counts for non-deleted users/teams, agents of
@@ -996,14 +996,16 @@ includes individual page names and section headings; the active page is marked
 in the sidebar. On compact screens, the navigation menu contains the same
 sections and closes after a selection.
 
-Usage analytics presents the gateway request trend and policy outcomes below
+The Requests page has three expandable sections: Summary, Recent requests and
+Gateway decisions. Summary presents the gateway request trend and policy outcomes below
 four primary filters and four headline metrics. **More filters** exposes MCP
 method, tool, policy version and HTTP outcome filters while preserving active
 values when collapsed. Request groups combine related server, method/tool,
 policy and trace information. Reliability and actor counts remain available
 without a grid of competing headline cards. A zero-request window has no
-calculated deny rate or invented trend. Gateway audit is independently loaded
-and remains separate from the usage filters.
+calculated deny rate or invented trend. Recent requests merges tool calls with
+CLI, console and API actions and their trace ids. Gateway decisions is
+independently loaded and remains separate from the usage filters.
 
 Managed Traefik v3 installation includes its matching CRDs and discovery RBAC:
 namespace-scoped EndpointSlice/ConfigMap watches, pod GET for OTel metadata,

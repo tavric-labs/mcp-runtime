@@ -56,7 +56,7 @@ test("audit trail entries link to their trace in Grafana", async ({ page, contex
 
 test("request traces page merges tool calls and operations and follows one trace", async ({ page }) => {
   const requests = await fixture(page);
-  await page.goto("/#/admin/traces");
+  await page.goto("/#/admin/requests");
   const table = page.getByTestId("traces-table");
   await expect(table).toContainText("grant.create");
   await expect(table).toContainText("read");

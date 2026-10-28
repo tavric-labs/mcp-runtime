@@ -106,7 +106,8 @@ test("deactivation previews impact and exposes partial failures with final state
 
 test("gateway audit opens exact grant and session deep links", async ({ page }) => {
   await fixture(page);
-  await page.goto("/#/admin/analytics");
+  await page.goto("/#/admin/requests");
+  await page.getByTestId("requests-section-decisions").locator("summary").click();
   await page.getByRole("button", { name: "Load gateway decisions" }).click();
   await page.getByRole("link", { name: "team-a/delegated", exact: true }).click();
   await expect(page.getByTestId("access-detail-kicker")).toHaveText("team-a / MCPAccessGrant");
