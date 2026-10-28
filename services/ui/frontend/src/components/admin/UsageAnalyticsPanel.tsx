@@ -47,17 +47,7 @@ const bytes = (value?: number) =>
         ? `${(value / 1024).toFixed(1)} KiB`
         : `${(value / 1048576).toFixed(1)} MiB`;
 
-// `at` centres the Explore time range on when the request ran, so an old trace
-// is not looked up in the default last-hour window.
-const EXPLORE_WINDOW_MS = 60 * 60 * 1000;
-
-function exploreRange(at?: string): { from: string; to: string } {
-  const centre = Date.parse(at || "");
-  if (!Number.isFinite(centre)) return { from: "now-1h", to: "now" };
-  return { from: String(centre - EXPLORE_WINDOW_MS), to: String(centre + EXPLORE_WINDOW_MS) };
-}
-
-export function traceExploreURL(traceID: string, at?: string): string | undefined {
+export function traceExploreURL(traceID: string): string | undefined {
   if (!/^[0-9a-f]{32}$/i.test(traceID)) return undefined;
   const left = {
     datasource: "tempo",
@@ -69,7 +59,7 @@ export function traceExploreURL(traceID: string, at?: string): string | undefine
         datasource: { type: "tempo", uid: "tempo" },
       },
     ],
-    range: exploreRange(at),
+    range: { from: "now-1h", to: "now" },
   };
   return `${grafanaPath()}/explore?left=${encodeURIComponent(JSON.stringify(left))}`;
 }

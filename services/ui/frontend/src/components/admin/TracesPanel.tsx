@@ -83,7 +83,7 @@ export function TracesPanel({ onSignIn }: TracesPanelProps) {
           header: "Trace",
           cell: (row) => {
             if (!isTraceID(row.traceId)) return <span title="No trace was recorded for this entry">—</span>;
-            const explore = traceExploreURL(row.traceId, row.time);
+            const explore = traceExploreURL(row.traceId);
             return (
               <span className="cell-actions">
                 <Button
@@ -142,7 +142,7 @@ export function TracesPanel({ onSignIn }: TracesPanelProps) {
 
   const chips: FilterChip[] = traceId ? [{ id: "trace", label: "Trace", value: traceId, onRemove: clear }] : [];
   const gatewayUnavailable = Boolean(gateway.error) && !gateway.isPending;
-  const traceLink = traceId ? traceExploreURL(traceId, rows[rows.length - 1]?.time) : undefined;
+  const traceLink = traceId ? traceExploreURL(traceId) : undefined;
 
   return (
     <>

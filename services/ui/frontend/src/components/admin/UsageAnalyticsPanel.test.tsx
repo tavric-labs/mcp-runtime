@@ -186,13 +186,6 @@ it("applies the time range and HTTP outcome to the analytics query", async () =>
 it("never constructs links from arbitrary trace values", () => {
   expect(traceExploreURL("javascript:alert(1)")).toBeUndefined();
   expect(traceExploreURL("")).toBeUndefined();
-  const left = (url: string | undefined) => JSON.parse(decodeURIComponent(String(url).split("left=")[1]));
-  expect(left(traceExploreURL("a".repeat(32))).range).toEqual({ from: "now-1h", to: "now" });
-  const at = "2026-10-28T10:00:00Z";
-  expect(left(traceExploreURL("a".repeat(32), at)).range).toEqual({
-    from: String(Date.parse(at) - 3_600_000),
-    to: String(Date.parse(at) + 3_600_000),
-  });
 });
 
 it("keeps advanced filters out of the initial layout and retains their values when collapsed", async () => {
