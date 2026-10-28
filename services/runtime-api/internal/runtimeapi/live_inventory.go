@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -97,7 +98,7 @@ func (s *InventoryService) liveInventory() *liveInventoryCache {
 	s.liveInventoryOnce.Do(func() {
 		prober := s.liveInventoryProbe
 		if prober == nil {
-			prober = &mcpLiveInventoryProber{client: &http.Client{Timeout: liveInventoryProbeTimeout}, access: s.access}
+			prober = &mcpLiveInventoryProber{client: &http.Client{Timeout: liveInventoryProbeTimeout, Transport: httptrace.TracedTransport(nil)}, access: s.access}
 		}
 		s.liveInventoryCache = newLiveInventoryCache(liveInventoryTTL, prober)
 	})
@@ -255,7 +256,7 @@ func (p *mcpLiveInventoryProber) probe(ctx context.Context, server controlplane.
 	}
 	client := p.client
 	if client == nil {
-		client = &http.Client{Timeout: liveInventoryProbeTimeout}
+		client = &http.Client{Timeout: liveInventoryProbeTimeout, Transport: httptrace.TracedTransport(nil)}
 	}
 	session := ""
 	protocol := liveInventoryProtocolVersion

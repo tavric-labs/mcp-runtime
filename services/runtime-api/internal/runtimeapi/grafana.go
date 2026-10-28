@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"net/url"
 	"path"
@@ -136,7 +137,7 @@ func (s *RuntimeServer) HandleRuntimeGrafana(w http.ResponseWriter, r *http.Requ
 	if r.Method == http.MethodGet {
 		req.Header.Set("Accept", r.Header.Get("Accept"))
 	}
-	client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	client := &http.Client{Timeout: 15 * time.Second, Transport: httptrace.TracedTransport(nil), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Do(req)
 	if err != nil {
 		writeAPIError(w, http.StatusBadGateway, "grafana_unavailable")

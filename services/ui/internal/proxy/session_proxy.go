@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"net/url"
 	"path"
@@ -146,7 +147,7 @@ const sessionProxyMaxWriteBody = 32 * 1024
 
 // NewHTTPClient retains the browser proxy's bounded, non-redirecting transport.
 func NewHTTPClient() *http.Client {
-	return &http.Client{Timeout: sessionProxyTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return &http.Client{Timeout: sessionProxyTimeout, Transport: httptrace.TracedTransport(nil), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 }
 
 type SessionProxy struct {

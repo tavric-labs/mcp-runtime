@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net/http"
 	"strings"
 	"sync"
@@ -71,7 +72,7 @@ func refuseRedirect(*http.Request, []*http.Request) error {
 // NewAuthorizer builds an Authorizer. metadataURL returns each service's
 // protected-resource metadata URL.
 func NewAuthorizer(cfg *Config, metadataURL func(Service) string) *Authorizer {
-	client := &http.Client{Timeout: cfg.ASTimeout, CheckRedirect: refuseRedirect}
+	client := &http.Client{Timeout: cfg.ASTimeout, Transport: httptrace.TracedTransport(nil), CheckRedirect: refuseRedirect}
 	a := &Authorizer{services: map[string]*perService{}, seen: map[string]time.Time{}}
 	for _, s := range cfg.Services {
 		required := map[string]bool{}

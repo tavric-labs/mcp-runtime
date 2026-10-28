@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"mcp-runtime/pkg/transport/httptrace"
 	"net"
 	"net/http"
 	"net/url"
@@ -65,10 +66,10 @@ func New(cfg *Config, store *Store, transport http.RoundTripper) *Gateway {
 	g := &Gateway{
 		cfg: cfg, store: store, binder: NewBinder(cfg.SessionKey), mux: http.NewServeMux(),
 		// An upstream redirect must never carry injected credentials elsewhere.
-		upstream: &http.Client{Transport: transport, CheckRedirect: noRedirect},
+		upstream: &http.Client{Transport: httptrace.TracedTransport(transport), CheckRedirect: noRedirect},
 		checker: &http.Client{
 			Timeout:       cfg.ConnectTimeout + cfg.ResponseHeaderTimeout,
-			Transport:     &http.Transport{Proxy: nil, DialContext: (&net.Dialer{Timeout: cfg.ConnectTimeout}).DialContext, TLSHandshakeTimeout: cfg.ConnectTimeout, ResponseHeaderTimeout: cfg.ResponseHeaderTimeout},
+			Transport:     httptrace.TracedTransport(&http.Transport{Proxy: nil, DialContext: (&net.Dialer{Timeout: cfg.ConnectTimeout}).DialContext, TLSHandshakeTimeout: cfg.ConnectTimeout, ResponseHeaderTimeout: cfg.ResponseHeaderTimeout}),
 			CheckRedirect: noRedirect,
 		},
 	}

@@ -61,7 +61,7 @@ var pkgLayers = map[string]layer{
 	"apikit": support, "authgateway": support,
 	"clickhouse": support,
 	"passport":   support, "svcboot": support, "telemetry": support,
-	"telemetry/kafkatrace": support,
+	"telemetry/kafkatrace": support, "telemetry/sqltrace": support,
 
 	// Adapters: the only layer that talks to Kubernetes.
 	"controlplane": adapter, "k8sclient": adapter, "kubeworkload": adapter,

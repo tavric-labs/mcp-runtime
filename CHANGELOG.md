@@ -13,6 +13,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Added
 
+- Postgres queries in platform-api and the console's session store, and outbound HTTP calls from the console, ingest, analytics-api, runtime-api and the gateway's credential, session-sync and probe paths, now appear as child spans of the request trace and propagate `traceparent`. Spans record the operation and database system only, never SQL text, arguments or credentials. No setup change is needed; `mcp-runtime update` rolls out the new images. The operator and CLI are not yet traced.
 - Every API response now carries an `X-Request-Id` header. A well-formed id sent by the caller is kept; otherwise one is generated. Audit rows and service access logs record the same id, so entries that used to have an empty `request_id` now carry one. The API reference documents the id, JSON naming and error conventions, and platform-api's `openapi.yaml` describes the user API key routes.
 
 ### Changed

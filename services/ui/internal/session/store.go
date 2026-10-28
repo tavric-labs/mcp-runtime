@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+
+	"mcp-runtime/pkg/telemetry/sqltrace"
 )
 
 const (
@@ -349,7 +351,7 @@ func NewBackend(ctx context.Context, kind, dsn, key string) (Backend, error) {
 		if strings.TrimSpace(dsn) == "" {
 			return nil, errors.New("UI_SESSION_DATABASE_URL is required when UI_SESSION_STORE=postgres")
 		}
-		db, err := sql.Open("postgres", dsn)
+		db, err := sqltrace.Open("postgres", dsn)
 		if err != nil {
 			return nil, err
 		}
