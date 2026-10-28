@@ -49,7 +49,7 @@ export function AppShell({
   ].map((group) => ({ label: group.label, items: tabs.filter((tab) => group.ids.includes(tab.id))
     .map((tab) => ({ ...tab, active: tab.id === workspace, select: () => onSelectWorkspace(tab.id) })) }));
   if (isAdmin(auth)) {
-    const icons = { overview: "gauge", teams: "users", operations: "activity", analytics: "chart" } as const;
+    const icons = { overview: "gauge", teams: "users", operations: "activity", requests: "chart" } as const;
     groups.push(...ADMIN_GROUPS.map((label) => ({ label, items: ADMIN_SECTIONS
       .filter((item) => item.group === label).map((item) => ({ ...item, id: `admin-${item.id}`,
         icon: icons[item.id], active: workspace === "admin" && adminSection(section).id === item.id,

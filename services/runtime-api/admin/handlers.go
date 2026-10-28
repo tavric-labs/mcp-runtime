@@ -3,6 +3,7 @@ package admin
 import (
 	"fmt"
 	"mcp-runtime/pkg/apikit"
+	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/topology"
 	"net/http"
 	"strings"
@@ -67,6 +68,12 @@ func adminOperationsFilterFromRequest(r *http.Request) (platformapi.OperationsFi
 		UserSearch: strings.ToLower(user),
 		Limit:      apikit.ClampInt(apikit.QueryIntOr(r, "limit", 50), 1, 200),
 	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("trace_id")); raw != "" {
+		if !httpx.ValidTraceID(raw) {
+			return platformapi.OperationsFilter{}, errInvalidTraceID
+		}
+		filter.TraceID = raw
+	}
 	since, err := parseOptionalTimeQuery(r, "since", false)
 	if err != nil {
 		return platformapi.OperationsFilter{}, err
@@ -82,6 +89,8 @@ func adminOperationsFilterFromRequest(r *http.Request) (platformapi.OperationsFi
 	}
 	return filter, nil
 }
+
+var errInvalidTraceID = adminFilterError("trace_id must be 32 lowercase hex digits")
 
 var errInvalidTimeRange = adminFilterError("since must be before until")
 

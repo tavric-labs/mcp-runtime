@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/httpx"
+	"mcp-runtime/pkg/telemetry"
 )
 
 // ListUserActivity returns user accounts with login, failure, key, and credential counters.
@@ -102,7 +103,7 @@ SELECT a.id, COALESCE(a.user_id::text, ''), COALESCE(u.email, ''), a.action, a.r
        COALESCE(a.actor_ip, ''), COALESCE(a.request_id, ''),
        COALESCE(a.source, ''), COALESCE(a.auth_identity, ''),
        COALESCE(a.image_ref, ''), COALESCE(a.server_name, ''),
-       COALESCE(a.deployment_target, ''), COALESCE(a.agent_id, ''), COALESCE(a.team_id::text, ''), a.created_at
+       COALESCE(a.deployment_target, ''), COALESCE(a.agent_id, ''), COALESCE(a.team_id::text, ''), COALESCE(a.trace_id, ''), a.created_at
 FROM audit_logs a
 LEFT JOIN users u ON u.id = a.user_id
 ` + where + `
@@ -135,6 +136,7 @@ LIMIT $` + strconv.Itoa(limitArg)
 			&item.DeploymentTarget,
 			&item.AgentID,
 			&item.TeamID,
+			&item.TraceID,
 			&item.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -208,8 +210,8 @@ func (s *Store) WriteAudit(ctx context.Context, ev AuditEvent) {
 	if !httpx.ValidRequestID(ev.RequestID) {
 		ev.RequestID = httpx.RequestID(ctx)
 	}
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO audit_logs (user_id,action,resource,namespace,status,message,actor_ip,request_id,source,auth_identity,image_ref,server_name,deployment_target,agent_id,team_id) VALUES (NULLIF($1,'')::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULLIF($14,''),NULLIF($15,'')::uuid)`,
-		ev.UserID, ev.Action, ev.Resource, ev.Namespace, ev.Status, ev.Message, ev.ActorIP, ev.RequestID, ev.Source, ev.AuthIdentity, ev.ImageRef, ev.ServerName, ev.DeploymentTarget, ev.AgentID, ev.TeamID); err != nil {
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO audit_logs (user_id,action,resource,namespace,status,message,actor_ip,request_id,source,auth_identity,image_ref,server_name,deployment_target,agent_id,team_id,trace_id) VALUES (NULLIF($1,'')::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULLIF($14,''),NULLIF($15,'')::uuid,NULLIF($16,''))`,
+		ev.UserID, ev.Action, ev.Resource, ev.Namespace, ev.Status, ev.Message, ev.ActorIP, ev.RequestID, ev.Source, ev.AuthIdentity, ev.ImageRef, ev.ServerName, ev.DeploymentTarget, ev.AgentID, ev.TeamID, telemetry.TraceIDFromContext(ctx)); err != nil {
 		log.Printf("ERROR: failed to write audit log: %v", err)
 	}
 }
@@ -233,6 +235,10 @@ func platformAuditWhere(filter OperationsFilter) (string, []any) {
 		pattern := "%" + user + "%"
 		args = append(args, user, pattern, pattern, pattern, pattern, pattern, pattern)
 		conditions = append(conditions, fmt.Sprintf("(a.user_id::text = $%d OR COALESCE(u.email, '') ILIKE $%d OR COALESCE(a.namespace, '') ILIKE $%d OR COALESCE(a.resource, '') ILIKE $%d OR COALESCE(a.image_ref, '') ILIKE $%d OR COALESCE(a.server_name, '') ILIKE $%d OR COALESCE(a.deployment_target, '') ILIKE $%d)", len(args)-6, len(args)-5, len(args)-4, len(args)-3, len(args)-2, len(args)-1, len(args)))
+	}
+	if filter.TraceID != "" {
+		args = append(args, filter.TraceID)
+		conditions = append(conditions, fmt.Sprintf("a.trace_id = $%d", len(args)))
 	}
 	if !filter.Since.IsZero() {
 		args = append(args, filter.Since)

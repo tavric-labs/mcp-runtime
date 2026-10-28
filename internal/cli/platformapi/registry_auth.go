@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mcp-runtime/internal/cli/clitrace"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,7 +36,7 @@ func NewPlatformClientWithAPIKey(baseURL, apiKey string) (*PlatformClient, error
 	return &PlatformClient{
 		baseURL:   base,
 		token:     strings.TrimSpace(apiKey),
-		http:      &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+		http:      &http.Client{Timeout: 30 * time.Second, Transport: clitrace.Transport(nil), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		apiPrefix: "/api/v1",
 	}, nil
 }

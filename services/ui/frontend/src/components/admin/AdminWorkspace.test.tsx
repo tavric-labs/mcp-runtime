@@ -158,7 +158,7 @@ function stubAdminApi(overrides: Record<string, { status?: number; body?: unknow
   return fetchMock;
 }
 
-function renderAdmin(auth: AuthStatus, section: "teams" | "operations" | "overview" | "analytics" = "teams") {
+function renderAdmin(auth: AuthStatus, section: "teams" | "operations" | "overview" | "requests" = "teams") {
   return render(
     <AppProviders>
       <AdminWorkspace auth={auth} onSignIn={() => {}} section={section} />
@@ -279,7 +279,7 @@ describe("AdminWorkspace sections", () => {
     const user = userEvent.setup();
     stubAdminApi();
 
-    renderAdmin(ADMIN, "analytics");
+    renderAdmin(ADMIN, "requests");
 
     const detailedActivity = await screen.findByTestId("analytics-detailed-activity");
     expect(detailedActivity).toHaveAttribute("href", "/grafana/explore");

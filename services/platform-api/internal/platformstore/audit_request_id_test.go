@@ -17,7 +17,7 @@ func TestWriteAuditStoresRequestIDFromContext(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	store := &Store{db: db}
 	mock.ExpectExec("INSERT INTO audit_logs").
-		WithArgs("user-1", "api_key_create", "uk_1", "user-1", "success", "", "127.0.0.1", "client-req_42.a", "ui", "user_api_key", "", "", "", "", "").
+		WithArgs("user-1", "api_key_create", "uk_1", "user-1", "success", "", "127.0.0.1", "client-req_42.a", "ui", "user_api_key", "", "", "", "", "", "").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := httpx.ContextWithRequestID(context.Background(), "client-req_42.a")
@@ -38,7 +38,7 @@ func TestWriteAuditKeepsRequestIDAlreadyOnTheEvent(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	store := &Store{db: db}
 	mock.ExpectExec("INSERT INTO audit_logs").
-		WithArgs("", "grant.create", "grant-1", "", "success", "", "", "from-caller", "", "", "", "", "", "", "").
+		WithArgs("", "grant.create", "grant-1", "", "success", "", "", "from-caller", "", "", "", "", "", "", "", "").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := httpx.ContextWithRequestID(context.Background(), "internal-hop")

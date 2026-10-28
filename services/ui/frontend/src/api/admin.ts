@@ -220,6 +220,7 @@ export async function restartComponent(component?: string): Promise<void> {
 
 export async function readOperations(filters: {
   user?: string;
+  trace_id?: string;
   since?: string;
   until?: string;
   limit?: string;
@@ -241,6 +242,7 @@ export async function listEvents(params: {
   matched_grant_namespace?: string;
   matched_session?: string;
   matched_session_namespace?: string;
+  trace_id?: string;
   since?: string;
   until?: string;
 }): Promise<GatewayEvent[]> {

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"mcp-runtime/pkg/httpx"
 	"net/http"
 	"strconv"
 	"strings"
@@ -540,6 +541,12 @@ func operationsFilterFromRequest(r *http.Request) (platformstore.OperationsFilte
 	}
 	if filter.Limit > 200 {
 		filter.Limit = 200
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("trace_id")); raw != "" {
+		if !httpx.ValidTraceID(raw) {
+			return platformstore.OperationsFilter{}, errors.New("trace_id must be 32 lowercase hex digits")
+		}
+		filter.TraceID = raw
 	}
 	if raw := strings.TrimSpace(r.URL.Query().Get("since")); raw != "" {
 		parsed, err := time.Parse(time.RFC3339, raw)

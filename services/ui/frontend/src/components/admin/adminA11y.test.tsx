@@ -94,7 +94,7 @@ function stub() {
   );
 }
 
-function renderAdmin(auth: AuthStatus, section: "teams" | "operations" | "overview" | "analytics" = "teams") {
+function renderAdmin(auth: AuthStatus, section: "teams" | "operations" | "overview" | "requests" = "teams") {
   return render(
     <AppProviders>
       <AdminWorkspace auth={auth} onSignIn={() => {}} section={section} />

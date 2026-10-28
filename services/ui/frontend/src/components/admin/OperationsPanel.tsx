@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 
 import { AsyncSection } from "./AsyncSection";
+import { traceExploreURL } from "./UsageAnalyticsPanel";
 import { StatusBadge, outcomeTone } from "../../ui/Badge";
-import { Button } from "../../ui/Button";
+import { Button, ButtonLink } from "../../ui/Button";
 import { DataTable, buildColumns } from "../../ui/DataTable";
 import { DetailSheet } from "../../ui/DetailSheet";
 import { TextField } from "../../ui/Field";
@@ -21,6 +22,18 @@ type OperationsPanelProps = {
 type OperationsTab = "users" | "audit" | "images";
 
 const LOADED_NOTE = `loaded entries (the API returns at most ${OPERATIONS_LIMIT} per collection)`;
+
+// Opens the trace in Grafana's Tempo view. Entries recorded without a valid
+// trace id (older rows, or requests with no span context) show a dash.
+function TraceLink({ traceId, showId = false }: { traceId?: string; showId?: boolean }) {
+  const url = traceId ? traceExploreURL(traceId) : undefined;
+  if (!url) return <span title="No trace was recorded for this entry">—</span>;
+  return (
+    <ButtonLink variant="ghost" size="sm" href={url} target="_blank" rel="noreferrer" trailingIcon="external" data-testid="audit-trace-link" title={traceId}>
+      {showId ? <span className="cell-code wrap-anywhere">{traceId}</span> : "Open trace"}
+    </ButtonLink>
+  );
+}
 
 export function OperationsPanel({ onSignIn }: OperationsPanelProps) {
   const [tab, setTab] = useState<OperationsTab>("users");
@@ -112,6 +125,11 @@ export function OperationsPanel({ onSignIn }: OperationsPanelProps) {
           header: "Status",
           sortValue: (entry) => entry.status || "",
           cell: (entry) => <StatusBadge tone={outcomeTone(entry.status)}>{entry.status || "unknown"}</StatusBadge>,
+        },
+        {
+          id: "trace",
+          header: "Trace",
+          cell: (entry) => <TraceLink traceId={entry.trace_id} />,
         },
         {
           id: "details",
@@ -368,6 +386,16 @@ export function OperationsPanel({ onSignIn }: OperationsPanelProps) {
             <div>
               <dt>Image</dt>
               <dd className="cell-code">{inspected.image_ref || "—"}</dd>
+            </div>
+            <div>
+              <dt>Trace</dt>
+              <dd>
+                <TraceLink traceId={inspected.trace_id} showId />
+              </dd>
+            </div>
+            <div>
+              <dt>Request id</dt>
+              <dd className="cell-code wrap-anywhere">{inspected.request_id || "—"}</dd>
             </div>
             <div>
               <dt>Recorded at</dt>

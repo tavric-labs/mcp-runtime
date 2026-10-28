@@ -47,7 +47,7 @@ and keeps partial failures visible. Counts cover your view; deactivation also
 revokes sessions outside it. Reactivation preserves the ID and history and does
 not restore revoked sessions.
 
-Administrators can open **Administration → Usage analytics → Gateway audit**
+Administrators can open **Administration → Requests → Gateway decisions**
 and load the latest 100 events. Matched grant/session links include their recorded
 namespaces. The shared detail view queries the most recent 1,000 matching events
 from the last seven days and shows loaded allow/deny/would-deny counts. This is a

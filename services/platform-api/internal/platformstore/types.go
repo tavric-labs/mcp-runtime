@@ -154,6 +154,7 @@ type AuditLog struct {
 	DeploymentTarget string    `json:"deployment_target,omitempty"`
 	AgentID          string    `json:"agent_id,omitempty"`
 	TeamID           string    `json:"team_id,omitempty"`
+	TraceID          string    `json:"trace_id,omitempty"`
 	CreatedAt        time.Time `json:"created_at"`
 }
 
@@ -161,9 +162,11 @@ type AuditLog struct {
 type OperationsFilter struct {
 	User       string
 	UserSearch string
-	Since      time.Time
-	Until      time.Time
-	Limit      int
+	// TraceID limits audit entries to one W3C trace (32 lowercase hex digits).
+	TraceID string
+	Since   time.Time
+	Until   time.Time
+	Limit   int
 }
 
 // OperationsFilterResponse is the API echo of an operations filter.
