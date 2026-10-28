@@ -7,13 +7,16 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-29
+
 ### Fixed
 
+- **Correction to 0.14.0:** its upgrade note said `mcp-runtime update` alone was enough. An install that predates the split API routes must first run `mcp-runtime setup` from the release with the installation's original TLS, host, storage and MCP Auth options; until then `update` stops with `token audience setup migration required` and changes nothing (found when the hosted production deploy was refused). Run setup from 0.14.1 or later, then `update`. Setup needs no data restore; users sign in again afterwards.
 - `cluster doctor` and `setup` no longer misread a k3s cluster as generic when the API answers slowly. Distribution detection now allows each node lookup 10 seconds and retries once when `kubectl` fails. A 2-second limit made the hosted production deploy (v0.14.0, from a remote runner) fail its preflight looking for a repo-managed Traefik that k3s does not have. No setup change is needed.
 
 ## [0.14.0] - 2026-10-28
 
-Breaking `0.x` release: deploy with `mcp-runtime update` (no fresh setup or restore). Existing user API keys stop working and each user creates a new one; the admin console's `#/admin/analytics` page is now `#/admin/requests`.
+Breaking `0.x` release: deploy with `mcp-runtime update` (no fresh setup or restore). *This was incorrect; see the correction under 0.14.1.* Existing user API keys stop working and each user creates a new one; the admin console's `#/admin/analytics` page is now `#/admin/requests`.
 
 ### Added
 
@@ -691,7 +694,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.12.1...v0.13.0
