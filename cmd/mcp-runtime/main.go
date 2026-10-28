@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mcp-runtime/internal/cli/clitrace"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -17,6 +18,10 @@ var (
 	commit  = "none"
 	date    = "unknown"
 	debug   = false
+
+	// endTrace closes the invocation's root span; commands that fail before
+	// PersistentPreRun runs (bad flags) never start one.
+	endTrace = func() {}
 )
 
 func main() {
@@ -29,7 +34,9 @@ func main() {
 
 	initCommands(logger)
 
-	if err := rootCmd.Execute(); err != nil {
+	err = rootCmd.Execute()
+	endTrace()
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -53,6 +60,10 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Set debug mode globally so logStructuredError can check it
 		core.SetDebugMode(debug)
+		endTrace = clitrace.Start(cmd.CommandPath())
+		if debug {
+			fmt.Fprintf(os.Stderr, "trace_id=%s\n", clitrace.TraceID())
+		}
 	},
 }
 

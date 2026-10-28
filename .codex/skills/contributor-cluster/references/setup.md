@@ -53,9 +53,9 @@ For measured CPU/memory and macOS/Colima setup, see
   --kubeconfig "$TEST_KUBECONFIG" --context test-mcp-runtime get nodes` succeeds). Skip Kind creation;
   re-run `bootstrap` and `cluster doctor` only.
 - **create** (no `test-mcp-runtime` context, or user asked for a clean
-  cluster). Full path: Kind create → build → setup → deploy demo → grant.
+  cluster). Full path: Kind create → build → setup → QA journey (demo server, grant, session).
 - **rebuild-from-broken** (cluster exists but `cluster doctor` fails). Try
-  targeted repair first (rollout restart, re-apply `pipeline deploy`); only
+  targeted repair first (rollout restart, re-run `setup`); only
   recreate with the user's explicit ok.
 
 Detect with:
@@ -196,66 +196,14 @@ curl -fsS -o /dev/null http://localhost:18080/ && echo "dashboard reachable"
 #   https://127.0.0.1:18443/<publicPathPrefix>/mcp  (use -k for local default cert)
 ```
 
-## Step 7 — Deploy the bundled Go MCP example
-
-Use the metadata from `docs/self-hosting.md#3-contributor-test-mode-cluster`
-exactly — gateway policy, analytics, and required headers all depend on the
-documented shape.
-
-```bash
-cat > /tmp/oauth-example-go-2025-11-25-gateway.yaml <<'EOF'
-version: v1
-servers:
-  - name: oauth-example-go-2025-11-25-gateway
-    route: /oauth-example-go-2025-11-25-gateway/mcp
-    publicPathPrefix: oauth-example-go-2025-11-25-gateway
-    port: 8088
-    namespace: mcp-servers
-    tools:
-      - { name: add,   requiredTrust: low, sideEffect: read }
-      - { name: upper, requiredTrust: medium, sideEffect: read }
-    policy:
-      mode: allow-list
-      defaultDecision: deny
-      policyVersion: v1
-    session: { required: true }
-    gateway: { enabled: true }
-    analytics:
-      enabled: true
-      ingestURL: http://mcp-ingest.mcp-observability.svc.cluster.local:8081/events
-      apiKeySecretRef: { name: oauth-example-go-2025-11-25-gateway-analytics, key: api-key }
-EOF
-
-API_KEY="$(kubectl get secret mcp-ingest-credentials -n mcp-observability \
-  -o jsonpath='{.data.INGEST_API_KEYS}' | base64 -d | cut -d, -f1)"
-kubectl create secret generic oauth-example-go-2025-11-25-gateway-analytics -n mcp-servers \
-  --from-literal=api-key="$API_KEY" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-./bin/mcp-runtime server build image oauth-example-go-2025-11-25-gateway \
-  --metadata-file /tmp/oauth-example-go-2025-11-25-gateway.yaml \
-  --dockerfile examples/oauth-example-go-2025-11-25/Dockerfile \
-  --context examples/oauth-example-go-2025-11-25 \
-  --registry registry.registry.svc.cluster.local:5000 \
-  --tag dev
-
-./bin/mcp-runtime server push \
-  --image registry.registry.svc.cluster.local:5000/oauth-example-go-2025-11-25-gateway:dev
-
-rm -rf /tmp/oauth-example-go-2025-11-25-gateway-manifests
-./bin/mcp-runtime pipeline generate \
-  --file /tmp/oauth-example-go-2025-11-25-gateway.yaml \
-  --output /tmp/oauth-example-go-2025-11-25-gateway-manifests
-./bin/mcp-runtime pipeline deploy --dir /tmp/oauth-example-go-2025-11-25-gateway-manifests
-kubectl rollout status deploy/oauth-example-go-2025-11-25-gateway -n mcp-servers --timeout=180s
-```
-
-## Step 8 — Apply access and run real certificate-authenticated MCP traffic
+## Step 7 — Apply access and run real certificate-authenticated MCP traffic
 
 Use the maintained QA journey so access is created through the supported CLI,
 the agent comes from the platform directory, and traffic goes through
-`adapter proxy` with a session-bound certificate. The server above omits
-`auth`, so this path intentionally proves certificate-only adapter traffic.
+`adapter proxy` with a session-bound certificate. The journey builds and
+deploys its own demo server, which omits `auth`, so this path intentionally
+proves certificate-only adapter traffic. Do not hand-deploy the demo server:
+the old `pipeline generate|deploy` commands no longer exist.
 
 ```bash
 KUBECONFIG="$KIND_KUBECONFIG" \
@@ -266,7 +214,7 @@ E2E_SCENARIOS=smoke-auth,adapter-certificates \
 bash test/e2e/qa-e2e.sh
 ```
 
-## Step 9 — Real MCP traffic gate
+## Step 8 — Real MCP traffic gate
 
 Bring-up is complete only when the QA journey reports a successful
 certificate-backed `tools/call`. For an OAuth-enabled target the same adapter
@@ -276,15 +224,14 @@ If this fails, do not declare bring-up successful. Capture
 `kubectl logs -n mcp-servers <pod> -c mcp-gateway --tail=120` and
 `kubectl logs -n traefik deploy/traefik --tail=120`, then return.
 
-## Step 10 — Report
+## Step 9 — Report
 
 The bring-up report is short and concrete. Other `qa-e2e-*` skills consume it
 to know the environment is ready.
 
 - Mode: reuse | create | rebuild-from-broken.
 - Cluster context: `kubectl config current-context`.
-- Image SHAs pushed (operator, gateway proxy, platform api/ui/ingest/processor,
-  oauth-example-go-2025-11-25-gateway).
+- Image SHAs pushed (operator, gateway proxy, platform api/ui/ingest/processor).
 - `cluster doctor` summary line.
 - Traefik port-forward pid + log path.
 - Demo `tools/call` result: `5` ✓ / details on failure.

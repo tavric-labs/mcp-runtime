@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mcp-runtime/internal/cli/clitrace"
 	"net/http"
 	"net/url"
 	"strings"
@@ -38,7 +39,7 @@ func NewCredentialClient(baseURL, token string) (*PlatformClient, error) {
 		return nil, fmt.Errorf("an HTTPS platform URL and saved login are required")
 	}
 	return &PlatformClient{baseURL: NormalizeBaseURL(baseURL), token: token,
-		http: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, apiPrefix: "/api/v1"}, nil
+		http: &http.Client{Timeout: 30 * time.Second, Transport: clitrace.Transport(nil), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, apiPrefix: "/api/v1"}, nil
 }
 
 // NewPlatformClient returns a client when platform credentials and API base URL are configured.
@@ -57,7 +58,7 @@ func NewPlatformClient() (*PlatformClient, error) {
 	return &PlatformClient{
 		baseURL:   NormalizeBaseURL(base),
 		token:     tok,
-		http:      &http.Client{Timeout: 2 * time.Minute},
+		http:      &http.Client{Timeout: 2 * time.Minute, Transport: clitrace.Transport(nil)},
 		apiPrefix: "/api/v1",
 	}, nil
 }

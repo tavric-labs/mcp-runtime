@@ -210,6 +210,13 @@ Select an id to filter both sources to that trace, or paste a 32-digit trace id
 from `X-Trace-ID` or a log line into the filter. **Open trace** opens the same id
 in Grafana Tempo.
 
+Each `mcp-runtime` command is one trace. Its platform API calls carry the
+trace to the server, so the audit entries the command causes share a trace id;
+run the command with `--debug` to print it as `trace_id=<id>`. Without
+`OTEL_EXPORTER_OTLP_ENDPOINT` the CLI does not export its own root span, so
+Tempo shows the server spans without a CLI root. Calls the CLI makes to other
+hosts (registries, identity providers, Kubernetes) do not carry the trace.
+
 Only entries recorded after the audit trail started storing trace ids carry one;
 older rows show a dash. An entry also has no id when the request had no valid
 span context. The list shows the most recent 100 entries per source, and the

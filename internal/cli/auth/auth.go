@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"mcp-runtime/internal/cli/clitrace"
 	"net/http"
 	"net/url"
 	"os"
@@ -382,7 +383,7 @@ func loginPlatformPassword(ctx context.Context, apiBaseURL, email, password stri
 	if httpDoHook != nil {
 		resp, err = httpDoHook(req)
 	} else {
-		resp, err = (&http.Client{Timeout: 30 * time.Second}).Do(req)
+		resp, err = (&http.Client{Timeout: 30 * time.Second, Transport: clitrace.Transport(nil)}).Do(req)
 	}
 	if err != nil {
 		return "", "", err
@@ -429,7 +430,7 @@ func verifyPlatformAPIToken(ctx context.Context, apiBaseURL, token string) error
 	if httpDoHook != nil {
 		resp, err = httpDoHook(req)
 	} else {
-		client := &http.Client{Timeout: 30 * time.Second}
+		client := &http.Client{Timeout: 30 * time.Second, Transport: clitrace.Transport(nil)}
 		resp, err = client.Do(req)
 	}
 	if err != nil {
