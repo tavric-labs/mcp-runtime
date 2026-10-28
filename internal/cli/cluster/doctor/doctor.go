@@ -397,6 +397,32 @@ func doctorPostSetupCheckSpecs(kubectl core.KubectlRunner) []doctorCheckSpec {
 	}
 }
 
+// A node lookup from a remote runner (the production deploy workflow) can take
+// seconds. A 2s timeout read a slow answer as "not k3s", so doctor looked for a
+// repo-managed Traefik that k3s does not have and failed a healthy cluster.
+const (
+	nodeLookupTimeout  = "--request-timeout=10s"
+	nodeLookupAttempts = 2
+)
+
+// nodeLookup runs one `get nodes` jsonpath query. It retries only when kubectl
+// itself fails; a clean answer, even an empty one, is final.
+func nodeLookup(kubectl core.KubectlRunner, jsonpath string) (string, error) {
+	var lastErr error
+	for attempt := 0; attempt < nodeLookupAttempts; attempt++ {
+		cmd, err := kubectl.CommandArgs([]string{nodeLookupTimeout, "get", "nodes", "-o", jsonpath})
+		if err != nil {
+			return "", err
+		}
+		out, err := runKubectlOutput(cmd)
+		if err == nil {
+			return out, nil
+		}
+		lastErr = err
+	}
+	return "", lastErr
+}
+
 // DetectDistribution inspects node info to guess which distribution is running.
 // This is best-effort: callers should treat DistroGeneric as "probably kubeadm/unknown".
 func DetectDistribution(kubectl core.KubectlRunner) Distribution {
@@ -417,27 +443,24 @@ func DetectDistribution(kubectl core.KubectlRunner) Distribution {
 
 	// Check the local context before bounded node lookups so doctor remains
 	// responsive when the API endpoint is offline.
-	cmd, err = kubectl.CommandArgs([]string{"--request-timeout=2s", "get", "nodes", "-o", "jsonpath={.items[*].status.nodeInfo.kubeletVersion}"})
-	if err == nil {
-		if out, err := runKubectlOutput(cmd); err == nil {
-			if strings.Contains(strings.ToLower(string(out)), "+k3s") {
-				return DistroK3s
-			}
-		}
+	kubelet, err := nodeLookup(kubectl, "jsonpath={.items[*].status.nodeInfo.kubeletVersion}")
+	if err != nil {
+		// The API did not answer, so a second node lookup would only wait again.
+		return DistroGeneric
+	}
+	if strings.Contains(strings.ToLower(kubelet), "+k3s") {
+		return DistroK3s
 	}
 
-	cmd, err = kubectl.CommandArgs([]string{"--request-timeout=2s", "get", "nodes", "-o", "jsonpath={.items[*].metadata.name}"})
-	if err == nil {
-		if out, err := runKubectlOutput(cmd); err == nil {
-			names := strings.ToLower(string(out))
-			switch {
-			case strings.Contains(names, "kind-"):
-				return DistroKind
-			case strings.Contains(names, "minikube"):
-				return DistroMinikube
-			case strings.Contains(names, "docker-desktop"):
-				return DistroDockerDesktop
-			}
+	if out, err := nodeLookup(kubectl, "jsonpath={.items[*].metadata.name}"); err == nil {
+		names := strings.ToLower(out)
+		switch {
+		case strings.Contains(names, "kind-"):
+			return DistroKind
+		case strings.Contains(names, "minikube"):
+			return DistroMinikube
+		case strings.Contains(names, "docker-desktop"):
+			return DistroDockerDesktop
 		}
 	}
 
