@@ -2,6 +2,7 @@ import { AdminGuard } from "./AdminGuard";
 import { type AdminSectionId } from "./adminSections";
 import { OperationsPanel } from "./OperationsPanel";
 import { TeamsPanel } from "./TeamsPanel";
+import { TracesPanel } from "./TracesPanel";
 import { UsageAnalyticsPanel } from "./UsageAnalyticsPanel";
 import { PlatformOverview } from "./PlatformOverview";
 import type { AuthStatus } from "../../api/types";
@@ -21,6 +22,7 @@ export function AdminWorkspace({ auth, onSignIn, section }: AdminWorkspaceProps)
     <AdminGuard auth={auth} onSignIn={onSignIn}>
       {active === "teams" ? <TeamsPanel onSignIn={onSignIn} /> :
         active === "operations" ? <OperationsPanel onSignIn={onSignIn} /> :
+        active === "traces" ? <TracesPanel onSignIn={onSignIn} /> :
         active === "analytics" ? <UsageAnalyticsPanel onSignIn={onSignIn} /> :
         <PlatformOverview onSignIn={onSignIn} />}
     </AdminGuard>

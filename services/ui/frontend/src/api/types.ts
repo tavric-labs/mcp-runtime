@@ -468,6 +468,8 @@ export type AuditLogEntry = {
   auth_identity?: string;
   image_ref?: string;
   server_name?: string;
+  request_id?: string;
+  trace_id?: string;
   created_at?: string;
 };
 
@@ -498,6 +500,7 @@ export type GatewayEvent = {
   decision?: string;
   source?: string;
   event_type?: string;
+  trace_id?: string;
   payload?: Record<string, unknown>;
 };
 

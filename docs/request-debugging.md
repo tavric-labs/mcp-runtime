@@ -200,3 +200,18 @@ not why the two independent HTTP operations share a trace.
 
 Correlation provisioning follows [Grafana's Tempo provisioning documentation](https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/provision/).
 The Grafana data sources remain behind the existing administrative access boundary.
+
+## Finding a request by trace id in the console
+
+Platform administrators can open **Administration → Request traces**. It merges
+the gateway's tool-call events with the platform audit trail (CLI, console and
+API actions) into one list, newest first, and shows the trace id of each row.
+Select an id to filter both sources to that trace, or paste a 32-digit trace id
+from `X-Trace-ID` or a log line into the filter. **Open trace** opens the same id
+in Grafana Tempo.
+
+Only entries recorded after the audit trail started storing trace ids carry one;
+older rows show a dash. An entry also has no id when the request had no valid
+span context. The list shows the most recent 100 entries per source, and the
+tool-call half needs the analytics path: when it is unavailable the page says so
+and still lists platform operations.

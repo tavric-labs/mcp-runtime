@@ -21,7 +21,7 @@ func TestCreateUserAPIKeyAuditsTheRequestID(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	mock.ExpectExec("INSERT INTO audit_logs").
-		WithArgs(sqlmock.AnyArg(), "api_key_create", sqlmock.AnyArg(), sqlmock.AnyArg(), "success", "", sqlmock.AnyArg(), "client-req_42.a", sqlmock.AnyArg(), sqlmock.AnyArg(), "", "", "", "", "").
+		WithArgs(sqlmock.AnyArg(), "api_key_create", sqlmock.AnyArg(), sqlmock.AnyArg(), "success", "", sqlmock.AnyArg(), "client-req_42.a", sqlmock.AnyArg(), sqlmock.AnyArg(), "", "", "", "", "", "").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	srv := userKeyServer()

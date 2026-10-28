@@ -246,6 +246,8 @@ paths:
     get:
       operationId: listAudit
       summary: Audit timeline (administrator)
+      parameters:
+        - {name: trace_id, in: query, required: false, description: "Only entries recorded under this W3C trace id (32 lowercase hex digits).", schema: {type: string, pattern: "^[0-9a-f]{32}$"}}
       responses:
         "200": {description: "audit_logs: recent audit events", content: {application/json: {schema: {type: object}}}}
         "401": {description: "unauthorized", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
@@ -898,6 +900,8 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
   /internal/operations/snapshot:
     get:
+      parameters:
+        - {name: trace_id, in: query, required: false, description: "Only entries recorded under this W3C trace id (32 lowercase hex digits).", schema: {type: string, pattern: "^[0-9a-f]{32}$"}}
       responses:
         "200":
           description: operations snapshot

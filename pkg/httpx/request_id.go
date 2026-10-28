@@ -40,3 +40,11 @@ func RequestID(ctx context.Context) string {
 	}
 	return id
 }
+
+var traceIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+// ValidTraceID reports whether id is a W3C trace id: 32 lowercase hex digits,
+// not all zero.
+func ValidTraceID(id string) bool {
+	return traceIDPattern.MatchString(id) && id != "00000000000000000000000000000000"
+}

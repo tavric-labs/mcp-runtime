@@ -421,6 +421,9 @@ func (c *Client) OperationsSnapshot(ctx context.Context, filter OperationsFilter
 	if filter.User != "" {
 		q.Set("user", filter.User)
 	}
+	if filter.TraceID != "" {
+		q.Set("trace_id", filter.TraceID)
+	}
 	if !filter.Since.IsZero() {
 		q.Set("since", filter.Since.UTC().Format(time.RFC3339))
 	}

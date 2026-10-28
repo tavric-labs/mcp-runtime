@@ -35,6 +35,7 @@ type AuditEvent = apikit.AuditEvent
 type OperationsFilter struct {
 	User       string
 	UserSearch string
+	TraceID    string
 	Since      time.Time
 	Until      time.Time
 	Limit      int
@@ -79,6 +80,9 @@ type AuditLog struct {
 	ImageRef         string    `json:"image_ref,omitempty"`
 	ServerName       string    `json:"server_name,omitempty"`
 	DeploymentTarget string    `json:"deployment_target,omitempty"`
+	AgentID          string    `json:"agent_id,omitempty"`
+	TeamID           string    `json:"team_id,omitempty"`
+	TraceID          string    `json:"trace_id,omitempty"`
 	CreatedAt        time.Time `json:"created_at"`
 }
 

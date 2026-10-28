@@ -170,6 +170,8 @@ ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS server_name text;
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS deployment_target text;
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS agent_id text;
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS team_id uuid;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS trace_id text;
+CREATE INDEX IF NOT EXISTS idx_audit_logs_trace_id ON audit_logs(trace_id) WHERE trace_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
