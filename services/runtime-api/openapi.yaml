@@ -432,7 +432,7 @@ components:
           items: { type: object, description: Caller-visible MCPAccessGrant summary }
         sessions:
           type: array
-          items: { type: object, description: Caller-visible MCPAgentSession summary }
+          items: { type: object, description: Caller-visible platform session summary (stored in Postgres) }
         can_manage: { type: boolean }
         certificates_error: {type: string, description: Independent history failure; agent identity and access remain available.}
         certificates:

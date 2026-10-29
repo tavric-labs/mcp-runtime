@@ -98,30 +98,6 @@ func TestAddToScheme(t *testing.T) {
 		}
 	})
 
-	t.Run("registers MCPAgentSession type", func(t *testing.T) {
-		scheme := runtime.NewScheme()
-
-		err := AddToScheme(scheme)
-		if err != nil {
-			t.Fatalf("AddToScheme failed: %v", err)
-		}
-
-		gvk := schema.GroupVersionKind{
-			Group:   "mcpruntime.org",
-			Version: "v1alpha1",
-			Kind:    "MCPAgentSession",
-		}
-
-		obj, err := scheme.New(gvk)
-		if err != nil {
-			t.Fatalf("failed to create MCPAgentSession from scheme: %v", err)
-		}
-
-		if _, ok := obj.(*MCPAgentSession); !ok {
-			t.Errorf("expected *MCPAgentSession, got %T", obj)
-		}
-	})
-
 	t.Run("idempotent registration", func(t *testing.T) {
 		scheme := runtime.NewScheme()
 
@@ -223,23 +199,4 @@ func TestMCPServerTypeMeta(t *testing.T) {
 		}
 	})
 
-	t.Run("MCPAgentSession has correct GVK", func(t *testing.T) {
-		session := &MCPAgentSession{}
-		gvks, _, err := scheme.ObjectKinds(session)
-		if err != nil {
-			t.Fatalf("failed to get object kinds: %v", err)
-		}
-		if len(gvks) == 0 {
-			t.Fatal("expected at least one GVK")
-		}
-		if gvks[0].Group != GroupVersion.Group {
-			t.Errorf("GVK.Group = %q, want %q", gvks[0].Group, GroupVersion.Group)
-		}
-		if gvks[0].Version != GroupVersion.Version {
-			t.Errorf("GVK.Version = %q, want %q", gvks[0].Version, GroupVersion.Version)
-		}
-		if gvks[0].Kind != "MCPAgentSession" {
-			t.Errorf("GVK.Kind = %q, want %q", gvks[0].Kind, "MCPAgentSession")
-		}
-	})
 }

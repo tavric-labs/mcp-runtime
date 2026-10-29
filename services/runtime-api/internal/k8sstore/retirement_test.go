@@ -33,18 +33,10 @@ func TestRetireServerAccessCrossNamespaceAndRetry(t *testing.T) {
 	otherSession.Spec.ServerRef.Name = "other"
 	g1, _ := toUnstructured(grant, "MCPAccessGrant")
 	g2, _ := toUnstructured(&otherGrant, "MCPAccessGrant")
-	s1, _ := toUnstructured(session, "MCPAgentSession")
-	s2, _ := toUnstructured(&otherSession, "MCPAgentSession")
-	client := dynamicfake.NewSimpleDynamicClient(scheme, g1, s1, g2, s2)
-	manager := NewManager(client, nil)
-	failed := false
-	client.PrependReactor("delete", AccessSessionResource, func(a clienttesting.Action) (bool, runtime.Object, error) {
-		if !failed {
-			failed = true
-			return true, nil, errors.New("injected delete failure")
-		}
-		return false, nil, nil
-	})
+	client := dynamicfake.NewSimpleDynamicClient(scheme, g1, g2)
+	backend := newMemorySessionBackend(session, &otherSession)
+	backend.deleteErr = errors.New("injected delete failure")
+	manager := NewManager(client, nil).WithSessionBackend(backend)
 	if err := manager.RetireServerAccess(ctx, "team-a", "demo"); err == nil {
 		t.Fatal("expected cleanup failure")
 	}
@@ -87,7 +79,7 @@ func TestRetireServerAccessDoesNotDeleteAfterInvalidationFailure(t *testing.T) {
 	client.PrependReactor("patch", AccessGrantResource, func(a clienttesting.Action) (bool, runtime.Object, error) {
 		return true, nil, apierrors.NewForbidden(schema.GroupResource{Resource: AccessGrantResource}, "grant", errors.New("blocked"))
 	})
-	manager := NewManager(client, nil)
+	manager := NewManager(client, nil).WithSessionBackend(newMemorySessionBackend())
 	if err := manager.RetireServerAccess(context.Background(), "team-a", "demo"); err == nil {
 		t.Fatal("expected error")
 	}
@@ -141,10 +133,6 @@ func TestRetiringServerLookupAllowsManagementButBlocksIssuance(t *testing.T) {
 			grant := &MCPAccessGrant{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "team-a"}, Spec: access.MCPAccessGrantSpec{ServerRef: ref}}
 			if _, err := manager.ApplyGrant(context.Background(), grant); !apierrors.IsConflict(err) {
 				t.Fatalf("grant issuance: %v", err)
-			}
-			session := &MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "team-a"}, Spec: access.MCPAgentSessionSpec{ServerRef: ref}}
-			if _, err := manager.ApplySession(context.Background(), session); !apierrors.IsConflict(err) {
-				t.Fatalf("session issuance: %v", err)
 			}
 		})
 	}

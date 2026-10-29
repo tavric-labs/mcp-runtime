@@ -82,10 +82,10 @@ func (r *MCPServerReconciler) reconcilePolicyConfigMap(ctx context.Context, mcpS
 // The kubelet only re-projects ConfigMap volume contents when it syncs a pod,
 // which without a pod change happens on its resync period (about 60-90s on
 // default settings). The gateway polls the mounted file every few seconds, so
-// the kubelet is the bottleneck: a freshly issued adapter session, a new
-// grant, or a revocation stays invisible to the gateway until that resync, and
-// every tool call in the window is denied with session_not_found (or keeps
-// being allowed after a revoke). Updating a pod annotation triggers an
+// the kubelet is the bottleneck: a new or disabled grant stays invisible to
+// the gateway until that resync, delaying access or continuing to allow calls
+// under the previous grant. Sessions use the separate platform sync API.
+// Updating a pod annotation triggers an
 // immediate pod sync, which remounts the ConfigMap volume with the new data.
 //
 // Failures are logged, not returned: the ConfigMap is already correct and the

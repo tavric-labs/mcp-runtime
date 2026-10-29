@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"strings"
 	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -117,22 +116,6 @@ func TestMCPAccessGrantValidateRejectsWhitespaceTeamID(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "subject.teamID") {
 		t.Fatalf("expected subject.teamID validation error, got %v", err)
-	}
-}
-
-func TestMCPAgentSessionValidateAllowsExpiredSessionState(t *testing.T) {
-	session := &MCPAgentSession{
-		ObjectMeta: metav1.ObjectMeta{Name: "session"},
-		Spec: MCPAgentSessionSpec{
-			ServerRef:      ServerReference{Name: "payments"},
-			Subject:        SubjectRef{AgentID: "ops-agent"},
-			ConsentedTrust: TrustLevelMedium,
-			ExpiresAt:      &metav1.Time{Time: time.Date(2026, time.March, 25, 12, 0, 0, 0, time.UTC)},
-		},
-	}
-
-	if err := session.validate(); err != nil {
-		t.Fatalf("expired sessions should remain valid persisted state: %v", err)
 	}
 }
 

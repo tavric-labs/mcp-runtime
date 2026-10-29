@@ -159,8 +159,9 @@ After rolling either service, generate one MCP request and check both logs
 
 ## Operator
 
-Operator changes affect how `MCPServer`, `MCPAccessGrant`, and
-`MCPAgentSession` objects reconcile. Run the operator tests first:
+Operator changes affect how `MCPServer` workloads and `MCPAccessGrant`
+policy reconcile. Sessions are platform-owned and synchronize directly
+to gateways; they do not pass through the operator. Run the operator tests first:
 
 ```bash
 (

@@ -21,7 +21,7 @@ type MCPAccessGrantList struct {
 	Items           []MCPAccessGrant `json:"items"`
 }
 
-// MCPAgentSession stores consent and upstream token state for an agent session.
+// MCPAgentSession is a platform session management envelope, not a Kubernetes resource.
 type MCPAgentSession struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

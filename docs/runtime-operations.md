@@ -67,7 +67,11 @@ For every `MCPServer`, the operator reconciles:
 ```mermaid
 flowchart TB
     Dev[Developer / CI] --> CLI[mcp-runtime CLI]
-    CLI --> CRD[v1alpha1 surface<br/>MCPServer / MCPAccessGrant / MCPAgentSession]
+    CLI --> CRD[Kubernetes resources<br/>MCPServer / MCPAccessGrant]
+    CLI --> Platform[Platform session API]
+    Platform --> Sessions[(Postgres sessions)]
+    Sessions --> Sync[Gateway session sync]
+    Sync --> Gateway
     CRD --> Op[Operator + Registry + Ingress]
     Op --> K8s[Deployments / Services / Ingress]
 

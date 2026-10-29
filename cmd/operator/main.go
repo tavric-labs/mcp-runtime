@@ -112,7 +112,6 @@ func main() {
 			SetupWebhookWithManager(ctrl.Manager) error
 		}{
 			&mcpv1alpha1.MCPAccessGrant{},
-			&mcpv1alpha1.MCPAgentSession{},
 		} {
 			if err := resource.SetupWebhookWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create webhook")

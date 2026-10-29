@@ -241,7 +241,7 @@ metadata:
   namespace: mcp-team-acme
 rules:
   - apiGroups: ["mcpruntime.org"]
-    resources: ["mcpservers", "mcpaccessgrants", "mcpagentsessions"]
+    resources: ["mcpservers", "mcpaccessgrants"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["secrets", "configmaps"]

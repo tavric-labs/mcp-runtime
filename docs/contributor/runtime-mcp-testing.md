@@ -186,7 +186,8 @@ the adapter path described in the user docs.
 Then verify materialization:
 
 ```bash
-kubectl get mcpaccessgrant,mcpagentsession -n "$NAMESPACE" -o wide
+mcp-runtime access grant list --namespace "$NAMESPACE"
+mcp-runtime access session list --namespace "$NAMESPACE"
 ./bin/mcp-runtime server policy inspect "$SERVER" --namespace "$NAMESPACE"
 ```
 
@@ -231,13 +232,11 @@ because the UI/API path enforces principal namespaces.
 
 ## Remove a stale test MCP
 
-Remove access resources first, then the server and single-purpose Secret:
+Use the platform server retirement path to disable grants, revoke and remove
+sessions, and clean up owned credentials before removing the server:
 
 ```bash
-kubectl delete mcpagentsession <session-name> -n <namespace> --ignore-not-found
-kubectl delete mcpaccessgrant <grant-name> -n <namespace> --ignore-not-found
-kubectl delete mcpserver <server-name> -n <namespace> --ignore-not-found
-kubectl delete secret <server-name>-analytics-creds -n <namespace> --ignore-not-found
+mcp-runtime server delete <server-name> --namespace <namespace>
 ```
 
 Confirm the catalog through the UI/API after cleanup:

@@ -21,7 +21,7 @@ type accessSessionPatchRequest struct {
 	Revoked *bool `json:"revoked,omitempty"`
 }
 
-// HandleRuntimeSessions lists and applies MCPAgentSession resources within the caller's allowed namespace scope.
+// HandleRuntimeSessions lists and applies platform sessions within the caller's allowed namespace scope.
 func (s *AccessService) HandleRuntimeSessions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

@@ -12,5 +12,7 @@ List the relevant checks and any material limits.
 
 Changelog: updated / not needed — explain the decision.
 
-User/operator-facing changes belong under `Unreleased`. Include migration
-guidance for removals or compatibility changes; see `AGENTS.md`.
+User/operator-facing changes belong under `Unreleased`. There are no external
+users yet: keep product code and public docs focused on the current design.
+Put live-preview deployment/migration notes under `hack/deploy/reference/`;
+do not add backward-compatibility code. See `AGENTS.md`.

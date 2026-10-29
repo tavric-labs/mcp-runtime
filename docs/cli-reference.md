@@ -506,6 +506,10 @@ direct `--use-kube` operation.
 Agents normally get sessions from `adapter --auto-refresh`. Use
 `session init` + `session apply` only for manual sessions.
 
+Sessions are stored in Postgres, not Kubernetes. `session init` creates YAML
+input for admin platform apply; it does not create a CRD manifest. Manage
+sessions through the platform API; `--use-kube` session operations are rejected.
+
 ```bash
 mcp-runtime access session init cursor-session \
   --server workspace-demo \

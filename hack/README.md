@@ -24,6 +24,7 @@ those workflows rather than duplicating cluster management.
 | CLI and optional desktop install | `../install.sh [--with-desktop]` | Requires curl/wget and sha256sum/shasum; desktop additionally needs macOS 13+ and ditto. Downloads GitHub release assets and verifies `SHA256SUMS`. `MCP_RUNTIME_VERSION` selects a tag (default latest), `MCP_RUNTIME_INSTALL_DIR` selects the CLI directory (default `~/.local/bin`), `MCP_RUNTIME_APP_DIR` selects the app directory (default `~/Applications`). Preserves existing app bundles; never launches a service or contacts a cluster/platform. Offline fake-download coverage lives in `tests/install_test.py`; `ci/check-scripts.sh` checks the installer syntax and ShellCheck too. |
 | Hosted release acceptance | `deploy/acceptance/` | Disposable runner; checks publish/deploy, grant/session and allowed/denied calls |
 | Reference platform recovery/update | `deploy/reference/` | Explicit profile, source ref, context and cluster UID; see its README |
+| Preview session CRD removal | `deploy/reference/session-crd-removal.md` | Preview-only deployment note; existing backup/update workflows and explicit CRD cleanup, no session import |
 | Go package documentation | `deploy/pkgsite/` | CI-built image, isolated source rewrite, tested remote rollback |
 | Generated Go header | `boilerplate.go.txt` | Code-generation asset |
 

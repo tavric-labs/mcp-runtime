@@ -87,8 +87,9 @@ The focused Cilium scope/resource-history security fixture has a fresh-cluster
 guard and pinned Helm/Cilium tools; see
 `docs/contributor/local-kind.md#enforcing-cilium-security-acceptance`. Keep its
 direct CNI/probe provisioning confined to that explicit disposable test.
-Sessions are managed through the platform CLI/UI and stored by platform-api;
-Kubernetes session writes do not change authorization. See
+Sessions are managed through the platform CLI/UI and stored by platform-api.
+There is no session CRD or Kubernetes session fallback. Session YAML is only
+an admin platform-apply input; use CLI/UI for session management. See
 `docs/contributor/gateway-session-sync.md` for the dedicated port, workload
 identity, revocation and database-restore contract.
 Platform modes are `org` (default) and `public`; publish scopes are `tenant`
@@ -229,15 +230,22 @@ use `./bin/mcp-runtime`.
 
 ## Release policy before the first external customer
 
-Current deployment phase (confirmed 2026-10-05): the only customer deployment
-is our own hosted reference platform at `platform.mcpruntime.org`. Apply this
-policy to all releases until the project has its first external customer
-deployment and this section is updated.
+Current deployment phase (confirmed 2026-10-29): there are no external users or
+customer deployments. Our only deployment is the live preview at
+`platform.mcpruntime.org`. Apply this policy until the first external customer
+is onboarded and this section is updated.
 
 - Breaking changes are allowed. Target the current architecture and contracts;
   do not add legacy compatibility layers, dual-version APIs or schemas,
   backfill frameworks, or in-place upgrade paths just to support earlier
   releases of our own platform.
+- Keep product code and public documentation focused on the current design;
+  do not spend feature work on backward compatibility. Put migration and
+  deployment guidance needed only by our live preview under
+  `hack/deploy/reference/`, linked from its README and `hack/README.md`, rather
+  than adding general customer migration guides or compatibility code. The
+  [session CRD removal note](hack/deploy/reference/session-crd-removal.md) is an
+  example. Existing operational safety and backup requirements still apply.
 - Ordinary releases are delivered with `mcp-runtime update` (images, CRDs and the
   ServiceAccounts, RBAC, supported platform NetworkPolicies, ConfigMaps and Deployment wiring a release declares in
   `config/release/wiring.yaml`). A breaking reset follows **backup → fresh setup

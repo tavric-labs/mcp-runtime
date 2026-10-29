@@ -300,11 +300,11 @@ func (c *PlatformClient) ApplyAccessFromYAMLFile(ctx context.Context, path strin
 				return fmt.Errorf("apply %s document %d grant: %w", path, docIndex, err)
 			}
 		case "MCPAgentSession":
-			var s mcpv1alpha1.MCPAgentSession
+			var s sessionManifest
 			if err := json.Unmarshal(metaBytes, &s); err != nil {
 				return fmt.Errorf("parse %s document %d session: %w", path, docIndex, err)
 			}
-			if err := c.postSession(ctx, sessionFromV1(&s)); err != nil {
+			if err := c.postSession(ctx, sessionFromManifest(&s)); err != nil {
 				return fmt.Errorf("apply %s document %d session: %w", path, docIndex, err)
 			}
 		default:
@@ -359,7 +359,14 @@ func accessTime(t *metav1.Time) *mcpaccess.Time {
 	return &mcpaccess.Time{Time: t.Time}
 }
 
-func sessionFromV1(s *mcpv1alpha1.MCPAgentSession) sessionAPIBody {
+// sessionManifest is a platform apply input, not a Kubernetes API resource.
+type sessionManifest struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              mcpaccess.MCPAgentSessionSpec `json:"spec"`
+}
+
+func sessionFromManifest(s *sessionManifest) sessionAPIBody {
 	ns := s.Namespace
 	if ns == "" {
 		ns = mcpaccess.DefaultMCPResourceNamespace
@@ -373,7 +380,7 @@ func sessionFromV1(s *mcpv1alpha1.MCPAgentSession) sessionAPIBody {
 		ConsentedTrust: mcpaccess.TrustLevel(s.Spec.ConsentedTrust),
 		PolicyVersion:  s.Spec.PolicyVersion,
 		Revoked:        &rev,
-		ExpiresAt:      accessTime(s.Spec.ExpiresAt),
+		ExpiresAt:      s.Spec.ExpiresAt,
 		GrantName:      s.Annotations["mcpruntime.org/access-grant-name"],
 		GrantNamespace: s.Annotations["mcpruntime.org/access-grant-namespace"],
 	}

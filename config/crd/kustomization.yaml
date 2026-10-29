@@ -1,4 +1,3 @@
 resources:
 - bases/mcpruntime.org_mcpservers.yaml
 - bases/mcpruntime.org_mcpaccessgrants.yaml
-- bases/mcpruntime.org_mcpagentsessions.yaml

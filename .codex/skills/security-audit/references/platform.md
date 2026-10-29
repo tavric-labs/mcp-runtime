@@ -29,7 +29,7 @@ review and report the dynamic checks as out of scope.
 Produce a STRIDE table per component. Components to cover:
 
 - **operator** (`cmd/operator/`, `internal/operator/`): reconciles `MCPServer`,
-  `MCPAccessGrant`, `MCPAgentSession`; injects gateway sidecar.
+  `MCPAccessGrant`; injects the gateway sidecar. Platform-api owns Postgres sessions and server-scoped gateway sync.
 - **mcp-gateway** (`services/mcp-gateway/`): in-pod sidecar enforcing
   rendered policy, emitting audit events.
 - **platform-api** (`services/platform-api/`): identity, admin, registry forward-auth.

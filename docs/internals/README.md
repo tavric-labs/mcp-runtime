@@ -26,7 +26,7 @@ follow the component involved in your change. Use
 MCP Runtime is a Kubernetes-native control plane for MCP servers. Most changes touch one of four surfaces:
 
 1. The CLI turns user intent into Kubernetes manifests, registry actions, cluster checks, and API calls.
-2. The CRDs define the durable contract: `MCPServer`, `MCPAccessGrant`, and `MCPAgentSession`.
+2. The CRDs define servers and standing policy: `MCPServer` and `MCPAccessGrant`. Platform-api owns session records in Postgres.
 3. The operator reconciles those CRDs into Deployments, Services, Ingress routes, status, and policy materialization.
 4. Platform services provide the runtime gateway, governance APIs, analytics ingest, processing, and UI.
 
@@ -41,7 +41,7 @@ flowchart LR
     CRDs --> Operator[Operator controller]
     Operator --> Workloads[MCP server Deployments and Services]
     Operator --> Ingress[Ingress and gateway routes]
-    Operator --> Policy[Grant/session policy state]
+    Operator --> Policy[Grant and tool policy state]
     Client[MCP client] --> Gateway[mcp-gateway]
     Gateway --> Policy
     Gateway --> Workloads
@@ -137,9 +137,11 @@ flowchart TD
     Kafka --> Processor[services/processor]
     Processor --> Analytics[(analytics store)]
     RuntimeAPI[runtime-api] --> Grants[MCPAccessGrant]
-    RuntimeAPI --> Sessions[MCPAgentSession]
+    RuntimeAPI --> PlatformAPI[platform-api]
+    PlatformAPI --> Sessions[(Postgres sessions)]
     Grants --> Authz
-    Sessions --> Authz
+    Sessions --> Sync[Server-scoped gateway sync]
+    Sync --> Authz
 ```
 
 Governance-related changes usually span `api/v1alpha1/access_types.go`, `pkg/access/`, `pkg/policy/`, `services/runtime-api`, `services/mcp-gateway`, `services/ingest`, and the e2e policy scenarios.
@@ -289,9 +291,9 @@ package. `internal/blueprint` is Kubernetes-free: the MCPServer CRD rendering
 lives in `internal/cli/server/crdgen`, which only the CLI uses. `pkg/access` is Kubernetes-free too: it
 holds the grant and session specs, request contracts and validation, with its own
 `access.Time` and `access.Condition` that marshal exactly like `metav1.Time` and
-`metav1.Condition`. The Kubernetes object envelopes (`MCPAccessGrant`,
-`MCPAgentSession` and their lists), the dynamic-client `Manager` and the
-unstructured converters live in `services/runtime-api/internal/k8sstore`, which only the runtime API uses. The only
+`metav1.Condition`. The Kubernetes grant object envelope and the platform session management
+envelope (which retains its YAML shape but is not a CRD), the `Manager` and
+unstructured grant converters live in `services/runtime-api/internal/k8sstore`, which only the runtime API uses. The only
 Kubernetes import the lower layers keep is the generic field-path validation
 helper, named in `k8sHelperPackages`; `k8sInDomain` is empty and a new entry
 needs a written justification. Platform-specific

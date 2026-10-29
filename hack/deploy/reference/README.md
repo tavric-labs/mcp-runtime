@@ -46,3 +46,10 @@ See [the full runbook](../../../docs/reference-deployment.md) for backup scope,
 external identity-provider backup, fresh setup, restoration and verification.
 
 For the disposable multi-team demo, see [QA automation](../../qa/README.md).
+
+The preview-only [session CRD removal note](session-crd-removal.md) covers
+retiring the obsolete Kubernetes definition after platform-session acceptance.
+It adds no import or compatibility path to the product.
+
+The earlier [v0.10.0 session storage deployment note](session-storage-v0.10.0.md)
+is retained here as preview deployment history, not as the current install path.

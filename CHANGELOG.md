@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Removed
+
+- Remove the `MCPAgentSession` Kubernetes CRD, admission webhook, session RBAC and Kubernetes persistence path. Sessions live in Postgres and synchronize to gateway memory; `MCPServer` and `MCPAccessGrant` remain CRDs. Admin session YAML is a platform API input. Session operations require the platform backend, and server session metadata defaults to the platform store. See [session storage](docs/contributor/gateway-session-sync.md#session-storage).
+
 ## [0.14.2] - 2026-10-29
 
 ### Fixed

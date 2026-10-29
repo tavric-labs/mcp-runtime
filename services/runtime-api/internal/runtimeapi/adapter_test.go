@@ -81,7 +81,7 @@ func newAdapterTestFixture(t *testing.T, grants ...mcpv1alpha1.MCPAccessGrant) a
 		}},
 	)
 	dynamic := dynamicfake.NewSimpleDynamicClient(scheme, objects...)
-	mgr := k8sstore.NewManager(dynamic, nil)
+	mgr := k8sstore.NewManager(dynamic, nil).WithSessionBackend(newMemorySessionBackend())
 	agentTeamID := "team-acme"
 	agentStatus := "active"
 	identityHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -579,20 +579,20 @@ func TestGrantRevokeSessionsOnlyTouchesLinkedSessionsAndIsRetrySafe(t *testing.T
 			Subject:   mcpv1alpha1.SubjectRef{HumanID: "user-b", AgentID: "agent-b", TeamID: "team-b"},
 		},
 	}
-	linked := &mcpv1alpha1.MCPAgentSession{
+	linked := &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "linked", Namespace: "mcp-team-acme", Annotations: map[string]string{
 			adapterGrantNameAnnotation: "cross-team", adapterGrantNamespaceAnnotation: "mcp-team-acme",
 		}},
-		Spec: mcpv1alpha1.MCPAgentSessionSpec{Subject: grant.Spec.Subject},
+		Spec: mcpaccess.MCPAgentSessionSpec{Subject: mcpaccess.SubjectRef{HumanID: mcpaccess.HumanID(grant.Spec.Subject.HumanID), AgentID: mcpaccess.AgentID(grant.Spec.Subject.AgentID), TeamID: mcpaccess.TeamID(grant.Spec.Subject.TeamID)}},
 	}
-	unlinked := &mcpv1alpha1.MCPAgentSession{
+	unlinked := &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "unlinked", Namespace: "mcp-team-acme"},
-		Spec:       mcpv1alpha1.MCPAgentSessionSpec{Subject: grant.Spec.Subject},
+		Spec:       mcpaccess.MCPAgentSessionSpec{Subject: mcpaccess.SubjectRef{HumanID: mcpaccess.HumanID(grant.Spec.Subject.HumanID), AgentID: mcpaccess.AgentID(grant.Spec.Subject.AgentID), TeamID: mcpaccess.TeamID(grant.Spec.Subject.TeamID)}},
 	}
 	accessMgr := k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme,
 		&mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "mcp-team-acme"}, Spec: mcpv1alpha1.MCPServerSpec{TeamID: "team-a"}},
-		grant, linked, unlinked,
-	), nil)
+		grant,
+	), nil).WithSessionBackend(newMemorySessionBackend(linked, unlinked))
 	audit := &fakeAuditWriter{}
 	runtimeServer := &RuntimeServer{accessMgr: accessMgr}
 	runtimeServer.SetAuditWriter(audit)

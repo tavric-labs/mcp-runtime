@@ -824,7 +824,7 @@ The UI's **Governance** tab creates and operates the same grants and sessions th
 | **Create grant** | `Create Grant` button. Required: name, namespace, server, at least one of human, agent, or team ID, and the allowed side-effect classes. Tool rules use one rule per line: `tool:allow` or `tool:allow:trust`. |
 | **Create session** | `Create Session`. Pick a consented trust level and optional expiry. The gateway looks it up at `tools/call` time alongside the grant. |
 | **Disable / enable grant** | Single-action row. Disable sets `spec.disabled=true`. The grant is kept for audit, and the gateway treats it as denying. |
-| **Revoke / unrevoke session** | Same row pattern toggles `spec.revoked`. Gateways deny later calls after they load the updated policy, usually within about 10 seconds. Calls already in progress are not recalled. |
+| **Revoke / unrevoke session** | The platform persists revocation in Postgres and its session change log. Gateways poll every 500 ms and deny later calls after synchronization, targeting roughly one-second propagation subject to latency. Calls already in progress are not recalled. |
 | **Filter** | Search box on each table filters by server, human ID, agent ID, or team ID. Filters only the loaded set; refresh first if cluster state has changed. |
 
 Tool-rule example:

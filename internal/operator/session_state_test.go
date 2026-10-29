@@ -14,7 +14,7 @@ import (
 	"mcp-runtime/pkg/policy"
 )
 
-func TestRuntimeSessionChangesDoNotRewritePolicy(t *testing.T) {
+func TestPolicyUsesPlatformSessionsWithoutSessionCRD(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = mcpv1alpha1.AddToScheme(scheme)
 	server := &mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "server", Namespace: "team", UID: "server-uid"}, Spec: mcpv1alpha1.MCPServerSpec{Session: &mcpv1alpha1.SessionConfig{Required: true}}}
@@ -29,10 +29,6 @@ func TestRuntimeSessionChangesDoNotRewritePolicy(t *testing.T) {
 	}
 	old, err := renderPolicyConfigMapData("", before)
 	if err != nil {
-		t.Fatal(err)
-	}
-	session := &mcpv1alpha1.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: "legacy", Namespace: "team"}, Spec: mcpv1alpha1.MCPAgentSessionSpec{ServerRef: mcpv1alpha1.ServerReference{Name: "server"}, Subject: mcpv1alpha1.SubjectRef{HumanID: "human"}, Revoked: true}}
-	if err := kube.Create(context.Background(), session); err != nil {
 		t.Fatal(err)
 	}
 	after, err := reconciler.renderGatewayPolicy(context.Background(), server)

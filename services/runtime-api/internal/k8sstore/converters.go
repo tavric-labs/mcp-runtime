@@ -54,51 +54,6 @@ func convertToGrantList(obj interface{}) (*MCPAccessGrantList, error) {
 	return list, nil
 }
 
-// convertToSession converts an unstructured object to MCPAgentSession.
-func convertToSession(obj interface{}) (*MCPAgentSession, error) {
-	unstructuredObj, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type %T", obj)
-	}
-
-	session := &MCPAgentSession{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.UnstructuredContent(), session); err != nil {
-		return nil, fmt.Errorf("failed to convert to MCPAgentSession: %w", err)
-	}
-	return session, nil
-}
-
-// convertToSessionList converts an unstructured list to MCPAgentSessionList.
-func convertToSessionList(obj interface{}) (*MCPAgentSessionList, error) {
-	unstructuredList, ok := obj.(*unstructured.UnstructuredList)
-	if !ok {
-		return nil, fmt.Errorf("unexpected type %T", obj)
-	}
-
-	list := &MCPAgentSessionList{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: APIGroup + "/" + APIVersion,
-			Kind:       "MCPAgentSessionList",
-		},
-		ListMeta: metav1.ListMeta{
-			ResourceVersion:    unstructuredList.GetResourceVersion(),
-			Continue:           unstructuredList.GetContinue(),
-			RemainingItemCount: unstructuredList.GetRemainingItemCount(),
-		},
-		Items: make([]MCPAgentSession, 0, len(unstructuredList.Items)),
-	}
-
-	for _, u := range unstructuredList.Items {
-		session := &MCPAgentSession{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), session); err != nil {
-			return nil, fmt.Errorf("failed to convert item to MCPAgentSession: %w", err)
-		}
-		list.Items = append(list.Items, *session)
-	}
-
-	return list, nil
-}
-
 // ToGrantSummary converts an MCPAccessGrant to a GrantSummary.
 func ToGrantSummary(grant MCPAccessGrant) access.GrantSummary {
 	return access.GrantSummary{

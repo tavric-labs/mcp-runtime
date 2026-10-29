@@ -30,15 +30,3 @@ func (r *MCPAccessGrant) validate() error {
 	}
 	return apierrors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "MCPAccessGrant"}, r.Name, issues)
 }
-
-func (r *MCPAgentSession) validate() error {
-	spec := specvalidation.Session{ServerName: r.Spec.ServerRef.Name, Subject: specvalidation.Subject{HumanID: r.Spec.Subject.HumanID, AgentID: r.Spec.Subject.AgentID, TeamID: r.Spec.Subject.TeamID}, ConsentedTrust: string(r.Spec.ConsentedTrust)}
-	if ref := r.Spec.UpstreamTokenSecretRef; ref != nil {
-		spec.UpstreamTokenSecretRef = &specvalidation.SecretKeyRef{Name: ref.Name, Key: ref.Key}
-	}
-	issues := specvalidation.ValidateSession(spec, specvalidation.Admission).FieldErrors()
-	if len(issues) == 0 {
-		return nil
-	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: GroupVersion.Group, Kind: "MCPAgentSession"}, r.Name, issues)
-}

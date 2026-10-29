@@ -54,6 +54,9 @@ func TestApplyAccessFromYAMLFile_MultiDocument(t *testing.T) {
 				if payload.Subject.TeamID != "team-acme" {
 					t.Fatalf("session subject teamID = %q, want team-acme", payload.Subject.TeamID)
 				}
+				if payload.ExpiresAt == nil || payload.ExpiresAt.UTC().Format(time.RFC3339) != "2099-01-01T00:00:00Z" {
+					t.Fatalf("session expiresAt = %v, want 2099-01-01T00:00:00Z", payload.ExpiresAt)
+				}
 			default:
 				t.Fatalf("unexpected path %q", r.URL.Path)
 			}
@@ -98,6 +101,7 @@ spec:
     humanID: user-1
     teamID: team-acme
   consentedTrust: low
+  expiresAt: "2099-01-01T00:00:00Z"
 `), 0o600); err != nil {
 		t.Fatal(err)
 	}

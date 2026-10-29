@@ -291,7 +291,7 @@ Session actions:
 
 ```bash
 ./bin/mcp-runtime access session get <name> --namespace <namespace>
-kubectl get mcpagentsession <name> -n <namespace> -o yaml
+mcp-runtime access session get <name> --namespace <namespace>
 ```
 
 ## Operations

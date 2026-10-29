@@ -88,8 +88,9 @@ curl -fsSL https://raw.githubusercontent.com/mcp-runtime/mcp-runtime/main/instal
       </p>
       <p>
         You decide who can call a tool such as <code>delete_invoice</code>, up to what
-        trust level, and for how long. Servers, grants, and sessions are Kubernetes
-        resources, and a gateway in each server pod enforces them on every call.
+        trust level, and for how long. Servers and grants are Kubernetes resources;
+        sessions live in Postgres and synchronize to a gateway in each server pod
+        for enforcement on every call.
       </p>
     </div>
   </section>
@@ -167,7 +168,7 @@ spec:
       </article>
       <article class="feature-card accent">
         <h3>Company access model</h3>
-        <p>Grants and sessions make consent, trust level, expiry, and revocation Kubernetes resources. A call is denied unless a grant and a session allow it.</p>
+        <p>Kubernetes grants define permissions; platform sessions record consent, expiry, and revocation. A call is denied unless a grant and a session allow it.</p>
       </article>
       <article class="feature-card">
         <h3>Hosted platform shape</h3>
