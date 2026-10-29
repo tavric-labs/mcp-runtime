@@ -4631,7 +4631,7 @@ EOF
     # existing governance grant pins humanID to ${HUMAN_ID}, while this flow
     # uses a team member principal with an active directory agent. Apply a
     # per-run team-and-agent-scoped grant just for this test. The endpoint must pick the
-    # grant, write/reuse an MCPAgentSession with the deterministic adapter-<hash>
+    # grant, write/reuse a platform session with the deterministic adapter-<hash>
     # name, and report reused=true on the second call.
     ensure_adapter_proxy_prerequisites
     ensure_adapter_agent_identity
@@ -5840,7 +5840,7 @@ if scenario_selected "governance" || scenario_selected "adapter-proxy"; then
   # existing governance grant pins humanID to ${HUMAN_ID}, while this flow
   # uses a team member principal with an active directory agent. Apply a
   # per-run team-and-agent-scoped grant just for this test. The endpoint must pick the
-  # grant, write/reuse an MCPAgentSession with the deterministic adapter-<hash>
+  # grant, write/reuse a platform session with the deterministic adapter-<hash>
   # name, and report reused=true on the second call.
   ensure_adapter_proxy_prerequisites
   ensure_adapter_agent_identity

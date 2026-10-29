@@ -10,6 +10,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 ### Removed
 
 - Remove the `MCPAgentSession` Kubernetes CRD, admission webhook, session RBAC and Kubernetes persistence path. Sessions live in Postgres and synchronize to gateway memory; `MCPServer` and `MCPAccessGrant` remain CRDs. Admin session YAML is a platform API input. Session operations require the platform backend, and server session metadata defaults to the platform store. See [session storage](docs/contributor/gateway-session-sync.md#session-storage).
+- **Upgrade (breaking, new minor):** deploy with `mcp-runtime update`. It stops delivering the session webhook and RBAC but does not prune an installed `mcpagentsessions.mcpruntime.org` CRD. After verifying session list/get and an allowed and a denied tool call, delete that inactive definition as a deliberate cleanup; platform sessions in Postgres are unaffected and old CR objects must not be restored as sessions. Snapshot first. Steps: [session CRD removal](hack/deploy/reference/session-crd-removal.md).
 
 ## [0.14.2] - 2026-10-29
 
