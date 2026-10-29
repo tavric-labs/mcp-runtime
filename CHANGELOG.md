@@ -10,6 +10,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 ### Fixed
 
 - `setup --env-file` accepts the shell `unset NAME` lines that deployment profiles use so they can also be sourced. Previously the file failed to parse (`unexpected character "\n" in variable name`). An `unset` drops only the file's own value; a variable already set in the environment is never cleared.
+- The reference-deployment `setup` command no longer shows `--provided-tls-secrets` (which conflicts with an issuer-based install such as the reference platform) and now includes the strict-production `--mtls-cluster-issuer`, MCP Auth image and connector-secret requirements that made earlier runs stop at validation.
 
 ## [0.14.1] - 2026-10-29
 
