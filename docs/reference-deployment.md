@@ -367,11 +367,23 @@ hack/deploy/reference/backup.sh --setup
 ./bin/mcp-runtime setup --env-file "$MCP_DEPLOY_ENV" \
   --kubeconfig "$MCP_SETUP_KUBECONFIG" --context "$MCP_KUBE_CONTEXT" \
   --expect-cluster-id "$MCP_EXPECTED_CLUSTER_UID" \
-  --strict-prod --with-tls --provided-tls-secrets --skip-cert-manager-install \
-  --registry-mode bundled-https --platform-mode public --ingress none
+  --strict-prod --with-tls --mtls-cluster-issuer "$MCP_SETUP_MTLS_CLUSTER_ISSUER" \
+  --skip-cert-manager-install --registry-mode bundled-https \
+  --platform-mode public --ingress none \
+  --with-mcp-auth-server --mcp-auth-server-image "$MCP_AUTH_SERVER_IMAGE"
 ```
 
-Setup requires existing registry/platform TLS Secrets with these flags. Its
+Choose the TLS flags to match how the installation issues certificates. An
+install whose registry and platform certificates come from a cert-manager
+`ClusterIssuer` (the reference platform uses `letsencrypt-prod`) sets
+`MCP_SETUP_TLS_CLUSTER_ISSUER` in the profile and omits `--provided-tls-secrets`,
+which cannot be combined with an issuer. Use `--provided-tls-secrets` only when
+you supply the registry/platform TLS Secrets yourself. Strict production also
+requires `--mtls-cluster-issuer` to name a dedicated workload issuer with its
+own signing root; setup rejects the bundled `mcp-runtime-ca`. Pass the image the
+installation currently runs with `--mcp-auth-server-image` (setup defaults to an
+older one), and export the connector client secret, for example
+`KEYCLOAK_CLIENT_SECRET`, from the protected store before running. Setup's
 preflight refuses a cluster whose ID differs from `--expect-cluster-id` and
 refuses to drop or swap an installed MCP Auth server: select it with
 `--with-mcp-auth-server` and its current image. Setup does not automatically
