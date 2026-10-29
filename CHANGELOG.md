@@ -7,6 +7,8 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-10-29
+
 ### Fixed
 
 - `setup --env-file` accepts the shell `unset NAME` lines that deployment profiles use so they can also be sourced. Previously the file failed to parse (`unexpected character "\n" in variable name`). An `unset` drops only the file's own value; a variable already set in the environment is never cleared.
@@ -699,7 +701,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.2...HEAD
+[0.14.2]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.0...v0.13.1
