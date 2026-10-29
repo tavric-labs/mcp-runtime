@@ -23,9 +23,17 @@ import (
 // take precedence over values in the file.
 func loadEnvFile(path string) error {
 	// #nosec G304 -- path is an explicit user-supplied CLI flag value.
-	envs, err := godotenv.Read(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return err
+	}
+	content, unset := splitUnsetLines(string(raw))
+	envs, err := godotenv.Unmarshal(content)
+	if err != nil {
+		return err
+	}
+	for _, key := range unset {
+		delete(envs, key)
 	}
 	for key, val := range envs {
 		if _, exists := os.LookupEnv(key); !exists {
@@ -35,6 +43,22 @@ func loadEnvFile(path string) error {
 		}
 	}
 	return nil
+}
+
+// splitUnsetLines removes shell `unset NAME` lines, which deployment profiles
+// use so they can be sourced, and returns the remaining content plus the names.
+// An unset name drops the file's own value only; the process environment wins.
+func splitUnsetLines(content string) (string, []string) {
+	var kept, names []string
+	for _, line := range strings.Split(content, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[0] == "unset" {
+			names = append(names, fields[1])
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n"), names
 }
 
 type manager struct {

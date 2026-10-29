@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- `setup --env-file` accepts the shell `unset NAME` lines that deployment profiles use so they can also be sourced. Previously the file failed to parse (`unexpected character "\n" in variable name`). An `unset` drops only the file's own value; a variable already set in the environment is never cleared.
+
 ## [0.14.1] - 2026-10-29
 
 ### Fixed
