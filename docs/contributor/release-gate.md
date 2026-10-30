@@ -31,6 +31,10 @@ the credential-broker live scenario needs an HTTPS origin trusted by gateway
 roots and reports `SKIPPED, NOT TESTED` without one. Its service-level tests
 still run; a green gate must not be described as live credential-broker evidence.
 
+Audience-isolation and anonymous-denial probes use the authenticated workspace
+route in both modes. Public catalog reads intentionally permit anonymous
+fallback, so their success cannot establish whether a bearer was accepted.
+
 ## Run and publish
 
 Run Pre-release Regression on the exact merged candidate. A branch run is useful

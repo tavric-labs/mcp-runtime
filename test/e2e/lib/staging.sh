@@ -1077,9 +1077,9 @@ staging_check_platform_api() {
     "${STAGING_ARTIFACT_DIR}/api-auth-me.json" >/dev/null ||
     { staging_err "/api/v1/auth/me did not report an admin role"; failed=1; }
 
-  staging_expect_code "anonymous GET /api/v1/runtime/servers" "401 403" "${PLATFORM_URL}/api/v1/runtime/servers" || failed=1
-  staging_expect_code "bad key GET /api/v1/runtime/servers" "401 403" \
-    -H "x-api-key: staging-e2e-invalid-key" "${PLATFORM_URL}/api/v1/runtime/servers" || failed=1
+  staging_expect_code "anonymous GET /api/v1/runtime/workspace/teams" "401 403" "${PLATFORM_URL}/api/v1/runtime/workspace/teams" || failed=1
+  staging_expect_code "bad key GET /api/v1/runtime/workspace/teams" "401 403" \
+    -H "x-api-key: staging-e2e-invalid-key" "${PLATFORM_URL}/api/v1/runtime/workspace/teams" || failed=1
   staging_expect_code "anonymous POST /api/v1/runtime/grants" "401 403" -X POST \
     -H 'content-type: application/json' --data '{}' "${PLATFORM_URL}/api/v1/runtime/grants" || failed=1
 

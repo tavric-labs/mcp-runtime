@@ -11,6 +11,7 @@ python3 "${SCRIPT_DIR}/scoped_observability_test.py"
 bash "${SCRIPT_DIR}/scoped_observability_port_test.sh"
 python3 "${SCRIPT_DIR}/session_revocation_test.py"
 python3 "${SCRIPT_DIR}/release_evidence_test.py"
+python3 "${SCRIPT_DIR}/audience_isolation_test.py"
 (cd "${SCRIPT_DIR}" && python3 credential_broker_assertions_test.py)
 bash "${SCRIPT_DIR}/namespace_placement_test.sh"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
