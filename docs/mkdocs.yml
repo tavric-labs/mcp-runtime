@@ -115,6 +115,7 @@ nav:
       - Verification:
           - MCP Runtime Tests: contributor/runtime-mcp-testing.md
           - Staging End-to-End Tests: contributor/staging-e2e.md
+          - Release Gate: contributor/release-gate.md
           - Regression Coverage: contributor/regression-index.md
   - Implementation Details:
       - Overview: internals/README.md

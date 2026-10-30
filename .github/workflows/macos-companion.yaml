@@ -1,6 +1,7 @@
 name: macOS Companion Build
 
 on:
+  workflow_call: {}
   pull_request:
     paths:
       - desktop/macos/**
@@ -17,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: macos-companion-${{ github.ref }}
+  group: macos-companion-${{ github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
 
 jobs:

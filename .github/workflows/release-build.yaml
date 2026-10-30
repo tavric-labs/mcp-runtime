@@ -1,7 +1,14 @@
 name: Release Build
 
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ''
+      version:
+        type: string
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-release-build
@@ -35,6 +42,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -43,15 +53,19 @@ jobs:
 
       - name: Set release metadata
         shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+          if [ -n "$REQUESTED_VERSION" ]; then
+            version="$REQUESTED_VERSION"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             version="${GITHUB_REF_NAME}"
           else
             version="dev"
           fi
           {
             echo "VERSION=${version}"
-            echo "COMMIT=${GITHUB_SHA}"
+            echo "COMMIT=$(git rev-parse HEAD)"
             echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } >> "${GITHUB_ENV}"
 
@@ -83,7 +97,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./dist/${BINARY_NAME}-linux-amd64 --version | grep -F "${VERSION}"
+          "./dist/${BINARY_NAME}-linux-amd64" --version | grep -F "${VERSION}"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

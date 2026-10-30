@@ -506,11 +506,14 @@ staging_stage_status() {
 staging_write_summary() {
   local result="$1" run_id="$2" dir="${STAGING_ARTIFACT_DIR}"
   jq -Rn --arg result "${result}" --arg run "${run_id}" \
+    --arg platform_mode "${E2E_PLATFORM_MODE:-org}" \
+    --arg mcp_auth "$(if staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}"; then echo enabled; else echo disabled; fi)" \
     --arg ref "${GITHUB_REF_NAME:-local}" --arg sha "${GITHUB_SHA:-${STAGING_GIT_SHA:-unknown}}" \
     --arg runner "${STAGING_RUNNER_KIND:-unknown}" '
     [inputs | select(length > 0) | split("\t") |
       {stage: .[0], status: .[1], seconds: (.[2] | tonumber? // 0), log: .[3], detail: .[4], hint: .[5]}]
     | {result: $result, run_id: $run, runner: $runner, ref: $ref, sha: $sha,
+       platform_mode: $platform_mode, mcp_auth: $mcp_auth,
        counts: (group_by(.status) | map({(.[0].status): length}) | add // {}),
        stages: .}' <"${dir}/stages.tsv" >"${dir}/summary.json"
 
@@ -691,6 +694,22 @@ staging_failed_checks() {
 #     the pull is refused (no basic auth credentials). Tracked as a product
 #     finding; tenant pulls are asserted by the image-pulls and multitenancy
 #     stages instead.
+staging_check_release_profile() {
+  local actual auth
+  actual="$(kubectl -n mcp-platform get configmap mcp-shared-config -o jsonpath='{.data.PLATFORM_MODE}')"
+  [[ "${actual}" == "${E2E_PLATFORM_MODE:-org}" ]] || {
+    staging_err "installed platform mode ${actual} differs from the requested release cell"
+    return 1
+  }
+  auth="$(kubectl -n mcp-platform get deployment mcp-auth-server --ignore-not-found -o name)"
+  if staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}"; then
+    [[ -n "${auth}" ]] || return 1
+  else
+    [[ -z "${auth}" ]] || return 1
+  fi
+  staging_log "installed release profile verified: ${actual}, mcp-auth=${E2E_WITH_MCP_AUTH:-0}"
+}
+
 staging_default_accepted_checks() {
   local accepted="mcp-servers image pull smoke|MCPServer reconcile smoke"
   if [[ -z "${OIDC_ISSUER:-}${GOOGLE_CLIENT_ID:-}${MCP_GOOGLE_CLIENT_ID:-}" ]] &&
@@ -1058,9 +1077,9 @@ staging_check_platform_api() {
     "${STAGING_ARTIFACT_DIR}/api-auth-me.json" >/dev/null ||
     { staging_err "/api/v1/auth/me did not report an admin role"; failed=1; }
 
-  staging_expect_code "anonymous GET /api/v1/runtime/servers" "401 403" "${PLATFORM_URL}/api/v1/runtime/servers" || failed=1
-  staging_expect_code "bad key GET /api/v1/runtime/servers" "401 403" \
-    -H "x-api-key: staging-e2e-invalid-key" "${PLATFORM_URL}/api/v1/runtime/servers" || failed=1
+  staging_expect_code "anonymous GET /api/v1/runtime/workspace/teams" "401 403" "${PLATFORM_URL}/api/v1/runtime/workspace/teams" || failed=1
+  staging_expect_code "bad key GET /api/v1/runtime/workspace/teams" "401 403" \
+    -H "x-api-key: staging-e2e-invalid-key" "${PLATFORM_URL}/api/v1/runtime/workspace/teams" || failed=1
   staging_expect_code "anonymous POST /api/v1/runtime/grants" "401 403" -X POST \
     -H 'content-type: application/json' --data '{}' "${PLATFORM_URL}/api/v1/runtime/grants" || failed=1
 
@@ -1353,10 +1372,32 @@ staging_check_ui() {
 # Run-scoped enablement happens after the preserved e2e.env is sourced. A false
 # override inherits that file, including an existing enabled provider.
 staging_enable_mcp_auth_for_run() {
-  if staging_flag_enabled "${1:-false}"; then
-    export E2E_WITH_MCP_AUTH=1
-  fi
+  case "${1:-inherit}" in
+    enabled|true|1) export E2E_WITH_MCP_AUTH=1 ;;
+    disabled) export E2E_WITH_MCP_AUTH=0 ;;
+    inherit|false|0) ;; # Preserve the existing manual workflow's boolean semantics.
+    *) staging_err "unsupported mcp-auth mode: $1"; return 1 ;;
+  esac
 }
+
+# Test fixture only: the VM guard runs before this helper. Keep its RSA key
+# outside uploaded run artifacts and reuse it across disposable cluster resets.
+staging_prepare_mcp_auth_signing_key() (
+  staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}" || return 0
+  local secret="${E2E_MCP_AUTH_SIGNING_KEY_SECRET:?set the staging signing-key Secret name}"
+  if kubectl -n mcp-platform get secret "${secret}" >/dev/null 2>&1; then return 0; fi
+  umask 077
+  local dir="${E2E_BACKUP_DIR:-/var/lib/mcp-runtime-e2e-backup}" key
+  mkdir -p "${dir}"
+  key="${dir}/mcp-auth-signing-key.pem"
+  if [[ ! -s "${key}" ]]; then
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "${key}.tmp" 2>/dev/null || return
+    mv "${key}.tmp" "${key}" || return
+  fi
+  kubectl create namespace mcp-platform --dry-run=client -o yaml | kubectl apply -f - >/dev/null || return
+  kubectl -n mcp-platform create secret generic "${secret}" \
+    --from-file="private-key.pem=${key}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+)
 
 staging_check_oidc() {
   local oidc_issuer
@@ -1365,21 +1406,23 @@ staging_check_oidc() {
   if ! staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}"; then
     staging_skip "E2E_WITH_MCP_AUTH is not enabled in e2e.env, so the mcp-auth/Keycloak OAuth path is not installed on this run"
   fi
-  local dir="${STAGING_ARTIFACT_DIR}" issuer jwks
-  curl --fail --silent --show-error "${AUTH_URL}/.well-known/openid-configuration" >"${dir}/auth-oidc-discovery.json"
-  curl --fail --silent --show-error "${AUTH_URL}/.well-known/oauth-authorization-server" >"${dir}/auth-server-metadata.json"
+  local dir="${STAGING_ARTIFACT_DIR}" issuer jwks auth_issuer issuer_path provider
+  auth_issuer="${E2E_MCP_AUTH_ISSUER_URL:-${AUTH_URL}/mcp-auth}"
+  issuer_path="${auth_issuer#"${AUTH_URL}"}"
+  curl --fail --silent --show-error "${AUTH_URL}/.well-known/openid-configuration${issuer_path}" >"${dir}/auth-oidc-discovery.json" || return
+  curl --fail --silent --show-error "${AUTH_URL}/.well-known/oauth-authorization-server${issuer_path}" >"${dir}/auth-server-metadata.json" || return
   issuer="$(jq -r '.issuer' "${dir}/auth-oidc-discovery.json")"
   jwks="$(jq -r '.jwks_uri' "${dir}/auth-oidc-discovery.json")"
   staging_log "mcp-auth issuer ${issuer}"
-  [[ "${issuer}" == "${AUTH_URL}"* ]] || {
-    staging_err "discovery issuer ${issuer} is not under ${AUTH_URL}"
+  [[ "${issuer}" == "${auth_issuer}" ]] || {
+    staging_err "discovery issuer ${issuer} differs from ${auth_issuer}"
     return 1
   }
-  curl --fail --silent --show-error "${jwks}" | jq -e '.keys | length > 0' >/dev/null
+  curl --fail --silent --show-error "${jwks}" | jq -e '.keys | length > 0' >/dev/null || return
   staging_log "JWKS publishes signing keys"
-  if [[ -n "${E2E_MCP_AUTH_ISSUER_URL:-}" ]]; then
-    "${BIN}" auth provider-check --issuer-url "${E2E_MCP_AUTH_ISSUER_URL}"
-  fi
+  provider="$(jq -er --arg connector "${E2E_MCP_AUTH_CONNECTOR:?}" \
+    '.[$connector].issuer | select(type == "string" and length > 0)' "${E2E_MCP_AUTH_CONNECTORS_FILE:?}")" || return
+  "${BIN}" auth provider-check --issuer-url "${provider}" || return
   # An unauthenticated MCP request must be challenged towards the auth server.
   local challenge
   challenge="$(curl --silent --output /dev/null -D - -X POST -H 'content-type: application/json' \
@@ -1387,7 +1430,7 @@ staging_check_oidc() {
   staging_log "MCP ingress challenge: ${challenge:-<none>}"
   if [[ -n "${E2E_OIDC_TEST_USERNAME:-}" && -n "${E2E_OIDC_TEST_PASSWORD:-}" && -n "${E2E_OIDC_TEST_CLIENT_ID:-}" ]]; then
     local token_endpoint body="${WORK_DIR}/oidc-token.json" code
-    token_endpoint="$(curl --fail --silent "${E2E_MCP_AUTH_ISSUER_URL}/.well-known/openid-configuration" | jq -r '.token_endpoint')"
+    token_endpoint="$(curl --fail --silent "${provider}/.well-known/openid-configuration" | jq -r '.token_endpoint')"
     code="$(curl --silent --output "${body}" --write-out '%{http_code}' -X POST "${token_endpoint}" \
       --data-urlencode grant_type=password --data-urlencode "client_id=${E2E_OIDC_TEST_CLIENT_ID}" \
       --data-urlencode "username=${E2E_OIDC_TEST_USERNAME}" --data-urlencode "password@-" \
@@ -2114,6 +2157,7 @@ staging_run_platform_stages() {
   mkdir -p "${MCP_RUNTIME_CONFIG_DIR}"
   chmod 700 "${MCP_RUNTIME_CONFIG_DIR}"
   export MCP_RUNTIME_CONFIG_DIR
+  staging_run_stage release-profile critical "installed platform mode or MCP Auth presence differs from the matrix cell" staging_check_release_profile
   # Staging always runs strict setup, which encrypts analytics traffic: runtime-api
   # dials ClickHouse's TLS port, not the plaintext one QA test mode keeps.
   NAMESPACE_PLACEMENT_CLICKHOUSE_PORT=9440 staging_run_stage namespace-placement critical "a workload, owner Secret, shared ConfigMap, or service URL is still aimed at the old combined namespace" namespace_placement_verify

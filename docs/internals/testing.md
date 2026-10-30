@@ -383,12 +383,12 @@ shared install paths (API types, operator, manifests, module files, and the
 E2E harness) stay on `smoke-auth`, which is the setup and placement check.
 The `multitenancy` scenario checks that two team users can read only their own
 team and namespace and that their registry credentials cannot access the other
-team's repositories. Pre-release Regression uses Staging E2E as its only cluster
-suite; staging exercises the production setup, TLS, registry, tenant image
-build, push, deploy, and adapter path on the disposable VM. It currently uses
-org platform mode, not a org/public matrix. Full Kind sweeps and cache
-replay remain available by running `test/e2e/qa-e2e.sh` explicitly against an
-isolated Kind target.
+team's repositories. Pre-release Regression runs full Kind sweeps across
+org/public modes and single/multiple replicas, plus serialized staging runs
+across org/public and bundled OAuth enabled/disabled. Staging exercises the
+production setup, TLS, registry, tenant image build, push, deploy, and adapter
+path on the disposable VM. See [Release Gate](../contributor/release-gate.md)
+for required combinations, evidence boundaries and completion criteria.
 
 The script writes artifacts when `E2E_ARTIFACT_DIR` is set. In CI, those
 artifacts are uploaded from `.e2e-artifacts/qa`.
@@ -412,10 +412,11 @@ its own cluster and registry names, so PRs run in parallel, and unchanged
 platform images come from the content-hash GHCR cache. Staging E2E runs on the
 disposable VM from Pre-release Regression, not on merges.
 
-The manual Pre-release Regression workflow runs Staging E2E, benchmarks,
-repository/operator-image SBOMs, gosec, Gitleaks, and Trivy scans alongside
-static, unit, integration, and service checks. Kind QA runs in PR CI rather
-than being repeated in pre-release. Security workflows add pinned gosec,
+The manual Pre-release Regression workflow runs the full Kind and staging matrices, benchmarks,
+repository and platform-image SBOMs, gosec, Gitleaks, and Trivy scans alongside
+static, unit, integration, and service checks. It also runs frontend/browser,
+plugin, native registry, macOS preview, Cilium and protocol/transport checks.
+Every required check must succeed on the exact publication commit. Security workflows add pinned gosec,
 Trivy repository/image scans with SARIF upload, pinned Gitleaks secret
 scanning, operator-image SBOM artifacts, and pull-request dependency review.
 

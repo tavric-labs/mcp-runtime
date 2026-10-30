@@ -1,0 +1,155 @@
+name: Full Kind QA
+
+on:
+  workflow_call:
+    inputs:
+      platform-mode:
+        required: true
+        type: string
+      replica-profile:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  qa-e2e:
+    name: Full QA E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Validate full matrix inputs
+        env:
+          PLATFORM_MODE: ${{ inputs.platform-mode }}
+          REPLICAS: ${{ inputs.replica-profile }}
+        run: |
+          case "$PLATFORM_MODE" in org|public) ;; *) exit 1 ;; esac
+          case "$REPLICAS" in single|multi) ;; *) exit 1 ;; esac
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Log in to GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure runner disk headroom
+        run: |
+          df -h /
+          available_bytes="$(df --output=avail -B1 / | tail -n 1 | tr -d '[:space:]')"
+          minimum_bytes=$((60 * 1024 * 1024 * 1024))
+          if (( available_bytes >= minimum_bytes )); then
+            echo "At least 60 GiB free; skipping runner cleanup"
+            exit 0
+          fi
+
+          echo "Less than 60 GiB free; removing unused runner toolchains"
+          sudo rm -rf \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/lib/android \
+            /usr/local/share/boost \
+            /usr/share/dotnet
+          docker system prune -af --volumes || true
+          df -h /
+
+      - name: Validate E2E scenario selectors
+        run: bash test/e2e/scenarios_test.sh
+
+      - name: Test staging E2E target guard and stage runner
+        run: bash test/e2e/staging_lib_test.sh
+
+      - name: Test platform session E2E management helpers
+        run: |
+          python3 test/e2e/session_management_test.py
+          python3 test/e2e/cross_team_assertions_test.py
+
+      - name: Install kubectl
+        run: |
+          curl --retry 5 --retry-delay 5 --retry-all-errors -fsSL -o kubectl "https://dl.k8s.io/release/v1.34.1/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: |
+          curl --retry 5 --retry-delay 5 --retry-all-errors -fsSL -o kind "https://github.com/kubernetes-sigs/kind/releases/download/v0.30.0/kind-linux-amd64"
+          chmod +x kind
+          sudo mv kind /usr/local/bin/kind
+
+      - name: Show tool versions
+        run: |
+          docker version
+          kubectl version --client
+          kind version
+          python3 --version
+
+      - name: Configure E2E resource names
+        run: |
+          suffix="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${{ inputs.platform-mode }}-${{ inputs.replica-profile }}"
+          port=$((20000 + ((GITHUB_RUN_ID + GITHUB_RUN_ATTEMPT) % 20000)))
+          {
+            echo "CLUSTER_NAME=mcp-e2e-${suffix}"
+            echo "LOCAL_REGISTRY_NAME=mcp-e2e-registry-${suffix}"
+            echo "LOCAL_REGISTRY_PORT=${port}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Run QA E2E
+        env:
+          E2E_ARTIFACT_DIR: ${{ github.workspace }}/.e2e-artifacts/qa
+          # Upstream mirror pulls are network-bound; three workers keeps local
+          # registry pushes from contending while cutting the serial pull time.
+          E2E_IMAGE_MIRROR_PARALLELISM: "3"
+          # Local image builds are CPU-bound; two workers matches docs/internals/testing.md guidance.
+          E2E_IMAGE_BUILD_PARALLELISM: "2"
+          E2E_IMAGE_PREP_PARALLELISM: "2"
+          E2E_EXAMPLE_DEPLOY_PARALLELISM: "3"
+          E2E_GRANT_RULE_PARALLELISM: "4"
+          E2E_HTTP_FLOW_PARALLELISM: "2"
+          E2E_MAX_MCP_SERVERS: "0"
+          E2E_SCENARIOS: all
+          E2E_DEEP_REQUEST_FLOWS: "1"
+          E2E_PLATFORM_MODE: ${{ inputs.platform-mode }}
+          E2E_TEST_MULTI_REPLICA: ${{ inputs.replica-profile == 'multi' && '1' || '0' }}
+          # Content-hash GHCR cache: the image stage and setup pull unchanged
+          # platform images and build+push only on a miss. Staging E2E reads the
+          # same cache, so these pushes also keep its setup from rebuilding.
+          E2E_IMAGE_CACHE: "1"
+          E2E_GHCR_PUSH: "1"
+          MCP_SETUP_IMAGE_CACHE: "1"
+          E2E_IMAGE_CACHE_REGISTRY: ghcr.io/${{ github.repository_owner }}/mcp-runtime
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          MCP_POLICY_WAIT_TRIES: "45"
+          MCP_HTTP_TIMEOUT: "15"
+          RAW_REQUEST_TRIES: "8"
+        run: |
+          KUBECONFIG="$(mktemp)"
+          export KUBECONFIG
+          bash test/e2e/qa-e2e.sh
+
+      - name: Report runner disk use
+        if: always()
+        run: df -h /
+
+      - name: Upload e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: full-qa-${{ inputs.platform-mode }}-${{ inputs.replica-profile }}
+          path: .e2e-artifacts/qa
+          if-no-files-found: ignore
+

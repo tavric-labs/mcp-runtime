@@ -157,7 +157,7 @@ preparation.
 | [Deployment and Operations](hosting-overview.md) | Installation, the public reference deployment, and ongoing operations |
 | [Concepts and Architecture](concepts-overview.md) | Resources, identity, policy, and the platform's component model |
 | [CLI and API Reference](reference-overview.md) | Commands, API and resource contracts, endpoint authorization, and Go packages |
-| [Development and Testing](contributor/README.md) | Local setup, service iteration, verification, and regression coverage |
+| [Development and Testing](contributor/README.md) | Local setup, service iteration, verification, regression coverage, and the [release gate](contributor/release-gate.md) |
 | [Implementation Details](internals/README.md) | Source contracts, request flows, components, security, and lifecycle behavior |
 
 ## Project status

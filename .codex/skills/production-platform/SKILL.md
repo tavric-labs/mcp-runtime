@@ -8,6 +8,11 @@ description: Operate and configure public MCP Runtime installs — k3s deploy/up
 Public / production Kubernetes operations and hostname/TLS configuration.
 Current public deployment uses k3s. Staging E2E on the disposable VM is the
 deterministic strict-prod install gate (`docs/contributor/staging-e2e.md`).
+Release preparation also requires the full Kind mode/replica matrix, the
+staging mode/auth matrix, protocol/transport checks and exact-commit publication
+authorization. Follow [the release gate](../../../docs/contributor/release-gate.md);
+do not tag before all required checks pass. Release publication and production
+deployment remain separate operations.
 
 ## Release deployment policy
 

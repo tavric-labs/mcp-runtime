@@ -217,6 +217,78 @@ expect_eq "no IP literal is hardcoded for production" \
 (E2E_WITH_MCP_AUTH=0; staging_enable_mcp_auth_for_run true; [[ "${E2E_WITH_MCP_AUTH}" == 1 ]]) && pass "run enables configured-off mcp-auth" || failed "run enables configured-off mcp-auth"
 (E2E_WITH_MCP_AUTH=1; staging_enable_mcp_auth_for_run false; [[ "${E2E_WITH_MCP_AUTH}" == 1 ]]) && pass "default preserves configured-on mcp-auth" || failed "default preserves configured-on mcp-auth"
 (E2E_WITH_MCP_AUTH=0; staging_enable_mcp_auth_for_run false; [[ "${E2E_WITH_MCP_AUTH}" == 0 ]]) && pass "default preserves configured-off mcp-auth" || failed "default preserves configured-off mcp-auth"
+(E2E_WITH_MCP_AUTH=1; staging_enable_mcp_auth_for_run disabled; [[ "${E2E_WITH_MCP_AUTH}" == 0 ]]) && pass "matrix explicitly disables configured-on mcp-auth" || failed "matrix explicitly disables configured-on mcp-auth"
+(E2E_WITH_MCP_AUTH=0; staging_enable_mcp_auth_for_run enabled; [[ "${E2E_WITH_MCP_AUTH}" == 1 ]]) && pass "matrix explicitly enables configured-off mcp-auth" || failed "matrix explicitly enables configured-off mcp-auth"
+
+auth_fixture_case() (
+  local enabled="$1" restored="$2"
+  export E2E_WITH_MCP_AUTH="${enabled}" E2E_MCP_AUTH_SIGNING_KEY_SECRET=mcp-auth-signing-key
+  export E2E_BACKUP_DIR="${TMP}/auth-key-${enabled}-${restored}"
+  mkdir -p "${E2E_BACKUP_DIR}"
+  kubectl() {
+    if [[ "$*" == *'get secret'* ]]; then [[ "${restored}" == yes ]]; return; fi
+    printf '%s\n' "$*" >>"${E2E_BACKUP_DIR}/calls"
+    if [[ "$*" == apply* ]]; then cat >/dev/null; else echo '{}'; fi
+  }
+  openssl() {
+    printf '%s\n' "$*" >>"${E2E_BACKUP_DIR}/openssl-calls"
+    local previous='' arg
+    for arg in "$@"; do
+      if [[ "${previous}" == -out ]]; then printf 'private fixture key' >"${arg}"; fi
+      previous="${arg}"
+    done
+  }
+  staging_prepare_mcp_auth_signing_key || return
+  if [[ "${enabled}" == 0 || "${restored}" == yes ]]; then
+    [[ ! -e "${E2E_BACKUP_DIR}/calls" && ! -e "${E2E_BACKUP_DIR}/openssl-calls" ]]
+  else
+    [[ -s "${E2E_BACKUP_DIR}/mcp-auth-signing-key.pem" ]] || return
+    grep -q 'create secret generic mcp-auth-signing-key' "${E2E_BACKUP_DIR}/calls" || return
+    staging_prepare_mcp_auth_signing_key || return
+    [[ "$(wc -l <"${E2E_BACKUP_DIR}/openssl-calls" | tr -d ' ')" == 1 ]]
+  fi
+)
+expect_ok "auth-off staging does not provision a signing key" auth_fixture_case 0 no
+expect_ok "auth-on staging preserves a restored signing key" auth_fixture_case 1 yes
+expect_ok "auth-on staging provisions and reuses a private fixture key" auth_fixture_case 1 no
+
+oidc_path_case() (
+  E2E_WITH_MCP_AUTH=1
+  AUTH_URL=https://auth.e2e.mcpruntime.org
+  MCP_URL=https://mcp.e2e.mcpruntime.org
+  E2E_MCP_AUTH_ISSUER_URL=${AUTH_URL}/mcp-auth
+  STAGING_ARTIFACT_DIR=${TMP}/oidc-path
+  mkdir -p "${STAGING_ARTIFACT_DIR}"
+  E2E_MCP_AUTH_CONNECTORS_FILE=${STAGING_ARTIFACT_DIR}/connectors.json
+  E2E_MCP_AUTH_CONNECTOR=keycloak
+  printf '%s' '{"keycloak":{"issuer":"https://keycloak.example.test/realms/e2e"}}' >"${E2E_MCP_AUTH_CONNECTORS_FILE}"
+  kubectl() { echo https://accounts.google.com; }
+  BIN=oidc_fixture_cli
+  oidc_fixture_cli() {
+    [[ "$*" == 'auth provider-check --issuer-url https://keycloak.example.test/realms/e2e' ]]
+  }
+  curl() {
+    local arg url=''
+    for arg in "$@"; do
+      url="${arg}"
+    done
+    case "${url}" in
+      "${AUTH_URL}/.well-known/openid-configuration/mcp-auth"|"${AUTH_URL}/.well-known/oauth-authorization-server/mcp-auth")
+        printf '%s' '{"issuer":"https://auth.e2e.mcpruntime.org/mcp-auth","jwks_uri":"https://auth.e2e.mcpruntime.org/mcp-auth/jwks"}' ;;
+      "${AUTH_URL}/mcp-auth/jwks") echo '{"keys":[{}]}' ;;
+      "${MCP_URL}/") echo 'www-authenticate: Bearer' ;;
+      *) return 91 ;;
+    esac
+  }
+  unset E2E_OIDC_TEST_USERNAME E2E_OIDC_TEST_PASSWORD E2E_OIDC_TEST_CLIENT_ID
+  staging_check_oidc
+)
+expect_ok "OIDC probes use the bundled issuer path and upstream connector issuer" oidc_path_case
+expect_fail "unknown auth matrix mode fails closed" staging_enable_mcp_auth_for_run typo
+(E2E_PLATFORM_MODE=public; E2E_WITH_MCP_AUTH=0; kubectl() { [[ "$*" == *configmap* ]] && echo public; return 0; }; staging_check_release_profile) && pass "installed public/auth-off cell verified" || failed "installed public/auth-off cell verified"
+(E2E_PLATFORM_MODE=public; E2E_WITH_MCP_AUTH=1; kubectl() { if [[ "$*" == *configmap* ]]; then echo public; else echo deployment.apps/mcp-auth-server; fi; }; staging_check_release_profile) && pass "installed public/auth-on cell verified" || failed "installed public/auth-on cell verified"
+if (E2E_PLATFORM_MODE=public; kubectl() { echo org; }; staging_check_release_profile); then failed "wrong installed mode refused"; else pass "wrong installed mode refused"; fi
+if (E2E_PLATFORM_MODE=org; E2E_WITH_MCP_AUTH=0; kubectl() { if [[ "$*" == *configmap* ]]; then echo org; else echo deployment.apps/mcp-auth-server; fi; }; staging_check_release_profile); then failed "auth-off cell refuses leftover auth deployment"; else pass "auth-off cell refuses leftover auth deployment"; fi
 
 # --- marker --------------------------------------------------------------------
 staging_marker_content vm-e2e-01 >"${TMP}/marker"

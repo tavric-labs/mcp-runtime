@@ -101,6 +101,11 @@ if [[ -f "${BACKUP_DIR}/e2e.env" ]]; then
 fi
 export E2E_MTLS_CLUSTER_ISSUER="${E2E_MTLS_CLUSTER_ISSUER-mcp-e2e-workload}"
 staging_enable_mcp_auth_for_run "${E2E_WITH_MCP_AUTH_OVERRIDE:-false}"
+case "${E2E_PLATFORM_MODE_OVERRIDE:-}" in
+  org|public) export E2E_PLATFORM_MODE="${E2E_PLATFORM_MODE_OVERRIDE}" ;;
+  "") ;;
+  *) fail "unsupported platform mode override: ${E2E_PLATFORM_MODE_OVERRIDE}" ;;
+esac
 # Adapter certificates on gateway routes are an opt-in platform feature; setup
 # reads MCP_ADAPTER_CERTIFICATES, MCP_TRUST_DOMAIN and
 # MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE from the environment.
@@ -555,5 +560,6 @@ ensure_platform_admin_config
 staging_run_stage certificate-controller critical "cert-manager fixture failed before snapshot restore" staging_install_certificate_controller
 staging_run_stage restore-snapshot soft "the platform snapshot could not be applied; setup will issue fresh certificates" stage_restore_snapshot
 staging_run_stage workload-issuer critical "dedicated workload issuer or approval probes failed" staging_prepare_workload_issuer
+staging_run_stage auth-signing-key critical "disposable MCP Auth signing-key fixture failed" staging_prepare_mcp_auth_signing_key
 staging_run_stage setup critical "setup failed; read the last ERROR in setup.log (image pull x509/auth, ACME, webhook, or rollout timeout) and diagnostics/events.txt" stage_setup
 staging_run_platform_stages
