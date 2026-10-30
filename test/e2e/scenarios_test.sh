@@ -10,6 +10,7 @@ python3 "${SCRIPT_DIR}/grafana_capture_test.py"
 python3 "${SCRIPT_DIR}/scoped_observability_test.py"
 bash "${SCRIPT_DIR}/scoped_observability_port_test.sh"
 python3 "${SCRIPT_DIR}/session_revocation_test.py"
+python3 "${SCRIPT_DIR}/release_evidence_test.py"
 (cd "${SCRIPT_DIR}" && python3 credential_broker_assertions_test.py)
 bash "${SCRIPT_DIR}/namespace_placement_test.sh"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -277,7 +278,7 @@ assert "E2E_WITH_MCP_AUTH_OVERRIDE=" in workflow
 prerelease = pathlib.Path(sys.argv[1]).with_name("pre-release-regression.yaml").read_text(encoding="utf-8")
 assert "uses: ./.github/workflows/staging-e2e.yaml" in prerelease, "Pre-release Regression must run Staging E2E"
 assert "uses: ./.github/workflows/full-qa-e2e.yaml" in prerelease, "pre-release must run full Kind coverage"
-assert "mode: [org, public]" in prerelease and "replicas: [1, 2]" in prerelease
+assert "mode: [org, public]" in prerelease and "replicas: [single, multi]" in prerelease
 assert "auth: [disabled, enabled]" in prerelease and "max-parallel: 1" in prerelease
 assert "E2E_PLATFORM_MODE_OVERRIDE=" in workflow
 assert "run-cache-replay" not in prerelease and "cache-scenarios" not in prerelease, "removed Kind inputs must not remain"

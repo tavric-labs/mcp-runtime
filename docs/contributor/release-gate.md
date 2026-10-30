@@ -15,12 +15,12 @@ unrelated product changes or treat a skipped check as evidence.
 
 | Required surface | Combinations and evidence |
 | --- | --- |
-| Full Kind QA | `org` and `public` × single and multiple replicas; `all` scenarios with deep request flows and no reduced MCP-server budget. Includes install, grants/sessions, certificate and OAuth paths, allow/deny traffic, observability, CLI/UI and supported update/idempotency checks. Each cell has its own cluster and artifact. |
+| Full Kind QA | `org` and `public` × single and multiple replica profiles; `all` scenarios with deep request flows and no reduced MCP-server budget. Includes install, grants/sessions, certificate and OAuth paths, allow/deny traffic, observability, CLI/UI and supported update/idempotency checks. Each cell has its own cluster and artifact. The multiple profile uses normal manifest replica counts, including three Kafka brokers. |
 | Strict staging | `org` and `public` × bundled MCP Auth explicitly `disabled` and `enabled`; four runs serialized on the guarded disposable VM. Reuse TLS recovery material; run multitenancy and real certificate enrollment. Explicit settings override the preserved VM profile for that run only. |
 | Protocol and HTTP responses | `2025-06-18`, `2025-11-25`, `2026-07-28` × JSON and SSE responses. Adapter certificate/header proxy modes preserve headers, body, status and session handles. Gateway certificate, OAuth, and combined authentication exercise granted, ungranted, revoked and expired platform sessions. These use real loopback upstreams; live suites separately verify PKI/ingress. |
 | Distributed CLI | Linux amd64/arm64, macOS amd64/arm64, Windows amd64 builds. This is compilation coverage; it does not claim native execution of every binary. |
 | Desktop preview | Universal macOS companion packaging and existing Swift form/client tests. Archives remain unsigned previews; this is not notarization or an interactive desktop lifecycle test. |
-| Other checks | Static/generated checks, root/CLI/golden/integration tests, every service module with disposable Postgres, Traefik plugins, frontend unit/accessibility/browser checks, native registry authorization, Cilium scope isolation, benchmarks, SBOM and security scans. |
+| Other checks | Static/generated checks, root/CLI/golden/integration tests, every service module with disposable Postgres, Traefik plugins, frontend unit/accessibility/browser checks, native registry authorization, Cilium scope isolation, benchmarks, repository SBOM and repository/all-platform-image security scans. |
 
 The protocol matrix checks Runtime's forwarding and authorization contract,
 not full upstream MCP conformance. Upstream servers own negotiation and session

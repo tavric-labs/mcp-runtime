@@ -197,6 +197,12 @@ jobs:
             cat "e2e-artifacts/${E2E_RUN_ID}/summary.md" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Require complete release-cell evidence
+        if: ${{ success() && inputs.mcp-auth-mode != 'inherit' }}
+        run: |
+          python3 test/e2e/release_evidence.py "e2e-artifacts/${E2E_RUN_ID}/summary.json" \
+            --commit "$GITHUB_SHA" --mode "$PLATFORM_MODE" --auth "$MCP_AUTH_MODE"
+
       - name: Upload E2E artifacts
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

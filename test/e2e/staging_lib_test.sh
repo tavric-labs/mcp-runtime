@@ -220,6 +220,10 @@ expect_eq "no IP literal is hardcoded for production" \
 (E2E_WITH_MCP_AUTH=1; staging_enable_mcp_auth_for_run disabled; [[ "${E2E_WITH_MCP_AUTH}" == 0 ]]) && pass "matrix explicitly disables configured-on mcp-auth" || failed "matrix explicitly disables configured-on mcp-auth"
 (E2E_WITH_MCP_AUTH=0; staging_enable_mcp_auth_for_run enabled; [[ "${E2E_WITH_MCP_AUTH}" == 1 ]]) && pass "matrix explicitly enables configured-off mcp-auth" || failed "matrix explicitly enables configured-off mcp-auth"
 expect_fail "unknown auth matrix mode fails closed" staging_enable_mcp_auth_for_run typo
+(E2E_PLATFORM_MODE=public; E2E_WITH_MCP_AUTH=0; kubectl() { [[ "$*" == *configmap* ]] && echo public; return 0; }; staging_check_release_profile) && pass "installed public/auth-off cell verified" || failed "installed public/auth-off cell verified"
+(E2E_PLATFORM_MODE=public; E2E_WITH_MCP_AUTH=1; kubectl() { if [[ "$*" == *configmap* ]]; then echo public; else echo deployment.apps/mcp-auth-server; fi; }; staging_check_release_profile) && pass "installed public/auth-on cell verified" || failed "installed public/auth-on cell verified"
+if (E2E_PLATFORM_MODE=public; kubectl() { echo org; }; staging_check_release_profile); then failed "wrong installed mode refused"; else pass "wrong installed mode refused"; fi
+if (E2E_PLATFORM_MODE=org; E2E_WITH_MCP_AUTH=0; kubectl() { if [[ "$*" == *configmap* ]]; then echo org; else echo deployment.apps/mcp-auth-server; fi; }; staging_check_release_profile); then failed "auth-off cell refuses leftover auth deployment"; else pass "auth-off cell refuses leftover auth deployment"; fi
 
 # --- marker --------------------------------------------------------------------
 staging_marker_content vm-e2e-01 >"${TMP}/marker"

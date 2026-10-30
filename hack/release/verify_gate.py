@@ -10,14 +10,17 @@ REQUIRED_JOBS = (
     'Automation Regression', 'UI unit and browser regressions',
     'Plugin Tests', 'Native registry authorization acceptance',
     'Protocol and transport matrix', 'Benchmarks', 'Repository SBOM',
-    'Gosec Scan', 'Gitleaks Scan', 'Trivy Repository + Image Scan',
+    'Gosec Scan', 'Gitleaks Scan', 'Supply chain / Trivy FS Scan',
     'macOS companion / Compile universal companion preview',
     'Scoped observability / Cilium Scoped Observability',
-) + tuple(f'Platform Service Tests ({service})' for service in (
+) + tuple(f'Supply chain / Trivy {image} Image' for image in (
+    'operator', 'platform-api', 'analytics-api', 'runtime-api', 'ui', 'ingest',
+    'processor', 'mcp-gateway', 'doctor-smoke',
+)) + tuple(f'Platform Service Tests ({service})' for service in (
     'platform-api', 'runtime-api', 'analytics-api', 'ingest', 'processor', 'mcp-gateway', 'ui',
 )) + tuple(f'Release CLI cross-platform builds / Build {target}' for target in (
     'linux-amd64', 'linux-arm64', 'darwin-amd64', 'darwin-arm64', 'windows-amd64',
-)) + tuple(f'Kind ({mode}, {replicas}) / Full QA E2E' for mode in ('org', 'public') for replicas in (1, 2)) + tuple(
+)) + tuple(f'Kind ({mode}, {replicas}) / Full QA E2E' for mode in ('org', 'public') for replicas in ('single', 'multi')) + tuple(
     f'Staging ({mode}, {auth}) / staging-e2e' for mode in ('org', 'public') for auth in ('disabled', 'enabled')
 )
 

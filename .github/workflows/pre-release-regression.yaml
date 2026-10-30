@@ -282,101 +282,11 @@ jobs:
           "$(go env GOPATH)/bin/gitleaks" git --log-opts="$log_opts" --config .gitleaks.toml --redact --verbose .
 
   trivy:
-    name: Trivy Repository + Image Scan
-    runs-on: ubuntu-24.04
+    name: Supply chain
     permissions:
       contents: read
       security-events: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Trivy repository vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,secret,license
-          format: sarif
-          output: trivy-fs.sarif
-          exit-code: "1"
-          ignore-unfixed: true
-          skip-dirs: inspirations/mcp-gateway-registry
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          limit-severities-for-sarif: true
-          hide-progress: true
-
-      - name: Upload Trivy repository SARIF
-        if: always()
-        continue-on-error: true
-        uses: github/codeql-action/upload-sarif@ed410739ba306e4ebe5e123421a6bd694e494a2b # v4
-        with:
-          sarif_file: trivy-fs.sarif
-          category: pre-release-trivy-fs-vuln
-
-      - name: Trivy repository misconfiguration scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: misconfig
-          format: sarif
-          output: trivy-misconfig.sarif
-          exit-code: "0"
-          skip-dirs: inspirations/mcp-gateway-registry
-          trivyignores: .trivyignore.yaml
-          severity: CRITICAL,HIGH
-          limit-severities-for-sarif: true
-          hide-progress: true
-
-      - name: Upload Trivy misconfiguration SARIF
-        if: always()
-        continue-on-error: true
-        uses: github/codeql-action/upload-sarif@ed410739ba306e4ebe5e123421a6bd694e494a2b # v4
-        with:
-          sarif_file: trivy-misconfig.sarif
-          category: pre-release-trivy-fs-misconfig
-
-      - name: Build operator image
-        run: docker build --pull -f Dockerfile.operator -t mcp-runtime-operator:pre-release .
-
-      - name: Generate operator image SBOM
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
-        with:
-          image-ref: mcp-runtime-operator:pre-release
-          format: spdx-json
-          output: operator-image.spdx.json
-          exit-code: "0"
-          hide-progress: true
-
-      - name: Upload operator image SBOM
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: pre-release-operator-image-sbom
-          path: operator-image.spdx.json
-          if-no-files-found: error
-
-      - name: Trivy operator image scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
-        with:
-          image-ref: mcp-runtime-operator:pre-release
-          format: sarif
-          output: trivy-image.sarif
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          limit-severities-for-sarif: true
-          hide-progress: true
-
-      - name: Upload Trivy image SARIF
-        if: always() && hashFiles('trivy-image.sarif') != ''
-        continue-on-error: true
-        uses: github/codeql-action/upload-sarif@ed410739ba306e4ebe5e123421a6bd694e494a2b # v4
-        with:
-          sarif_file: trivy-image.sarif
-          category: pre-release-trivy-operator-image
+    uses: ./.github/workflows/security-trivy.yaml
 
   full-kind:
     name: Kind (${{ matrix.mode }}, ${{ matrix.replicas }})
@@ -384,14 +294,14 @@ jobs:
       fail-fast: false
       matrix:
         mode: [org, public]
-        replicas: [1, 2]
+        replicas: [single, multi]
     permissions:
       contents: read
       packages: write
     uses: ./.github/workflows/full-qa-e2e.yaml
     with:
       platform-mode: ${{ matrix.mode }}
-      replicas: ${{ matrix.replicas }}
+      replica-profile: ${{ matrix.replicas }}
 
   macos-companion:
     name: macOS companion

@@ -4154,6 +4154,10 @@ if not workloads or extra:
     raise SystemExit("single-replica test profile mismatch: " + ", ".join(extra or ["no platform workloads"]))
 print("[setup] all platform Deployments and StatefulSets use one replica")
 '
+else
+  kubectl get deployment mcp-ui -n mcp-platform -o jsonpath='{.spec.replicas}' | grep -Fxq 2
+  kubectl get statefulset kafka -n mcp-observability -o jsonpath='{.spec.replicas}' | grep -Fxq 3
+  echo "[setup] multi-replica profile verified: UI=2, Kafka=3"
 fi
 
 # Setup can reuse an existing IngressClass and leave the previous E2E run's

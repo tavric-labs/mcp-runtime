@@ -16,7 +16,7 @@ CRD. No database reset or fresh setup is required when updating from 0.14.2.
 
 ### Changed
 
-- Release publication now requires complete Pre-release Regression evidence for the exact source commit before creating the tag or publishing assets. Regression includes full org/public Kind runs with one/two replicas, serialized org/public staging with MCP Auth enabled/disabled, protocol/JSON/SSE and auth/session combinations, disposable Postgres service tests, browser checks, plugin tests and macOS preview packaging. Missing or skipped required jobs block publication; see [the release gate](docs/contributor/release-gate.md).
+- Release publication now requires complete Pre-release Regression evidence for the exact source commit before creating the tag or publishing assets. Regression includes full org/public Kind runs with single/multiple replica profiles, serialized org/public staging with MCP Auth enabled/disabled, protocol/JSON/SSE and auth/session combinations, disposable Postgres service tests, browser checks, plugin tests and macOS preview packaging. Missing or skipped required jobs block publication; see [the release gate](docs/contributor/release-gate.md).
 
 ### Removed
 

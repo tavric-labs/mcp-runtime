@@ -506,11 +506,14 @@ staging_stage_status() {
 staging_write_summary() {
   local result="$1" run_id="$2" dir="${STAGING_ARTIFACT_DIR}"
   jq -Rn --arg result "${result}" --arg run "${run_id}" \
+    --arg platform_mode "${E2E_PLATFORM_MODE:-org}" \
+    --arg mcp_auth "$(if staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}"; then echo enabled; else echo disabled; fi)" \
     --arg ref "${GITHUB_REF_NAME:-local}" --arg sha "${GITHUB_SHA:-${STAGING_GIT_SHA:-unknown}}" \
     --arg runner "${STAGING_RUNNER_KIND:-unknown}" '
     [inputs | select(length > 0) | split("\t") |
       {stage: .[0], status: .[1], seconds: (.[2] | tonumber? // 0), log: .[3], detail: .[4], hint: .[5]}]
     | {result: $result, run_id: $run, runner: $runner, ref: $ref, sha: $sha,
+       platform_mode: $platform_mode, mcp_auth: $mcp_auth,
        counts: (group_by(.status) | map({(.[0].status): length}) | add // {}),
        stages: .}' <"${dir}/stages.tsv" >"${dir}/summary.json"
 
@@ -691,6 +694,22 @@ staging_failed_checks() {
 #     the pull is refused (no basic auth credentials). Tracked as a product
 #     finding; tenant pulls are asserted by the image-pulls and multitenancy
 #     stages instead.
+staging_check_release_profile() {
+  local actual auth
+  actual="$(kubectl -n mcp-platform get configmap mcp-shared-config -o jsonpath='{.data.PLATFORM_MODE}')"
+  [[ "${actual}" == "${E2E_PLATFORM_MODE:-org}" ]] || {
+    staging_err "installed platform mode ${actual} differs from the requested release cell"
+    return 1
+  }
+  auth="$(kubectl -n mcp-platform get deployment mcp-auth-server --ignore-not-found -o name)"
+  if staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}"; then
+    [[ -n "${auth}" ]] || return 1
+  else
+    [[ -z "${auth}" ]] || return 1
+  fi
+  staging_log "installed release profile verified: ${actual}, mcp-auth=${E2E_WITH_MCP_AUTH:-0}"
+}
+
 staging_default_accepted_checks() {
   local accepted="mcp-servers image pull smoke|MCPServer reconcile smoke"
   if [[ -z "${OIDC_ISSUER:-}${GOOGLE_CLIENT_ID:-}${MCP_GOOGLE_CLIENT_ID:-}" ]] &&
@@ -2117,6 +2136,7 @@ staging_run_platform_stages() {
   mkdir -p "${MCP_RUNTIME_CONFIG_DIR}"
   chmod 700 "${MCP_RUNTIME_CONFIG_DIR}"
   export MCP_RUNTIME_CONFIG_DIR
+  staging_run_stage release-profile critical "installed platform mode or MCP Auth presence differs from the matrix cell" staging_check_release_profile
   # Staging always runs strict setup, which encrypts analytics traffic: runtime-api
   # dials ClickHouse's TLS port, not the plaintext one QA test mode keeps.
   NAMESPACE_PLACEMENT_CLICKHOUSE_PORT=9440 staging_run_stage namespace-placement critical "a workload, owner Secret, shared ConfigMap, or service URL is still aimed at the old combined namespace" namespace_placement_verify

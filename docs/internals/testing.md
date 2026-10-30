@@ -413,7 +413,7 @@ platform images come from the content-hash GHCR cache. Staging E2E runs on the
 disposable VM from Pre-release Regression, not on merges.
 
 The manual Pre-release Regression workflow runs the full Kind and staging matrices, benchmarks,
-repository/operator-image SBOMs, gosec, Gitleaks, and Trivy scans alongside
+repository and platform-image SBOMs, gosec, Gitleaks, and Trivy scans alongside
 static, unit, integration, and service checks. It also runs frontend/browser,
 plugin, native registry, macOS preview, Cilium and protocol/transport checks.
 Every required check must succeed on the exact publication commit. Security workflows add pinned gosec,
