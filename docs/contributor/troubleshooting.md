@@ -202,7 +202,8 @@ verified adapter SPIFFE identity.
 Admin/operator fallback:
 
 ```bash
-kubectl get mcpaccessgrant,mcpagentsession -n <namespace> -o wide
+mcp-runtime access grant list --namespace <namespace>
+mcp-runtime access session list --namespace <namespace>
 ./bin/mcp-runtime server policy inspect <server-name> --namespace <namespace> --use-kube
 kubectl get cm -n <namespace> <server-name>-gateway-policy -o yaml
 ```

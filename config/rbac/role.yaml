@@ -98,14 +98,6 @@ rules:
 - apiGroups:
   - mcpruntime.org
   resources:
-  - mcpagentsessions
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - mcpruntime.org
-  resources:
   - mcpservers
   verbs:
   - get

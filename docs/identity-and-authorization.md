@@ -439,8 +439,7 @@ grant must also permit `destructive`.
 The operator and runtime-api use Kubernetes ServiceAccounts and RBAC to perform
 cluster operations. This identity plane controls actions such as:
 
-- Reading and reconciling `MCPServer`, `MCPAccessGrant`, and
-  `MCPAgentSession` resources
+- Reading and reconciling `MCPServer` and `MCPAccessGrant` resources
 - Creating workloads, Services, Ingresses, Secrets, and namespace-scoped access
   resources
 - Reading platform configuration required by the service

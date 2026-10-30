@@ -50,11 +50,10 @@ func TestAgentCertificateHistoryVisibilityAndIndependentFailure(t *testing.T) {
 				identity.err = errors.New("history offline")
 			}
 			kinds := map[schema.GroupVersionResource]string{
-				{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessGrantResource}:   "MCPAccessGrantList",
-				{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessSessionResource}: "MCPAgentSessionList",
+				{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessGrantResource}: "MCPAccessGrantList",
 			}
 			grant := &unstructured.Unstructured{Object: map[string]any{"apiVersion": k8sstore.APIGroup + "/" + k8sstore.APIVersion, "kind": "MCPAccessGrant", "metadata": map[string]any{"name": "grant", "namespace": "mcp-team-core"}, "spec": map[string]any{"subject": map[string]any{"humanID": "member", "teamID": "team-id", "agentID": "agt_01arz3ndektsv4rrffq69g5fav"}, "serverRef": map[string]any{"name": "demo"}}}}
-			s := &RuntimeServer{identity: identity, accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), kinds, grant), nil)}
+			s := &RuntimeServer{identity: identity, accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), kinds, grant), nil).WithSessionBackend(newMemorySessionBackend())}
 			team := "core"
 			if tc.team == "foreign" {
 				team = "other"

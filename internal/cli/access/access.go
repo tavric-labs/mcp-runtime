@@ -18,12 +18,13 @@ func NewWithManager(mgr *AccessManager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "access",
 		Short: "Manage grants and agent sessions",
-		Long: `Commands for managing MCPAccessGrant and MCPAgentSession resources that feed the gateway policy layer.
+		Long: `Commands for managing MCPAccessGrant Kubernetes resources and platform-stored agent sessions.
 
 With mcp-runtime auth login, commands use the platform API by default for normal
 user and admin workflows. Use --use-kube only for admin/dev/test direct
-Kubernetes operations; it requires kubectl plus admin/operator kubeconfig and
-RBAC access. For platform workflows, run mcp-runtime auth login --api-url
+Kubernetes grant operations; sessions always require the platform API. Direct
+grant operations require kubectl plus admin/operator kubeconfig and RBAC access.
+For platform workflows, run mcp-runtime auth login --api-url
 <platform-url> and stay on the platform API path.`,
 	}
 
@@ -67,7 +68,7 @@ func newRevokeGrantSessionsCmd(mgr *AccessManager) *cobra.Command {
 func newSessionCmd(mgr *AccessManager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "session",
-		Short: "Manage MCPAgentSession resources",
+		Short: "Manage platform-stored agent sessions",
 	}
 	cmd.AddCommand(newSessionInitCmd(mgr))
 	cmd.AddCommand(newListCmd(mgr, SessionResource, "sessions"))
@@ -107,7 +108,7 @@ func newSessionInitCmd(mgr *AccessManager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [name]",
 		Short: "Initialize an MCPAgentSession manifest",
-		Long:  "Initialize an MCPAgentSession YAML manifest for review or apply. Adapter auto-refresh usually creates sessions automatically; this command is for explicit/admin session manifests.",
+		Long:  "Initialize an MCPAgentSession YAML input for admin platform apply. Sessions are stored in Postgres, not Kubernetes. Adapter auto-refresh usually creates sessions automatically.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.Name = args[0]

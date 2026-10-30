@@ -22,20 +22,18 @@ import (
 )
 
 const (
-	APIGroup              = mcpv1alpha1.Group
-	APIVersion            = mcpv1alpha1.Version
-	AccessGrantResource   = mcpv1alpha1.MCPAccessGrantResource
-	AccessSessionResource = mcpv1alpha1.MCPAgentSessionResource
-	MCPServerResource     = mcpv1alpha1.MCPServerResource
+	APIGroup            = mcpv1alpha1.Group
+	APIVersion          = mcpv1alpha1.Version
+	AccessGrantResource = mcpv1alpha1.MCPAccessGrantResource
+	MCPServerResource   = mcpv1alpha1.MCPServerResource
 )
 
 var (
-	grantGVR   = schema.GroupVersionResource{Group: APIGroup, Version: APIVersion, Resource: AccessGrantResource}
-	sessionGVR = schema.GroupVersionResource{Group: APIGroup, Version: APIVersion, Resource: AccessSessionResource}
-	serverGVR  = schema.GroupVersionResource{Group: APIGroup, Version: APIVersion, Resource: MCPServerResource}
+	grantGVR  = schema.GroupVersionResource{Group: APIGroup, Version: APIVersion, Resource: AccessGrantResource}
+	serverGVR = schema.GroupVersionResource{Group: APIGroup, Version: APIVersion, Resource: MCPServerResource}
 )
 
-// Manager provides operations for MCPAccessGrant and MCPAgentSession resources.
+// Manager manages Kubernetes grants and delegates sessions to the platform backend.
 type Manager struct {
 	dynamic   dynamic.Interface
 	clientset kubernetes.Interface
@@ -231,116 +229,54 @@ func (m *Manager) patchGrant(ctx context.Context, name, namespace string, patch 
 	return nil
 }
 
-// ListSessions returns all MCPAgentSession resources, optionally filtered by namespace.
+var errPlatformSessionBackend = errors.New("platform session backend is not configured")
+
+// ListSessions uses the authoritative platform session backend.
 func (m *Manager) ListSessions(ctx context.Context, namespace string) (*MCPAgentSessionList, error) {
-	if m.sessions != nil {
-		return m.sessions.ListSessions(ctx, namespace)
+	if m.sessions == nil {
+		return nil, errPlatformSessionBackend
 	}
-	var result *MCPAgentSessionList
-	var err error
-
-	if namespace != "" {
-		var obj interface{}
-		obj, err = m.dynamic.Resource(sessionGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to list sessions in namespace %s: %w", namespace, err)
-		}
-		result, err = convertToSessionList(obj)
-	} else {
-		var obj interface{}
-		obj, err = m.dynamic.Resource(sessionGVR).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to list sessions: %w", err)
-		}
-		result, err = convertToSessionList(obj)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return m.sessions.ListSessions(ctx, namespace)
 }
 
-// GetSession returns a specific MCPAgentSession resource.
+// GetSession uses the authoritative platform session backend.
 func (m *Manager) GetSession(ctx context.Context, name, namespace string) (*MCPAgentSession, error) {
-	if m.sessions != nil {
-		return m.sessions.GetSession(ctx, name, namespace)
+	if m.sessions == nil {
+		return nil, errPlatformSessionBackend
 	}
-	obj, err := m.dynamic.Resource(sessionGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get session %s/%s: %w", namespace, name, err)
-	}
-	return convertToSession(obj)
+	return m.sessions.GetSession(ctx, name, namespace)
 }
 
-// ApplySession creates or updates an MCPAgentSession resource.
+// ApplySession uses the authoritative platform session backend.
 func (m *Manager) ApplySession(ctx context.Context, session *MCPAgentSession) (*MCPAgentSession, error) {
-	if m.sessions != nil {
-		return m.sessions.ApplySession(ctx, session)
+	if m.sessions == nil {
+		return nil, errPlatformSessionBackend
 	}
-	if err := m.bindServerUID(ctx, session, session.Spec.ServerRef); err != nil {
-		return nil, err
-	}
-	obj, err := toUnstructured(session, "MCPAgentSession")
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert session %s/%s: %w", session.Namespace, session.Name, err)
-	}
-	created, err := m.applyUnstructured(ctx, sessionGVR, obj)
-	if err != nil {
-		return nil, fmt.Errorf("failed to apply session %s/%s: %w", session.Namespace, session.Name, err)
-	}
-	return convertToSession(created)
+	return m.sessions.ApplySession(ctx, session)
 }
 
-// RevokeSession revokes an MCPAgentSession by setting spec.revoked to true.
+// RevokeSession uses the authoritative platform session backend.
 func (m *Manager) RevokeSession(ctx context.Context, name, namespace string) error {
-	if m.sessions != nil {
-		return m.sessions.RevokeSession(ctx, name, namespace)
+	if m.sessions == nil {
+		return errPlatformSessionBackend
 	}
-	patch := map[string]interface{}{
-		"spec": map[string]interface{}{
-			"revoked": true,
-		},
-	}
-	return m.patchSession(ctx, name, namespace, patch)
+	return m.sessions.RevokeSession(ctx, name, namespace)
 }
 
-// UnrevokeSession clears the revoked flag on an MCPAgentSession.
+// UnrevokeSession uses the authoritative platform session backend.
 func (m *Manager) UnrevokeSession(ctx context.Context, name, namespace string) error {
-	if m.sessions != nil {
-		return m.sessions.UnrevokeSession(ctx, name, namespace)
+	if m.sessions == nil {
+		return errPlatformSessionBackend
 	}
-	patch := map[string]interface{}{
-		"spec": map[string]interface{}{
-			"revoked": false,
-		},
-	}
-	return m.patchSession(ctx, name, namespace, patch)
+	return m.sessions.UnrevokeSession(ctx, name, namespace)
 }
 
-// DeleteSession removes an MCPAgentSession.
+// DeleteSession uses the authoritative platform session backend.
 func (m *Manager) DeleteSession(ctx context.Context, name, namespace string) error {
-	if m.sessions != nil {
-		return m.sessions.DeleteSession(ctx, name, namespace)
+	if m.sessions == nil {
+		return errPlatformSessionBackend
 	}
-	if err := m.dynamic.Resource(sessionGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("delete session %s/%s: %w", namespace, name, err)
-	}
-	return nil
-}
-
-func (m *Manager) patchSession(ctx context.Context, name, namespace string, patch map[string]interface{}) error {
-	patchData, err := json.Marshal(patch)
-	if err != nil {
-		return fmt.Errorf("failed to marshal patch: %w", err)
-	}
-
-	_, err = m.dynamic.Resource(sessionGVR).Namespace(namespace).Patch(ctx, name, types.MergePatchType, patchData, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to patch session %s/%s: %w", namespace, name, err)
-	}
-	return nil
+	return m.sessions.DeleteSession(ctx, name, namespace)
 }
 
 // maxApplyConflictRetries bounds the Get→Update retry loop in applyUnstructured.

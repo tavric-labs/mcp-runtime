@@ -95,7 +95,8 @@ kubectl describe pod -n "$NS" "$POD"
 kubectl logs -n "$NS" "$POD" -c "$CONTAINER"
 kubectl logs -n "$NS" "$POD" -c mcp-gateway
 ./bin/mcp-runtime server policy inspect "$SERVER" --namespace "$NS"
-kubectl get mcpaccessgrant,mcpagentsession -n "$NS" -o wide
+mcp-runtime access grant list --namespace "$NS"
+mcp-runtime access session list --namespace "$NS"
 ```
 
 Sidecar container name is `mcp-gateway`. Many images are distroless — use logs/describe or:

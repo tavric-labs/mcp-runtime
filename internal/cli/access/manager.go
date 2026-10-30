@@ -25,7 +25,7 @@ import (
 const (
 	// GrantResource is the kubectl resource name for MCPAccessGrant.
 	GrantResource = "mcpaccessgrant"
-	// SessionResource is the kubectl resource name for MCPAgentSession.
+	// SessionResource selects platform session operations; it is not a Kubernetes resource.
 	SessionResource = "mcpagentsession"
 )
 

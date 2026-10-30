@@ -3,9 +3,24 @@
 Platform-api owns session persistence and the agent directory in Postgres.
 Runtime-api writes through its authenticated control-plane client. Gateways
 read only their MCPServer generation and hold no database credentials or shared
-internal token. The storage/sync foundation is tracked in [#718](https://github.com/mcp-runtime/mcp-runtime/issues/718);
-[migration #659](https://github.com/mcp-runtime/mcp-runtime/issues/659) wires the
-runtime management and gateway authorization paths onto it.
+internal token. The storage/sync implementation is tracked in
+[#718](https://github.com/mcp-runtime/mcp-runtime/issues/718) and
+[#659](https://github.com/mcp-runtime/mcp-runtime/issues/659).
+
+## Session storage
+
+Only `MCPServer` and `MCPAccessGrant` are Kubernetes CRDs. Runtime sessions are
+Postgres records: create, inspect, revoke and delete them through the platform
+CLI/UI. `MCPAgentSession` YAML remains an admin input for `access session apply`;
+it is not registered with the Kubernetes scheme and has no admission webhook,
+status subresource or RBAC permissions. A missing platform session backend is
+an error; it never falls back to a Kubernetes session object.
+
+Grants still reach gateways through the operator-rendered ConfigMap. Sessions
+reach a separate gateway memory cache through snapshots and incremental changes.
+Normal authorization uses these local snapshots and does not query Postgres on
+every call. Session sync propagates revocations and deletions; expiry and the
+cache freshness limits below are checked locally before authorizing calls.
 
 ## Audiences and routes
 
@@ -18,7 +33,7 @@ The OpenAPI path groups declare `x-audience`. Gateway routes are mounted only
 on their own listener, and the service's sync port has no ingress route. The
 platform NetworkPolicy permits tenant gateway pods only on `8085`; `8080`
 accepts platform peers and the ingress controller. Operator gateway egress
-and projected token mounting are delivered by the migration PR.
+and projected token mounting are configured by the operator.
 
 The control listener also provides `PATCH/DELETE
 /internal/access/sessions/{namespace}/{name}/enrollment`. Completion checks the
@@ -112,11 +127,9 @@ ten-minute maximum for network/store outages. `/config/status` and
 means no successful sync yet. Policy publication rejects grant/tool documents
 larger than 700 KiB and increments `mcp_runtime_gateway_policy_oversize_total`.
 
-Roll out matching platform-api, runtime-api, operator and gateway images.
-Re-deploy servers through the supported CLI so gateway token mounts and
-namespace egress rules are refreshed. Old Kubernetes sessions are not imported;
-adapters re-enroll through the platform. This is a policy schema v4 change and
-requires a new minor release while the project is `0.x`.
+Deploy matching platform-api, runtime-api, operator and gateway images.
+Deploy servers through the supported CLI so gateway token mounts and namespace
+egress rules are configured, and enroll adapters through the platform.
 
 Every platform-api process start rotates the shared database epoch. Ordinary
 restarts therefore cause a safe additional snapshot; concurrent replicas also

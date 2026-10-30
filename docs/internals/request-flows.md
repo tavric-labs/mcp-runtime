@@ -232,15 +232,24 @@ sequenceDiagram
     participant API as runtime-api
     participant K8s as Kubernetes API
     participant Operator
+    participant Platform as platform-api
+    participant DB as Postgres
     participant Policy as Mounted policy ConfigMap
     participant Gateway
     participant Client as MCP client
 
     Caller->>API: POST /api/v1/runtime/grants or /sessions
-    API->>K8s: apply MCPAccessGrant or MCPAgentSession
-    K8s-->>Operator: watch grant/session
-    Operator->>K8s: write {server}-gateway-policy ConfigMap
-    K8s-->>Policy: Project the ConfigMap into the pod
+    alt Grant management
+        API->>K8s: apply MCPAccessGrant
+        K8s-->>Operator: watch grant/server
+        Operator->>K8s: write {server}-gateway-policy ConfigMap
+        K8s-->>Policy: Project the ConfigMap into the pod
+    else Session management
+        API->>Platform: create, update, revoke or delete session
+        Platform->>DB: commit session and change-log event
+        Gateway->>Platform: authenticated snapshot or changes poll
+        Platform-->>Gateway: server-scoped session state
+    end
     Client->>Gateway: tools/call with ingress-verified identity when configured
     Gateway->>Policy: Read local policy snapshot
     Gateway-->>Client: allow, tool_not_granted, session_not_found, revoked, expired, trust denied
@@ -375,7 +384,8 @@ Primary request paths:
 | Publish MCP server | `server deploy`, `POST /api/v1/runtime/servers` | CLI/API, registry, K8s, operator | MCPServer spec, image scope, ingress path | `cli-platform`, `api-platform`, `all` |
 | Admin direct kube changes | `--use-kube` CLI | CLI, kubeconfig, Kubernetes API, operator | CRDs and RBAC, no platform auth boundary | targeted local/admin tests |
 | Reconcile server workload | MCPServer change | K8s API, operator, Deployment, Service, Ingress, status | CRD defaults, service target port, gateway sidecar | `smoke-auth`, `all` |
-| Render gateway policy | grant/session/server change | API/CLI, K8s CRs, operator, ConfigMap, gateway | `MCPAccessGrant`, `MCPAgentSession`, policy JSON | `governance`, `trust` |
+| Render gateway policy | grant/server change | API/CLI, K8s CRs, operator, ConfigMap, gateway | `MCPAccessGrant`, policy JSON | `governance`, `trust` |
+| Synchronize sessions | session creation, revocation or deletion | runtime-api, platform-api, Postgres, gateway cache | session records, epoch/sequence changes | `adapter-proxy`, `governance` |
 | MCP initialize/list/call | MCP client `/{server}/mcp` | Ingress, Service, gateway sidecar, MCP server | Streamable HTTP, JSON-RPC, MCP session header | `smoke-auth` |
 | Denied MCP call | `tools/call` without matching policy | gateway, policy evaluator, audit pipeline | deny reasons such as `tool_not_granted`, `session_not_found` | `governance`, `trust` |
 | OAuth MCP call | bearer token MCP route | gateway, OIDC discovery/JWKS, policy, MCP server | OAuth protected resource metadata, JWT claims | `oauth` |

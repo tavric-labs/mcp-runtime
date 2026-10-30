@@ -104,10 +104,10 @@ session persistence to platform-api and Postgres. Sessions for agent
 traffic are usually issued through
 `POST /api/v1/runtime/adapter/sessions`; explicit session manifests are
 admin-only. `MCPAgentSession` YAML remains an input format for platform session
-apply; Kubernetes session objects no longer supply authorization state.
+apply; there is no session CRD or Kubernetes session persistence path.
 Direct `--use-kube` session management is rejected. See the
 [session sync contract](contributor/gateway-session-sync.md) for authentication,
-revocation, failure behavior and release migration.
+revocation and failure behavior.
 
 See [Request Flows](internals/request-flows.md) for allow/deny sequence diagrams,
 component-level paths, and E2E scenario mapping.

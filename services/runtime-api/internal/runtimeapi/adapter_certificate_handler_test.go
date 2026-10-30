@@ -15,6 +15,7 @@ import (
 
 	"mcp-runtime-api/internal/k8sstore"
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
+	mcpaccess "mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/identity"
 	"mcp-runtime/pkg/k8sclient"
 )
@@ -27,19 +28,19 @@ func TestHandleAdapterCertificateRefusesRevokedSession(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	expires := metav1.NewTime(time.Now().Add(time.Hour))
-	session := &mcpv1alpha1.MCPAgentSession{
+	expires := mcpaccess.Time{Time: time.Now().Add(time.Hour)}
+	session := &k8sstore.MCPAgentSession{
 		ObjectMeta: metav1.ObjectMeta{Name: "adapter-1", Namespace: "mcp-team-acme"},
-		Spec: mcpv1alpha1.MCPAgentSessionSpec{
-			ServerRef: mcpv1alpha1.ServerReference{Name: "demo", Namespace: "mcp-team-acme"},
-			Subject:   mcpv1alpha1.SubjectRef{HumanID: "user-123", AgentID: "ops-agent"},
+		Spec: mcpaccess.MCPAgentSessionSpec{
+			ServerRef: mcpaccess.ServerReference{Name: "demo", Namespace: "mcp-team-acme"},
+			Subject:   mcpaccess.SubjectRef{HumanID: "user-123", AgentID: "ops-agent"},
 			ExpiresAt: &expires,
 			Revoked:   true,
 		},
 	}
-	dyn := dynamicfake.NewSimpleDynamicClient(scheme, session)
+	dyn := dynamicfake.NewSimpleDynamicClient(scheme)
 	audit := &fakeAuditWriter{}
-	svc := &AccessService{audit: audit, k8sClients: &k8sclient.Clients{Dynamic: dyn}, accessMgr: k8sstore.NewManager(dyn, nil)}
+	svc := &AccessService{audit: audit, k8sClients: &k8sclient.Clients{Dynamic: dyn}, accessMgr: k8sstore.NewManager(dyn, nil).WithSessionBackend(newMemorySessionBackend(session))}
 
 	_, csrPEM, _, err := identity.BuildSessionCSR("cluster.local", "mcp-team-acme", "adapter-1")
 	if err != nil {

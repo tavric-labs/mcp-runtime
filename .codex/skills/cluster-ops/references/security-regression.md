@@ -168,8 +168,7 @@ call '{"name":"add","arguments":{"a":2,"b":3}}'      # want allow
 Toggle the grant off → expect deny within a few seconds (sidecar reload):
 
 ```bash
-kubectl patch mcpaccessgrant workspace-assistant-local -n mcp-servers \
-  --type=merge -p '{"spec":{"disabled":true}}'
+mcp-runtime access grant disable workspace-assistant-local --namespace mcp-servers
 
 sleep 8
 init
@@ -181,27 +180,22 @@ echo "$RESP" | grep -qiE 'tool_not_granted|denied|forbidden|policy' \
 Re-enable to leave the cluster in a working state for downstream skills:
 
 ```bash
-kubectl patch mcpaccessgrant workspace-assistant-local -n mcp-servers \
-  --type=merge -p '{"spec":{"disabled":false}}'
-kubectl apply -f /tmp/workspace-assistant-access.yaml
+mcp-runtime access grant enable workspace-assistant-local --namespace mcp-servers
+mcp-runtime access session apply --file /tmp/workspace-assistant-access.yaml
 sleep 8
 ```
 
 Revoke the session → expect deny:
 
 ```bash
-# Apply a Revoked-state session and re-test.
-kubectl patch mcpagentsession local-session -n mcp-servers --type=merge \
-  -p '{"spec":{"revoked":true}}' 2>/dev/null \
-  || kubectl annotate mcpagentsession local-session -n mcp-servers \
-       qa.mcpruntime.org/revoke="$(date +%s)" --overwrite
-sleep 8
+mcp-runtime access session revoke local-session --namespace mcp-servers
+# Allow the server-scoped session sync to receive the revocation, then probe.
+sleep 2
 init
 call '{"name":"add","arguments":{"a":2,"b":3}}' | grep -qiE 'session_revoked|session_not_found|denied' \
   || echo "FAIL: revoked session still allowed"
-kubectl patch mcpagentsession local-session -n mcp-servers --type=merge \
-  -p '{"spec":{"revoked":false}}' 2>/dev/null || true
-sleep 8
+mcp-runtime access session unrevoke local-session --namespace mcp-servers
+sleep 2
 ```
 
 Cross-tenant scoping must be tested with a second managed agent and adapter,
@@ -239,17 +233,24 @@ AFTER="$(curl -sS -H "x-api-key: $ADMIN_KEY" \
 `upper` is configured `requiredTrust: medium`. Try it with a session
 `consentedTrust: low` and expect deny:
 
+Use the current session's exact human, managed agent and team IDs for
+`HUMAN_ID`, `AGENT_ID` and `TEAM_ID`. Apply as a platform administrator and
+preserve the reviewed original session input for restoration.
+
 ```bash
-kubectl patch mcpagentsession local-session -n mcp-servers --type=merge \
-  -p '{"spec":{"consentedTrust":"low"}}'
-sleep 8
+mcp-runtime access session init local-session --namespace mcp-servers \
+  --server oauth-example-go-2025-11-25-gateway --agent-id "$AGENT_ID" \
+  --human-id "$HUMAN_ID" --team-id "$TEAM_ID" --trust low \
+  --expires-in 1h --output /tmp/local-session-low.yaml --force
+mcp-runtime access session apply --file /tmp/local-session-low.yaml
+sleep 2
 init
 RESP="$(call '{"name":"upper","arguments":{"message":"hi"}}')"
 echo "$RESP" | grep -qiE 'trust|denied|forbidden' \
   || echo "FAIL: low-trust session called medium-trust tool"
-kubectl patch mcpagentsession local-session -n mcp-servers --type=merge \
-  -p '{"spec":{"consentedTrust":"high"}}'
-sleep 8
+# Restore the original reviewed session input through the platform API.
+mcp-runtime access session apply --file /tmp/workspace-assistant-access.yaml
+sleep 2
 ```
 
 ## Step 7 — Sub-suite E: UI security headers

@@ -58,27 +58,6 @@ webhooks:
     service:
       name: mcp-runtime-operator-webhook-service
       namespace: mcp-runtime
-      path: /validate-mcpruntime-org-v1alpha1-mcpagentsession
-      port: 443
-  failurePolicy: Fail
-  name: vmcpagentsession.kb.io
-  rules:
-  - apiGroups:
-    - mcpruntime.org
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - mcpagentsessions
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: mcp-runtime-operator-webhook-service
-      namespace: mcp-runtime
       path: /validate-mcpruntime-org-v1alpha1-mcpserver
       port: 443
   failurePolicy: Fail

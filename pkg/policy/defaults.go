@@ -15,7 +15,7 @@ const (
 	DefaultVersion         = "v1"
 	ObservabilityMode      = ModeObserve
 	ObservabilityDecision  = DecisionAllow
-	DefaultSessionStore    = "kubernetes"
+	DefaultSessionStore    = "platform"
 	DefaultSessionMaxLife  = "24h"
 	DefaultSessionIdleTime = "1h"
 	DefaultSessionUpstream = identity.AuthTokenHeader

@@ -16,8 +16,6 @@ const (
 	MCPServerResource = "mcpservers"
 	// MCPAccessGrantResource is the plural resource name for MCPAccessGrant objects.
 	MCPAccessGrantResource = "mcpaccessgrants"
-	// MCPAgentSessionResource is the plural resource name for MCPAgentSession objects.
-	MCPAgentSessionResource = "mcpagentsessions"
 )
 
 var (
@@ -36,7 +34,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		GroupVersion,
 		&MCPServer{}, &MCPServerList{},
 		&MCPAccessGrant{}, &MCPAccessGrantList{},
-		&MCPAgentSession{}, &MCPAgentSessionList{},
 	)
 	metav1.AddToGroupVersion(scheme, GroupVersion)
 	return nil

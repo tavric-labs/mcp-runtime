@@ -63,7 +63,7 @@ func TestLoadFromFile(t *testing.T) {
 						},
 						Session: &SessionConfig{
 							Required:            true,
-							Store:               "kubernetes",
+							Store:               "platform",
 							MaxLifetime:         "24h",
 							IdleTimeout:         "1h",
 							UpstreamTokenHeader: "Authorization",
@@ -295,7 +295,7 @@ func TestSetDefaults(t *testing.T) {
 				},
 				Session: &SessionConfig{
 					Required:            true,
-					Store:               "kubernetes",
+					Store:               "platform",
 					MaxLifetime:         "24h",
 					IdleTimeout:         "1h",
 					UpstreamTokenHeader: "Authorization",

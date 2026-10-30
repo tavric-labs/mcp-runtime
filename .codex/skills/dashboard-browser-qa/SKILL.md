@@ -370,7 +370,8 @@ Only mutate temporary resources:
 Required cleanup evidence:
 
 ```bash
-kubectl get mcpservers,mcpaccessgrants,mcpagentsessions -A | grep qa-audit || true
+kubectl get mcpservers,mcpaccessgrants -A | grep qa-audit || true
+mcp-runtime access session list --all-namespaces
 ./bin/mcp-runtime server list
 ```
 

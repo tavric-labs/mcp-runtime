@@ -66,7 +66,7 @@ func (b *platformSessionBackend) GetSession(ctx context.Context, name, namespace
 		return nil, err
 	}
 	if !found {
-		return nil, apierrors.NewNotFound(schema.GroupResource{Group: k8sstore.APIGroup, Resource: k8sstore.AccessSessionResource}, name)
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: k8sstore.APIGroup, Resource: "mcpagentsessions"}, name)
 	}
 	return sessionFromState(row), nil
 }
@@ -190,7 +190,7 @@ func (b *platformSessionBackend) DeleteSessionVersioned(ctx context.Context, nam
 
 func sessionBackendError(err error, name string) error {
 	if errors.Is(err, sessionstate.ErrNotFound) {
-		return apierrors.NewNotFound(schema.GroupResource{Group: k8sstore.APIGroup, Resource: k8sstore.AccessSessionResource}, name)
+		return apierrors.NewNotFound(schema.GroupResource{Group: k8sstore.APIGroup, Resource: "mcpagentsessions"}, name)
 	}
 	return err
 }

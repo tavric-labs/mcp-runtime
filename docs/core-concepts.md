@@ -22,7 +22,7 @@ tools and admits visiting agents:
 | Lobby reception, pointing visitors to the right floor | **Traefik ingress** | Routes `/<server>/mcp` to the right Service and can verify adapter certificates. Per-tool authorization happens in the gateway. |
 | The guard at the suite's own door | **`mcp-gateway` sidecar** | Evaluates configured policy for tool calls before forwarding them to the server. |
 | The standing rule in the security handbook | **`MCPAccessGrant`** | Long-lived policy: which tools, up to what trust, with which side effects. |
-| Today's visitor badge, expiring at 6pm | **`MCPAgentSession`** | Time-bounded record of delegated identity and consent; revocation reaches gateways after policy refresh, usually within about 10 seconds. |
+| Today's visitor badge, expiring at 6pm | **`MCPAgentSession`** | Time-bounded record of delegated identity and consent; stored in Postgres; gateways poll session changes every 500 ms. |
 | Clearance printed on the badge | **Trust level** (`low` / `medium` / `high`) | A ceiling, never a grant of power on its own. |
 | "May look" vs "may edit" vs "may shred" | **Side effect** (`read` / `write` / `destructive`) | What the tool does to data, authorized separately from trust. |
 | The badge carrier who presents your certificate | **Adapter** | Local proxy that enrolls and refreshes a session-bound client certificate. |
@@ -52,7 +52,7 @@ flowchart LR
         Human[Human or service principal] -->|platform credential| APIs[Platform APIs]
         APIs -->|role, team, namespace, ownership checks| Actions[Authorized control-plane actions]
         Actions --> Grant[MCPAccessGrant]
-        Actions --> Session[MCPAgentSession]
+        Actions --> Session[Platform session in Postgres]
     end
 
     subgraph Requests[MCP request path]
@@ -158,9 +158,9 @@ When an agent is deactivated, the platform marks the record inactive, refuses
 new platform-backed grants, sessions, and certificate enrollments for it, and
 revokes its active sessions across namespaces. The grants remain available for
 history and must be disabled separately if you also need to remove standing
-policy. Gateways apply session revocation after they load the updated policy,
-usually within about 10 seconds. Direct Kubernetes writes bypass the directory
-checks; use the platform API for managed agent access.
+policy. Gateways apply session revocation after they synchronize platform session changes,
+with 500 ms polling targeting roughly one-second propagation, subject to latency.
+Direct Kubernetes grant writes bypass the directory checks; use the platform API for managed agent access.
 
 ## MCPAccessGrant
 
@@ -192,13 +192,14 @@ Grants are created with `mcp-runtime access grant init` and applied with
 
 ## MCPAgentSession
 
-A session records a human, agent, and team identity for one server and a fixed
-period. The grant is separate standing policy; an adapter-issued session is
+A session is a platform-owned Postgres record for a human, agent, and team
+identity on one server for a fixed period. It is not a Kubernetes CRD.
+`MCPAgentSession` is retained as the YAML input kind for admin platform apply. The grant is separate standing policy; an adapter-issued session is
 created only when the platform finds a matching enabled grant. A session carries:
 
 - `consentedTrust`: the trust ceiling the user consented to
 - `expiresAt`: when the session ends (the agent must renew)
-- `revoked`: set to `true` to block later calls after the gateway loads the updated policy, usually within about 10 seconds
+- `revoked`: set to `true` to block later calls after gateway session sync; polling every 500 ms targets roughly one-second propagation, subject to database and network latency
 
 When `session.required: true`, the gateway checks for a matching active session
 on each tool call. A missing, expired, or revoked required session denies the
@@ -223,8 +224,8 @@ administrator needs explicit control over expiry, trust ceiling, or revocation.
 !!! tip "Why there are two resources"
     A grant is standing policy, like a rule in a security handbook. A session is
     today's visitor badge. A call needs both when the server requires sessions.
-    Revocation changes policy for subsequent calls after gateways load the new
-    revision; calls already in progress are not recalled.
+    Revocation changes session state for subsequent calls after gateways synchronize
+    the change; calls already in progress are not recalled.
 
 ## Grant or session: which one do I need?
 
@@ -288,8 +289,9 @@ allow list. Trust and side effect are checked independently; both must pass.
 The policy engine is the `mcp-gateway` decision logic plus the per-server
 policy document that the operator renders for it. It is not another CRD. The
 operator combines the server's policy settings and tool metadata with matching
-grants and sessions, then writes the result to a policy ConfigMap beside that
-server.
+grants, then writes the result to a policy ConfigMap beside that server.
+Platform-api stores sessions in Postgres; a separate authenticated sync API
+refreshes each gateway's in-memory session cache.
 
 For each MCP `tools/call`, the gateway identifies the caller, finds the named
 tool in the server's declared tool inventory, and evaluates the applicable
@@ -299,7 +301,8 @@ policy:
 flowchart LR
     Server[MCPServer policy and tool metadata] --> Render[Operator renders per-server policy]
     Grant[MCPAccessGrant rules, trust, and side effects] --> Render
-    Session[MCPAgentSession identity and consent] --> Render
+    Session[Platform sessions in Postgres] --> Sync[Server-scoped session sync]
+    Sync --> Gateway
     Render --> Config[Policy ConfigMap]
     Call[MCP tools/call] --> Gateway[mcp-gateway]
     Config --> Gateway
@@ -334,7 +337,7 @@ On each tool call the gateway:
 1. Authenticates identity: OAuth bearer when `spec.auth` is set; for an adapter,
    resolves session identity from the verified client certificate (and binds the
    bearer subject to the session human when OAuth is also enabled)
-2. Looks up the matching `MCPAccessGrant` and, when `session.required: true`, an active `MCPAgentSession` for that agent and server
+2. Looks up the matching `MCPAccessGrant` and, when `session.required: true`, an active platform session from its local cache for that agent and server
 3. Checks trust level, side-effect class, and per-tool allow/deny rules
 4. Either forwards the call to your server or returns a denial with a reason code
 5. Emits an analytics event with the decision

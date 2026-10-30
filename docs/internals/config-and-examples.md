@@ -1,7 +1,7 @@
 # Config, Examples, and Supporting Assets
 
 ## config/
-- `config/crd/bases/` contains generated CRDs for `MCPServer`, `MCPAccessGrant`, and `MCPAgentSession`. Regenerate them with `make -f Makefile.operator generate manifests` after API type changes.
+- `config/crd/bases/` contains generated CRDs for `MCPServer` and `MCPAccessGrant`. Sessions are platform records; their YAML examples are CLI apply inputs, not CRDs. Regenerate them with `make -f Makefile.operator generate manifests` after API type changes.
 - `config/default/` is the Kustomize entrypoint for operator deployment assets.
 - `config/manager/` holds the controller-manager Deployment and PodDisruptionBudget manifests.
 - `config/rbac/` contains service account, role, and binding definitions used by the operator.

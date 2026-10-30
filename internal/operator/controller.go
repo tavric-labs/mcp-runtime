@@ -159,7 +159,6 @@ type resourceReadiness = ResourceReadiness
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups=mcpruntime.org,resources=mcpaccessgrants,verbs=get;list;watch
-//+kubebuilder:rbac:groups=mcpruntime.org,resources=mcpagentsessions,verbs=get;list;watch
 //+kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch
 //+kubebuilder:rbac:groups=traefik.io,resources=ingressroutetcps;ingressroutes;middlewares;tlsoptions;tlsstores;serverstransports,verbs=get;list;watch;create;update;patch;delete
 

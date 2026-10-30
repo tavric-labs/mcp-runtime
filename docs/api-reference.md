@@ -2,7 +2,7 @@
 
 The MCP Runtime API has three layers:
 
-1. **CRDs** under `mcpruntime.org/v1alpha1`: `MCPServer`, `MCPAccessGrant`, `MCPAgentSession`.
+1. **CRDs** under `mcpruntime.org/v1alpha1`: `MCPServer`, `MCPAccessGrant`.
 2. **Gateway headers** carried on live MCP requests when `gateway.enabled`.
 3. **Platform HTTP APIs** exposed by **platform-api**, **runtime-api**, and **analytics-api** (routed at `/api/v1/*` via Traefik): platform identity, runtime governance, governance actions, and analytics.
 
@@ -25,13 +25,13 @@ Each API service also serves unauthenticated `GET /health` and `GET /ready` outs
 ### Conventions
 
 - **Request IDs.** Every response from every service carries `X-Request-Id`. A caller's well-formed id (letters, digits, `.`, `_`, `-`, up to 128 characters) is kept so a trace can span services; anything else is replaced. Audit rows store the same id in `request_id`, and the service access log records it as `request_id`. Quote it when reporting a problem.
-- **JSON field names.** Resources that mirror Kubernetes custom resources (access grants and sessions: `serverRef`, `maxTrust`, `policyVersion`) use camelCase, as the CRDs do. Everything else (users, teams, agents, API keys, audit) uses snake_case (`created_at`, `api_key`). A field never changes style between endpoints of the same resource.
+- **JSON field names.** Access grants and platform sessions use camelCase (`serverRef`, `maxTrust`, `policyVersion`). Session payloads retain their management API shape even though sessions are stored in Postgres, not as CRDs. Everything else (users, teams, agents, API keys, audit) uses snake_case (`created_at`, `api_key`). A field never changes style between endpoints of the same resource.
 - **Errors.** Every API returns `{"error": "<code>", "message": "<text>"}`. Branch on `error`, not on `message`.
 - **Specs.** Each service serves its OpenAPI document at `/api/v1/openapi.yaml`. platform-api's tests fail when a public route is added without a spec entry; the routes still missing are listed in `route_spec_coverage_test.go`.
 
 ```mermaid
 flowchart LR
-    Resources[MCPServer, MCPAccessGrant, MCPAgentSession] --> Operator
+    Resources[MCPServer, MCPAccessGrant] --> Operator
     Operator --> Policy[Policy ConfigMap]
     Policy --> Gateway[mcp-gateway]
     Client[MCP client or adapter] --> Gateway
@@ -40,7 +40,10 @@ flowchart LR
     Ingest --> Kafka --> Processor --> CH[(ClickHouse)]
     Ana[analytics-api] -->|query| CH
     Run[runtime-api] -->|create or update| Resources
-    Run -->|resolve principal| Plat[platform-api]
+    Run -->|resolve principal and manage sessions| Plat[platform-api]
+    Plat --> Sessions[(Postgres sessions)]
+    Sessions --> Sync[Server-scoped session sync]
+    Sync --> Gateway
 ```
 
 ## Core resources
@@ -49,7 +52,7 @@ flowchart LR
 |---|---|
 | **MCPServer** | Runtime deployment spec plus gateway, auth, policy, session, tool inventory, rollout, and analytics settings. |
 | **MCPAccessGrant** | Who can use which server, for which side-effect classes and tools, with what admin-side maximum trust. |
-| **MCPAgentSession** | Server-side consented trust, expiry, revocation, and upstream token references per agent session. |
+| **Platform session** | Postgres record for consented trust, expiry, revocation, and upstream token references. `MCPAgentSession` YAML is an admin apply input, not a CRD. |
 
 ## MCPServer surface
 
@@ -81,7 +84,7 @@ flowchart LR
 
 ### Status
 
-`MCPServer.status` exposes `phase`, `message`, `conditions[]`, and per-resource readiness booleans `deploymentReady`, `serviceReady`, `ingressReady`, `gatewayReady`, `policyReady`, plus `canaryReady` for canary rollouts. Authorized runtime server list/get responses include the status message and conditions; an operator `Error` takes precedence over an older Deployment's ready replicas. `MCPAccessGrant` and `MCPAgentSession` expose `phase`, `message`, and `conditions[]`.
+`MCPServer.status` exposes `phase`, `message`, `conditions[]`, and per-resource readiness booleans `deploymentReady`, `serviceReady`, `ingressReady`, `gatewayReady`, `policyReady`, plus `canaryReady` for canary rollouts. Authorized runtime server list/get responses include the status message and conditions; an operator `Error` takes precedence over an older Deployment's ready replicas. `MCPAccessGrant` exposes `phase`, `message`, and `conditions[]`. Session management responses retain their existing status representation; sessions have no Kubernetes status subresource.
 
 ### MCPServer example
 
@@ -109,7 +112,7 @@ spec:
     policyVersion: v1
   session:
     required: true
-    store: kubernetes
+    store: platform
     maxLifetime: 24h
     idleTimeout: 1h
   tools:
@@ -216,6 +219,11 @@ spec:
 ```
 
 ### MCPAgentSession
+
+This YAML is accepted by `mcp-runtime access session apply --file`; it is not
+a Kubernetes manifest and cannot be applied with `kubectl`. Platform-api stores
+the session in Postgres and gateway sync distributes updates and revocations.
+See [the session sync contract](contributor/gateway-session-sync.md).
 
 ```yaml
 apiVersion: mcpruntime.org/v1alpha1
@@ -453,9 +461,9 @@ GET  /api/v1/runtime/grants               # List MCPAccessGrant resources
 GET  /api/v1/runtime/grants/{namespace}/{name}   # Get one MCPAccessGrant
 POST /api/v1/runtime/grants               # Authorized server/team owner or admin create/update
 DELETE /api/v1/runtime/grants/{namespace}/{name} # Delete one MCPAccessGrant
-GET  /api/v1/runtime/sessions             # List MCPAgentSession resources
+GET  /api/v1/runtime/sessions             # List platform-stored sessions
 GET  /api/v1/runtime/sessions/{namespace}/{name} # Get one MCPAgentSession
-POST /api/v1/runtime/sessions             # Admin/internal direct MCPAgentSession apply
+POST /api/v1/runtime/sessions             # Admin/internal direct platform session apply
 DELETE /api/v1/runtime/sessions/{namespace}/{name} # Delete one MCPAgentSession
 POST /api/v1/runtime/adapter/sessions     # Issue/reuse an adapter MCPAgentSession for a human/user principal
 POST /api/v1/runtime/adapter/preflight    # Read-only adapter PKI and selected-route readiness check
@@ -496,10 +504,10 @@ inactive and revokes its active sessions across namespaces; each revoked
 session produces an audit event. If revocation is incomplete, the API returns
 an error and a retry completes the remaining revocations.
 
-Direct Kubernetes writes do not pass through these directory checks. In
-particular, a cluster administrator can create an `MCPAgentSession` directly;
-use the runtime API for session creation when directory enforcement is
-required. Admission-time directory validation is not currently installed.
+Direct Kubernetes grant writes do not pass through the runtime directory
+checks. Sessions have no Kubernetes CRD: creation and mutation use the platform
+CLI/UI and APIs, including their directory and ownership checks. A missing
+platform session backend fails rather than falling back to Kubernetes.
 
 For non-admin users, runtime scope depends on `PLATFORM_MODE` / setup
 `--platform-mode` (`org` or `public`). In the default `org` mode,

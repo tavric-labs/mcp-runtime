@@ -15,7 +15,7 @@ description: Apply and debug MCP Runtime access grants, agent sessions, gateway 
 | **Adapter (recommended for agents)** | `adapter proxy --server <name> --agent <id> [--auto-refresh]` → certificate-backed platform session; add OAuth only when the server configures it. On macOS, `adapter service` keeps several of those connections on one loopback listener, one path per server. |
 | **Optional header adapter** | `adapter proxy --auth-mode header --runtime-url https://… --credential-header-env Name=ENV` injects client-local credential headers and does not enroll a certificate. Direct clients can send the same headers without the adapter. |
 | **macOS background adapter** | `adapter service profile add` and `adapter service install` persist isolated, owner-protected profiles. Export local credentials with `adapter service profile client-config <id> --output FILE`. The native companion uses the same versioned Unix-socket management API as the CLI. Local client credentials stay separate from upstream OAuth; closing the app leaves the daemon running. |
-| **Explicit Kubernetes test/recovery** | `access … --use-kube` only when that path is explicitly requested; never bypass a failed CLI/UI flow |
+| **Explicit Kubernetes grant test/recovery** | `access grant … --use-kube` only when that path is explicitly requested; sessions require the platform API. Never bypass a failed CLI/UI flow. |
 
 Session apply via platform API is **admin-only**. Adapters usually skip manual session apply.
 
@@ -63,9 +63,9 @@ platform-store mutations, never a full session upsert that could undo revocation
 - A cross-team grant names the subject's `teamID` and must expire; its TTL is capped by the runtime API. Audit fields distinguish the subject/actor team from the server/resource authority team.
 - For foreign recipients in the UI, use **Delegate to another team** and look up its exact slug. `/runtime/delegation-recipients` requires management rights on the resource namespace before returning paginated active agents and stable member IDs. Revoke grant sessions through the supported action; it atomically covers all explicitly linked platform namespaces. `team_id` remains resource authority; `subject_team_id` is the separately recorded actor.
 - `server policy inspect` shows rendered grants/tools, not session state. Platform-api owns sessions in Postgres; gateway sync polls at 500ms on the dedicated port 8085. Cold or known-reset caches deny; disconnected caches expire after at most 10m. See [the session sync contract](../../../docs/contributor/gateway-session-sync.md).
-- `MCPAgentSession` YAML is an input format for admin platform apply. Inspect, create, revoke and delete sessions through the platform CLI/UI; direct `--use-kube` session management is rejected and Kubernetes edits do not change gateway authorization.
+- `MCPAgentSession` YAML is an input format for admin platform apply. Inspect, create, revoke and delete sessions through the platform CLI/UI; direct `--use-kube` session management is rejected and there is no session CRD, admission webhook, or Kubernetes fallback.
 - CLI `server delete` and UI Retire disable grants and revoke sessions before removing exact server-reference authorization across namespaces. Cleanup failures require retry; `mcpruntime.org/retiring` blocks issuance/redeployment while recovery completes. Admins can repeat deletion for an absent server to clean orphaned access. Shared pull credentials and audit history remain.
-- New grants/sessions bind to `mcpruntime.org/server-uid`; policy rendering rejects a binding from an earlier same-name deployment. Explicit `server delete --use-kube` removes only the Kubernetes server object and does not perform platform access retirement.
+- Grants bind to `mcpruntime.org/server-uid`; policy rendering rejects grants from an earlier same-name deployment. Platform session storage and gateway sync enforce that same server UID boundary. Explicit `server delete --use-kube` removes only the Kubernetes server object and does not perform platform access retirement.
 - OAuth is optional and is enabled by `MCPServer.spec.auth` without `mode: header`. Direct clients use a bearer only on OAuth-enabled servers. An adapter always presents its enrolled certificate and adds a bearer only when the target enables OAuth.
 - The Dock app's **OAuth required** tag comes from the platform server's `authMode` during enrollment/renewal. It is independent of the certificate's Enrolled state; clients complete OAuth themselves. Unknown metadata remains unknown in Inspect. Reconnect refreshes the requirement and resolved namespace.
 - Diagnose PKI with `cluster identity status --server <namespace>/<name>`. Resolve the selected containers' declared ConfigMap sources and the selected route's actual TLSOption; unreadable configuration must fail rather than appear disabled. Read only public certificate fields from Secrets.
@@ -144,8 +144,8 @@ See `test/e2e/qa-e2e.sh` and `test/e2e/select_pr_scenarios.sh` for scenario name
 
 ## Validation ownership
 
-`pkg/access/specvalidation` owns grant/session structural rules. The CRD webhook
-adapts persisted specs; `pkg/access` owns normalized platform apply requests used
+`pkg/access/specvalidation` owns grant/session structural rules. The grant CRD webhook
+adapts persisted grant specs; sessions use platform validation without a webhook; `pkg/access` owns normalized platform apply requests used
 by runtime-api and CLI submission. The Kubernetes objects and `Manager` live in
 `services/runtime-api/internal/k8sstore`; `pkg/access` stays Kubernetes-free. Keep the explicit boundary contracts:
 admission retains legacy wildcard grants and deny-all empty side effects;

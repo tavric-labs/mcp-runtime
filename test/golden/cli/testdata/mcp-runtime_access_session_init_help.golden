@@ -1,4 +1,4 @@
-Initialize an MCPAgentSession YAML manifest for review or apply. Adapter auto-refresh usually creates sessions automatically; this command is for explicit/admin session manifests.
+Initialize an MCPAgentSession YAML input for admin platform apply. Sessions are stored in Postgres, not Kubernetes. Adapter auto-refresh usually creates sessions automatically.
 
 Usage:
   mcp-runtime access session init [name] [flags]

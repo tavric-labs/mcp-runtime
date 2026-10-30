@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -107,22 +107,13 @@ func (a *auditCollector) WriteAudit(_ context.Context, event auditEvent) {
 }
 
 func TestDeactivateAgentRevokesOnlyMatchingSessionsAndAuditsEach(t *testing.T) {
-	newSession := func(name, namespace, agentID, teamID string, revoked bool) *unstructured.Unstructured {
-		return &unstructured.Unstructured{Object: map[string]any{
-			"apiVersion": "mcpruntime.org/v1alpha1", "kind": "MCPAgentSession",
-			"metadata": map[string]any{"name": name, "namespace": namespace},
-			"spec":     map[string]any{"subject": map[string]any{"agentID": agentID, "teamID": teamID}, "revoked": revoked},
-		}}
+	newSession := func(name, namespace, agentID, teamID string, revoked bool) *k8sstore.MCPAgentSession {
+		return &k8sstore.MCPAgentSession{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}, Spec: mcpaccess.MCPAgentSessionSpec{Subject: mcpaccess.SubjectRef{AgentID: mcpaccess.AgentID(agentID), TeamID: mcpaccess.TeamID(teamID)}, Revoked: revoked}}
 	}
-	objects := []runtime.Object{
-		newSession("match", "ns-a", "agent-a", "team-a", false),
-		newSession("other-team", "ns-b", "agent-a", "team-b", false),
-		newSession("other-agent", "ns-a", "agent-b", "team-a", false),
-		newSession("already-revoked", "ns-a", "agent-a", "team-a", true),
-	}
-	dyn := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), objects...)
+	backend := newMemorySessionBackend(newSession("match", "ns-a", "agent-a", "team-a", false), newSession("other-team", "ns-b", "agent-a", "team-b", false), newSession("other-agent", "ns-a", "agent-b", "team-a", false), newSession("already-revoked", "ns-a", "agent-a", "team-a", true))
+	dyn := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
 	audit := &auditCollector{}
-	server := &RuntimeServer{accessMgr: k8sstore.NewManager(dyn, nil), audit: audit}
+	server := &RuntimeServer{accessMgr: k8sstore.NewManager(dyn, nil).WithSessionBackend(backend), audit: audit}
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/runtime/agents/agent-a/deactivate", nil)
 	if err := server.revokeAgentSessions(request.Context(), request, principal{Role: roleAdmin, Subject: "admin-id"}, platformapi.Agent{ID: "agent-a", TeamID: "team-a"}); err != nil {
 		t.Fatal(err)
@@ -181,10 +172,9 @@ func TestTeamListIncludesMembershipRoleForAgentControls(t *testing.T) {
 
 func TestAgentDirectoryTeamMemberCanList(t *testing.T) {
 	listKinds := map[schema.GroupVersionResource]string{
-		{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessGrantResource}:   "MCPAccessGrantList",
-		{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessSessionResource}: "MCPAgentSessionList",
+		{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessGrantResource}: "MCPAccessGrantList",
 	}
-	server := &RuntimeServer{identity: &agentIdentityStub{}, accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds), nil)}
+	server := &RuntimeServer{identity: &agentIdentityStub{}, accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds), nil).WithSessionBackend(newMemorySessionBackend())}
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/runtime/teams/core/agents?status=active&limit=10", nil)
 	recorder := httptest.NewRecorder()
 	server.HandleRuntimeTeamAgents(recorder, request, principal{Role: roleUser, Subject: "member-id", Teams: []principalTeam{{Slug: "core", Role: teamRoleMember}}}, "core")
@@ -250,12 +240,11 @@ func TestAgentAccessSnapshotMemberSeesApplicableGrantAndOwnSession(t *testing.T)
 
 func TestAgentDetailRejectsUnrelatedDirectRequests(t *testing.T) {
 	listKinds := map[schema.GroupVersionResource]string{
-		{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessGrantResource}:   "MCPAccessGrantList",
-		{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessSessionResource}: "MCPAgentSessionList",
+		{Group: k8sstore.APIGroup, Version: k8sstore.APIVersion, Resource: k8sstore.AccessGrantResource}: "MCPAccessGrantList",
 	}
 	server := &RuntimeServer{
 		identity:  &agentIdentityStub{agent: platformapi.Agent{ID: "agt_01arz3ndektsv4rrffq69g5fav", TeamID: "team-id", TeamSlug: "core", Status: "active"}},
-		accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds), nil),
+		accessMgr: k8sstore.NewManager(dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), listKinds), nil).WithSessionBackend(newMemorySessionBackend()),
 	}
 	path := "/api/v1/runtime/agents/agt_01arz3ndektsv4rrffq69g5fav"
 	for _, tc := range []struct {

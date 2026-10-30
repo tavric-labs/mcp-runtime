@@ -94,7 +94,7 @@ mcpruntime_org_clean_cluster_scoped_mcp() {
   namespaces="$(mcpruntime_org_list_namespaces_to_delete)"
   while IFS= read -r ns; do
     [[ -n "$ns" ]] || continue
-    mcpruntime_org_kubectl delete mcpserver,mcpaccessgrant,mcpagentsession --all -n "$ns" --ignore-not-found --wait=false
+    mcpruntime_org_kubectl delete mcpserver,mcpaccessgrant --all -n "$ns" --ignore-not-found --wait=false
   done <<<"$namespaces"
   if ! mcpruntime_org_kubectl delete clusterrole,clusterrolebinding \
     -l app.kubernetes.io/managed-by=mcp-runtime --ignore-not-found; then

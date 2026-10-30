@@ -1391,30 +1391,6 @@ func TestRenderGatewayPolicyIncludesCrossNamespaceReferences(t *testing.T) {
 			Subject:   mcpv1alpha1.SubjectRef{HumanID: "user-4", TeamID: "team-foreign"},
 		},
 	}
-	session := &mcpv1alpha1.MCPAgentSession{
-		ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "team-b"},
-		Spec: mcpv1alpha1.MCPAgentSessionSpec{
-			ServerRef:      mcpv1alpha1.ServerReference{Name: "payments", Namespace: "servers"},
-			Subject:        mcpv1alpha1.SubjectRef{AgentID: "agent-1", TeamID: "team-payments"},
-			ConsentedTrust: mcpv1alpha1.TrustLevelMedium,
-		},
-	}
-	defaultedSession := &mcpv1alpha1.MCPAgentSession{
-		ObjectMeta: metav1.ObjectMeta{Name: "session-default", Namespace: "team-b"},
-		Spec: mcpv1alpha1.MCPAgentSessionSpec{
-			ServerRef:      mcpv1alpha1.ServerReference{Name: "payments", Namespace: "servers"},
-			Subject:        mcpv1alpha1.SubjectRef{AgentID: "agent-2"},
-			ConsentedTrust: mcpv1alpha1.TrustLevelMedium,
-		},
-	}
-	foreignTeamSession := &mcpv1alpha1.MCPAgentSession{
-		ObjectMeta: metav1.ObjectMeta{Name: "session-foreign", Namespace: "team-b"},
-		Spec: mcpv1alpha1.MCPAgentSessionSpec{
-			ServerRef:      mcpv1alpha1.ServerReference{Name: "payments", Namespace: "servers"},
-			Subject:        mcpv1alpha1.SubjectRef{AgentID: "agent-3", TeamID: "team-foreign"},
-			ConsentedTrust: mcpv1alpha1.TrustLevelMedium,
-		},
-	}
 	unrelatedGrant := &mcpv1alpha1.MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{Name: "grant-b", Namespace: "team-a"},
 		Spec: mcpv1alpha1.MCPAccessGrantSpec{
@@ -1425,7 +1401,7 @@ func TestRenderGatewayPolicyIncludesCrossNamespaceReferences(t *testing.T) {
 
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).WithIndex(&mcpv1alpha1.MCPAccessGrant{}, grantTargetServerIndex, grantTargetServerKeys).
-		WithObjects(mcpServer, grant, defaultedGrant, foreignTeamGrant, session, defaultedSession, foreignTeamSession, unrelatedGrant).
+		WithObjects(mcpServer, grant, defaultedGrant, foreignTeamGrant, unrelatedGrant).
 		Build()
 	r := MCPServerReconciler{
 		GatewayProxyImage: "example.com/mcp-gateway:test", Client: client, Scheme: scheme}

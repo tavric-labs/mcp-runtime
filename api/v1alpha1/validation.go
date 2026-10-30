@@ -22,10 +22,9 @@ import (
 )
 
 var (
-	_ admission.Defaulter[*MCPServer]       = mcpServerWebhook{}
-	_ admission.Validator[*MCPServer]       = mcpServerWebhook{}
-	_ admission.Validator[*MCPAccessGrant]  = mcpAccessGrantValidator{}
-	_ admission.Validator[*MCPAgentSession] = mcpAgentSessionValidator{}
+	_ admission.Defaulter[*MCPServer]      = mcpServerWebhook{}
+	_ admission.Validator[*MCPServer]      = mcpServerWebhook{}
+	_ admission.Validator[*MCPAccessGrant] = mcpAccessGrantValidator{}
 )
 
 const (
@@ -598,38 +597,6 @@ func (r *MCPAccessGrant) wildcardSubjectWarnings() admission.Warnings {
 	return admission.Warnings{
 		"MCPAccessGrant subject is empty (wildcard grant): the gateway matches any authenticated principal for the server; adapter session creation still requires subject alignment with the caller",
 	}
-}
-
-func (r *MCPAgentSession) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, r).
-		WithValidator(mcpAgentSessionValidator{}).
-		Complete()
-}
-
-type mcpAgentSessionValidator struct{}
-
-func (mcpAgentSessionValidator) ValidateCreate(_ context.Context, obj *MCPAgentSession) (admission.Warnings, error) {
-	return obj.ValidateCreate()
-}
-
-func (mcpAgentSessionValidator) ValidateUpdate(_ context.Context, oldObj *MCPAgentSession, newObj *MCPAgentSession) (admission.Warnings, error) {
-	return newObj.ValidateUpdate(oldObj)
-}
-
-func (mcpAgentSessionValidator) ValidateDelete(_ context.Context, obj *MCPAgentSession) (admission.Warnings, error) {
-	return obj.ValidateDelete()
-}
-
-func (r *MCPAgentSession) ValidateCreate() (admission.Warnings, error) {
-	return nil, r.validate()
-}
-
-func (r *MCPAgentSession) ValidateUpdate(_ runtime.Object) (admission.Warnings, error) {
-	return nil, r.validate()
-}
-
-func (r *MCPAgentSession) ValidateDelete() (admission.Warnings, error) {
-	return nil, nil
 }
 
 func validToolSideEffect(sideEffect ToolSideEffect) bool {

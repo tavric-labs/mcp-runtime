@@ -1,9 +1,10 @@
-Commands for managing MCPAccessGrant and MCPAgentSession resources that feed the gateway policy layer.
+Commands for managing MCPAccessGrant Kubernetes resources and platform-stored agent sessions.
 
 With mcp-runtime auth login, commands use the platform API by default for normal
 user and admin workflows. Use --use-kube only for admin/dev/test direct
-Kubernetes operations; it requires kubectl plus admin/operator kubeconfig and
-RBAC access. For platform workflows, run mcp-runtime auth login --api-url
+Kubernetes grant operations; sessions always require the platform API. Direct
+grant operations require kubectl plus admin/operator kubeconfig and RBAC access.
+For platform workflows, run mcp-runtime auth login --api-url
 <platform-url> and stay on the platform API path.
 
 Usage:
@@ -12,7 +13,7 @@ Usage:
 Available Commands:
   explain     Explain a hypothetical access decision
   grant       Manage MCPAccessGrant resources
-  session     Manage MCPAgentSession resources
+  session     Manage platform-stored agent sessions
 
 Flags:
   -h, --help       help for access

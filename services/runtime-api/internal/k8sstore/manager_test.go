@@ -22,8 +22,8 @@ func TestManagerUsesRuntimeCRDGroup(t *testing.T) {
 	if APIVersion != mcpv1alpha1.GroupVersion.Version {
 		t.Fatalf("APIVersion = %q, want %q", APIVersion, mcpv1alpha1.GroupVersion.Version)
 	}
-	if grantGVR.Group != APIGroup || sessionGVR.Group != APIGroup {
-		t.Fatalf("expected grant/session GVRs to use APIGroup %q, got %q and %q", APIGroup, grantGVR.Group, sessionGVR.Group)
+	if grantGVR.Group != APIGroup {
+		t.Fatalf("expected grant GVR to use APIGroup %q, got %q", APIGroup, grantGVR.Group)
 	}
 }
 
@@ -85,45 +85,6 @@ func TestApplyGrantCreatesAndUpdates(t *testing.T) {
 	}
 	if len(updated.OwnerReferences) != 1 || updated.OwnerReferences[0].Name != "demo" {
 		t.Fatalf("updated owner references = %#v, want preserved owner reference", updated.OwnerReferences)
-	}
-}
-
-func TestApplySessionCreatesAndUpdates(t *testing.T) {
-	ctx := context.Background()
-	manager := NewManager(dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()), nil)
-
-	created, err := manager.ApplySession(ctx, &MCPAgentSession{
-		ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "mcp-servers"},
-		Spec: access.MCPAgentSessionSpec{
-			ServerRef:      access.ServerReference{Name: "demo"},
-			Subject:        access.SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
-			ConsentedTrust: access.TrustLevel("low"),
-		},
-	})
-	if err != nil {
-		t.Fatalf("ApplySession create returned error: %v", err)
-	}
-	if created.Name != "session-a" || created.Spec.ConsentedTrust != access.TrustLevel("low") {
-		t.Fatalf("created session mismatch: %#v", created)
-	}
-
-	updated, err := manager.ApplySession(ctx, &MCPAgentSession{
-		ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "mcp-servers"},
-		Spec: access.MCPAgentSessionSpec{
-			ServerRef:      access.ServerReference{Name: "demo"},
-			Subject:        access.SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
-			ConsentedTrust: access.TrustLevel("medium"),
-			Revoked:        true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("ApplySession update returned error: %v", err)
-	}
-	if updated.Spec.ConsentedTrust != access.TrustLevel("medium") {
-		t.Fatalf("updated ConsentedTrust = %q, want medium", updated.Spec.ConsentedTrust)
-	}
-	if !updated.Spec.Revoked {
-		t.Fatalf("updated Revoked = false, want true")
 	}
 }
 

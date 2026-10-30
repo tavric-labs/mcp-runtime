@@ -1,4 +1,4 @@
-Manage MCPAgentSession resources
+Manage platform-stored agent sessions
 
 Usage:
   mcp-runtime access session [command]

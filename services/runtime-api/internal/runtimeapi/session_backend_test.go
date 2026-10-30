@@ -89,7 +89,7 @@ func TestPlatformSessionBackendPersistsWithoutKubernetesState(t *testing.T) {
 		t.Fatalf("lost session attribution: %+v", client.row)
 	}
 	for _, action := range dynamic.Actions() {
-		if action.GetResource().Resource == k8sstore.AccessSessionResource {
+		if action.GetResource().Resource == "mcpagentsessions" {
 			t.Fatalf("used Kubernetes session state: %+v", action)
 		}
 	}
@@ -109,7 +109,7 @@ func TestPlatformSessionBackendPersistsWithoutKubernetesState(t *testing.T) {
 	}
 	// No backend operation may silently query CRDs during an outage.
 	for _, action := range dynamic.Actions() {
-		if action.GetResource().Resource == k8sstore.AccessSessionResource {
+		if action.GetResource().Resource == "mcpagentsessions" {
 			t.Fatal("fell back to Kubernetes")
 		}
 	}

@@ -96,7 +96,7 @@ The gateway denies by default: without a grant, the agent has no access.
 
 ### 4. MCPAgentSession
 
-A time-bounded resource that records a human, agent, and team identity for one
+A time-bounded platform record, stored in Postgres, that records a human, agent, and team identity for one
 server, along with the trust the user consented to, an expiry, and revocation
 state. It is not an OAuth token. The adapter's certificate proves which session
 is calling.
@@ -109,12 +109,15 @@ MCPAgentSession
     teamID: <team-uuid>
   consentedTrust: low    ← human approved this level
   expiresAt: ...         ← gateway rejects after this
-  revoked: false         ← set true to block later calls after policy refresh
+  revoked: false         ← set true to block later calls after session sync
 ```
 
 When `session.required: true`, the gateway checks for an active matching
 session on each tool call. `server init` enables this by default. Servers with
 optional sessions use the grant's `maxTrust` when no session matches.
+
+`MCPAgentSession` YAML is an admin platform-apply input, not a Kubernetes CRD.
+Gateways poll platform session changes every 500 ms and authorize from memory.
 
 The adapter creates or reuses a session at startup when you provide `--server`
 and `--agent`. `--auto-refresh` renews the certificate before it expires; it

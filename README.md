@@ -22,7 +22,7 @@ The workflow has three steps:
 2. **Grant access.** An access grant (`mcp-runtime access grant init`) lets a person, agent, or team call specific tools on that server, up to a maximum trust level and only with the side effects you allow.
 3. **Open a session.** An agent session (`mcp-runtime access session init`) time-boxes that access for one agent, and you can revoke it at any time.
 
-On every call, a gateway in front of the server checks the caller's identity, session, trust level, and the tool's side effect before the call reaches your code, and records the decision for audit. `MCPServer` and `MCPAccessGrant` are cluster resources, and the operator creates the Deployment, Service, Ingress, and policy for you. Agent sessions are platform records in Postgres: create and revoke them with the CLI or UI. `MCPAgentSession` YAML is only an admin apply input, and Kubernetes session objects do not authorize calls.
+On every call, a gateway in front of the server checks the caller's identity, session, trust level, and the tool's side effect before the call reaches your code, and records the decision for audit. `MCPServer` and `MCPAccessGrant` are cluster resources, and the operator creates the Deployment, Service, Ingress, and policy for you. Agent sessions are platform records in Postgres: create and revoke them with the CLI or UI. `MCPAgentSession` YAML is only an admin apply input, and there is no session CRD.
 
 A public preview runs at [platform.mcpruntime.org](https://platform.mcpruntime.org/). The same stack installs into your own cluster with `mcp-runtime setup`.
 
@@ -179,7 +179,7 @@ reconciles and the gateway enforces.
 | [Kong](https://github.com/Kong/kong) | General API gateway with MCP proxy and AI gateway features | General-purpose gateway. MCP Runtime is an MCP-specific control plane for workloads, grants, and sessions. |
 | [Portkey](https://github.com/Portkey-AI/gateway) | AI gateway and managed MCP gateway | Focused on AI traffic and hosted gateways. MCP Runtime is self-managed and reconciled from Kubernetes resources. |
 | [Composio](https://github.com/ComposioHQ/composio) | SaaS integrations, toolkits, and per-user OAuth for agents | Focused on integration breadth. MCP Runtime focuses on operating MCP workloads and access policy. |
-| [Preloop](https://github.com/preloop/preloop) | Agent control plane with MCP firewall, model gateway, approvals, and budgets | Focused on model controls and approvals. MCP Runtime expresses grants and sessions as Kubernetes state. |
+| [Preloop](https://github.com/preloop/preloop) | Agent control plane with MCP firewall, model gateway, approvals, and budgets | Focused on model controls and approvals. MCP Runtime combines Kubernetes grants with platform-stored sessions. |
 
 ### When to choose MCP Runtime
 

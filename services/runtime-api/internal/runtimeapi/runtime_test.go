@@ -160,7 +160,7 @@ func newTestAccessManagerWithObjects(t *testing.T, objects ...runtime.Object) *k
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	return k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, objects...), nil)
+	return k8sstore.NewManager(dynamicfake.NewSimpleDynamicClient(scheme, objects...), nil).WithSessionBackend(newMemorySessionBackend())
 }
 
 func TestRuntimeGrantApplyRejectsUnknownServer(t *testing.T) {
@@ -2210,6 +2210,7 @@ func TestRuntimeServerRetireDeletesOwnedServer(t *testing.T) {
 			Clientset: kubernetesfake.NewSimpleClientset(),
 		},
 	}
+	server.accessMgr = k8sstore.NewManager(server.k8sClients.Dynamic, server.k8sClients.Clientset).WithSessionBackend(newMemorySessionBackend())
 	request := httptest.NewRequest(http.MethodDelete, "/api/runtime/servers/user-1/demo", nil)
 	request = request.WithContext(withPrincipal(request.Context(), principal{
 		Role:      roleUser,
@@ -2753,7 +2754,7 @@ func TestRuntimeGrantListScopesBySubjectWithoutServerLookup(t *testing.T) {
 		serverLists++
 		return false, nil, nil
 	})
-	accessMgr := k8sstore.NewManager(dynamicClient, nil)
+	accessMgr := k8sstore.NewManager(dynamicClient, nil).WithSessionBackend(newMemorySessionBackend())
 	for _, name := range []string{"grant-one", "grant-two"} {
 		if _, err := accessMgr.ApplyGrant(ctx, &k8sstore.MCPAccessGrant{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-team-acme"},
@@ -3224,7 +3225,7 @@ func TestRuntimeSessionListScopesBySubjectWithoutServerLookup(t *testing.T) {
 		serverLists++
 		return false, nil, nil
 	})
-	accessMgr := k8sstore.NewManager(dynamicClient, nil)
+	accessMgr := k8sstore.NewManager(dynamicClient, nil).WithSessionBackend(newMemorySessionBackend())
 	for _, name := range []string{"session-one", "session-two"} {
 		if _, err := accessMgr.ApplySession(ctx, &k8sstore.MCPAgentSession{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-team-acme"},
