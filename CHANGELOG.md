@@ -7,9 +7,16 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-30
+
+Breaking `0.x` release: sessions use the platform Postgres store exclusively;
+the `MCPAgentSession` Kubernetes CRD is removed. Deploy with `mcp-runtime update`,
+then verify session access before deliberately removing an installed obsolete
+CRD. No database reset or fresh setup is required when updating from 0.14.2.
+
 ### Removed
 
-- Remove the `MCPAgentSession` Kubernetes CRD, admission webhook, session RBAC and Kubernetes persistence path. Sessions live in Postgres and synchronize to gateway memory; `MCPServer` and `MCPAccessGrant` remain CRDs. Admin session YAML is a platform API input. Session operations require the platform backend, and server session metadata defaults to the platform store. See [session storage](docs/contributor/gateway-session-sync.md#session-storage).
+- Remove the `MCPAgentSession` Kubernetes CRD, admission webhook, session RBAC and Kubernetes persistence path. Sessions live in Postgres and synchronize to gateway memory; `MCPServer` and `MCPAccessGrant` remain CRDs. Admin session YAML is a platform API input. Session operations require the platform backend, and server session metadata defaults to the platform store. See [session storage](docs/contributor/gateway-session-sync.md#session-storage) ([#882](https://github.com/tavric-labs/mcp-runtime/pull/882)).
 - **Upgrade (breaking, new minor):** deploy with `mcp-runtime update`. It stops delivering the session webhook and RBAC but does not prune an installed `mcpagentsessions.mcpruntime.org` CRD. After verifying session list/get and an allowed and a denied tool call, delete that inactive definition as a deliberate cleanup; platform sessions in Postgres are unaffected and old CR objects must not be restored as sessions. Snapshot first. Steps: [session CRD removal](hack/deploy/reference/session-crd-removal.md).
 
 ## [0.14.2] - 2026-10-29
@@ -706,7 +713,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.2...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.13.1...v0.14.0
