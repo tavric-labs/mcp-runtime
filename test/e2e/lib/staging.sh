@@ -1380,6 +1380,25 @@ staging_enable_mcp_auth_for_run() {
   esac
 }
 
+# Test fixture only: the VM guard runs before this helper. Keep its RSA key
+# outside uploaded run artifacts and reuse it across disposable cluster resets.
+staging_prepare_mcp_auth_signing_key() (
+  staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}" || return 0
+  local secret="${E2E_MCP_AUTH_SIGNING_KEY_SECRET:?set the staging signing-key Secret name}"
+  if kubectl -n mcp-platform get secret "${secret}" >/dev/null 2>&1; then return 0; fi
+  umask 077
+  local dir="${E2E_BACKUP_DIR:-/var/lib/mcp-runtime-e2e-backup}" key
+  mkdir -p "${dir}"
+  key="${dir}/mcp-auth-signing-key.pem"
+  if [[ ! -s "${key}" ]]; then
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "${key}.tmp" 2>/dev/null || return
+    mv "${key}.tmp" "${key}" || return
+  fi
+  kubectl create namespace mcp-platform --dry-run=client -o yaml | kubectl apply -f - >/dev/null || return
+  kubectl -n mcp-platform create secret generic "${secret}" \
+    --from-file="private-key.pem=${key}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+)
+
 staging_check_oidc() {
   local oidc_issuer
   oidc_issuer="$(kubectl -n mcp-platform get configmap mcp-shared-config -o jsonpath='{.data.OIDC_ISSUER}' 2>/dev/null || true)"
@@ -1387,21 +1406,23 @@ staging_check_oidc() {
   if ! staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}"; then
     staging_skip "E2E_WITH_MCP_AUTH is not enabled in e2e.env, so the mcp-auth/Keycloak OAuth path is not installed on this run"
   fi
-  local dir="${STAGING_ARTIFACT_DIR}" issuer jwks
-  curl --fail --silent --show-error "${AUTH_URL}/.well-known/openid-configuration" >"${dir}/auth-oidc-discovery.json"
-  curl --fail --silent --show-error "${AUTH_URL}/.well-known/oauth-authorization-server" >"${dir}/auth-server-metadata.json"
+  local dir="${STAGING_ARTIFACT_DIR}" issuer jwks auth_issuer issuer_path provider
+  auth_issuer="${E2E_MCP_AUTH_ISSUER_URL:-${AUTH_URL}/mcp-auth}"
+  issuer_path="${auth_issuer#"${AUTH_URL}"}"
+  curl --fail --silent --show-error "${AUTH_URL}/.well-known/openid-configuration${issuer_path}" >"${dir}/auth-oidc-discovery.json" || return
+  curl --fail --silent --show-error "${AUTH_URL}/.well-known/oauth-authorization-server${issuer_path}" >"${dir}/auth-server-metadata.json" || return
   issuer="$(jq -r '.issuer' "${dir}/auth-oidc-discovery.json")"
   jwks="$(jq -r '.jwks_uri' "${dir}/auth-oidc-discovery.json")"
   staging_log "mcp-auth issuer ${issuer}"
-  [[ "${issuer}" == "${AUTH_URL}"* ]] || {
-    staging_err "discovery issuer ${issuer} is not under ${AUTH_URL}"
+  [[ "${issuer}" == "${auth_issuer}" ]] || {
+    staging_err "discovery issuer ${issuer} differs from ${auth_issuer}"
     return 1
   }
-  curl --fail --silent --show-error "${jwks}" | jq -e '.keys | length > 0' >/dev/null
+  curl --fail --silent --show-error "${jwks}" | jq -e '.keys | length > 0' >/dev/null || return
   staging_log "JWKS publishes signing keys"
-  if [[ -n "${E2E_MCP_AUTH_ISSUER_URL:-}" ]]; then
-    "${BIN}" auth provider-check --issuer-url "${E2E_MCP_AUTH_ISSUER_URL}"
-  fi
+  provider="$(jq -er --arg connector "${E2E_MCP_AUTH_CONNECTOR:?}" \
+    '.[$connector].issuer | select(type == "string" and length > 0)' "${E2E_MCP_AUTH_CONNECTORS_FILE:?}")" || return
+  "${BIN}" auth provider-check --issuer-url "${provider}" || return
   # An unauthenticated MCP request must be challenged towards the auth server.
   local challenge
   challenge="$(curl --silent --output /dev/null -D - -X POST -H 'content-type: application/json' \
@@ -1409,7 +1430,7 @@ staging_check_oidc() {
   staging_log "MCP ingress challenge: ${challenge:-<none>}"
   if [[ -n "${E2E_OIDC_TEST_USERNAME:-}" && -n "${E2E_OIDC_TEST_PASSWORD:-}" && -n "${E2E_OIDC_TEST_CLIENT_ID:-}" ]]; then
     local token_endpoint body="${WORK_DIR}/oidc-token.json" code
-    token_endpoint="$(curl --fail --silent "${E2E_MCP_AUTH_ISSUER_URL}/.well-known/openid-configuration" | jq -r '.token_endpoint')"
+    token_endpoint="$(curl --fail --silent "${provider}/.well-known/openid-configuration" | jq -r '.token_endpoint')"
     code="$(curl --silent --output "${body}" --write-out '%{http_code}' -X POST "${token_endpoint}" \
       --data-urlencode grant_type=password --data-urlencode "client_id=${E2E_OIDC_TEST_CLIENT_ID}" \
       --data-urlencode "username=${E2E_OIDC_TEST_USERNAME}" --data-urlencode "password@-" \

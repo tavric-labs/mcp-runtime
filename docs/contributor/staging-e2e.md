@@ -148,8 +148,12 @@ outside the checkout and outside every cleanup path:
 E2E_ACME_EMAIL=operations@example.com
 E2E_PLATFORM_API_TOKEN=replace-with-an-e2e-only-admin-key
 E2E_WITH_MCP_AUTH=1
-E2E_MCP_AUTH_ISSUER_URL=https://auth.e2e.mcpruntime.org/realms/mcp
+E2E_MCP_AUTH_ISSUER_URL=https://auth.e2e.mcpruntime.org/mcp-auth
 E2E_MCP_AUTH_CONNECTOR=keycloak
+E2E_MCP_AUTH_CONNECTORS_FILE=/var/lib/mcp-runtime-e2e-backup/connectors.json
+E2E_MCP_AUTH_SIGNING_KEY_SECRET=mcp-auth-signing-key
+# Public mode requires browser login even when bundled MCP Auth is disabled.
+GOOGLE_CLIENT_ID=replace-with-the-configured-browser-client-id
 # Optional: exercise a Keycloak password grant for a test user.
 E2E_OIDC_TEST_CLIENT_ID=...
 E2E_OIDC_TEST_USERNAME=...
@@ -193,6 +197,15 @@ read-only port-forward.
 The connector name is only an E2E configuration choice. MCP Runtime's auth
 server is provider-agnostic; Keycloak gives the test an isolated OIDC issuer
 and test user.
+
+The connector file supplies the upstream provider's HTTPS issuer and endpoints;
+`E2E_MCP_AUTH_ISSUER_URL` identifies the bundled server itself. Keep connector
+credentials in the private VM environment and use `client_secret_env` references
+in the file. The guarded runner provisions a dedicated RSA signing-key fixture
+before setup when MCP Auth is enabled, preserving a restored Secret if present.
+Its private PEM stays in the backup directory, outside uploaded run artifacts,
+and is reused across disposable cluster resets. Browser login can instead use
+`OIDC_ISSUER` and `OIDC_AUDIENCE`; see the setup browser-login requirements.
 
 ## Workflow inputs
 
