@@ -1,6 +1,7 @@
 name: Scoped Observability E2E
 
 on:
+  workflow_call: {}
   workflow_dispatch: {}
   pull_request:
     paths:
@@ -25,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: scoped-observability-${{ github.event.pull_request.number || github.ref }}
+  group: scoped-observability-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -71,7 +72,8 @@ jobs:
           export CLUSTER_NAME="mcp-scope-e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           export LOCAL_REGISTRY_NAME="${CLUSTER_NAME}-mirror"
           export LOCAL_REGISTRY_PORT=$((20000 + ((GITHUB_RUN_ID + GITHUB_RUN_ATTEMPT) % 20000)))
-          export KUBECONFIG="$(mktemp)"
+          KUBECONFIG="$(mktemp)"
+          export KUBECONFIG
           bash test/e2e/qa-e2e.sh
       - name: Upload redacted acceptance and resource reports
         if: always()

@@ -101,6 +101,11 @@ if [[ -f "${BACKUP_DIR}/e2e.env" ]]; then
 fi
 export E2E_MTLS_CLUSTER_ISSUER="${E2E_MTLS_CLUSTER_ISSUER-mcp-e2e-workload}"
 staging_enable_mcp_auth_for_run "${E2E_WITH_MCP_AUTH_OVERRIDE:-false}"
+case "${E2E_PLATFORM_MODE_OVERRIDE:-}" in
+  org|public) export E2E_PLATFORM_MODE="${E2E_PLATFORM_MODE_OVERRIDE}" ;;
+  "") ;;
+  *) fail "unsupported platform mode override: ${E2E_PLATFORM_MODE_OVERRIDE}" ;;
+esac
 # Adapter certificates on gateway routes are an opt-in platform feature; setup
 # reads MCP_ADAPTER_CERTIFICATES, MCP_TRUST_DOMAIN and
 # MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE from the environment.

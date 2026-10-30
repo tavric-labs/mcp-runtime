@@ -293,11 +293,16 @@ only as an unexplained deployment timeout. On-VM run directories live in
 
 The **Pre-release Regression** workflow calls **Staging E2E (Disposable VM)**
 with the multi-tenancy flow enabled and the existing staging TLS snapshot.
-Staging is the only cluster suite in Pre-release Regression; Kind QA stays in
-PR CI. The staging setup currently uses org platform mode.
+Full Kind matrices run on independent GitHub runners alongside staging.
 Merges to `main` do not run it. The job holds the `staging-e2e-disposable-vm`
 lock, so only one Staging run uses the VM at a time. Pull requests do not
 receive the disposable-VM secrets; QA E2E runs on GitHub runners instead.
+Pre-release Regression now runs staging in `org` and `public`, each with
+bundled MCP Auth explicitly `enabled` and `disabled`. It serializes all four
+cells on the VM and names their run directories and artifacts separately.
+`platform-mode` and `mcp-auth-mode` override preserved VM values for that run;
+the default `mcp-auth-mode=inherit` keeps manual runs' existing behavior.
+See [Release Gate](release-gate.md) for the complete required matrix.
 Dispatch the workflow manually when you need staging evidence before a release
 or are iterating on a PR:
 

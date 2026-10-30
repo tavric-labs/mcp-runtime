@@ -12,6 +12,52 @@ permissions:
   pull-requests: read
 
 jobs:
+  ui-regression:
+    name: UI unit and browser regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/ui/frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: services/ui/frontend
+        run: npm ci
+      - name: Unit and accessibility tests
+        working-directory: services/ui/frontend
+        run: npm test -- --maxWorkers=2
+      - name: Install Chromium
+        working-directory: services/ui/frontend
+        run: npx playwright install --with-deps chromium
+      - name: Browser workflows with API fixtures
+        working-directory: services/ui/frontend
+        run: npm run test:browser
+      - name: Verify committed frontend assets
+        working-directory: services/ui/frontend
+        run: |
+          npm run build
+          git diff --exit-code -- ../static
+          test -z "$(git ls-files --others --exclude-standard ../static)"
+      - name: Upload failed browser evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-browser-failures
+          path: services/ui/frontend/test-results
+          if-no-files-found: ignore
+
+  automation:
+    name: Automation Regression
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Script regressions and shell lint (no cluster access)
+        run: |
+          hack/ci/check-scripts.sh
+
   release-build:
     name: Release CLI cross-platform builds
     uses: ./.github/workflows/release-build.yaml
@@ -78,7 +124,8 @@ jobs:
 
       - name: Install envtest
         run: |
-          export KUBEBUILDER_ASSETS=$(go run sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.24.0 use -p path)
+          KUBEBUILDER_ASSETS="$(go run sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.24.0 use -p path)"
+          export KUBEBUILDER_ASSETS
           echo "KUBEBUILDER_ASSETS=$KUBEBUILDER_ASSETS" >> "$GITHUB_ENV"
 
       - name: Build CLI
@@ -90,8 +137,9 @@ jobs:
       - name: Run root unit tests
         run: |
           module_path="$(go list -m)"
-          go test -v -race -count=1 \
-            $(go list ./... | grep -v -x "${module_path}/test/integration")
+          go list ./... > "$RUNNER_TEMP/root-packages.txt"
+          mapfile -t packages < <(grep -v -x "${module_path}/test/integration" "$RUNNER_TEMP/root-packages.txt")
+          go test -v -race -count=1 "${packages[@]}"
 
       - name: Run integration tests
         run: go test -v -race -timeout 30m -count=1 ./test/integration/...
@@ -113,6 +161,17 @@ jobs:
           - processor
           - mcp-gateway
           - ui
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        env:
+          POSTGRES_PASSWORD: disposable-test-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      MCP_PLATFORM_TEST_POSTGRES_DSN: postgres://postgres:disposable-test-password@127.0.0.1:5432/postgres?sslmode=disable
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -182,7 +241,7 @@ jobs:
         run: go install github.com/securego/gosec/v2/cmd/gosec@v2.26.1
 
       - name: Run gosec
-        run: $(go env GOPATH)/bin/gosec ./...
+        run: '"$(go env GOPATH)/bin/gosec" ./...'
 
   gitleaks:
     name: Gitleaks Scan
@@ -319,19 +378,124 @@ jobs:
           sarif_file: trivy-image.sarif
           category: pre-release-trivy-operator-image
 
+  full-kind:
+    name: Kind (${{ matrix.mode }}, ${{ matrix.replicas }})
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [org, public]
+        replicas: [1, 2]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/full-qa-e2e.yaml
+    with:
+      platform-mode: ${{ matrix.mode }}
+      replicas: ${{ matrix.replicas }}
+
+  macos-companion:
+    name: macOS companion
+    uses: ./.github/workflows/macos-companion.yaml
+
+  scoped-observability:
+    name: Scoped observability
+    uses: ./.github/workflows/scoped-observability-e2e.yaml
+
+  protocol-transports:
+    name: Protocol and transport matrix
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - name: Adapter HTTP and gateway protocol, auth and response combinations
+        run: |
+          KUBECONFIG="$(mktemp)"
+          export KUBECONFIG
+          go test -race -count=1 -v ./internal/agentadapter -run 'TestReleaseProtocolTransportMatrix'
+          cd services/mcp-gateway
+          go test -race -count=1 -v . -run 'TestReleaseProtocolTransportMatrix'
+
+  plugins:
+    name: Plugin Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - run: |
+          KUBECONFIG="$(mktemp)"
+          export KUBECONFIG
+          for plugin in traefik-plugins/*/; do
+            (cd "$plugin" && go test -race -count=1 ./...)
+          done
+
   staging-e2e:
-    name: Staging E2E (disposable VM)
-    # The production install path (strict-prod setup, public TLS, bundled HTTPS
-    # registry, tenants) on the disposable VM. It runs here rather than on every
-    # merge; the called job holds the VM lock so only one run uses the VM.
-    needs:
-      - static
-      - root-tests
-      - service-tests
+    name: Staging (${{ matrix.mode }}, ${{ matrix.auth }})
+    needs: [static, root-tests, service-tests]
+    strategy:
+      fail-fast: false
+      # One disposable VM; never enqueue competing matrix jobs on its lock.
+      max-parallel: 1
+      matrix:
+        mode: [org, public]
+        auth: [disabled, enabled]
     permissions:
       contents: read
       packages: read
     uses: ./.github/workflows/staging-e2e.yaml
     with:
+      platform-mode: ${{ matrix.mode }}
+      mcp-auth-mode: ${{ matrix.auth }}
       run-multitenancy: true
     secrets: inherit
+
+  native-registry-acceptance:
+    name: Native registry authorization acceptance
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: disposable-registry-test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Test a disposable Distribution backend
+        working-directory: services/platform-api
+        env:
+          MCP_REGISTRY_NATIVE_E2E: "1"
+        run: go test ./registry -run TestDistributionEnforcesNativeRegistryScopes -count=1 -timeout=5m
+      - name: Test stored node scopes, expiry and revocation
+        working-directory: services/platform-api
+        env:
+          MCP_PLATFORM_TEST_POSTGRES_DSN: postgres://postgres:disposable-registry-test@127.0.0.1:5432/postgres?sslmode=disable
+        run: go test ./test/integration -run TestRegistryPullCredentialsRevocationAndExpiry -count=1 -timeout=2m
+
+  release-gate:
+    name: Release gate
+    if: ${{ always() }}
+    needs: [release-build, static, root-tests, service-tests, benchmarks, repository-sbom, gosec, gitleaks, trivy, automation, ui-regression, native-registry-acceptance, full-kind, macos-companion, scoped-observability, protocol-transports, plugins, staging-e2e]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every release check, including every matrix cell
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          failed = {name: item['result'] for name, item in results.items() if item['result'] != 'success'}
+          if failed:
+              raise SystemExit(f'Release blocked: {failed}')
+          print('All release combinations passed for this source commit.')
+          PY

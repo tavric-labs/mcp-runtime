@@ -217,6 +217,9 @@ expect_eq "no IP literal is hardcoded for production" \
 (E2E_WITH_MCP_AUTH=0; staging_enable_mcp_auth_for_run true; [[ "${E2E_WITH_MCP_AUTH}" == 1 ]]) && pass "run enables configured-off mcp-auth" || failed "run enables configured-off mcp-auth"
 (E2E_WITH_MCP_AUTH=1; staging_enable_mcp_auth_for_run false; [[ "${E2E_WITH_MCP_AUTH}" == 1 ]]) && pass "default preserves configured-on mcp-auth" || failed "default preserves configured-on mcp-auth"
 (E2E_WITH_MCP_AUTH=0; staging_enable_mcp_auth_for_run false; [[ "${E2E_WITH_MCP_AUTH}" == 0 ]]) && pass "default preserves configured-off mcp-auth" || failed "default preserves configured-off mcp-auth"
+(E2E_WITH_MCP_AUTH=1; staging_enable_mcp_auth_for_run disabled; [[ "${E2E_WITH_MCP_AUTH}" == 0 ]]) && pass "matrix explicitly disables configured-on mcp-auth" || failed "matrix explicitly disables configured-on mcp-auth"
+(E2E_WITH_MCP_AUTH=0; staging_enable_mcp_auth_for_run enabled; [[ "${E2E_WITH_MCP_AUTH}" == 1 ]]) && pass "matrix explicitly enables configured-off mcp-auth" || failed "matrix explicitly enables configured-off mcp-auth"
+expect_fail "unknown auth matrix mode fails closed" staging_enable_mcp_auth_for_run typo
 
 # --- marker --------------------------------------------------------------------
 staging_marker_content vm-e2e-01 >"${TMP}/marker"

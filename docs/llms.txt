@@ -68,6 +68,7 @@
 - Service iteration: https://docs.mcpruntime.org/contributor/service-iteration/ — Iterate on services without rebuilding the full platform.
 - Runtime MCP testing: https://docs.mcpruntime.org/contributor/runtime-mcp-testing/ — Test deployment, catalog, and gateway behavior locally.
 - Staging E2E: https://docs.mcpruntime.org/contributor/staging-e2e/ — Run and inspect the disposable VM test suite.
+- Release gate: https://docs.mcpruntime.org/contributor/release-gate/ — Required release combinations, completion criteria and exact-commit publication checks.
 - Contributor troubleshooting: https://docs.mcpruntime.org/contributor/troubleshooting/ — Fix common development environment failures.
 - Regression coverage: https://docs.mcpruntime.org/contributor/regression-index/ — Map confirmed incidents to regression checks.
 

@@ -1353,9 +1353,12 @@ staging_check_ui() {
 # Run-scoped enablement happens after the preserved e2e.env is sourced. A false
 # override inherits that file, including an existing enabled provider.
 staging_enable_mcp_auth_for_run() {
-  if staging_flag_enabled "${1:-false}"; then
-    export E2E_WITH_MCP_AUTH=1
-  fi
+  case "${1:-inherit}" in
+    enabled|true|1) export E2E_WITH_MCP_AUTH=1 ;;
+    disabled) export E2E_WITH_MCP_AUTH=0 ;;
+    inherit|false|0) ;; # Preserve the existing manual workflow's boolean semantics.
+    *) staging_err "unsupported mcp-auth mode: $1"; return 1 ;;
+  esac
 }
 
 staging_check_oidc() {

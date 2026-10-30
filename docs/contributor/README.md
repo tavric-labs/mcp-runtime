@@ -21,6 +21,8 @@ For verification, [MCP Runtime Tests](runtime-mcp-testing.md) covers real reques
 and governance flows, [Staging End-to-End Tests](staging-e2e.md) exercises a
 production-style installation on a disposable VM, and
 [Regression Coverage](regression-index.md) maps known incidents to checks.
+[Release Gate](release-gate.md) defines the required matrix and publication
+criteria for release candidates.
 Choose checks for the changed behavior; the contribution loop below explains
 when to use each guide.
 

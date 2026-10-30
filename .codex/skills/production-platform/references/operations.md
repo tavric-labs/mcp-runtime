@@ -304,9 +304,14 @@ Windows, using the reusable release build workflow. Require those jobs as well
 as staging to pass before publishing; Linux staging does not cover Windows
 compilation.
 
-Pre-release Regression runs the staging workflow, and it can be dispatched
-manually; merges to `main` do not run it. CI runs QA E2E on PRs or manual
-dispatch, using `test/e2e/qa-e2e.sh` with Kind, and skips it on main pushes.
+Pre-release Regression runs full Kind org/public × replica matrices and
+serialized staging org/public × explicit bundled OAuth enabled/disabled cells.
+It also requires protocol/transport, browser, Postgres-backed service, plugin,
+native registry, Cilium and macOS preview checks. Follow
+[Release Gate](../../../../docs/contributor/release-gate.md) for completion and
+publication; `release.yaml` verifies all required jobs for the exact source
+commit before creating a tag. CI retains path-selected QA E2E on PRs and skips
+that Kind job on main pushes. Neither workflow deploys the live preview.
 
 Workflow `Staging E2E (Disposable VM)` runs `test/e2e/staging-vm.sh` on the
 disposable VM to drive the full strict-prod install (`*.e2e.mcpruntime.org`) and

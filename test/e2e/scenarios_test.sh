@@ -276,8 +276,10 @@ assert "WITH_MCP_AUTH: ${{ inputs.with-mcp-auth }}" in workflow
 assert "E2E_WITH_MCP_AUTH_OVERRIDE=" in workflow
 prerelease = pathlib.Path(sys.argv[1]).with_name("pre-release-regression.yaml").read_text(encoding="utf-8")
 assert "uses: ./.github/workflows/staging-e2e.yaml" in prerelease, "Pre-release Regression must run Staging E2E"
-assert "\n  qa-e2e:\n" not in prerelease, "pre-release must not duplicate PR Kind QA"
-assert "test/e2e/qa-e2e.sh" not in prerelease, "Staging must be the only pre-release cluster suite"
+assert "uses: ./.github/workflows/full-qa-e2e.yaml" in prerelease, "pre-release must run full Kind coverage"
+assert "mode: [org, public]" in prerelease and "replicas: [1, 2]" in prerelease
+assert "auth: [disabled, enabled]" in prerelease and "max-parallel: 1" in prerelease
+assert "E2E_PLATFORM_MODE_OVERRIDE=" in workflow
 assert "run-cache-replay" not in prerelease and "cache-scenarios" not in prerelease, "removed Kind inputs must not remain"
 assert "run-multitenancy: true" in prerelease, "staging must retain tenant isolation coverage"
 assert "  packages: read" in workflow, "staging must be allowed to pull private GHCR cache images"
@@ -305,7 +307,7 @@ print("[pass] CI path exclusions and selector input are guarded")
 # (services/api after the API split) failed the job and skipped E2E.
 root = pathlib.Path(sys.argv[4]).parents[2]
 prerelease = pathlib.Path(sys.argv[4]).with_name("pre-release-regression.yaml").read_text(encoding="utf-8")
-matrix_block = prerelease[prerelease.index("\n  service-tests:\n"):prerelease.index("\n    steps:", prerelease.index("\n  service-tests:\n"))]
+matrix_block = prerelease[prerelease.index("\n  service-tests:\n"):prerelease.index("\n    services:", prerelease.index("\n  service-tests:\n"))]
 listed = {line.strip()[2:] for line in matrix_block.splitlines() if line.strip().startswith("- ")}
 modules = {path.parent.name for path in root.glob("services/*/go.mod")}
 assert listed == modules, f"pre-release service matrix {sorted(listed)} != service modules {sorted(modules)}"

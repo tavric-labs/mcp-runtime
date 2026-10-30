@@ -1,41 +1,89 @@
 name: Release
 
-# Push a v* tag first, then create/publish the GitHub Release from the UI.
-# Tag push alone does not build or upload assets.
+# The manual path verifies the immutable candidate before creating its tag or
+# release. The release event remains supported, with assets blocked by the same
+# gate if someone publishes a release outside this workflow.
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable release tag, for example v0.15.0
+        required: true
+        type: string
+      ref:
+        description: Candidate ref already merged to main and tested by Pre-release Regression
+        default: main
+        type: string
   release:
     types: [published]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.release.tag_name }}-publish
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || inputs.tag }}-publish
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  gate:
+    name: Verify release authorization
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+      tag: ${{ steps.source.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.ref }}
+          fetch-depth: 0
+      - name: Validate source, version and release notes
+        id: source
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          commit="$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$commit" origin/main
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            test "$(git rev-parse "${RELEASE_TAG}^{commit}")" = "$commit"
+          fi
+          grep -Fq "## [${RELEASE_TAG#v}] - " CHANGELOG.md
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Require full regression evidence for this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ steps.source.outputs.commit }}
+        run: python3 hack/release/verify_gate.py --repository "$GITHUB_REPOSITORY" --commit "$RELEASE_COMMIT"
+
   build:
     name: Build CLI binaries
-    if: startsWith(github.event.release.tag_name, 'v')
+    needs: gate
     uses: ./.github/workflows/release-build.yaml
+    with:
+      ref: ${{ needs.gate.outputs.commit }}
+      version: ${{ needs.gate.outputs.tag }}
     permissions:
       contents: read
 
   macos-adapter:
     name: Build universal macOS Adapter preview
-    if: startsWith(github.event.release.tag_name, 'v')
+    needs: gate
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ needs.gate.outputs.commit }}
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Build desktop app and universal CLI with release metadata
         env:
-          MCP_RELEASE_VERSION: ${{ github.event.release.tag_name }}
-          MCP_RELEASE_COMMIT: ${{ github.sha }}
+          MCP_RELEASE_VERSION: ${{ needs.gate.outputs.tag }}
+          MCP_RELEASE_COMMIT: ${{ needs.gate.outputs.commit }}
         run: bash hack/release/macos-adapter/package.sh "${RUNNER_TEMP}/macos-adapter-dist"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -47,10 +95,10 @@ jobs:
   publish:
     name: Upload release assets
     runs-on: ubuntu-24.04
-    needs: [build, macos-adapter]
-    if: startsWith(github.event.release.tag_name, 'v')
+    needs: [gate, build, macos-adapter]
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Download all binaries
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -61,7 +109,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ needs.gate.outputs.commit }}
           fetch-depth: 0
           path: src
 
@@ -82,14 +130,15 @@ jobs:
         shell: bash
         working-directory: src
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ needs.gate.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.gate.outputs.commit }}
         run: |
           set -euo pipefail
-          export RELEASE_COMMIT="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          export RELEASE_COMMIT
           test "$(git rev-parse HEAD)" = "$RELEASE_COMMIT"
           crd_flag=""
-          previous_tag="$(git describe --tags --abbrev=0 "${RELEASE_TAG}^" 2>/dev/null || true)"
-          if [[ -z "${previous_tag}" ]] || ! git diff --quiet "${previous_tag}" "${RELEASE_TAG}" -- config/crd/bases; then
+          previous_tag="$(git describe --tags --abbrev=0 "${RELEASE_COMMIT}^" 2>/dev/null || true)"
+          if [[ -z "${previous_tag}" ]] || ! git diff --quiet "${previous_tag}" "${RELEASE_COMMIT}" -- config/crd/bases; then
             crd_flag="-crd-change"
           fi
           go run ./hack/release/platformmanifest \
@@ -155,11 +204,37 @@ jobs:
         working-directory: dist
         run: sha256sum -- * > SHA256SUMS
 
-      # The GitHub Release already exists (created from the UI). Only upload
-      # binaries and manifests; do not overwrite the release notes body.
-      - name: Upload release assets
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          tag_name: ${{ github.event.release.tag_name }}
-          files: dist/*
-          fail_on_unmatched_files: true
+      - name: Recheck gate before publishing
+        working-directory: src
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ needs.gate.outputs.commit }}
+        run: python3 hack/release/verify_gate.py --repository "$GITHUB_REPOSITORY" --commit "$RELEASE_COMMIT"
+
+      - name: Create release only after all assets and checks are ready
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: src
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.gate.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.gate.outputs.commit }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          tag = os.environ['RELEASE_TAG']
+          changelog = pathlib.Path('CHANGELOG.md').read_text()
+          section = changelog.split(f"## [{tag[1:]}] - ", 1)[1].split('\n', 1)[1].split('\n## [', 1)[0].strip()
+          base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/blob/{tag}/"
+          section = re.sub(r'\]\(((?:docs|hack)/[^)]+)\)', lambda match: '](' + base + match[1] + ')', section)
+          pathlib.Path('../release-notes.md').write_text(section + '\n')
+          PY
+          gh release create "$RELEASE_TAG" --target "$RELEASE_COMMIT" \
+            --title "MCP Runtime $RELEASE_TAG" --notes-file ../release-notes.md \
+            --fail-on-no-commits ../dist/*
+
+      - name: Upload assets for a release published externally
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.gate.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
