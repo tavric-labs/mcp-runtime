@@ -10,6 +10,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 ### Fixed
 
 - Gateway session synchronization fences in-flight refreshes and lookups after an identity rejection or cursor reset. Delayed responses can no longer restore invalidated authority, renew its freshness or apply changes to a cleared cache; a new server-scoped snapshot is required ([#861](https://github.com/tavric-labs/mcp-runtime/issues/861)).
+- Release verification accepts GitHub workflow paths qualified with `@<ref>` while still requiring the exact Pre-release Regression workflow, source commit, repository and successful required jobs. Valid qualified paths no longer block publication; unexpected workflows and malformed paths remain rejected ([#884](https://github.com/tavric-labs/mcp-runtime/pull/884)).
 
 ## [0.15.0] - 2026-10-30
 
