@@ -1245,6 +1245,13 @@ them and restarting the gateway does. Use
 The raw header upstream and gateway OAuth URL remain different endpoints; Runtime does
 not rewrite catalog URLs.
 
+The credential gateway preserves `Mcp-Protocol-Version`, `Mcp-Method`, `Mcp-Name`
+and `Mcp-Param-*` request headers and the MCP body for the upstream server.
+Protocol metadata stays separate from stored credential injection; it does not
+establish caller identity or replace upstream validation of the request body.
+Stateful session IDs remain bound to the signed-in caller and service. Caller
+cookies, identity headers and hop-by-hop headers are not forwarded.
+
 ### Servers that need only a URL in the client
 
 A header-mode server can declare that the gateway collects its headers at

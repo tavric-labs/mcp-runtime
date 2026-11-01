@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- The credential gateway forwards `Mcp-Method`, `Mcp-Name` and `Mcp-Param-*` request headers to upstream MCP servers alongside the protocol version. It preserves stored-credential injection and session binding while continuing to strip caller credentials, identity headers and hop-by-hop metadata ([#662](https://github.com/tavric-labs/mcp-runtime/issues/662)).
+
 ## [0.15.0] - 2026-10-30
 
 Breaking `0.x` release: sessions use the platform Postgres store exclusively;

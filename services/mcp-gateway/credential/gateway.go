@@ -33,7 +33,34 @@ var (
 // other header is dropped, which removes caller credentials, cookies, spoofed
 // identity and forwarding headers, hop-by-hop headers and destination overrides
 // without relying on a deny list.
-var forwardedRequest = []string{"Accept", "Content-Type", "Mcp-Protocol-Version", "Last-Event-Id"}
+var forwardedRequest = []string{"Accept", "Content-Type", "Mcp-Protocol-Version", "Mcp-Method", "Mcp-Name", "Last-Event-Id"}
+
+// copyForwardedRequestHeaders preserves protocol metadata without widening the
+// credential/identity allowlist. Headers named by Connection are hop-by-hop,
+// even when their names would otherwise be accepted here.
+func copyForwardedRequestHeaders(dst, src http.Header) {
+	hop := make(map[string]bool)
+	for _, connection := range src.Values("Connection") {
+		for _, name := range strings.Split(connection, ",") {
+			hop[strings.ToLower(strings.TrimSpace(name))] = true
+		}
+	}
+	for name, values := range src {
+		lower := strings.ToLower(name)
+		if hop[lower] {
+			continue
+		}
+		allowed := strings.HasPrefix(lower, "mcp-param-") && len(lower) > len("mcp-param-")
+		for _, permitted := range forwardedRequest {
+			allowed = allowed || strings.EqualFold(name, permitted)
+		}
+		if allowed {
+			for _, value := range values {
+				dst.Add(name, value)
+			}
+		}
+	}
+}
 
 // returnedResponse is the allowlist of upstream response headers returned.
 var returnedResponse = []string{"Content-Type", "Cache-Control", "Retry-After", "Mcp-Protocol-Version"}
@@ -340,11 +367,7 @@ func (g *Gateway) handle(w http.ResponseWriter, r *http.Request, svc Service) {
 		fail(w, http.StatusBadGateway, "upstream_invalid", "upstream request could not be built", nil)
 		return
 	}
-	for _, name := range forwardedRequest {
-		if v := r.Header.Get(name); v != "" {
-			out.Header.Set(name, v)
-		}
-	}
+	copyForwardedRequestHeaders(out.Header, r.Header)
 	out.Header.Set("Accept-Encoding", "identity")
 	if upstreamSession != "" {
 		out.Header.Set(sessionHeader, upstreamSession)
