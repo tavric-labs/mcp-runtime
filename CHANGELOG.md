@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- Gateway session synchronization fences in-flight refreshes and lookups after an identity rejection or cursor reset. Delayed responses can no longer restore invalidated authority, renew its freshness or apply changes to a cleared cache; a new server-scoped snapshot is required ([#861](https://github.com/tavric-labs/mcp-runtime/issues/861)).
+
 ## [0.15.0] - 2026-10-30
 
 Breaking `0.x` release: sessions use the platform Postgres store exclusively;
