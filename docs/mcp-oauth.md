@@ -270,10 +270,16 @@ The TLS certificate for the issuer host is provisioned by setup using the
 configured TLS ClusterIssuer. Pass `--mcp-auth-tls-secret` only when the
 certificate is externally managed (and use `--provided-tls-secrets`).
 
-The default image is `docker.io/princekrroshan01/mcp-auth-server:0.4.4`.
+The default image is `docker.io/princekrroshan01/mcp-auth-server:0.7.1`.
 The server uses SQLite on a PVC in production and memory storage only in
 `--test-mode`. The setup flag is opt-in; when it is absent, Runtime does not
 deploy this authorization server.
+
+An explicitly empty `MCP_AUTH_RESOURCES` is a deny-all audience allowlist:
+discovery, JWKS and readiness remain available before the first OAuth server
+is deployed and after the last one is removed. Authorization and token issuance
+reject unregistered audiences. MCP Auth 0.7.1 fixes startup in this state while
+retaining HTTPS, persistent signing-key and storage requirements.
 
 The mcp-auth server image is released independently from the MCP Runtime CLI
 and platform images. For a public production rollout, use a unique image ref
@@ -282,11 +288,13 @@ the [reference deployment guide](reference-deployment.md#separate-release-tracks
 An image-only update preserves the existing connector configuration, SQLite
 PVC, signing key, and TLS Secret; it does not require rerunning `setup` or
 issuing a certificate.
+Existing installations need a separately reviewed component manifest selecting
+MCP Auth 0.7.1 and `mcp-runtime update --only mcp-auth`; updating Runtime alone
+does not replace the installed Auth image.
 
-Client ID Metadata Documents (CIMD) are disabled by default in mcp-auth. To
-test CIMD, deploy an image containing the feature and set
-`MCP_AUTH_CLIENT_ID_METADATA_ENABLED=true`; then confirm the authorization
-server metadata advertises `client_id_metadata_document_supported: true`.
+Client ID Metadata Documents (CIMD) are enabled by default in MCP Auth 0.7.1.
+Set `MCP_AUTH_CLIENT_ID_METADATA_ENABLED=false` to disable them. When enabled,
+authorization server metadata advertises `client_id_metadata_document_supported: true`.
 `MCP_AUTH_CLIENT_ID_METADATA_HOSTS` can restrict fetched metadata documents to
 a comma-separated host allowlist. When unset, mcp-auth still rejects non-HTTPS
 URLs and blocks private/reserved network destinations during DNS resolution.

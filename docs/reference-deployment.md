@@ -381,8 +381,8 @@ which cannot be combined with an issuer. Use `--provided-tls-secrets` only when
 you supply the registry/platform TLS Secrets yourself. Strict production also
 requires `--mtls-cluster-issuer` to name a dedicated workload issuer with its
 own signing root; setup rejects the bundled `mcp-runtime-ca`. Pass the image the
-installation currently runs with `--mcp-auth-server-image` (setup defaults to an
-older one), and export the connector client secret, for example
+installation currently runs with `--mcp-auth-server-image` (the setup default
+may differ from the installed image), and export the connector client secret, for example
 `KEYCLOAK_CLIENT_SECRET`, from the protected store before running. Setup's
 preflight refuses a cluster whose ID differs from `--expect-cluster-id` and
 refuses to drop or swap an installed MCP Auth server: select it with
