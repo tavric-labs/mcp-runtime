@@ -24,6 +24,10 @@ CRD. No database reset or fresh setup is required when updating from 0.14.2.
 - Release publication now requires complete Pre-release Regression evidence for the exact source commit before creating the tag or publishing assets. Regression includes full org/public Kind runs with single/multiple replica profiles, serialized org/public staging with MCP Auth enabled/disabled, protocol/JSON/SSE and auth/session combinations, disposable Postgres service tests, browser checks, plugin tests, all-platform-image security scans and macOS preview packaging. Missing or skipped required jobs block publication; see [the release gate](docs/contributor/release-gate.md) ([#884](https://github.com/tavric-labs/mcp-runtime/pull/884)).
 - Disposable OAuth staging runs provision their own persistent signing-key fixture and verify discovery at the configured issuer path, using the connector's upstream issuer for provider checks.
 
+### Fixed
+
+- The credential gateway forwards `Mcp-Method`, `Mcp-Name` and `Mcp-Param-*` request headers to upstream MCP servers alongside the protocol version. It preserves stored-credential injection and session binding while continuing to strip caller credentials, identity headers and hop-by-hop metadata ([#662](https://github.com/tavric-labs/mcp-runtime/issues/662)).
+
 ### Removed
 
 - Remove the `MCPAgentSession` Kubernetes CRD, admission webhook, session RBAC and Kubernetes persistence path. Sessions live in Postgres and synchronize to gateway memory; `MCPServer` and `MCPAccessGrant` remain CRDs. Admin session YAML is a platform API input. Session operations require the platform backend, and server session metadata defaults to the platform store. See [session storage](docs/contributor/gateway-session-sync.md#session-storage) ([#882](https://github.com/tavric-labs/mcp-runtime/pull/882)).

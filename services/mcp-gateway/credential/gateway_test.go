@@ -319,3 +319,109 @@ func TestProtectedResourceMetadataAndHealth(t *testing.T) {
 		}
 	}
 }
+
+func TestForwardsModernMCPHeadersWithStoredCredentials(t *testing.T) {
+	e := newEnv(t)
+	sub, err := e.signIn("alice", tSentinel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := e.as.Token(TokenOpts{Subject: sub})
+	for _, version := range []string{"2025-11-25", "2026-07-28"} {
+		for _, method := range []string{"tools/call", "prompts/get", "resources/read"} {
+			t.Run(version+"/"+method, func(t *testing.T) {
+				name, params := "buddy.echo", `{"name":"buddy.echo","arguments":{"project":"demo","request-id":"req-1"}}`
+				switch method {
+				case "prompts/get":
+					name, params = "buddy.summary", `{"name":"buddy.summary","arguments":{"project":"demo"}}`
+				case "resources/read":
+					name, params = "file:///demo/readme", `{"uri":"file:///demo/readme"}`
+				}
+				body := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q,"params":%s}`, method, params)
+				headers := map[string]string{
+					"Mcp-Protocol-Version": version, "Mcp-Method": method, "Mcp-Name": name,
+					"Mcp-Unknown": "drop", "X-Mcp-Human-Id": "forged", "Cookie": "session=forged",
+					"X-Forwarded-For": "198.51.100.1",
+				}
+				expected := []string{"Mcp-Protocol-Version", "Mcp-Method", "Mcp-Name"}
+				if method == "tools/call" {
+					headers["Mcp-Param-Project"], headers["Mcp-Param-Request-Id"] = "demo", "req-1"
+					expected = append(expected, "Mcp-Param-Project", "Mcp-Param-Request-Id")
+				}
+				resp := e.call(http.MethodPost, token, body, headers)
+				resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("status=%d", resp.StatusCode)
+				}
+				records := e.upstreamMCP()
+				got := records[len(records)-1]
+				if got.Body != body {
+					t.Fatal("MCP body changed")
+				}
+				for _, name := range expected {
+					if got.Header.Get(name) != headers[name] {
+						t.Errorf("%s=%q, want %q", name, got.Header.Get(name), headers[name])
+					}
+				}
+				for _, name := range []string{"Authorization", "Cookie", "X-Mcp-Human-Id", "X-Forwarded-For", "Mcp-Unknown"} {
+					if got.Header.Get(name) != "" {
+						t.Errorf("untrusted header %s was forwarded", name)
+					}
+				}
+				if got.Header.Get("X-Demo-Password") != tSentinel {
+					t.Fatal("stored credential was lost")
+				}
+			})
+		}
+	}
+}
+
+func TestDoesNotForwardConnectionScopedMCPHeaders(t *testing.T) {
+	e := newEnv(t)
+	sub, err := e.signIn("alice", tSentinel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := e.call(http.MethodPost, e.as.Token(TokenOpts{Subject: sub}), initBody, map[string]string{
+		"Connection": "Mcp-Name, Mcp-Param-Hop", "Mcp-Name": "private", "Mcp-Param-Hop": "private",
+		"Mcp-Method": "initialize", "Mcp-Param-Public": "demo",
+	})
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	records := e.upstreamMCP()
+	got := records[len(records)-1].Header
+	for _, name := range []string{"Connection", "Mcp-Name", "Mcp-Param-Hop"} {
+		if got.Get(name) != "" {
+			t.Errorf("hop-by-hop header %s was forwarded", name)
+		}
+	}
+	if got.Get("Mcp-Method") != "initialize" || got.Get("Mcp-Param-Public") != "demo" {
+		t.Fatal("end-to-end MCP headers were lost")
+	}
+}
+
+func TestForwardedProtocolHeadersKeepAllValues(t *testing.T) {
+	src := http.Header{}
+	src.Add("Mcp-Param-Project", "one")
+	src.Add("Mcp-Param-Project", "two")
+	src["mcp-method"] = []string{"tools/call"}
+	src.Set("Mcp-Param-", "invalid-empty-name")
+	dst := http.Header{}
+	copyForwardedRequestHeaders(dst, src)
+	values := dst.Values("Mcp-Param-Project")
+	if len(values) != 2 || values[0] != "one" || values[1] != "two" {
+		t.Fatalf("parameter header values changed: %v", values)
+	}
+	if dst.Get("Mcp-Method") != "tools/call" {
+		t.Fatal("case-insensitive protocol header lost")
+	}
+	if dst.Get("Mcp-Param-") != "" {
+		t.Fatal("empty parameter name was forwarded")
+	}
+	values[0] = "changed"
+	if src.Get("Mcp-Param-Project") != "one" {
+		t.Fatal("forwarded headers alias the caller's values")
+	}
+}
