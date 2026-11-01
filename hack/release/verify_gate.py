@@ -26,9 +26,14 @@ REQUIRED_JOBS = (
 
 
 def validate_run(run, commit, repository):
+    # GitHub may qualify the workflow file with @<ref>. The source SHA and
+    # repository remain independently required below; a ref is not evidence.
+    path = run.get('path')
+    expected_path = r'\.github/workflows/pre-release-regression\.yaml(?:@[^\s@]+)?'
+    valid_path = isinstance(path, str) and re.fullmatch(expected_path, path) is not None
     if (run.get('head_sha') != commit or run.get('status') != 'completed'
             or run.get('conclusion') != 'success' or run.get('event') != 'workflow_dispatch'
-            or run.get('path') != '.github/workflows/pre-release-regression.yaml'
+            or not valid_path
             or (run.get('head_repository') or {}).get('full_name') != repository):
         raise ValueError('Pre-release Regression must succeed on this exact commit in this repository')
 

@@ -30,6 +30,23 @@ class ReleaseGateTest(unittest.TestCase):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 self.gate.validate_run(self.run_record(**changes), self.sha, 'tavric-labs/mcp-runtime')
 
+    def test_accepts_exact_workflow_path_with_optional_ref(self):
+        path = '.github/workflows/pre-release-regression.yaml'
+        for suffix in ('', '@refs/heads/main', '@refs/heads/release/0.15',
+                       '@refs/tags/v0.15.0', '@' + self.sha):
+            with self.subTest(suffix=suffix):
+                self.gate.validate_run(self.run_record(path=path + suffix),
+                                       self.sha, 'tavric-labs/mcp-runtime')
+
+    def test_rejects_unexpected_or_malformed_workflow_paths(self):
+        path = '.github/workflows/pre-release-regression.yaml'
+        for value in (None, '', path + '.backup', path + '/other',
+                      path + '@', path + '@main@other', path + '@main\n',
+                      '.github/workflows/ci.yaml@refs/heads/main'):
+            with self.subTest(path=value), self.assertRaises(ValueError):
+                self.gate.validate_run(self.run_record(path=value),
+                                       self.sha, 'tavric-labs/mcp-runtime')
+
     def test_missing_skipped_failed_or_duplicate_jobs_block_release(self):
         jobs = [{'name': name, 'status': 'completed', 'conclusion': 'success'}
                 for name in self.gate.REQUIRED_JOBS]
@@ -43,6 +60,18 @@ class ReleaseGateTest(unittest.TestCase):
     def test_latest_failed_run_cannot_reuse_an_older_success(self):
         with patch.object(self.gate, 'api', return_value={'workflow_runs': [
                 self.run_record(id=1), self.run_record(id=2, conclusion='failure')]}):
+            with self.assertRaises(ValueError):
+                self.gate.verify('tavric-labs/mcp-runtime', self.sha)
+
+    def test_verify_accepts_ref_qualified_workflow_without_relaxing_jobs(self):
+        jobs = [{'name': name, 'status': 'completed', 'conclusion': 'success'}
+                for name in self.gate.REQUIRED_JOBS]
+        record = self.run_record(path='.github/workflows/pre-release-regression.yaml@refs/heads/main')
+        with patch.object(self.gate, 'api', side_effect=[
+                {'workflow_runs': [record]}, {'jobs': jobs}]), patch('builtins.print'):
+            self.gate.verify('tavric-labs/mcp-runtime', self.sha)
+        with patch.object(self.gate, 'api', side_effect=[
+                {'workflow_runs': [record]}, {'jobs': jobs[:-1]}]):
             with self.assertRaises(ValueError):
                 self.gate.verify('tavric-labs/mcp-runtime', self.sha)
 
