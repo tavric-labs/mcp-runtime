@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- Internal API-key resolvers cap negative authentication caches at 1,024 entries, evict least-recently-used misses and reclaim expired entries without background workers. Distinct invalid keys can no longer grow the cache indefinitely; successful authentication still revalidates on every call so key revocation remains immediate ([#889](https://github.com/tavric-labs/mcp-runtime/pull/889)).
+
 ## [0.15.0] - 2026-10-30
 
 Breaking `0.x` release: sessions use the platform Postgres store exclusively;
