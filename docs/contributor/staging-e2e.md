@@ -46,8 +46,8 @@ The browser signs in through the supported password UI as the configured
 administrator and the multitenancy fixture's CLI-created owner/member. It
 checks actual membership/server counts, scoped owner management, member
 denial, platform totals, back/forward/refresh, isolated section outages,
-390-pixel layout and logout. Only the explicitly labelled outage responses
-are intercepted; other requests use the real platform. Without multitenancy
+390-pixel layout and logout. Platform requests use the real backend except for
+the explicitly labelled outage responses. Without multitenancy
 fixtures the stage reports `skipped`, which is not workspace acceptance.
 
 Generated passwords reach the driver only through stdin. The container
@@ -62,6 +62,13 @@ font assets. It first verifies the target's certificate chain and hostname
 using the runner's public CA bundle, then pins that verified certificate for
 Chromium. A browser run against mocked APIs is driver development evidence,
 not real-platform acceptance.
+
+This is password-flow acceptance. When Google sign-in is configured, the exact
+credential-free GET script `https://accounts.google.com/gsi/client` is fulfilled
+locally with empty JavaScript, recorded as `google-identity-sdk` in each role's
+`stubbedAssets`. Other Google requests remain blocked. This suite does not
+validate Google sign-in. Asset credential checks use Playwright's `allHeaders()`
+so cookies are included in the denial check; header values are never recorded.
 
 The workspace driver shares its membership-region, scope-disclosure and
 platform-metric checks with frontend Playwright regressions through

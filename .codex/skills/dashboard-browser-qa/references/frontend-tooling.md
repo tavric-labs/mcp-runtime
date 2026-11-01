@@ -95,3 +95,10 @@ pin, locked package installation and evidence contract are documented in
 `docs/contributor/staging-e2e.md`; update those together when the tool version
 changes. A skipped stage or a mocked development run does not establish live
 browser acceptance.
+
+The workspace stage validates password sign-in. Its network guard fulfills only
+the exact credential-free Google Identity SDK script locally and records that
+stub in role evidence; it does not prove Google sign-in. Keep other provider
+requests blocked and inspect `allHeaders()` when denying credentials on public
+assets, since Playwright's shorter header view omits cookies. Run the focused
+`test/e2e/workspace_browser_network_test.cjs` boundary tests with harness changes.
