@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 const { chromium } = require(process.env.WORKSPACE_PLAYWRIGHT_MODULE || 'playwright');
 const { serverListStartedByClick, menuServerListFailure } = require('./workspace_browser_menu.cjs');
 const { workspaceTeam, verifyWorkspaceMemberships, openWorkspaceScope, platformMetric, verifyPlatformTotals } = require('./workspace_browser_views.cjs');
+const { externalRequestAction } = require('./workspace_browser_network.cjs');
 
 async function verifiedCertificatePin(base, caPEM) {
   if (base.protocol === 'http:') return [];
@@ -52,14 +53,16 @@ async function main() {
       const context = await browser.newContext({ viewport: { width: 1100, height: 800 }, locale: 'en-US' });
       const page = await context.newPage();
       page.setDefaultTimeout(25000);
-      const evidence = { network: [], console: [], pageErrors: [], injected: [], blockedOrigins: [], publicAssetOrigins: [] };
-      await context.route('**/*', route => {
+      const evidence = { network: [], console: [], pageErrors: [], injected: [], blockedOrigins: [], publicAssetOrigins: [], stubbedAssets: [] };
+      await context.route('**/*', async route => {
         const request = route.request(), target = new URL(request.url());
         if (['http:', 'https:'].includes(target.protocol) && target.origin !== base.origin) {
-          // The shipped UI loads public fonts. Permit those read-only asset
-          // requests only when no account credentials accompany them.
-          const headers = request.headers();
-          if (['https://fonts.googleapis.com', 'https://fonts.gstatic.com'].includes(target.origin) && request.method() === 'GET' && !headers.authorization && !headers.cookie) {
+          const action = await externalRequestAction(request);
+          if (action === 'stub-google') {
+            if (!evidence.stubbedAssets.includes('google-identity-sdk')) evidence.stubbedAssets.push('google-identity-sdk');
+            return route.fulfill({ status: 200, contentType: 'application/javascript', body: '/* Password-only QA: Google Identity SDK intentionally not loaded. */' });
+          }
+          if (action === 'continue') {
             if (!evidence.publicAssetOrigins.includes(target.origin)) evidence.publicAssetOrigins.push(target.origin);
             return route.continue();
           }
