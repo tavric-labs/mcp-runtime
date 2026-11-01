@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -214,6 +215,155 @@ func TestSessionSyncStopsServingAfterStaleWindow(t *testing.T) {
 				}
 			} else if binding != nil || reason != errSessionUnavailable {
 				t.Fatalf("stale authority remained usable: binding=%+v reason=%s", binding, reason)
+			}
+		})
+	}
+}
+
+func TestSessionSyncInvalidationFencesInFlightRefresh(t *testing.T) {
+	for _, mode := range []string{"snapshot", "changes"} {
+		for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusGone} {
+			t.Run(fmt.Sprintf("%s/%d", mode, status), func(t *testing.T) {
+				started, release := make(chan struct{}), make(chan struct{})
+				var once sync.Once
+				unblock := func() { once.Do(func() { close(release) }) }
+				defer unblock()
+				cache := newTestSessionSync(t, func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/rejected" {
+						w.WriteHeader(status)
+						return
+					}
+					close(started)
+					<-release
+					row := testSyncSession("old-session")
+					if mode == "snapshot" {
+						_ = json.NewEncoder(w).Encode(sessionstate.Snapshot{Epoch: "old-epoch", Sequence: 2, Sessions: []sessionstate.Session{row}})
+					} else {
+						_ = json.NewEncoder(w).Encode(sessionstate.Changes{Epoch: "old-epoch", Sequence: 2, Changes: []sessionstate.Change{{Kind: "session", Sequence: 2, Operation: "upsert", ID: row.ID, Session: &row}}})
+					}
+				})
+				if mode == "changes" {
+					cache.epoch, cache.sequence = "old-epoch", 1
+					cache.lastSync = time.Now()
+					cache.sessions = map[string]sessionstate.Session{}
+				}
+				done := make(chan error, 1)
+				go func() { done <- cache.sync(context.Background()) }()
+				<-started
+				var rejected sessionstate.Session
+				if err := cache.getJSON(context.Background(), "/rejected", &rejected); err == nil {
+					t.Fatal("identity/reset rejection succeeded")
+				}
+				unblock()
+				if err := <-done; err == nil {
+					t.Fatal("in-flight response reinstalled invalidated authority")
+				}
+				if cache.Fresh(time.Now()) {
+					t.Fatal("invalidated cache became fresh")
+				}
+				cache.mu.RLock()
+				defer cache.mu.RUnlock()
+				if len(cache.sessions) != 0 || cache.epoch != "" {
+					t.Fatal("invalidated sessions were republished")
+				}
+			})
+		}
+	}
+}
+
+func TestSessionLookupRejectsResponseFromBeforeInvalidation(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	unblock := func() { once.Do(func() { close(release) }) }
+	defer unblock()
+	cache := newTestSessionSync(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == sessionstate.GatewayPath {
+			_ = json.NewEncoder(w).Encode(sessionstate.Snapshot{Epoch: "new-epoch", Sequence: 2})
+			return
+		}
+		close(started)
+		<-release
+		_ = json.NewEncoder(w).Encode(testSyncSession("missing"))
+	})
+	cache.epoch, cache.sequence = "old-epoch", 1
+	cache.lastSync = time.Now()
+	cache.sessions = map[string]sessionstate.Session{}
+	done := make(chan error, 1)
+	go func() {
+		binding, err := cache.Lookup(context.Background(), SessionRef{Namespace: "team", ID: "missing"}, time.Now())
+		if binding != nil {
+			done <- fmt.Errorf("old lookup returned authority: %+v", binding)
+			return
+		}
+		done <- err
+	}()
+	<-started
+	cache.invalidate()
+	if err := cache.sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !cache.Fresh(time.Now()) {
+		t.Fatal("replacement snapshot is not fresh")
+	}
+	unblock()
+	if err := <-done; err != errSessionUnavailable {
+		t.Fatalf("old lookup error=%v, want unavailable", err)
+	}
+}
+
+func TestSessionSyncRejectsOutOfOrderRefresh(t *testing.T) {
+	for _, mode := range []string{"snapshot", "changes"} {
+		t.Run(mode, func(t *testing.T) {
+			started, release := make(chan struct{}), make(chan struct{})
+			var once sync.Once
+			unblock := func() { once.Do(func() { close(release) }) }
+			defer unblock()
+			var requests atomic.Int32
+			cache := newTestSessionSync(t, func(w http.ResponseWriter, r *http.Request) {
+				first := requests.Add(1) == 1
+				if first {
+					close(started)
+					<-release
+				}
+				row := testSyncSession("old-session")
+				sequence := int64(3)
+				if first {
+					sequence = 2
+				}
+				if mode == "snapshot" {
+					snapshot := sessionstate.Snapshot{Epoch: "epoch", Sequence: sequence}
+					if first {
+						snapshot.Sessions = []sessionstate.Session{row}
+					}
+					_ = json.NewEncoder(w).Encode(snapshot)
+				} else {
+					change := sessionstate.Change{Kind: "session", Sequence: sequence, Operation: "delete", ID: row.ID}
+					if first {
+						change.Operation, change.Session = "upsert", &row
+					}
+					_ = json.NewEncoder(w).Encode(sessionstate.Changes{Epoch: "epoch", Sequence: sequence, Changes: []sessionstate.Change{change}})
+				}
+			})
+			if mode == "changes" {
+				cache.epoch, cache.sequence = "epoch", 1
+				cache.lastSync = time.Now()
+				row := testSyncSession("old-session")
+				cache.sessions = map[string]sessionstate.Session{row.ID: row}
+			}
+			done := make(chan error, 1)
+			go func() { done <- cache.sync(context.Background()) }()
+			<-started
+			if err := cache.sync(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			unblock()
+			if err := <-done; err == nil {
+				t.Fatal("older response replaced newer session state")
+			}
+			cache.mu.RLock()
+			defer cache.mu.RUnlock()
+			if cache.sequence != 3 || len(cache.sessions) != 0 {
+				t.Fatalf("state regressed: sequence=%d sessions=%d", cache.sequence, len(cache.sessions))
 			}
 		})
 	}

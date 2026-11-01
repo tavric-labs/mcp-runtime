@@ -27,6 +27,7 @@ type gatewaySessionSync struct {
 	token       *tokenFileSource
 	client      httpDoer
 	epoch       string
+	generation  uint64 // fences responses started before an invalidation
 	sequence    int64
 	sessions    map[string]sessionstate.Session
 	lastSync    time.Time
@@ -34,11 +35,14 @@ type gatewaySessionSync struct {
 }
 
 var errSessionSyncCatchingUp = errors.New("session sync catching up")
+var errSessionSyncInvalidated = errors.New("session sync invalidated during request")
 var errSessionSyncIdentityInvalid = errors.New("gateway session identity rejected")
 
 func (c *gatewaySessionSync) invalidate() {
 	c.mu.Lock()
+	c.generation++
 	c.epoch = ""
+	c.sequence = 0
 	c.lastSync = time.Time{}
 	c.sessions = nil
 	c.mu.Unlock()
@@ -80,6 +84,7 @@ func (c *gatewaySessionSync) getJSON(ctx context.Context, path string, out any) 
 		return errSessionSyncIdentityInvalid
 	}
 	if resp.StatusCode == http.StatusGone {
+		c.invalidate()
 		return sessionstate.ErrReset
 	}
 	if resp.StatusCode == http.StatusNotFound {
@@ -98,7 +103,7 @@ func (c *gatewaySessionSync) owns(row sessionstate.Session) bool {
 
 func (c *gatewaySessionSync) sync(ctx context.Context) error {
 	c.mu.RLock()
-	epoch, sequence := c.epoch, c.sequence
+	epoch, sequence, generation := c.epoch, c.sequence, c.generation
 	c.mu.RUnlock()
 	if epoch == "" {
 		var snapshot sessionstate.Snapshot
@@ -116,6 +121,10 @@ func (c *gatewaySessionSync) sync(ctx context.Context) error {
 			sessions[row.ID] = row
 		}
 		c.mu.Lock()
+		if c.generation != generation || c.epoch != epoch || c.sequence != sequence {
+			c.mu.Unlock()
+			return errSessionSyncInvalidated
+		}
 		c.sessions = sessions
 		c.epoch = snapshot.Epoch
 		c.sequence = snapshot.Sequence
@@ -126,21 +135,10 @@ func (c *gatewaySessionSync) sync(ctx context.Context) error {
 	var changes sessionstate.Changes
 	path := sessionstate.GatewayPath + "/changes?after=" + strconv.FormatInt(sequence, 10) + "&epoch=" + url.QueryEscape(epoch)
 	if err := c.getJSON(ctx, path, &changes); err != nil {
-		if errors.Is(err, sessionstate.ErrReset) {
-			c.mu.Lock()
-			c.epoch = ""
-			c.lastSync = time.Time{}
-			c.sessions = nil
-			c.mu.Unlock()
-		}
 		return err
 	}
 	if changes.Epoch != epoch || changes.Sequence < sequence {
-		c.mu.Lock()
-		c.epoch = ""
-		c.lastSync = time.Time{}
-		c.sessions = nil
-		c.mu.Unlock()
+		c.invalidate()
 		return sessionstate.ErrReset
 	}
 	previous := sequence
@@ -157,6 +155,12 @@ func (c *gatewaySessionSync) sync(ctx context.Context) error {
 		}
 	}
 	c.mu.Lock()
+	// HTTP may finish after a concurrent lookup invalidates authority. Never
+	// refresh freshness or apply a delta to an invalidated/replaced map.
+	if c.generation != generation || c.epoch != epoch || c.sequence != sequence {
+		c.mu.Unlock()
+		return errSessionSyncInvalidated
+	}
 	for _, change := range changes.Changes {
 		if change.Operation == "delete" {
 			delete(c.sessions, change.ID)
@@ -209,6 +213,7 @@ func (c *gatewaySessionSync) Lookup(ctx context.Context, ref SessionRef, now tim
 	c.mu.RLock()
 	fresh := c.freshLocked(now)
 	row, found := c.sessions[ref.key()]
+	generation := c.generation
 	c.mu.RUnlock()
 	if !fresh {
 		return nil, errSessionUnavailable
@@ -221,6 +226,12 @@ func (c *gatewaySessionSync) Lookup(ctx context.Context, ref SessionRef, now tim
 			if errors.Is(err, sessionstate.ErrNotFound) {
 				return nil, errSessionNotFound
 			}
+			return nil, errSessionUnavailable
+		}
+		c.mu.RLock()
+		invalidated := c.generation != generation
+		c.mu.RUnlock()
+		if invalidated {
 			return nil, errSessionUnavailable
 		}
 		if !c.owns(row) {

@@ -119,6 +119,11 @@ decisions are evaluated on every request; they are not cached decisions.
 See the [policy benchmark results](../../.codex/skills/cluster-ops/references/performance.md#policy-lookup-microbenchmarks)
 for the bounded VM comparison and its limits.
 
+Refreshes and get-on-miss lookups are fenced against concurrent invalidation.
+A response started before an identity rejection or reset cannot restore cached
+authority, even after a replacement snapshot has loaded. Overlapping refreshes
+also cannot overwrite a newer cursor with an older response.
+
 A known epoch/cursor reset or an explicit `401`/`403` identity rejection
 immediately invalidates cached authority. It cannot keep serving the old
 snapshot while a relist fails. `SESSION_SYNC_STALE_WINDOW` can shorten the
