@@ -2,6 +2,7 @@ package passport
 
 import (
 	"bytes"
+	"container/list"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,21 +16,26 @@ import (
 	"mcp-runtime/pkg/transport/httptrace"
 )
 
-const defaultResolverCacheTTL = 45 * time.Second
+const (
+	defaultResolverCacheTTL = 45 * time.Second
+	maxResolverCacheEntries = 1024
+)
 
 type HTTPUserKeyResolver struct {
-	BaseURL  string
-	Token    string
-	Client   *http.Client
-	CacheTTL time.Duration
-	mu       sync.Mutex
-	cache    map[string]resolverCacheEntry
+	BaseURL    string
+	Token      string
+	Client     *http.Client
+	CacheTTL   time.Duration
+	mu         sync.Mutex
+	cache      map[string]resolverCacheEntry
+	cacheOrder list.List
 }
 
 type resolverCacheEntry struct {
 	principal Principal
 	ok        bool
 	expiresAt time.Time
+	position  *list.Element
 }
 
 func (r *HTTPUserKeyResolver) ResolveAPIKey(ctx context.Context, rawKey string) (Principal, bool, error) {
@@ -93,10 +99,14 @@ func (r *HTTPUserKeyResolver) cached(key string) (Principal, bool, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	entry, found := r.cache[key]
-	if !found || time.Now().After(entry.expiresAt) {
-		delete(r.cache, key)
+	if !found {
 		return Principal{}, false, false
 	}
+	if !time.Now().Before(entry.expiresAt) {
+		r.removeCached(key)
+		return Principal{}, false, false
+	}
+	r.cacheOrder.MoveToBack(entry.position)
 	return entry.principal, entry.ok, true
 }
 
@@ -110,7 +120,32 @@ func (r *HTTPUserKeyResolver) store(key string, principal Principal, ok bool) {
 	if r.cache == nil {
 		r.cache = make(map[string]resolverCacheEntry)
 	}
-	r.cache[key] = resolverCacheEntry{principal: principal, ok: ok, expiresAt: time.Now().Add(ttl)}
+	now := time.Now()
+	// Reclaim expired entries from the eviction end without scanning the map.
+	// Remaining expired entries are removed on access or bounded by the cap.
+	for oldest := r.cacheOrder.Front(); oldest != nil; oldest = r.cacheOrder.Front() {
+		oldKey := oldest.Value.(string)
+		if now.Before(r.cache[oldKey].expiresAt) {
+			break
+		}
+		r.removeCached(oldKey)
+	}
+	if _, exists := r.cache[key]; exists {
+		r.removeCached(key)
+	}
+	if len(r.cache) >= maxResolverCacheEntries {
+		r.removeCached(r.cacheOrder.Front().Value.(string))
+	}
+	position := r.cacheOrder.PushBack(key)
+	r.cache[key] = resolverCacheEntry{principal: principal, ok: ok, expiresAt: now.Add(ttl), position: position}
+}
+
+// removeCached removes both the entry and its eviction metadata. Caller holds mu.
+func (r *HTTPUserKeyResolver) removeCached(key string) {
+	if entry, exists := r.cache[key]; exists {
+		r.cacheOrder.Remove(entry.position)
+		delete(r.cache, key)
+	}
 }
 
 func apiKeyCacheKey(rawKey string) string {

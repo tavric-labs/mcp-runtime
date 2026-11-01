@@ -15,7 +15,9 @@
 // Enforcement. An Authenticator is built for one audience
 // (NewAudienceAuthenticator) and wraps handlers with authentication and role
 // checks. API keys resolve to a Principal through a PrincipalResolver;
-// HTTPUserKeyResolver is the cached, network-backed implementation.
+// HTTPUserKeyResolver is the network-backed implementation. It caches only
+// unsuccessful key lookups, for 45 seconds by default, with at most 1,024
+// entries per resolver. Successful authentication always revalidates the key.
 //
 // Exchange. ExchangeHandler is the Traefik forward-auth endpoint that trades a
 // platform user bearer for a one-minute JWT scoped to the runtime or analytics

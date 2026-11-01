@@ -11,6 +11,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 - Gateway session synchronization fences in-flight refreshes and lookups after an identity rejection or cursor reset. Delayed responses can no longer restore invalidated authority, renew its freshness or apply changes to a cleared cache; a new server-scoped snapshot is required ([#861](https://github.com/tavric-labs/mcp-runtime/issues/861)).
 - Release verification accepts GitHub workflow paths qualified with `@<ref>` while still requiring the exact Pre-release Regression workflow, source commit, repository and successful required jobs. Valid qualified paths no longer block publication; unexpected workflows and malformed paths remain rejected ([#884](https://github.com/tavric-labs/mcp-runtime/pull/884)).
+- Internal API-key resolvers cap negative authentication caches at 1,024 entries, evict least-recently-used misses and reclaim expired entries without background workers. Distinct invalid keys can no longer grow the cache indefinitely; successful authentication still revalidates on every call so key revocation remains immediate ([#889](https://github.com/tavric-labs/mcp-runtime/pull/889)).
 
 ## [0.15.0] - 2026-10-30
 
