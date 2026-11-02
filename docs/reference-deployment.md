@@ -138,6 +138,7 @@ default. Override the path with `MCP_DEPLOY_ENV=/path/to/other.env`. See
 | `MCP_REGISTRY_HOST` | do not set | — | Public ingress hostname; derived from `MCP_PLATFORM_DOMAIN`. Do not use as the internal pull URL. |
 | `MCP_REGISTRY_INTERNAL` | optional | rollout | Override registry ClusterIP:port for **build/push** inside rollout script only. Pull path still uses `MCP_REGISTRY_ENDPOINT` in configmap. |
 | `MCP_REGISTRY_PUSH_MODE` | `internal` | rollout | `public` pushes directly to `registry.<domain>` using the workstation's selected Docker daemon. |
+| `MCP_REGISTRY_PUSH_MAX_CONCURRENT` | `4` | runtime API | Maximum simultaneous `server push` uploads spooled to the runtime API pod's 2Gi upload volume (each capped at 512 MiB). Extra pushes get `429`; raise it only together with the `emptyDir` `sizeLimit` in `k8s/08-runtime-api.yaml`. |
 
 MCP Auth updates use a separately reviewed release manifest and
 `mcp-runtime update --only mcp-auth`. Runtime updates do not build,
