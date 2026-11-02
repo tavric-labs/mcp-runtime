@@ -114,9 +114,11 @@ spec:
           resources:
             requests:
               cpu: 50m
+              ephemeral-storage: 256Mi
               memory: 128Mi
             limits:
               cpu: "1"
+              ephemeral-storage: 3Gi
               memory: 512Mi
           readinessProbe:
             httpGet:
@@ -132,4 +134,7 @@ spec:
             periodSeconds: 20
       volumes:
         - name: runtime-api-tmp
-          emptyDir: {}
+          # Spools registry push uploads: MCP_REGISTRY_PUSH_MAX_CONCURRENT (4)
+          # x 512 MiB archive cap = 2Gi.
+          emptyDir:
+            sizeLimit: 2Gi
