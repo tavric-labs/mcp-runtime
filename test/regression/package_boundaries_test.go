@@ -19,14 +19,19 @@ func TestSharedInfrastructureDependencyBoundaries(t *testing.T) {
 		forbidden []string
 	}{
 		{
-			name:     "foundational helpers use only the standard library",
+			// The one exception is go-spiffe's spiffeid package, a dependency-free
+			// leaf that pkg/identity uses to parse and validate SPIFFE IDs
+			// instead of hand-rolled URI handling. Any other module (including
+			// spiffeid's own imports) still fails this check.
+			name:     "foundational helpers use only the standard library and go-spiffe spiffeid",
 			dir:      root,
 			packages: []string{"./pkg/envcfg", "./pkg/identity", "./pkg/httpx", "./pkg/transport/tlsconfig"},
 			allowed: map[string]bool{
-				"mcp-runtime/pkg/envcfg":              true,
-				"mcp-runtime/pkg/httpx":               true,
-				"mcp-runtime/pkg/identity":            true,
-				"mcp-runtime/pkg/transport/tlsconfig": true,
+				"mcp-runtime/pkg/envcfg":                  true,
+				"mcp-runtime/pkg/httpx":                   true,
+				"mcp-runtime/pkg/identity":                true,
+				"mcp-runtime/pkg/transport/tlsconfig":     true,
+				"github.com/spiffe/go-spiffe/v2/spiffeid": true,
 			},
 		},
 		{

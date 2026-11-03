@@ -11,6 +11,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 - Registry push authorizes the target and scope before the image archive is written to disk, so a caller who cannot publish to the requested repository gets a `403` without making the runtime API spool up to 512 MiB. Concurrent uploads are capped by `MCP_REGISTRY_PUSH_MAX_CONCURRENT` (default 4); extra pushes receive `429` and can be retried. The runtime API upload volume now has a 2Gi size limit and a 3Gi ephemeral-storage limit so concurrent pushes cannot cause node disk pressure. No fresh setup is required; `mcp-runtime update` rolls the new limits.
 
+### Changed
+
+- SPIFFE session identities are built and parsed with go-spiffe's `spiffeid` package instead of hand-written URI handling, and a new [SPIFFE agent identity](docs/spiffe-agent-identity.md) page explains the issuance and verification flow. Identity validation is now strict: session namespaces and names may use only letters, digits, `.`, `-` and `_` (Kubernetes namespace names and platform session names already do), and the trust domain must be lowercase. Names outside that set are refused at certificate issuance instead of being percent-escaped, URI SANs that are not valid SPIFFE IDs are ignored, and the gateway rejects them as `invalid_spiffe_identity`. `identity.SessionSPIFFEID` now returns an error. No setup or data migration is needed; an installed `MCP_TRUST_DOMAIN` must already be lowercase.
+
 ## [0.15.0] - 2026-11-01
 
 Breaking `0.x` release: sessions use the platform Postgres store exclusively;

@@ -138,7 +138,11 @@ func (s *AccessService) HandleAdapterCertificate(w http.ResponseWriter, r *http.
 		return
 	}
 
-	expectedSPIFFEID := identity.SessionSPIFFEID(trustDomain, req.Namespace, req.Session)
+	expectedSPIFFEID, err := identity.SessionSPIFFEID(trustDomain, req.Namespace, req.Session)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, "session cannot be bound to a SPIFFE identity")
+		return
+	}
 	csrDER, err := identity.ValidateCSRPEM(req.CSR, expectedSPIFFEID)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
