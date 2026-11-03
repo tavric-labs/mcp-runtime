@@ -113,6 +113,7 @@ the reference Go implementation of the SPIFFE ID specification:
 | Parse and validate a header or SAN | `spiffeid.FromString` / `spiffeid.FromURI` |
 | Trust domain check | `id.MemberOf(trustDomain)`, an exact match, not a string comparison |
 | Pin the ingress identity | `spiffecert.HasID` reads the certificate with `x509svid.IDFromCert` (exactly one URI SAN, a valid SPIFFE ID) and compares it to the pin parsed by `spiffeid.FromString`, so an invalid pin or an extra URI SAN never matches |
+| Build the ingress pin (operator) | `spiffeid.FromSegments(trustDomain, "ns", ns, "sa", serviceAccount)`; invalid input fails the reconcile rather than disabling the pin |
 | Extract components | `id.Path()` split into exactly four segments |
 
 Using the library means we no longer maintain our own interpretation of what a
