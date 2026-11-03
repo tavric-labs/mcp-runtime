@@ -50,6 +50,7 @@
 
 - Concepts: https://docs.mcpruntime.org/core-concepts/ — MCPServer, grants, sessions, trust levels, tool effects, the gateway, and the adapter.
 - Identity and authorization: https://docs.mcpruntime.org/identity-and-authorization/ — Platform principals, managed agents, grants, sessions, gateway decisions, and Kubernetes workload identity.
+- SPIFFE agent identity: https://docs.mcpruntime.org/spiffe-agent-identity/ — How session-bound SPIFFE certificates are issued, validated with go-spiffe and checked at the gateway.
 - Architecture: https://docs.mcpruntime.org/architecture/ — Control, runtime, policy, and observability planes.
 
 ## CLI and API reference

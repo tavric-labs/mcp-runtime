@@ -98,6 +98,7 @@ nav:
       - Overview: concepts-overview.md
       - Core Concepts: core-concepts.md
       - Identity and Authorization: identity-and-authorization.md
+      - SPIFFE Agent Identity: spiffe-agent-identity.md
       - Architecture: architecture.md
   - CLI and API Reference:
       - Overview: reference-overview.md
