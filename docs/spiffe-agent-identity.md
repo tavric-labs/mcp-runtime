@@ -112,6 +112,7 @@ the reference Go implementation of the SPIFFE ID specification:
 | Mint an ID | `spiffeid.FromSegments(trustDomain, "ns", ns, "session", name)` in `identity.SessionSPIFFEID` |
 | Parse and validate a header or SAN | `spiffeid.FromString` / `spiffeid.FromURI` |
 | Trust domain check | `id.MemberOf(trustDomain)`, an exact match, not a string comparison |
+| Pin the ingress identity | `CertificateHasURI` parses the configured pin with `spiffeid.FromString` and compares IDs, so an invalid pin never matches |
 | Extract components | `id.Path()` split into exactly four segments |
 
 Using the library means we no longer maintain our own interpretation of what a

@@ -7,13 +7,22 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-// CertificateHasURI reports whether cert carries want as a URI SAN.
+// CertificateHasURI reports whether cert carries the SPIFFE ID want as a URI
+// SAN. want must itself be a valid SPIFFE ID; anything else never matches, so a
+// misconfigured pin fails closed instead of matching a look-alike string.
 func CertificateHasURI(cert *x509.Certificate, want string) bool {
 	if cert == nil {
 		return false
 	}
+	wantID, err := spiffeid.FromString(want)
+	if err != nil {
+		return false
+	}
 	for _, uri := range cert.URIs {
-		if uri != nil && uri.String() == want {
+		if uri == nil {
+			continue
+		}
+		if id, err := spiffeid.FromURI(uri); err == nil && id == wantID {
 			return true
 		}
 	}
