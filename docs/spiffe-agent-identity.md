@@ -112,7 +112,7 @@ the reference Go implementation of the SPIFFE ID specification:
 | Mint an ID | `spiffeid.FromSegments(trustDomain, "ns", ns, "session", name)` in `identity.SessionSPIFFEID` |
 | Parse and validate a header or SAN | `spiffeid.FromString` / `spiffeid.FromURI` |
 | Trust domain check | `id.MemberOf(trustDomain)`, an exact match, not a string comparison |
-| Pin the ingress identity | `CertificateHasURI` parses the configured pin with `spiffeid.FromString` and compares IDs, so an invalid pin never matches |
+| Pin the ingress identity | `spiffecert.HasID` reads the certificate with `x509svid.IDFromCert` (exactly one URI SAN, a valid SPIFFE ID) and compares it to the pin parsed by `spiffeid.FromString`, so an invalid pin or an extra URI SAN never matches |
 | Extract components | `id.Path()` split into exactly four segments |
 
 Using the library means we no longer maintain our own interpretation of what a
@@ -135,7 +135,9 @@ Two deliberate boundaries remain:
 
 - `pkg/identity` stays a leaf package. The architecture test
   `TestSharedInfrastructureDependencyBoundaries` allows exactly one third-party
-  import, `spiffeid`, which itself has no dependencies.
+  import, `spiffeid`, which itself has no dependencies. Checks that need
+  go-spiffe's fuller `x509svid` rules live in `pkg/spiffecert`, whose allowed
+  dependencies are pinned to go-spiffe's own leaf packages by the same test.
 - The Traefik middleware is a separate module executed by Yaegi and does a small
   scheme/trust-domain check on its own. It is a filter, not the authority: the
   gateway re-parses every ID with go-spiffe and checks it against policy.
@@ -179,7 +181,7 @@ It does **not** give you:
 |---|---|
 | Build and parse session IDs | `pkg/identity/session.go` |
 | CSR and issued-certificate validation | `pkg/identity/csr.go` |
-| Certificate URI helpers | `pkg/identity/certificate.go` |
+| Certificate URI helpers | `pkg/identity/certificate.go`, and `pkg/spiffecert` for x509svid-based checks |
 | Issuance endpoint | `services/runtime-api/internal/runtimeapi/adapter_certificate.go` |
 | Gateway authentication | `services/mcp-gateway/filter_auth.go` |
 | Ingress middleware | `traefik-plugins/spiffe-identity/` |

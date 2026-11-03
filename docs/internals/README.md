@@ -220,6 +220,7 @@ authoritative description; this table is the map.
 | `registrypush` | adapter | Push a Docker archive into the in-cluster registry through a helper Pod |
 | `resourcehistory` | adapter | Bounded, authenticated infrastructure samples for admin sizing reports |
 | `sessionstate` | domain | Platform-owned session synchronization contract for gateways |
+| `spiffecert` | leaf | SPIFFE ID of a certificate (go-spiffe `x509svid` rules: exactly one valid URI SAN) and pin matching |
 | `svcboot` | support | Service startup: server, request IDs, metrics, tracing, key lists |
 | `telemetry` | support | Tracing, correlated logs and HTTP request metrics |
 | `topology` | leaf | Platform layout: components, namespaces, mode, scopes, routes, hosts and registry rewriting |
@@ -230,6 +231,7 @@ Shared gateway dependencies follow their owning domains:
 | Package | Responsibility |
 |---|---|
 | `pkg/identity` | Certificate/SPIFFE identity, credential-header contracts and OAuth protected-resource URLs |
+| `pkg/spiffecert` | X.509-SVID identity of a certificate and exact-ID pin matching, kept apart so `pkg/identity` imports only go-spiffe `spiffeid` |
 | `pkg/policy` | Policy documents, evaluation, enums/defaults and rendered policy ConfigMap naming |
 | `pkg/topology` | Component placement, platform ports, namespaces and workload token audiences; the platform mode, publish scopes and catalog namespaces; public route validation and the default MCP route |
 | `pkg/events` | Platform event envelopes and the typed `MCPRequest` audit payload |

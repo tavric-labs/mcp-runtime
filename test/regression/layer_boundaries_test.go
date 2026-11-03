@@ -48,7 +48,7 @@ var pkgLayers = map[string]layer{
 	// Leaves: no repository imports outside this layer.
 	"authzmatrix": leaf, "credentialbroker": leaf,
 	"envcfg": leaf, "events": leaf, "httpx": leaf,
-	"identity": leaf, "oidcdiscovery": leaf, "openapi": leaf,
+	"identity": leaf, "spiffecert": leaf, "oidcdiscovery": leaf, "openapi": leaf,
 	"topology":            leaf,
 	"registryauth":        leaf,
 	"transport/httptrace": leaf, "transport/tlsconfig": leaf,

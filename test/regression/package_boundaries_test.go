@@ -35,6 +35,22 @@ func TestSharedInfrastructureDependencyBoundaries(t *testing.T) {
 			},
 		},
 		{
+			// x509svid is go-spiffe's certificate-identity package. It stays out
+			// of pkg/identity and lives here, limited to go-spiffe's own
+			// dependency-free packages (no gRPC, no workload API client).
+			name:     "SPIFFE certificate helpers use only the standard library and go-spiffe leaf packages",
+			dir:      root,
+			packages: []string{"./pkg/spiffecert"},
+			allowed: map[string]bool{
+				"mcp-runtime/pkg/spiffecert":                       true,
+				"github.com/spiffe/go-spiffe/v2/spiffeid":          true,
+				"github.com/spiffe/go-spiffe/v2/svid/x509svid":     true,
+				"github.com/spiffe/go-spiffe/v2/bundle/x509bundle": true,
+				"github.com/spiffe/go-spiffe/v2/internal/pemutil":  true,
+				"github.com/spiffe/go-spiffe/v2/internal/x509util": true,
+			},
+		},
+		{
 			name:     "HTTP authentication does not initialize service telemetry or Kafka",
 			dir:      root,
 			packages: []string{"./pkg/passport", "./pkg/transport/httptrace", "./pkg/apikit"},
