@@ -21,10 +21,16 @@ func Sign(secret []byte, p Principal, ttl time.Duration, audiences []string) (st
 }
 
 func signUntil(secret []byte, p Principal, now, expires time.Time, audiences []string) (string, error) {
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, buildClaims(p, now, expires, audiences)).SignedString(secret)
+}
+
+// buildClaims is shared by every signing algorithm so a token carries the same
+// issuer, audience and lifetime claims whichever key signed it.
+func buildClaims(p Principal, now, expires time.Time, audiences []string) Claims {
 	claims := ClaimsFromPrincipal(p)
 	claims.RegisteredClaims.Issuer = Issuer
 	claims.RegisteredClaims.Audience = jwt.ClaimStrings(append([]string(nil), audiences...))
 	claims.RegisteredClaims.IssuedAt = jwt.NewNumericDate(now)
 	claims.RegisteredClaims.ExpiresAt = jwt.NewNumericDate(expires)
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(secret)
+	return claims
 }

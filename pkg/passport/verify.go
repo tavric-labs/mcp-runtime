@@ -30,6 +30,12 @@ func Verify(secret []byte, token, expectedAudience string) (Claims, error) {
 	if !parsed.Valid {
 		return Claims{}, errors.New("invalid JWT")
 	}
+	return validateClaims(claims, expectedAudience)
+}
+
+// validateClaims applies the checks every platform token must pass after its
+// signature is verified, whichever algorithm produced it.
+func validateClaims(claims Claims, expectedAudience string) (Claims, error) {
 	if claims.Issuer != Issuer {
 		return Claims{}, errors.New("invalid JWT issuer")
 	}
