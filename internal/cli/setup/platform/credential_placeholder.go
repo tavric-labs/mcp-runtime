@@ -18,7 +18,7 @@ const knownPlaceholderCredential = "changeme"
 var placeholderCheckedKeys = map[string]string{
 	"API_KEYS": "csv", "ADMIN_API_KEYS": "csv", "INGEST_API_KEYS": "csv",
 	"UI_API_KEY": "", "GRAFANA_ADMIN_PASSWORD": "", "POSTGRES_PASSWORD": "",
-	"JWT_SECRET": "", "INTERNAL_AUTH_TOKEN": "", "UI_SESSION_ENCRYPTION_KEY": "",
+	"JWT_SIGNING_KEY": "", "INTERNAL_AUTH_TOKEN": "", "UI_SESSION_ENCRYPTION_KEY": "",
 	"PLATFORM_ADMIN_PASSWORD": "",
 	"POSTGRES_DSN":            "url", "UI_SESSION_DATABASE_URL": "url",
 }

@@ -7,6 +7,11 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Security
+
+- **Breaking:** platform tokens are signed with ES256 and only platform-api holds the private key (`JWT_SIGNING_KEY`). runtime-api and analytics-api receive only public keys (`JWT_VERIFY_KEY`), pin the algorithm and select the key by `kid`, so a compromised backend can no longer mint platform or service tokens. The shared HS256 `JWT_SECRET` and its code path are removed. Setup generates the key pair, keeps an existing one, and delivers the private key to platform-api alone ([#903](https://github.com/tavric-labs/mcp-runtime/issues/903), AUTH-02).
+- **Upgrade (breaking, fresh login required):** deploy with `mcp-runtime update`. Existing login tokens stop verifying, so users sign in again; API keys, OIDC identities and sessions are unaffected. Back up the new private key with the platform credentials Secret. Steps and rotation: [platform token keys](hack/deploy/reference/platform-token-keys.md).
+
 ## [0.15.0] - 2026-11-01
 
 Breaking `0.x` release: sessions use the platform Postgres store exclusively;

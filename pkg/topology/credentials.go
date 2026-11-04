@@ -10,9 +10,9 @@ type CredentialSet struct {
 }
 
 var credentialSets = []CredentialSet{
-	{Name: "mcp-platform-api-credentials", Consumers: []string{"platform-api", "admin-bootstrap"}, Keys: []string{"API_KEYS", "ADMIN_API_KEYS", "POSTGRES_DSN", "JWT_SECRET", "INTERNAL_AUTH_TOKEN", "ADMIN_USERS", "PLATFORM_ADMIN_EMAIL", "PLATFORM_ADMIN_PASSWORD", "PLATFORM_DEV_LOGIN_ENABLED", "PLATFORM_DEV_USER_EMAIL", "PLATFORM_DEV_USER_PASSWORD", "PLATFORM_DEV_ADMIN_EMAIL", "PLATFORM_DEV_ADMIN_PASSWORD"}},
-	{Name: "mcp-runtime-api-credentials", Consumers: []string{"runtime-api"}, Keys: []string{"API_KEYS", "ADMIN_API_KEYS", "JWT_SECRET", "INTERNAL_AUTH_TOKEN"}},
-	{Name: "mcp-analytics-api-credentials", Consumers: []string{"analytics-api"}, Keys: []string{"API_KEYS", "ADMIN_API_KEYS", "JWT_SECRET", "INTERNAL_AUTH_TOKEN"}},
+	{Name: "mcp-platform-api-credentials", Consumers: []string{"platform-api", "admin-bootstrap"}, Keys: []string{"API_KEYS", "ADMIN_API_KEYS", "POSTGRES_DSN", "JWT_SIGNING_KEY", "JWT_VERIFY_KEY", "INTERNAL_AUTH_TOKEN", "ADMIN_USERS", "PLATFORM_ADMIN_EMAIL", "PLATFORM_ADMIN_PASSWORD", "PLATFORM_DEV_LOGIN_ENABLED", "PLATFORM_DEV_USER_EMAIL", "PLATFORM_DEV_USER_PASSWORD", "PLATFORM_DEV_ADMIN_EMAIL", "PLATFORM_DEV_ADMIN_PASSWORD"}},
+	{Name: "mcp-runtime-api-credentials", Consumers: []string{"runtime-api"}, Keys: []string{"API_KEYS", "ADMIN_API_KEYS", "JWT_VERIFY_KEY", "INTERNAL_AUTH_TOKEN"}},
+	{Name: "mcp-analytics-api-credentials", Consumers: []string{"analytics-api"}, Keys: []string{"API_KEYS", "ADMIN_API_KEYS", "JWT_VERIFY_KEY", "INTERNAL_AUTH_TOKEN"}},
 	{Name: "mcp-ui-credentials", Consumers: []string{"ui"}, Keys: []string{"UI_API_KEY", "ADMIN_API_KEYS", "UI_SESSION_DATABASE_URL", "UI_SESSION_ENCRYPTION_KEY"}},
 	{Name: "mcp-ingest-credentials", Consumers: []string{"ingest", "gateway-example"}, Keys: []string{"INGEST_API_KEYS"}},
 	{Name: "mcp-runtime-ingest-credentials", Consumers: []string{"runtime-api"}, Keys: []string{"INGEST_API_KEYS"}},

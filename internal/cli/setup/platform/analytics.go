@@ -33,6 +33,7 @@ import (
 	setupplan "mcp-runtime/internal/cli/setup/plan"
 	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/kubeworkload"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/topology"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1455,13 +1456,9 @@ func renderAnalyticsSecretManifestWithReader(readSecret analyticsSecretValueRead
 			postgresDB,
 		)
 	}
-	jwtNamespace, jwtSecretName, err := ownedCredential("JWT_SECRET")
+	jwtSigningKey, jwtVerifyKeys, err := platformTokenKeyPair(readSecret)
 	if err != nil {
 		return "", err
-	}
-	jwtSecret, err := existingSecretDataValueOrRandomWithReader(readSecret, jwtNamespace, jwtSecretName, "JWT_SECRET", 32)
-	if err != nil {
-		return "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("failed to read analytics secrets: %v", err))
 	}
 	tokenNamespace, tokenSecret, err := ownedCredential("INTERNAL_AUTH_TOKEN")
 	if err != nil {
@@ -1572,7 +1569,8 @@ func renderAnalyticsSecretManifestWithReader(readSecret analyticsSecretValueRead
 		"POSTGRES_PASSWORD":       postgresPassword,
 		"POSTGRES_DB":             postgresDB,
 		"POSTGRES_DSN":            postgresDSN,
-		"JWT_SECRET":              jwtSecret,
+		"JWT_SIGNING_KEY":         jwtSigningKey,
+		"JWT_VERIFY_KEY":          jwtVerifyKeys,
 		"INTERNAL_AUTH_TOKEN":     internalAuthToken,
 		"OAUTH_PRIVATE_KEY":       oauthPrivateKey,
 		"GRAFANA_ADMIN_USER":      "admin",
@@ -1978,6 +1976,48 @@ func existingSecretDataValueClientGo(namespace, name, key string) (string, error
 		return "", core.WrapWithBase(core.ErrSetupReadSecretKeyFailed, err, fmt.Sprintf("read secret %s/%s key %s: %v", namespace, name, key, err))
 	}
 	return value, nil
+}
+
+// platformTokenKeyPair returns the PEM signing key for platform-api and the
+// PEM verification key set for every service. An existing pair is kept, so a
+// re-run of setup never invalidates issued tokens; a missing one is generated.
+// The verification set is extended with the signing key's public key when it is
+// absent and keeps older public keys until an operator removes them. A key that
+// cannot be parsed is an error: setup never overwrites credentials it cannot
+// read.
+func platformTokenKeyPair(readSecret analyticsSecretValueReader) (signingKey, verifyKeys string, err error) {
+	signNamespace, signSecret, err := ownedCredential("JWT_SIGNING_KEY")
+	if err != nil {
+		return "", "", err
+	}
+	verifyNamespace, verifySecret, err := ownedCredential("JWT_VERIFY_KEY")
+	if err != nil {
+		return "", "", err
+	}
+	signingKey, err = readSecret(signNamespace, signSecret, "JWT_SIGNING_KEY")
+	if err != nil {
+		return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("failed to read analytics secrets: %v", err))
+	}
+	existingVerify, err := readSecret(verifyNamespace, verifySecret, "JWT_VERIFY_KEY")
+	if err != nil {
+		return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("failed to read analytics secrets: %v", err))
+	}
+	// Local test mode may carry the shipped placeholder; replace it with a real key.
+	if isKnownPlaceholder(signingKey) {
+		signingKey, existingVerify = "", ""
+	}
+	if strings.TrimSpace(signingKey) == "" {
+		private, public, genErr := passport.GenerateES256KeyPair()
+		if genErr != nil {
+			return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, genErr, fmt.Sprintf("failed to generate JWT signing key: %v", genErr))
+		}
+		return string(private), string(public), nil
+	}
+	verify, err := passport.EnsureVerifyKey([]byte(signingKey), []byte(existingVerify))
+	if err != nil {
+		return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("invalid JWT signing credentials: %v", err))
+	}
+	return signingKey, string(verify), nil
 }
 
 func existingSecretDataValueOrRandomWithReader(readSecret analyticsSecretValueReader, namespace, name, key string, size int) (string, error) {

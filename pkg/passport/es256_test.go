@@ -23,6 +23,39 @@ func newTestKeyPair(t *testing.T) (privatePEM, publicPEM []byte) {
 	return privatePEM, publicPEM
 }
 
+// testKeys returns a fresh signer and the verifier that trusts only its key.
+func testKeys(t testing.TB) (*ES256Signer, *ES256Verifier) {
+	t.Helper()
+	privatePEM, _, err := GenerateES256KeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer, err := NewES256Signer(privatePEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signer, signer.Verifier()
+}
+
+func testVerifier(t testing.TB) *ES256Verifier {
+	t.Helper()
+	_, verifier := testKeys(t)
+	return verifier
+}
+
+// signRawClaims signs arbitrary claims the way a real token is signed, so a
+// test can forge tokens that are validly signed but carry bad claims.
+func signRawClaims(t testing.TB, signer *ES256Signer, claims Claims) string {
+	t.Helper()
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token.Header["kid"] = signer.kid
+	signed, err := token.SignedString(signer.key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signed
+}
+
 func signTestToken(t *testing.T, signer Signer, audience string, ttl time.Duration) string {
 	t.Helper()
 	now := time.Now()
@@ -255,5 +288,50 @@ func TestVerifierFromEnvNeedsOnlyPublicKeys(t *testing.T) {
 	t.Setenv(EnvVerifyKeys, "")
 	if _, err := VerifierFromEnv(); err == nil {
 		t.Fatal("VerifierFromEnv succeeded without a verification key")
+	}
+}
+
+func TestEnsureVerifyKeyPublishesTheSigningKeyAndKeepsOldKeys(t *testing.T) {
+	currentPrivate, currentPublic := newTestKeyPair(t)
+	_, oldPublic := newTestKeyPair(t)
+
+	got, err := EnsureVerifyKey(currentPrivate, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(currentPublic) {
+		t.Fatalf("empty set = %q, want the signing key's public key", got)
+	}
+
+	unchanged, err := EnsureVerifyKey(currentPrivate, got)
+	if err != nil || string(unchanged) != string(got) {
+		t.Fatalf("set that already holds the key changed: %q err=%v", unchanged, err)
+	}
+
+	merged, err := EnsureVerifyKey(currentPrivate, oldPublic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier, err := NewES256Verifier(merged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer, _ := NewES256Signer(currentPrivate)
+	if _, err := verifier.Verify(signTestToken(t, signer, AudienceRuntime, time.Minute), AudienceRuntime); err != nil {
+		t.Fatalf("signing key not trusted after merge: %v", err)
+	}
+	if len(verifier.keys) != 2 {
+		t.Fatalf("merged set holds %d keys, want the old and the current key", len(verifier.keys))
+	}
+}
+
+func TestEnsureVerifyKeyRefusesUnusableInput(t *testing.T) {
+	privatePEM, _ := newTestKeyPair(t)
+	if _, err := EnsureVerifyKey([]byte("not a key"), nil); err == nil {
+		t.Fatal("invalid signing key accepted")
+	}
+	// A private key in the verification set would publish a secret.
+	if _, err := EnsureVerifyKey(privatePEM, privatePEM); err == nil {
+		t.Fatal("private key accepted as an existing verification set")
 	}
 }

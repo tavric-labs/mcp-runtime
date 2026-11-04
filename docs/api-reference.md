@@ -323,8 +323,9 @@ over the public HTTPS issuer.
 ## Authentication API
 
 These routes are served by the split API services (`platform-api`, `runtime-api`, `analytics-api`) at `/api/v1/*`. Platform identity routes require the
-Postgres-backed platform store (`POSTGRES_DSN` or `DATABASE_URL`) and
-`JWT_SECRET`.
+Postgres-backed platform store (`POSTGRES_DSN` or `DATABASE_URL`) and the
+ES256 signing key (`JWT_SIGNING_KEY`). runtime-api and analytics-api need only
+the public verification key (`JWT_VERIFY_KEY`).
 
 ```text
 POST /api/v1/auth/signup

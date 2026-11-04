@@ -44,8 +44,9 @@ const (
 
 // Store owns platform identity, API key, team, namespace, and audit persistence.
 type Store struct {
-	db        *sql.DB
-	jwtSecret []byte
+	db       *sql.DB
+	signer   passport.Signer
+	verifier passport.Verifier
 }
 
 // NewStoreWithDB binds a Store to an existing database. Tests use it to observe

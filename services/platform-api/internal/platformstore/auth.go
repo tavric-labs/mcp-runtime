@@ -401,15 +401,15 @@ func (s *Store) CreateAccessToken(u User, ttl time.Duration) (string, error) {
 		p = resolved
 	}
 	p.AuthType = "platform_jwt"
-	return passport.Sign(s.jwtSecret, p, ttl, []string{passport.AudiencePlatform})
+	return passport.Sign(s.signer, p, ttl, []string{passport.AudiencePlatform})
 }
 
 // AuthenticateJWT validates a platform JWT and resolves it to the current principal.
 func (s *Store) AuthenticateJWT(token string) (Principal, bool) {
-	if s == nil || len(s.jwtSecret) == 0 {
+	if s == nil || s.verifier == nil {
 		return Principal{}, false
 	}
-	claims, err := passport.Verify(s.jwtSecret, token, passport.AudiencePlatform)
+	claims, err := s.verifier.Verify(token, passport.AudiencePlatform)
 	if err != nil {
 		return Principal{}, false
 	}

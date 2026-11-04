@@ -46,12 +46,12 @@ func (h ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if ExchangePath(h.Target) == "" || h.Auth.Audience != AudiencePlatform || h.Auth.verifier() == nil || h.Auth.signer() == nil || h.Auth.Principals == nil {
+	if ExchangePath(h.Target) == "" || h.Auth.Audience != AudiencePlatform || h.Auth.Verifier == nil || h.Auth.Signer == nil || h.Auth.Principals == nil {
 		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "token exchange unavailable")
 		return
 	}
 	token := identitypkg.ExtractBearer(r.Header.Get("Authorization"))
-	claims, err := h.Auth.verifier().Verify(token, AudiencePlatform)
+	claims, err := h.Auth.Verifier.Verify(token, AudiencePlatform)
 	// The CLI historically sends its credential in both headers. Recognize a
 	// duplicated, verified platform bearer and remove its X-Api-Key copy before
 	// forwarding. Otherwise retain API-key priority and destination validation.
@@ -89,7 +89,7 @@ func (h ExchangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.AuthType = "platform_jwt"
-	exchanged, err := h.Auth.signer().Sign(p, now, expires, []string{h.Target})
+	exchanged, err := h.Auth.Signer.Sign(p, now, expires, []string{h.Target})
 	if err != nil {
 		apikit.WriteEnvelope(w, http.StatusServiceUnavailable, apikit.CodeServiceUnavailable, "token exchange unavailable")
 		return

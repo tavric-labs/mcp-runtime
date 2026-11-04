@@ -610,6 +610,12 @@ stable error envelopes.
 | **analytics-api** | `mcp-analytics-api` | 8085 / 9095 | ClickHouse events, stats, usage analytics |
 
 JWT `aud` values: `platform-api`, `runtime-api`, `analytics-api` (`pkg/passport`).
+Tokens are signed with ES256. Only platform-api receives the private key
+(`JWT_SIGNING_KEY`); runtime-api and analytics-api receive only public keys
+(`JWT_VERIFY_KEY`) and pin the algorithm, so a compromised backend can verify
+tokens but cannot mint them. Each token carries a `kid`, and the verification
+set may hold several keys so a rotation overlaps; see
+[platform token keys](../hack/deploy/reference/platform-token-keys.md).
 Password and OIDC login issue a token with only `aud: ["platform-api"]`.
 Clients keep sending that one token to the platform gateway. On runtime and
 analytics routes, Traefik calls a fixed-target platform exchange handler and

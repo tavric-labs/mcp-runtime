@@ -20,10 +20,10 @@ func TestAudienceAuthenticatorVerifiesExchangeTokensLocally(t *testing.T) {
 	}))
 	defer platform.Close()
 
-	secret := []byte("test-secret")
+	signer, verifier := testKeys(t)
 	auth := NewAudienceAuthenticator(AudienceConfig{
 		Audience:       AudienceRuntime,
-		Secret:         secret,
+		Verifier:       verifier,
 		PlatformAPIURL: platform.URL,
 		InternalToken:  "internal-token",
 	})
@@ -34,7 +34,7 @@ func TestAudienceAuthenticatorVerifiesExchangeTokensLocally(t *testing.T) {
 		Role:    RoleUser,
 		Teams:   []PrincipalTeam{{ID: "team-1", Slug: "team-one", Role: "member"}},
 	}
-	token, err := Sign(secret, exchanged, ExchangeTTL, []string{AudienceRuntime})
+	token, err := Sign(signer, exchanged, ExchangeTTL, []string{AudienceRuntime})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestAudienceAuthenticatorVerifiesExchangeTokensLocally(t *testing.T) {
 		t.Fatalf("platform-api was called %d times to authenticate an exchange token, want 0", calls)
 	}
 
-	expired, err := signUntil(secret, exchanged, time.Now().Add(-2*time.Minute), time.Now().Add(-time.Minute), []string{AudienceRuntime})
+	expired, err := signer.Sign(exchanged, time.Now().Add(-2*time.Minute), time.Now().Add(-time.Minute), []string{AudienceRuntime})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestAudienceAuthenticatorVerifiesExchangeTokensLocally(t *testing.T) {
 		t.Fatal("expired exchange token authenticated")
 	}
 
-	wrongAudience, err := Sign(secret, exchanged, ExchangeTTL, []string{AudienceAnalytics})
+	wrongAudience, err := Sign(signer, exchanged, ExchangeTTL, []string{AudienceAnalytics})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestAudienceAuthenticatorStillResolvesAPIKeysRemotely(t *testing.T) {
 
 	auth := NewAudienceAuthenticator(AudienceConfig{
 		Audience:       AudienceAnalytics,
-		Secret:         []byte("test-secret"),
+		Verifier:       testVerifier(t),
 		PlatformAPIURL: platform.URL,
 		InternalToken:  "internal-token",
 	})

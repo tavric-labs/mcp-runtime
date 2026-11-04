@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"mcp-runtime/pkg/passport"
 )
 
 const (
@@ -23,24 +25,16 @@ func PlatformDSNFromEnv() string {
 	return strings.TrimSpace(os.Getenv("DATABASE_URL"))
 }
 
-func JWTSecretFromEnv() ([]byte, error) {
-	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
-	if secret == "" {
-		return nil, errors.New("JWT_SECRET is required when platform identity is enabled")
-	}
-	return []byte(secret), nil
-}
-
-func RunPlatformAdminBootstrap(ctx context.Context, opener func(context.Context, string, []byte) (PasswordUserEnsurer, error)) error {
+func RunPlatformAdminBootstrap(ctx context.Context, opener func(context.Context, string, passport.Signer, passport.Verifier) (PasswordUserEnsurer, error)) error {
 	dsn := PlatformDSNFromEnv()
 	if dsn == "" {
 		return errors.New("POSTGRES_DSN (or DATABASE_URL) is required for PLATFORM_ADMIN_BOOTSTRAP_ONLY")
 	}
-	jwtSecret, err := JWTSecretFromEnv()
+	signer, verifier, err := passport.PlatformKeysFromEnv()
 	if err != nil {
 		return err
 	}
-	store, err := opener(ctx, dsn, jwtSecret)
+	store, err := opener(ctx, dsn, signer, verifier)
 	if err != nil {
 		return err
 	}

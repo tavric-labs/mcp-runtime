@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("invalid CLICKHOUSE_DB: %v", err)
 	}
 
-	jwtSecret, err := passport.JWTSecretFromEnv()
+	jwtVerifier, err := passport.VerifierFromEnv()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -75,7 +75,7 @@ func main() {
 		platform: platformClient,
 		authentic: passport.NewAudienceAuthenticator(passport.AudienceConfig{
 			Audience:       passport.AudienceRuntime,
-			Secret:         jwtSecret,
+			Verifier:       jwtVerifier,
 			PlatformAPIURL: platformAPIURL,
 			InternalToken:  internalToken,
 			ServiceAPIKeys: apiKeys,

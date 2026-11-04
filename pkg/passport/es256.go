@@ -1,6 +1,7 @@
 package passport
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -230,4 +231,32 @@ func VerifierFromEnv() (Verifier, error) {
 		return nil, fmt.Errorf("%s is required", EnvVerifyKeys)
 	}
 	return NewES256Verifier([]byte(raw))
+}
+
+// EnsureVerifyKey returns the verification key set a deployment should publish
+// for a signing key: the existing set, plus the signing key's public key when
+// the set does not hold it yet. Old keys stay until an operator removes them, so
+// tokens signed before a rotation keep verifying. An existing set that is not
+// valid, or that holds a private key, is an error and is never overwritten.
+func EnsureVerifyKey(signingPEM, existingVerifyPEM []byte) ([]byte, error) {
+	signer, err := NewES256Signer(signingPEM)
+	if err != nil {
+		return nil, err
+	}
+	own, err := signer.PublicKeyPEM()
+	if err != nil {
+		return nil, err
+	}
+	if len(bytes.TrimSpace(existingVerifyPEM)) == 0 {
+		return own, nil
+	}
+	verifier, err := NewES256Verifier(existingVerifyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("existing %s: %w", EnvVerifyKeys, err)
+	}
+	if _, ok := verifier.keys[signer.kid]; ok {
+		return existingVerifyPEM, nil
+	}
+	merged := append(bytes.TrimRight(existingVerifyPEM, "\n"), '\n')
+	return append(merged, own...), nil
 }

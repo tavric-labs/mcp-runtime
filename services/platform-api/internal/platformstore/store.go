@@ -10,11 +10,12 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/telemetry/sqltrace"
 )
 
 // Open connects to Postgres, applies schema migrations, and returns a Store.
-func Open(ctx context.Context, dsn string, jwtSecret []byte) (*Store, error) {
+func Open(ctx context.Context, dsn string, signer passport.Signer, verifier passport.Verifier) (*Store, error) {
 	db, err := sqltrace.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
@@ -26,7 +27,7 @@ func Open(ctx context.Context, dsn string, jwtSecret []byte) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	s := &Store{db: db, jwtSecret: jwtSecret}
+	s := &Store{db: db, signer: signer, verifier: verifier}
 	if err := s.migrate(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -39,8 +40,8 @@ func Open(ctx context.Context, dsn string, jwtSecret []byte) (*Store, error) {
 }
 
 // NewForTest returns an in-memory Store shell for tests that stub persistence.
-func NewForTest(jwtSecret []byte) *Store {
-	return &Store{jwtSecret: jwtSecret}
+func NewForTest(signer passport.Signer, verifier passport.Verifier) *Store {
+	return &Store{signer: signer, verifier: verifier}
 }
 
 func (s *Store) migrate(ctx context.Context) error {

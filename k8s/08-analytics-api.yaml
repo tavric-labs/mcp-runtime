@@ -85,11 +85,11 @@ spec:
                   name: mcp-analytics-api-credentials
                   key: ADMIN_API_KEYS
                   optional: true
-            - name: JWT_SECRET
+            - name: JWT_VERIFY_KEY
               valueFrom:
                 secretKeyRef:
                   name: mcp-analytics-api-credentials
-                  key: JWT_SECRET
+                  key: JWT_VERIFY_KEY
             - name: INTERNAL_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
