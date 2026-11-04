@@ -31,7 +31,13 @@ type PrincipalResolver interface {
 }
 
 type Authenticator struct {
-	Secret          []byte
+	// Secret is the shared HS256 secret. It is superseded by Verifier and Signer.
+	Secret []byte
+	// Verifier accepts platform JWTs. Services other than platform-api set only
+	// this, so they cannot mint tokens.
+	Verifier Verifier
+	// Signer mints exchange tokens. Only platform-api sets it.
+	Signer          Signer
 	Audience        string
 	ServiceAPIKeys  map[string]struct{}
 	AdminAPIKeys    map[string]struct{}
@@ -90,8 +96,8 @@ func (a Authenticator) AuthenticateRequest(r *http.Request) (Principal, bool, er
 	if token == "" {
 		return Principal{}, false, nil
 	}
-	if len(a.Secret) > 0 {
-		if claims, err := Verify(a.Secret, token, a.Audience); err == nil {
+	if v := a.verifier(); v != nil {
+		if claims, err := v.Verify(token, a.Audience); err == nil {
 			return a.currentPrincipal(r.Context(), ToPrincipal(claims))
 		}
 	}
