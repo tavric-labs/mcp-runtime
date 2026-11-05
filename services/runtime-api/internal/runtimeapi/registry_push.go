@@ -11,7 +11,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"mcp-runtime-api/internal/platformstack"
@@ -24,6 +26,79 @@ const (
 )
 
 const registryPushMaxBytes = 512 << 20
+
+const (
+	// registryPushMaxConcurrentEnv caps simultaneous image uploads. Each upload
+	// is spooled to the pod's ephemeral storage, so the cap times
+	// registryPushMaxBytes must stay under the emptyDir sizeLimit in
+	// k8s/08-runtime-api.yaml.
+	registryPushMaxConcurrentEnv     = "MCP_REGISTRY_PUSH_MAX_CONCURRENT"
+	defaultRegistryPushMaxConcurrent = 4
+)
+
+// registryPushLimiter is a counting semaphore for in-flight uploads.
+type registryPushLimiter chan struct{}
+
+func newRegistryPushLimiter(n int) registryPushLimiter {
+	return make(registryPushLimiter, n)
+}
+
+var (
+	registryPushLimiterOnce sync.Once
+	registryPushLimiterInst registryPushLimiter
+)
+
+// defaultRegistryPushLimiter returns the process-wide upload limiter. It is
+// shared because RegistryPushService values are created per call site.
+func defaultRegistryPushLimiter() registryPushLimiter {
+	registryPushLimiterOnce.Do(func() {
+		registryPushLimiterInst = newRegistryPushLimiter(registryPushMaxConcurrent())
+	})
+	return registryPushLimiterInst
+}
+
+func registryPushMaxConcurrent() int {
+	raw := strings.TrimSpace(os.Getenv(registryPushMaxConcurrentEnv))
+	if raw == "" {
+		return defaultRegistryPushMaxConcurrent
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		log.Printf("registry push: ignoring invalid %s=%q; using %d", registryPushMaxConcurrentEnv, raw, defaultRegistryPushMaxConcurrent)
+		return defaultRegistryPushMaxConcurrent
+	}
+	return n
+}
+
+// admitRegistryPush authorizes a push from its target and scope alone, so a
+// denied caller never makes the pod spool an image, and then reserves an upload
+// slot. The returned release func is idempotent and must run once the spooled
+// archive has been removed.
+func admitRegistryPush(p principal, target string, scope topology.Scope, lim registryPushLimiter) (func(), error) {
+	forbidden := func(msg string) error {
+		return &registryPushRequestError{status: http.StatusForbidden, message: msg}
+	}
+	namespace, teamSlug, err := registryPushAuthContext(target, scope, p)
+	if err != nil {
+		return nil, forbidden(err.Error())
+	}
+	if err := ValidateDeployImage(target, namespace, teamSlug, p.Role); err != nil {
+		return nil, forbidden(err.Error())
+	}
+	if p.Role != roleAdmin && namespace != "" && !principalCanPublishNamespace(p, namespace) {
+		return nil, forbidden("forbidden namespace")
+	}
+	select {
+	case lim <- struct{}{}:
+	default:
+		return nil, &registryPushRequestError{
+			status:  http.StatusTooManyRequests,
+			message: fmt.Sprintf("too many image uploads in progress (limit %d); retry shortly", cap(lim)),
+		}
+	}
+	var once sync.Once
+	return func() { once.Do(func() { <-lim }) }, nil
+}
 
 const (
 	// registryPushUploadTimeoutEnv overrides how long the push route waits for
@@ -131,26 +206,22 @@ func (s *RegistryPushService) HandleRuntimeRegistryPush(w http.ResponseWriter, r
 	uploadTimeout := registryPushUploadTimeout()
 	extendRegistryPushDeadlines(w, uploadTimeout)
 	r.Body = http.MaxBytesReader(w, r.Body, registryPushMaxBytes)
-	req, err := readRegistryPushRequestWithTimeout(r, uploadTimeout)
+	var release func()
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
+	req, err := readRegistryPushRequestAuthorized(r, uploadTimeout, func(target string, scope topology.Scope) error {
+		var admitErr error
+		release, admitErr = admitRegistryPush(p, target, scope, defaultRegistryPushLimiter())
+		return admitErr
+	})
 	if err != nil {
 		writeRegistryPushRequestError(w, err)
 		return
 	}
 	defer os.Remove(req.TarPath)
-
-	namespace, teamSlug, err := registryPushAuthContext(req.Target, req.Scope, p)
-	if err != nil {
-		writeAPIError(w, http.StatusForbidden, err.Error())
-		return
-	}
-	if err := ValidateDeployImage(req.Target, namespace, teamSlug, p.Role); err != nil {
-		writeAPIError(w, http.StatusForbidden, err.Error())
-		return
-	}
-	if p.Role != roleAdmin && namespace != "" && !principalCanPublishNamespace(p, namespace) {
-		writeAPIError(w, http.StatusForbidden, "forbidden namespace")
-		return
-	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
@@ -224,7 +295,14 @@ func readRegistryPushRequest(r *http.Request) (registryPushRequest, error) {
 	return readRegistryPushRequestWithTimeout(r, registryPushUploadTimeout())
 }
 
-func readRegistryPushRequestWithTimeout(r *http.Request, upload time.Duration) (out registryPushRequest, err error) {
+func readRegistryPushRequestWithTimeout(r *http.Request, upload time.Duration) (registryPushRequest, error) {
+	return readRegistryPushRequestAuthorized(r, upload, nil)
+}
+
+// readRegistryPushRequestAuthorized parses the push form. authorize, when set,
+// runs once target and scope are known and before any image bytes are written
+// to disk; its error aborts the read without consuming the archive.
+func readRegistryPushRequestAuthorized(r *http.Request, upload time.Duration, authorize func(target string, scope topology.Scope) error) (out registryPushRequest, err error) {
 	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
 		return registryPushRequest{}, fmt.Errorf("invalid multipart form")
@@ -291,6 +369,13 @@ func readRegistryPushRequestWithTimeout(r *http.Request, upload time.Duration) (
 			if out.Target == "" {
 				part.Close()
 				return registryPushRequest{}, fmt.Errorf("target must be provided before image_tar")
+			}
+			if authorize != nil {
+				if authErr := authorize(out.Target, out.Scope); authErr != nil {
+					// Do not Close the part: multipart.Part.Close drains it, which
+					// would read the whole denied archive off the wire.
+					return registryPushRequest{}, authErr
+				}
 			}
 			tarFile, err = os.CreateTemp(registryPushTempDir(), "mcp-registry-upload-*.tar")
 			if err != nil {

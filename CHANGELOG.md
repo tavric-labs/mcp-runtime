@@ -11,6 +11,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 - **Breaking:** platform tokens are signed with ES256 and only platform-api holds the private key (`JWT_SIGNING_KEY`). runtime-api and analytics-api receive only public keys (`JWT_VERIFY_KEY`), pin the algorithm and select the key by `kid`, so a compromised backend can no longer mint platform or service tokens. The shared HS256 `JWT_SECRET` and its code path are removed. Setup generates the key pair, keeps an existing one, and delivers the private key to platform-api alone ([#903](https://github.com/tavric-labs/mcp-runtime/issues/903), AUTH-02).
 - **Upgrade (breaking, fresh login required):** deploy with `mcp-runtime update`. Existing login tokens stop verifying, so users sign in again; API keys, OIDC identities and sessions are unaffected. Back up the new private key with the platform credentials Secret. Steps and rotation: [platform token keys](hack/deploy/reference/platform-token-keys.md).
+- Registry push authorizes the target and scope before the image archive is written to disk, so a caller who cannot publish to the requested repository gets a `403` without making the runtime API spool up to 512 MiB. Concurrent uploads are capped by `MCP_REGISTRY_PUSH_MAX_CONCURRENT` (default 4); extra pushes receive `429` and can be retried. The runtime API upload volume now has a 2Gi size limit and a 3Gi ephemeral-storage limit so concurrent pushes cannot cause node disk pressure. No fresh setup is required; `mcp-runtime update` rolls the new limits.
 
 ## [0.15.0] - 2026-11-01
 
