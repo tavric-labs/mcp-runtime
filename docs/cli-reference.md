@@ -1058,9 +1058,19 @@ never removed, and a signing key that cannot be parsed stops the update before
 any change. platform-api rolls after runtime-api and analytics-api. `--dry-run`
 reports the provisioning without writing and never prints key material.
 
+The same rollouts wire the key env from those Secrets, as the release declares in
+`config/release/wiring.yaml`: platform-api gets `JWT_SIGNING_KEY` and runtime-api
+and analytics-api get `JWT_VERIFY_KEY`, each a `secretKeyRef` to the service's own
+credentials Secret, and the retired `JWT_SECRET` env is removed from the three
+Deployments. Setup renders the same references from `k8s/`, and a test keeps the
+two in step. A failed rollout restores the previous env, including `JWT_SECRET`,
+so the prior release still starts. Other env is untouched. Release wiring may
+declare `secretEnv` (Secret references) and `removeEnv` (retired variables);
+`--dry-run` lists these as wiring drift.
+
 Apart from those two keys, update never modifies Secrets, PVCs, cert-manager
-Issuers/Certificates, Services, or Ingresses, other RBAC, or other Deployment
-settings, and never deletes or recreates workloads. mcp-auth and cert-manager
+Issuers/Certificates, Services, or Ingresses, other RBAC, or Deployment
+settings other than the wiring a release declares, and never deletes or recreates workloads. mcp-auth and cert-manager
 are skipped unless selected with `--include-auth`, `--include-cert-manager`, or
 `--only`.
 

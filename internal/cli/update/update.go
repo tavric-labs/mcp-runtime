@@ -130,6 +130,12 @@ removed, and a signing key that cannot be parsed stops the update. platform-api
 rolls after runtime-api and analytics-api. --dry-run reports the provisioning
 without writing.
 
+The same rollouts also wire the key env from those Secrets, as the release
+declares in wiring.yaml: platform-api gets JWT_SIGNING_KEY and runtime-api and
+analytics-api get JWT_VERIFY_KEY (each a secretKeyRef to its own credentials
+Secret), and the retired JWT_SECRET env is removed. A failed rollout restores the
+previous env, including JWT_SECRET. Other env is untouched.
+
 With --build, update builds and pushes Built-component images from the release
 that are missing from the registry (sequential by default; use
 --build-parallelism to raise concurrency), then rolls those Deployments.

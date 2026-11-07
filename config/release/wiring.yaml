@@ -84,15 +84,36 @@ components:
     resourceHistoryToken: true
     args:
       - --enable-feature=exemplar-storage
+  # ES256 token keys replace the shared JWT_SECRET. The Secrets that hold the keys
+  # are provisioned by update before any of these Deployments roll.
   platform-api:
+    secretEnv:
+      - name: JWT_SIGNING_KEY
+        secret: mcp-platform-api-credentials
+        key: JWT_SIGNING_KEY
+        optional: true
+    removeEnv:
+      - JWT_SECRET
     dnsOptions:
       - name: ndots
         value: "3"
   runtime-api:
+    secretEnv:
+      - name: JWT_VERIFY_KEY
+        secret: mcp-runtime-api-credentials
+        key: JWT_VERIFY_KEY
+    removeEnv:
+      - JWT_SECRET
     dnsOptions:
       - name: ndots
         value: "3"
   analytics-api:
+    secretEnv:
+      - name: JWT_VERIFY_KEY
+        secret: mcp-analytics-api-credentials
+        key: JWT_VERIFY_KEY
+    removeEnv:
+      - JWT_SECRET
     dnsOptions:
       - name: ndots
         value: "3"

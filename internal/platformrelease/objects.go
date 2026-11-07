@@ -27,6 +27,13 @@ type ComponentWiring struct {
 	ServiceAccountName           string            `json:"serviceAccountName,omitempty"`
 	AutomountServiceAccountToken *bool             `json:"automountServiceAccountToken,omitempty"`
 	Env                          map[string]string `json:"env,omitempty"`
+	// SecretEnv are env vars sourced from a Secret key. update adds a missing
+	// one or corrects a literal or differing reference; the Secret itself is
+	// never written by wiring.
+	SecretEnv []SecretEnvRef `json:"secretEnv,omitempty"`
+	// RemoveEnv are env vars the release retires; update deletes them from the
+	// container (rollback restores the previous definition).
+	RemoveEnv []string `json:"removeEnv,omitempty"`
 	// Args are container flags in --name or --name=value form. A missing flag
 	// is appended; an existing flag with the same name is replaced unless the
 	// flag is repeatable (see RepeatableFlags).
@@ -38,6 +45,14 @@ type ComponentWiring struct {
 	ResourceHistoryToken bool `json:"resourceHistoryToken,omitempty"`
 }
 
+// SecretEnvRef is one env var read from a Secret key (a secretKeyRef).
+type SecretEnvRef struct {
+	Name     string `json:"name"`
+	Secret   string `json:"secret"`
+	Key      string `json:"key"`
+	Optional bool   `json:"optional,omitempty"`
+}
+
 // DNSOption is one pod dnsConfig option.
 type DNSOption struct {
 	Name  string `json:"name"`
@@ -47,7 +62,7 @@ type DNSOption struct {
 // IsZero reports whether the wiring asks for nothing.
 func (w *ComponentWiring) IsZero() bool {
 	return w == nil || (w.ServiceAccountName == "" && w.AutomountServiceAccountToken == nil &&
-		len(w.Env) == 0 && len(w.Args) == 0 && len(w.DNSOptions) == 0 && !w.ResourceHistoryToken)
+		len(w.Env) == 0 && len(w.SecretEnv) == 0 && len(w.RemoveEnv) == 0 && len(w.Args) == 0 && len(w.DNSOptions) == 0 && !w.ResourceHistoryToken)
 }
 
 // RepeatableFlags are flags that may legitimately appear more than once, so
@@ -63,6 +78,7 @@ func FlagName(arg string) string {
 }
 
 var (
+	secretKeyPattern = regexp.MustCompile(`^[-._a-zA-Z0-9]+$`)
 	envNamePattern   = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 	dnsLabel         = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 	argPattern       = regexp.MustCompile(`^--[a-zA-Z0-9][a-zA-Z0-9.-]*(=[^\s]*)?$`)
@@ -80,6 +96,32 @@ func (w *ComponentWiring) validate(where string) []error {
 	for name := range w.Env {
 		if !envNamePattern.MatchString(name) {
 			errs = append(errs, fmt.Errorf("%s: wiring.env name %q is invalid", where, name))
+		}
+	}
+	seen := map[string]bool{}
+	for name := range w.Env {
+		seen[name] = true
+	}
+	for _, ref := range w.SecretEnv {
+		switch {
+		case !envNamePattern.MatchString(ref.Name):
+			errs = append(errs, fmt.Errorf("%s: wiring.secretEnv name %q is invalid", where, ref.Name))
+		case !dnsLabel.MatchString(ref.Secret):
+			errs = append(errs, fmt.Errorf("%s: wiring.secretEnv %s secret %q is invalid", where, ref.Name, ref.Secret))
+		case !secretKeyPattern.MatchString(ref.Key):
+			errs = append(errs, fmt.Errorf("%s: wiring.secretEnv %s key %q is invalid", where, ref.Name, ref.Key))
+		}
+		if seen[ref.Name] {
+			errs = append(errs, fmt.Errorf("%s: wiring.secretEnv %s is declared more than once", where, ref.Name))
+		}
+		seen[ref.Name] = true
+	}
+	for _, name := range w.RemoveEnv {
+		if !envNamePattern.MatchString(name) {
+			errs = append(errs, fmt.Errorf("%s: wiring.removeEnv name %q is invalid", where, name))
+		}
+		if seen[name] {
+			errs = append(errs, fmt.Errorf("%s: wiring.removeEnv %s is also set by wiring", where, name))
 		}
 	}
 	for _, arg := range w.Args {

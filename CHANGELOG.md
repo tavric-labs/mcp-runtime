@@ -7,7 +7,13 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Changed
+
+- **Behavior change:** `mcp-runtime update` now applies `secretKeyRef` env and env removal that a release declares in `config/release/wiring.yaml` (`secretEnv`, `removeEnv`), not only literal env. The release declares `JWT_SIGNING_KEY` for platform-api and `JWT_VERIFY_KEY` for runtime-api and analytics-api (each from the service's own credentials Secret, matching `k8s/`) and retires the `JWT_SECRET` env on all three. A failed rollout restores the previous env, including `JWT_SECRET`, and the printed recovery commands cover the new env. Other env is untouched, `--dry-run` reports the drift, and the key Secrets are provisioned before any of these Deployments roll.
+
 ### Fixed
+
+- `mcp-runtime update` now wires the platform token key env before it rolls platform services. The 0.16.0 update patched only images and literal env, so a platform whose Deployments still carried `JWT_SECRET` had platform-api crash-loop with `JWT_SIGNING_KEY is required` (and runtime-api and analytics-api with `JWT_VERIFY_KEY is required`) and the update rolled back. A platform whose update was rolled back needs only a rerun of update with a CLI and release manifest that include this wiring; no fresh setup is required. See [platform token keys](hack/deploy/reference/platform-token-keys.md).
 
 - `mcp-runtime update` now provisions the platform token key pair itself before it rolls platform-api, runtime-api or analytics-api. The 0.16.0 notes said update would generate the ES256 pair, but only `setup` did, so updating a platform that held just the old `JWT_SECRET` left platform-api crash-looping on a missing `JWT_SIGNING_KEY` and the update rolled back. Update keeps an existing pair, generates a signing key when none exists, adds its public key to the verification set, writes `JWT_SIGNING_KEY` only to platform-api's Secret and `JWT_VERIFY_KEY` to the platform-api, runtime-api and analytics-api Secrets, and never removes existing verification keys or the legacy `JWT_SECRET`. A signing key it cannot parse stops the update before any change, and `--dry-run` reports the provisioning without writing. platform-api now rolls after runtime-api and analytics-api so every verifier trusts the key first. This is the one place update writes Secrets. A platform whose 0.16.0 update was rolled back needs only a rerun of update from the release containing this fix; no fresh setup is required. See [platform token keys](hack/deploy/reference/platform-token-keys.md).
 
