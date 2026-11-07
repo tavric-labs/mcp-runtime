@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"path"
 	"regexp"
 	"strings"
@@ -81,9 +82,9 @@ func ParseResourceSpec(data []byte) (*ResourceSpec, error) {
 	if !resourceIDPattern.MatchString(spec.ID) {
 		return nil, errors.New("resource id must be lowercase letters, digits and hyphens, at most 27 characters")
 	}
-	resource, err := httpsURL(spec.ResourceURL)
+	resource, err := resourceURL(spec.ResourceURL)
 	if err != nil || resource.Path == "" || resource.Path == "/" || path.Clean(resource.Path) != resource.Path {
-		return nil, errors.New("resource_url must be an HTTPS URL with a path, such as https://mcp.example.com/example-api/mcp")
+		return nil, errors.New("resource_url must be an HTTPS URL with a path, such as https://mcp.example.com/example-api/mcp (plain http is accepted only for localhost test clusters)")
 	}
 	if len(spec.RequiredScopes) == 0 {
 		return nil, errors.New("required_scopes needs at least one scope")
@@ -105,6 +106,24 @@ func ParseResourceSpec(data []byte) (*ResourceSpec, error) {
 		return nil, fmt.Errorf("login.downstream_token %q is not supported (only \"upstream_session\")", spec.Login.DownstreamToken)
 	}
 	return &spec, validateResourceConnector(spec.Connector)
+}
+
+// resourceURL accepts an HTTPS URL, or a plain http URL whose host is a loopback
+// address, which is what a local test cluster serves. MCP Auth applies the same
+// rule to its own local development mode; any other http host is refused.
+func resourceURL(raw string) (*url.URL, error) {
+	if u, err := httpsURL(raw); err == nil {
+		return u, nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "http" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.RawPath != "" {
+		return nil, errors.New("invalid resource URL")
+	}
+	switch u.Hostname() {
+	case "localhost", "127.0.0.1", "::1":
+		return u, nil
+	}
+	return nil, errors.New("plain http is only allowed for a loopback host")
 }
 
 func validateResourceConnector(raw json.RawMessage) error {

@@ -206,3 +206,16 @@ func TestMergeResourceConnectorRefusesToReplaceAConnectorItDoesNotOwn(t *testing
 		t.Fatal("the installation's own connector was replaced")
 	}
 }
+
+func TestParseResourceSpecAllowsPlainHTTPOnlyForLoopback(t *testing.T) {
+	for _, resource := range []string{"http://localhost:18080/example-api/mcp", "http://127.0.0.1:18080/example-api/mcp", "http://[::1]:18080/example-api/mcp"} {
+		if _, err := ParseResourceSpec(mutateSpec(t, func(s map[string]any) { s["resource_url"] = resource })); err != nil {
+			t.Errorf("a local test resource %s was refused: %v", resource, err)
+		}
+	}
+	for _, resource := range []string{"http://mcp.example.com/example-api/mcp", "http://localhost.example.com/example-api/mcp", "http://127.0.0.1.example.com/example-api/mcp"} {
+		if _, err := ParseResourceSpec(mutateSpec(t, func(s map[string]any) { s["resource_url"] = resource })); err == nil {
+			t.Errorf("accepted the non-loopback http resource %s", resource)
+		}
+	}
+}
