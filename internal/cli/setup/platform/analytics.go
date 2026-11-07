@@ -1085,6 +1085,11 @@ func applyPodEgressManifestValues(content string) (string, error) {
 	}
 	content = replacePodEgressValue(content, "MCP_POD_EGRESS_CIDRS", joinPrefixes(allows))
 	content = replacePodEgressValue(content, "MCP_POD_EGRESS_EXCEPT_CIDRS", joinPrefixes(except))
+	// --test-mode is a throwaway cluster: let servers reach any destination, such
+	// as a third-party API or the in-cluster auth server. Never set otherwise.
+	if os.Getenv("MCP_RUNTIME_TEST_MODE") == "1" {
+		content = replacePodEgressValue(content, "MCP_POD_EGRESS_ALLOW_ALL", "true")
+	}
 	return content, nil
 }
 

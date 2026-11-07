@@ -1,6 +1,8 @@
 package platform
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -33,5 +35,45 @@ func TestRenderPodEgressCIDRsRejectsDefaultRoute(t *testing.T) {
 	_, err := renderAnalyticsManifest("value: \"\" # MCP_POD_EGRESS_CIDRS\n", AnalyticsImageSet{}, "", setupplan.PlatformModeOrg)
 	if err == nil {
 		t.Fatal("default route was accepted")
+	}
+}
+
+const allowAllPlaceholder = "            - name: MCP_POD_EGRESS_ALLOW_ALL\n" +
+	"              value: \"\" # MCP_POD_EGRESS_ALLOW_ALL\n"
+
+// Test mode is a throwaway cluster: setup lets servers reach any destination by
+// turning the runtime API's allow-all egress switch on. A normal install never does.
+func TestPodEgressAllowAllIsOnlySetInTestMode(t *testing.T) {
+	t.Setenv("MCP_POD_EGRESS_CIDRS", "")
+	t.Setenv("MCP_POD_EGRESS_EXCEPT_CIDRS", "")
+
+	t.Setenv("MCP_RUNTIME_TEST_MODE", "1")
+	rendered, err := applyPodEgressManifestValues(allowAllPlaceholder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rendered, `value: "true" # MCP_POD_EGRESS_ALLOW_ALL`) {
+		t.Fatalf("test mode did not enable allow-all egress:\n%s", rendered)
+	}
+
+	for _, mode := range []string{"", "0"} {
+		t.Setenv("MCP_RUNTIME_TEST_MODE", mode)
+		rendered, err := applyPodEgressManifestValues(allowAllPlaceholder)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(rendered, `value: "" # MCP_POD_EGRESS_ALLOW_ALL`) {
+			t.Fatalf("MCP_RUNTIME_TEST_MODE=%q must leave allow-all egress off:\n%s", mode, rendered)
+		}
+	}
+}
+
+func TestRuntimeAPIManifestDeclaresTheAllowAllEgressSwitch(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "k8s", "08-runtime-api.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `value: "" # MCP_POD_EGRESS_ALLOW_ALL`) {
+		t.Fatal("k8s/08-runtime-api.yaml has no MCP_POD_EGRESS_ALLOW_ALL placeholder, so setup cannot turn the switch on")
 	}
 }

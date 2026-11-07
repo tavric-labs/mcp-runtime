@@ -53,6 +53,28 @@ func withoutMCPAuthDataClaim(manifest string) string {
 	return strings.Join(kept, "\n---\n")
 }
 
+// mcpAuthTestModeIngressPolicy is added next to the strict ingress policy in test
+// mode. NetworkPolicies are additive, so together they accept port 8080 from any
+// source. The strict policy exists to make a forwarded-proto header trustworthy,
+// and test mode sets MCP_AUTH_TRUST_PROXY_TLS=false, so on a throwaway cluster
+// servers may reach MCP Auth directly for JWKS and token exchange.
+const mcpAuthTestModeIngressPolicy = `apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-auth-server-test-mode-ingress
+  namespace: mcp-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: mcp-auth-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080
+`
+
 // secretKeyPattern is the character set Kubernetes accepts for Secret data
 // keys. Connector files supply these names, so they are validated before they
 // are concatenated into a manifest.
@@ -335,6 +357,9 @@ func renderMCPAuthServerManifest(raw string, opts mcpAuthServerOptions) (string,
 		// Nothing mounts the claim in test mode; left in place it stays Pending
 		// and fails setup's PVC verification.
 		manifest = withoutMCPAuthDataClaim(manifest)
+	}
+	if opts.TestMode {
+		manifest = strings.TrimRight(manifest, "\n") + "\n---\n" + mcpAuthTestModeIngressPolicy
 	}
 	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_STORE_VALUE", store)
 	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_DATABASE_URL_VALUE", databaseURL)

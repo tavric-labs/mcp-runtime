@@ -441,6 +441,15 @@ that standalone mode bypasses those gateway features. E2E uses distinct
 in routes and cluster resources. To run the Go process without server auth,
 omit the OAuth settings.
 
+`--test-mode` is also lenient about network policy, because the cluster is
+disposable. Team and organization MCP servers may reach any destination (the
+namespace default-deny policy gains an allow-all egress rule), so a server can call
+a third-party API without `--pod-egress-cidrs`, and MCP Auth accepts traffic on port
+8080 from every namespace, so a server can fetch its JWKS and exchange tokens
+in-cluster. Neither is ever enabled outside `--test-mode`: a normal install keeps the
+default-deny egress and the ingress-controller-only MCP Auth policy. Re-run `setup
+--test-mode` after upgrading to apply it to existing namespaces.
+
 In `--test-mode` the authorization server is configured with the Go example
 resource, so one deployment issues a token for the protected fixture.
 Add resources with `--mcp-auth-resource-url` (repeat the flag or
