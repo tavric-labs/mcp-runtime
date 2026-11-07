@@ -364,6 +364,7 @@ func recoveryCommands(w *WorkloadResult) []string {
 			continue
 		}
 		cmds = append(cmds, fmt.Sprintf("kubectl -n %s set image deployment/%s %s=%s", w.Namespace, w.Deployment, c.Container, ch.previous))
+		cmds = append(cmds, ch.wiring.recoveryCommands(w.Namespace, w.Deployment, c.Container)...)
 	}
 	return cmds
 }

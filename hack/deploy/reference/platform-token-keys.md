@@ -33,11 +33,18 @@ an existing key pair, generates one when none exists, and adds the signing key's
 public key to the verification set, writing `JWT_SIGNING_KEY` only to
 platform-api's Secret and `JWT_VERIFY_KEY` to all three Secrets before any
 workload rolls. runtime-api and analytics-api roll before platform-api. `--dry-run`
-reports this without writing. The legacy `JWT_SECRET` key is left in place. Update
-releases before the one that added this step (v0.16.0) never provisioned the
-pair: on a platform that only holds `JWT_SECRET`, platform-api crash-loops until
-the pair exists, and rerunning update from the fixed release (or `mcp-runtime
-setup`) provisions it. Setup uses the same rules.
+reports this without writing. The legacy `JWT_SECRET` key is left in the Secrets.
+
+Update also wires the Deployments (declared in `config/release/wiring.yaml`):
+platform-api gets `JWT_SIGNING_KEY` and runtime-api and analytics-api get
+`JWT_VERIFY_KEY`, each as a `secretKeyRef` to the service's own credentials
+Secret, and the retired `JWT_SECRET` env is removed. Releases up to and including
+v0.16.0 did neither: they never provisioned the pair and never added the env, so
+on a platform that still ran the `JWT_SECRET` Deployments, platform-api
+crash-looped with `JWT_SIGNING_KEY is required` and update rolled back. Rerun
+update with a CLI and release manifest that include this wiring (or `mcp-runtime
+setup`). A failed rollout restores the previous env, so the prior release still
+starts. Setup renders the same references from `k8s/`.
 
 Verify without printing values:
 
