@@ -425,6 +425,85 @@ JWKS URI. It does not prove client-secret validity, redirect registration, user
 login, refresh behavior, or provider claim mappings; complete those with a
 dedicated test user before production rollout.
 
+## Give one resource its own provider login and token
+
+Some MCP servers must call an upstream provider's API as the person who signed
+in. Such a server stays an ordinary OAuth resource server: it validates the MCP
+access token, then exchanges it at MCP Auth for that person's own upstream token
+(RFC 8693 token exchange, authenticating as a **resource client** with
+`private_key_jwt`) and calls the provider with it. Runtime stores no upstream
+token and the server caches none.
+
+`mcp-runtime cluster mcp-auth resource apply` wires one such resource into an
+installed MCP Auth that signs everyone else in through its selected connector.
+Describe the resource in a YAML or JSON file, typically kept in the MCP server's own
+`.mcp/` directory, since the provider's connector settings are that server's concern: the
+file is applied by an administrator and is not part of the tenant-deployed `servers.yaml`.
+It holds no secret: the connector names the
+environment variable that carries its client secret, and the resource client is a
+public key.
+
+```json
+{
+  "id": "example-api",
+  "resource_url": "https://mcp.example.com/example-api/mcp",
+  "required_scopes": ["tools:read", "tools:write"],
+  "resource_client": {"client_id": "example-mcp", "public_key_pem": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"},
+  "login": {"label": "Sign in with Example", "downstream_token": "upstream_session"},
+  "connector": {
+    "issuer": "https://idp.example.com/oauth",
+    "authorization_endpoint": "https://idp.example.com/oauth/authorize",
+    "token_endpoint": "https://idp.example.com/oauth/token",
+    "client_id": "example-client-id",
+    "client_secret_env": "EXAMPLE_IDP_CLIENT_SECRET",
+    "token_endpoint_auth_method": "client_secret_post",
+    "exchange_client_id": "example-client-id",
+    "scopes": ["openid", "profile"]
+  }
+}
+```
+
+The `connector` object is an ordinary MCP Auth connector, so provider quirks go there and
+stay out of Runtime: for a provider that refuses client-secret authentication for a code
+issued with PKCE, or whose ID tokens carry no `nonce`, set `"pkce": false` and
+`"id_token_nonce_policy": "disabled"` as MCP Auth's
+[connector guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-server.md)
+describes. Runtime passes the object through and names no provider.
+
+```bash
+mcp-runtime cluster mcp-auth resource apply --file resource.json \
+  --kubeconfig /path/to/cluster.yaml --context selected-context --dry-run
+```
+
+Rerun with `--yes` instead of `--dry-run` to apply. Before it writes anything the
+command checks that:
+
+- MCP Auth uses a single connector (not login methods mode) and does not already
+  point `MCP_AUTH_RESOURCE_LOGINS_FILE` or `MCP_AUTH_RESOURCE_CLIENTS_FILE` at
+  another file;
+- MCP Auth already serves `resource_url`. Deploy the MCP server first, with its
+  `auth` block, so the operator registers the resource; a resource client for an
+  unserved resource would stop MCP Auth from starting;
+- the `mcp-auth-connector-secrets` Secret already has the connector's
+  `client_secret_env` key. The command checks the key name only and never reads
+  or prints a value.
+
+The command adds a login method `res-<id>`, a resource client named
+`resource:<id>` and a connector `resource-login-<id>` to the wiring MCP Auth
+reads, and restarts MCP Auth only when something changed. Entries it does not own
+are kept as written, including the connectors the installation set up and the
+[credential gateway's](#other-identity-providers) `form-*` logins, and re-applying
+the gateway keeps these entries too. The resource's key stays with its server:
+only the public half is registered.
+
+`downstream_token: "upstream_session"` makes MCP Auth store the provider's token
+set for the people who sign in to that resource and hand it to the resource's
+server on exchange. That table holds usable secrets, so protect MCP Auth's database
+as a credential store. A provider that issues no refresh token cannot be renewed
+silently: after its access token expires the person signs in again. This needs an
+MCP Auth release that supports login `downstream_token`
+([tavric-labs/mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)).
+
 ## Clean setup and credential preservation
 
 `hack/deploy/reference/reset.sh --yes --wait` destructively resets MCP

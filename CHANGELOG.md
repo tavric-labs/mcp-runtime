@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Added
+
+- `mcp-runtime cluster mcp-auth resource apply` wires an OAuth MCP server's own provider login, resource client and connector into an installed MCP Auth from a YAML or JSON file kept with the server, so a server can exchange a person's MCP token for their upstream provider token without a second auth server. It validates before writing, supports `--dry-run`, keeps entries it does not own (including the credential gateway's), and only checks that the connector secret key exists. Re-applying the credential gateway now preserves these resource entries. Needs an MCP Auth release with login `downstream_token` support ([mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)); see [Give one resource its own provider login and token](docs/mcp-oauth.md#give-one-resource-its-own-provider-login-and-token). No fresh setup is required.
+
 ### Fixed
 
 - `setup --test-mode --with-mcp-auth-server` no longer stops at the `mcp-auth-server` step on a real cluster. The Ingress host (and TLS host) is now the issuer's hostname without its port, `localhost` and not `localhost:18080`, because Kubernetes rejects a port in an Ingress host. No fresh setup is required.
@@ -20,6 +24,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
+- **Breaking:** `mcp-runtime cluster mcp-auth-connector apply` is now `mcp-runtime cluster mcp-auth connector apply`, grouped with the new `mcp-runtime cluster mcp-auth resource apply`. Only the command name changes; its flags and behavior are the same, and the old name is removed. Update scripts and runbooks that call it. Updating the main connector now also keeps the connectors the resource command owns (`resource-login-*`), as it already kept the credential gateway's.
 - SPIFFE session identities are built and parsed with go-spiffe's `spiffeid` package instead of hand-written URI handling, and a new [SPIFFE agent identity](docs/spiffe-agent-identity.md) page explains the issuance and verification flow. Identity validation is now strict: session namespaces and names may use only letters, digits, `.`, `-` and `_` (Kubernetes namespace names and platform session names already do), and the trust domain must be lowercase. Names outside that set are refused at certificate issuance instead of being percent-escaped, URI SANs that are not valid SPIFFE IDs are ignored, and the gateway rejects them as `invalid_spiffe_identity`. `identity.SessionSPIFFEID` now returns an error. The gateway's trusted-ingress pin (`TRUSTED_PROXY_SPIFFE_ID`) is compared as a parsed SPIFFE ID against a certificate that has exactly one URI SAN (go-spiffe's `x509svid` rules, in the new `pkg/spiffecert`). A pin that is not a valid SPIFFE ID, or an ingress certificate with extra URI SANs, now matches nothing (fail closed); the operator-issued ingress certificate and pin are valid. The operator builds that pin with `spiffeid.FromSegments`; an invalid `MCP_TRUST_DOMAIN`, ingress namespace or service account now fails the MCPServer reconcile with an error instead of producing a malformed pin or running the gateway without one. No setup or data migration is needed; an installed `MCP_TRUST_DOMAIN` must already be lowercase.
 
 ## [0.15.0] - 2026-11-01

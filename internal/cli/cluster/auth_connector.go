@@ -25,7 +25,7 @@ const (
 )
 
 func newMCPAuthConnectorCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "mcp-auth-connector", Short: "Manage the bundled MCP Auth identity connector"}
+	cmd := &cobra.Command{Use: "connector", Short: "Manage the bundled MCP Auth identity connector"}
 	var file, connector, kubeconfig, kubeContext string
 	var yes, dryRun bool
 	apply := &cobra.Command{
@@ -126,7 +126,7 @@ func applyMCPAuthConnector(ctx context.Context, client kubernetes.Interface, dat
 		if err != nil {
 			return fmt.Errorf("read existing MCP Auth connector ConfigMap: %w", err)
 		}
-		merged, err := preserveGatewayConnectors(cm.Data["connectors.json"], data)
+		merged, err := preserveOwnedConnectors(cm.Data["connectors.json"], data)
 		if err != nil {
 			return err
 		}
@@ -149,18 +149,32 @@ func applyMCPAuthConnector(ctx context.Context, client kubernetes.Interface, dat
 	return changed, err
 }
 
-// preserveGatewayConnectors keeps credential-gateway connectors when an
-// identity-connector file does not mention them. gateway apply owns entries
-// named gateway-login-*; replacing the whole file with the Keycloak connector
-// removes the resource login mcp-auth needs and the new server exits.
-func preserveGatewayConnectors(existing, replacement string) (string, error) {
+// ownedConnectorPrefixes are the connector names Runtime owns besides the
+// installation's own: the credential gateway's logins and the resource command's.
+var ownedConnectorPrefixes = []string{authgateway.ConnectorPrefix, authgateway.ResourceConnectorPrefix}
+
+func runtimeOwnedConnector(name string) bool {
+	for _, prefix := range ownedConnectorPrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// preserveOwnedConnectors keeps the connectors Runtime owns (gateway-login-*
+// and resource-login-*) when an identity-connector file does not mention them.
+// gateway apply and the resource command own those entries; replacing the whole
+// file with the main connector removes a login mcp-auth needs and the server
+// exits at startup.
+func preserveOwnedConnectors(existing, replacement string) (string, error) {
 	current, err := connectorDocument(existing)
 	if err != nil {
 		return "", err
 	}
 	keep := false
 	for name := range current {
-		if strings.HasPrefix(name, authgateway.ConnectorPrefix) {
+		if runtimeOwnedConnector(name) {
 			keep = true
 			break
 		}
@@ -173,7 +187,7 @@ func preserveGatewayConnectors(existing, replacement string) (string, error) {
 		return "", err
 	}
 	for name, raw := range current {
-		if strings.HasPrefix(name, authgateway.ConnectorPrefix) {
+		if runtimeOwnedConnector(name) {
 			if _, present := incoming[name]; !present {
 				incoming[name] = raw
 			}
