@@ -10,6 +10,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 ### Fixed
 
 - `setup --test-mode --with-mcp-auth-server` no longer stops at the `mcp-auth-server` step on a real cluster. The Ingress host (and TLS host) is now the issuer's hostname without its port, `localhost` and not `localhost:18080`, because Kubernetes rejects a port in an Ingress host. No fresh setup is required.
+- `setup --test-mode --with-mcp-auth-server` no longer creates the unused `mcp-auth-server-data` PersistentVolumeClaim. Test mode keeps MCP Auth's state in memory and mounts an `emptyDir`, so the claim stayed Pending and made setup's own PVC verification fail. Production still creates it for the SQLite store. A claim left by an earlier test-mode setup can be deleted.
 
 ### Security
 

@@ -39,6 +39,20 @@ func DefaultMCPAuthIssuerURL() string {
 	return "https://auth." + domain + "/mcp-auth"
 }
 
+// withoutMCPAuthDataClaim removes the mcp-auth-server-data PersistentVolumeClaim
+// document from the manifest and keeps every other document as written.
+func withoutMCPAuthDataClaim(manifest string) string {
+	documents := strings.Split(manifest, "\n---\n")
+	kept := documents[:0]
+	for _, document := range documents {
+		if strings.Contains(document, "kind: PersistentVolumeClaim") && strings.Contains(document, "name: mcp-auth-server-data") {
+			continue
+		}
+		kept = append(kept, document)
+	}
+	return strings.Join(kept, "\n---\n")
+}
+
 // secretKeyPattern is the character set Kubernetes accepts for Secret data
 // keys. Connector files supply these names, so they are validated before they
 // are concatenated into a manifest.
@@ -318,6 +332,9 @@ func renderMCPAuthServerManifest(raw string, opts mcpAuthServerOptions) (string,
 		store = "memory"
 		databaseURL = "/tmp/mcp-auth.db"
 		dataVolume = "emptyDir: {}"
+		// Nothing mounts the claim in test mode; left in place it stays Pending
+		// and fails setup's PVC verification.
+		manifest = withoutMCPAuthDataClaim(manifest)
 	}
 	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_STORE_VALUE", store)
 	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_DATABASE_URL_VALUE", databaseURL)

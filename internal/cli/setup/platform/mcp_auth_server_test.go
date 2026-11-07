@@ -626,3 +626,41 @@ func TestNewMCPAuthServerOptionsCarriesPullSecret(t *testing.T) {
 		t.Fatalf("options = %+v", opts)
 	}
 }
+
+// Test mode keeps its state in memory and mounts an emptyDir, so a data claim
+// would never be consumed: it stays Pending on a WaitForFirstConsumer class and
+// fails setup's own PVC verification. Production keeps the claim for SQLite.
+func TestRenderMCPAuthServerManifestOnlyCreatesTheDataClaimWhenItIsMounted(t *testing.T) {
+	testMode, err := renderMCPAuthServerManifest(mcpAuthManifestTemplate(t), mcpAuthServerOptions{
+		Image:    "registry.local/mcp-auth-server:dev",
+		TestMode: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(testMode, "PersistentVolumeClaim") || strings.Contains(testMode, "claimName: mcp-auth-server-data") {
+		t.Error("test mode mounts an emptyDir, but still creates the unused data PVC")
+	}
+	if !strings.Contains(testMode, "emptyDir: {}") {
+		t.Error("test mode lost its emptyDir data volume")
+	}
+	if !strings.Contains(testMode, "kind: Service") || !strings.Contains(testMode, "kind: NetworkPolicy") {
+		t.Error("dropping the claim removed other mcp-auth objects")
+	}
+
+	production, err := renderMCPAuthServerManifest(mcpAuthManifestTemplate(t), mcpAuthServerOptions{
+		Image:            "registry.example.com/mcp-auth-server:1.0.0",
+		IssuerURL:        "https://auth.example.com/mcp-auth",
+		ResourceURLs:     []string{"https://mcp.example.com/demo/mcp"},
+		TLSSecret:        "mcp-auth-tls",
+		SigningKeySecret: "mcp-auth-signing-key",
+		ConnectorsFile:   "connectors.json",
+		Connector:        "keycloak",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(production, "kind: PersistentVolumeClaim") || !strings.Contains(production, "claimName: mcp-auth-server-data") {
+		t.Error("production must keep the data claim its SQLite store mounts")
+	}
+}
