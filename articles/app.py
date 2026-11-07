@@ -5,6 +5,8 @@ from __future__ import annotations
 from contextlib import closing, contextmanager
 import csv
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import format_datetime
 from functools import lru_cache
 import io
 import os
@@ -14,6 +16,7 @@ import secrets
 import sqlite3
 import warnings
 from urllib.parse import urlparse
+from xml.sax.saxutils import escape as xml_escape
 
 import markdown
 from markdown.extensions import Extension
@@ -434,6 +437,7 @@ def inject_globals():
         "categories": CATEGORIES,
         "csrf_token": _csrf_token,
         "docs_url": DOCS_URL,
+        "feed_url": f"{BASE_URL}/feed.xml",
         "github_url": GITHUB_URL,
         "google_client_id": GOOGLE_CLIENT_ID or "",
         "google_login_configured": GOOGLE_LOGIN_CONFIGURED,
@@ -669,6 +673,62 @@ def sitemap_xml():
         "</urlset>\n"
     )
     return Response(body, mimetype="application/xml")
+
+
+FEED_TITLE = "MCP Runtime Articles"
+FEED_DESCRIPTION = "Notes from building MCP Runtime: MCP, Kubernetes, networking, infrastructure, identity and policy."
+_RELATIVE_URL_RE = re.compile(r'(?P<attr>\b(?:src|href))="(?P<path>/(?!/)[^"]*)"')
+
+
+def _absolute_urls(html: str) -> str:
+    return _RELATIVE_URL_RE.sub(lambda m: f'{m.group("attr")}="{BASE_URL}{m.group("path")}"', html)
+
+
+def _rfc822(published: str) -> str | None:
+    try:
+        day = datetime.strptime(published, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return format_datetime(day)
+
+
+def _cdata(value: str) -> str:
+    return "<![CDATA[" + value.replace("]]>", "]]]]><![CDATA[>") + "]]>"
+
+
+@app.route("/feed.xml")
+def feed_xml():
+    dated = [(article, _rfc822(article.published)) for article in load_articles()]
+    dated = [(article, pub_date) for article, pub_date in dated if pub_date]
+    items = "".join(
+        "    <item>\n"
+        f"      <title>{xml_escape(article.title)}</title>\n"
+        f"      <link>{xml_escape(article.canonical_url)}</link>\n"
+        f'      <guid isPermaLink="true">{xml_escape(article.canonical_url)}</guid>\n'
+        f"      <pubDate>{pub_date}</pubDate>\n"
+        f"      <category>{xml_escape(article.category_name)}</category>\n"
+        f"      <description>{xml_escape(article.description or article.title)}</description>\n"
+        f"      <content:encoded>{_cdata(_absolute_urls(article.body_html))}</content:encoded>\n"
+        "    </item>\n"
+        for article, pub_date in dated
+    )
+    last_build = dated[0][1] if dated else format_datetime(datetime.now(timezone.utc))
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" '
+        'xmlns:content="http://purl.org/rss/1.0/modules/content/">\n'
+        "  <channel>\n"
+        f"    <title>{xml_escape(FEED_TITLE)}</title>\n"
+        f"    <link>{BASE_URL}/</link>\n"
+        f"    <description>{xml_escape(FEED_DESCRIPTION)}</description>\n"
+        "    <language>en</language>\n"
+        f"    <lastBuildDate>{last_build}</lastBuildDate>\n"
+        f'    <atom:link href="{BASE_URL}/feed.xml" rel="self" type="application/rss+xml" />\n'
+        f"{items}"
+        "  </channel>\n"
+        "</rss>\n"
+    )
+    return Response(body, mimetype="application/rss+xml")
 
 
 @app.after_request
