@@ -762,15 +762,7 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 		current.Annotations[authgateway.ResourceAnnotation] = string(encoded)
 
 		envs := current.Spec.Template.Spec.Containers[0].Env
-		set := func(name, value string) {
-			for i := range envs {
-				if envs[i].Name == name {
-					envs[i].Value, envs[i].ValueFrom = value, nil
-					return
-				}
-			}
-			envs = append(envs, corev1.EnvVar{Name: name, Value: value})
-		}
+		set := func(name, value string) { envs = setPlainEnv(envs, name, value) }
 		resources, scopes := map[string]bool{}, map[string][]string{}
 		for _, v := range envs {
 			if v.Name == "MCP_AUTH_RESOURCES" {
@@ -805,32 +797,7 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 		set("MCP_AUTH_RESOURCE_LOGINS_FILE", authgateway.ResourceLoginsFile)
 		current.Spec.Template.Spec.Containers[0].Env = envs
 
-		volume := corev1.Volume{Name: "gateway-wiring", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: authgateway.WiringName}, DefaultMode: mode0444()}}}
-		volumes := current.Spec.Template.Spec.Volumes[:0]
-		found := false
-		for _, v := range current.Spec.Template.Spec.Volumes {
-			if v.Name == volume.Name {
-				v, found = volume, true
-			}
-			volumes = append(volumes, v)
-		}
-		if !found {
-			volumes = append(volumes, volume)
-		}
-		current.Spec.Template.Spec.Volumes = volumes
-		mount := corev1.VolumeMount{Name: volume.Name, MountPath: authgateway.WiringMountPath, ReadOnly: true}
-		mounts := current.Spec.Template.Spec.Containers[0].VolumeMounts[:0]
-		found = false
-		for _, m := range current.Spec.Template.Spec.Containers[0].VolumeMounts {
-			if m.Name == mount.Name {
-				m, found = mount, true
-			}
-			mounts = append(mounts, m)
-		}
-		if !found {
-			mounts = append(mounts, mount)
-		}
-		current.Spec.Template.Spec.Containers[0].VolumeMounts = mounts
+		ensureWiringMount(current)
 		if current.Spec.Template.Annotations == nil {
 			current.Spec.Template.Annotations = map[string]string{}
 		}
@@ -839,6 +806,50 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 		return err
 	})
 	return hash, err
+}
+
+// setPlainEnv sets a plain (non secret-backed) environment variable, replacing
+// an existing value or adding it.
+func setPlainEnv(envs []corev1.EnvVar, name, value string) []corev1.EnvVar {
+	for i := range envs {
+		if envs[i].Name == name {
+			envs[i].Value, envs[i].ValueFrom = value, nil
+			return envs
+		}
+	}
+	return append(envs, corev1.EnvVar{Name: name, Value: value})
+}
+
+// ensureWiringMount makes the mcp-auth Deployment mount the shared wiring
+// ConfigMap read-only at authgateway.WiringMountPath. The credential gateway and
+// the resource command both rely on it, so the volume and mount are identical.
+func ensureWiringMount(current *appsv1.Deployment) {
+	volume := corev1.Volume{Name: "gateway-wiring", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: authgateway.WiringName}, DefaultMode: mode0444()}}}
+	volumes := current.Spec.Template.Spec.Volumes[:0]
+	found := false
+	for _, v := range current.Spec.Template.Spec.Volumes {
+		if v.Name == volume.Name {
+			v, found = volume, true
+		}
+		volumes = append(volumes, v)
+	}
+	if !found {
+		volumes = append(volumes, volume)
+	}
+	current.Spec.Template.Spec.Volumes = volumes
+	mount := corev1.VolumeMount{Name: volume.Name, MountPath: authgateway.WiringMountPath, ReadOnly: true}
+	mounts := current.Spec.Template.Spec.Containers[0].VolumeMounts[:0]
+	found = false
+	for _, m := range current.Spec.Template.Spec.Containers[0].VolumeMounts {
+		if m.Name == mount.Name {
+			m, found = mount, true
+		}
+		mounts = append(mounts, m)
+	}
+	if !found {
+		mounts = append(mounts, mount)
+	}
+	current.Spec.Template.Spec.Containers[0].VolumeMounts = mounts
 }
 
 func protocolTCP() *corev1.Protocol           { v := corev1.ProtocolTCP; return &v }
