@@ -1200,6 +1200,12 @@ read-only node credential rotation, and recovery after a partial activation.
 
 ## Optional MCP Auth credential gateway
 
+For a server that signs people in with OAuth and calls a provider as them, not
+through the gateway's header form, use `mcp-runtime cluster mcp-auth resource apply`
+instead; see [Give one resource its own provider login and token](mcp-oauth.md#give-one-resource-its-own-provider-login-and-token).
+The two coexist in the same MCP Auth wiring, and re-applying either keeps the
+other's entries.
+
 `mcp-runtime gateway apply` installs the credential gateway as its
 own workload next to MCP Auth, and wires MCP Auth to it. The workload is one shared
 Deployment of Runtime's existing `mcp-gateway` image run in credential mode

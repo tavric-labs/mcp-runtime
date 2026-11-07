@@ -1,0 +1,15 @@
+Add or update one resource's login, client and connector
+
+Usage:
+  mcp-runtime cluster mcp-auth resource apply [flags]
+
+Flags:
+      --context string      Explicit Kubernetes context
+      --dry-run             Validate and show whether MCP Auth would change, without writing
+      --file string         Resource JSON file (no secrets: the connector names its client secret variable)
+  -h, --help                help for apply
+      --kubeconfig string   Explicit kubeconfig path
+      --yes                 Apply the change without an interactive prompt
+
+Global Flags:
+      --debug   Enable debug mode with structured error logging
