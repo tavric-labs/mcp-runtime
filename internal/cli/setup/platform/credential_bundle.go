@@ -37,7 +37,7 @@ func renderCredentialBundleClientGo() (string, error) {
 }
 
 func renderCredentialBundleWithSnapshots(read analyticsSecretValueReader, snapshots map[string]map[string]string) (string, error) {
-	for _, key := range []string{"API_KEYS", "JWT_SECRET", "INTERNAL_AUTH_TOKEN", "POSTGRES_DSN", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "UI_API_KEY", "INGEST_API_KEYS", "GRAFANA_ADMIN_PASSWORD", "OAUTH_PRIVATE_KEY"} {
+	for _, key := range []string{"API_KEYS", "JWT_SIGNING_KEY", "JWT_VERIFY_KEY", "INTERNAL_AUTH_TOKEN", "POSTGRES_DSN", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "UI_API_KEY", "INGEST_API_KEYS", "GRAFANA_ADMIN_PASSWORD", "OAUTH_PRIVATE_KEY"} {
 		owner, _ := topology.CredentialOwner(key)
 		values, ownerPresent := snapshots[owner]
 		if !ownerPresent {

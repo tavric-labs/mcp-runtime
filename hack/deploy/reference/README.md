@@ -51,5 +51,8 @@ The preview-only [session CRD removal note](session-crd-removal.md) covers
 retiring the obsolete Kubernetes definition after platform-session acceptance.
 It adds no import or compatibility path to the product.
 
+The preview-only [platform token keys note](platform-token-keys.md) covers the
+ES256 signing key pair that replaced the shared `JWT_SECRET`, including rotation.
+
 The earlier [v0.10.0 session storage deployment note](session-storage-v0.10.0.md)
 is retained here as preview deployment history, not as the current install path.

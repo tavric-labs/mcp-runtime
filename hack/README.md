@@ -26,6 +26,7 @@ those workflows rather than duplicating cluster management.
 | Hosted release acceptance | `deploy/acceptance/` | Disposable runner; checks publish/deploy, grant/session and allowed/denied calls |
 | Reference platform recovery/update | `deploy/reference/` | Explicit profile, source ref, context and cluster UID; see its README |
 | Preview session CRD removal | `deploy/reference/session-crd-removal.md` | Preview-only deployment note; existing backup/update workflows and explicit CRD cleanup, no session import |
+| Preview platform token keys | `deploy/reference/platform-token-keys.md` | Preview-only deployment and rotation note for the ES256 signing key pair; existing backup/update workflows, no HS256 fallback |
 | Go package documentation | `deploy/pkgsite/` | CI-built image, isolated source rewrite, tested remote rollback |
 | Generated Go header | `boilerplate.go.txt` | Code-generation asset |
 

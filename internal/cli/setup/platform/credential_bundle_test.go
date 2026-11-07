@@ -74,7 +74,12 @@ func TestCredentialBundleCopiesOnlyConsumerKeys(t *testing.T) {
 }
 
 func TestCredentialBundleMigrationAndOwnerPrecedence(t *testing.T) {
-	read := func(ns, name, key string) (string, error) { return "installed-" + key, nil }
+	read := func(ns, name, key string) (string, error) {
+		if strings.HasPrefix(key, "JWT_") {
+			return "", nil // setup generates the key pair
+		}
+		return "installed-" + key, nil
+	}
 	manifest, err := renderCredentialBundleWithSnapshots(read, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +110,7 @@ func TestCredentialBundleMigrationAndOwnerPrecedence(t *testing.T) {
 
 func TestCredentialBundleBuildsDSNWhenOwnerOmitsIt(t *testing.T) {
 	read := func(ns, name, key string) (string, error) {
-		if key == "POSTGRES_DSN" {
+		if key == "POSTGRES_DSN" || strings.HasPrefix(key, "JWT_") {
 			return "", nil
 		}
 		return "installed-" + key, nil
@@ -113,7 +118,7 @@ func TestCredentialBundleBuildsDSNWhenOwnerOmitsIt(t *testing.T) {
 	owner := map[string]map[string]string{
 		"mcp-platform-api-credentials": {
 			"API_KEYS":            "kept-api",
-			"JWT_SECRET":          "kept-jwt",
+			"INGEST_API_KEYS":     "kept-ingest",
 			"INTERNAL_AUTH_TOKEN": "kept-token",
 		},
 		"mcp-postgres-credentials": {

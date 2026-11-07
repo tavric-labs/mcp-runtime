@@ -5,7 +5,7 @@ import "net/http"
 // AudienceConfig configures a backend service that platform-api fronts.
 type AudienceConfig struct {
 	Audience       string
-	Secret         []byte
+	Verifier       Verifier
 	PlatformAPIURL string
 	InternalToken  string
 	ServiceAPIKeys map[string]struct{}
@@ -21,7 +21,7 @@ type AudienceConfig struct {
 // because a revoked key must fail immediately.
 func NewAudienceAuthenticator(cfg AudienceConfig) Authenticator {
 	return Authenticator{
-		Secret:         cfg.Secret,
+		Verifier:       cfg.Verifier,
 		Audience:       cfg.Audience,
 		ServiceAPIKeys: cfg.ServiceAPIKeys,
 		AdminAPIKeys:   cfg.AdminAPIKeys,

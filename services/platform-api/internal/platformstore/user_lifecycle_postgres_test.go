@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/passport/passporttest"
 	"mcp-runtime/pkg/policy"
 	"mcp-runtime/pkg/sessionstate"
 )
@@ -63,7 +64,8 @@ func lifecyclePostgresStoreWithDSN(t *testing.T) (*Store, string) {
 		}
 		admin.Close()
 	})
-	s := &Store{db: db, jwtSecret: []byte("test-lifecycle-secret")}
+	lifecycleSigner, lifecycleVerifier := passporttest.NewKeys(t)
+	s := &Store{db: db, signer: lifecycleSigner, verifier: lifecycleVerifier}
 	if err = s.migrate(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +94,7 @@ func TestPostgresAccountDeactivationRevokesCredentialsSessionsAndIsIdempotent(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	auth := passport.Authenticator{Secret: s.jwtSecret, Audience: passport.AudiencePlatform, Principals: s}
+	auth := passport.Authenticator{Verifier: s.verifier, Audience: passport.AudiencePlatform, Principals: s}
 	request := httptest.NewRequest(http.MethodGet, "/private", nil)
 	request.Header.Set("Authorization", "Bearer "+bearer)
 	if _, ok, err := auth.AuthenticateRequest(request); err != nil || !ok {

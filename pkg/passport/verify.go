@@ -2,34 +2,12 @@ package passport
 
 import (
 	"errors"
-	"fmt"
-	"os"
 	"strings"
-
-	"github.com/golang-jwt/jwt/v4"
 )
 
-func Verify(secret []byte, token, expectedAudience string) (Claims, error) {
-	if len(secret) == 0 {
-		return Claims{}, errors.New("JWT secret is required")
-	}
-	if strings.TrimSpace(expectedAudience) == "" {
-		return Claims{}, errors.New("expected audience is required")
-	}
-	var claims Claims
-	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
-	parsed, err := parser.ParseWithClaims(token, &claims, func(t *jwt.Token) (any, error) {
-		if t.Method != jwt.SigningMethodHS256 {
-			return nil, fmt.Errorf("unexpected signing method %s", t.Method.Alg())
-		}
-		return secret, nil
-	})
-	if err != nil {
-		return Claims{}, err
-	}
-	if !parsed.Valid {
-		return Claims{}, errors.New("invalid JWT")
-	}
+// validateClaims applies the checks every platform token must pass after its
+// signature is verified.
+func validateClaims(claims Claims, expectedAudience string) (Claims, error) {
 	if claims.Issuer != Issuer {
 		return Claims{}, errors.New("invalid JWT issuer")
 	}
@@ -43,13 +21,4 @@ func Verify(secret []byte, token, expectedAudience string) (Claims, error) {
 		return Claims{}, errors.New("JWT subject is required")
 	}
 	return claims, nil
-}
-
-// JWTSecretFromEnv reads the shared platform JWT signing secret from JWT_SECRET.
-func JWTSecretFromEnv() ([]byte, error) {
-	secret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
-	if secret == "" {
-		return nil, errors.New("JWT_SECRET is required")
-	}
-	return []byte(secret), nil
 }

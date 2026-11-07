@@ -10,9 +10,9 @@ import (
 )
 
 func TestDependencyRevisionTargetsExactConsumers(t *testing.T) {
-	data := map[string][]byte{"JWT_SECRET": []byte("jwt"), "GRAFANA_ADMIN_PASSWORD": []byte("grafana")}
+	data := map[string][]byte{"JWT_VERIFY_KEY": []byte("jwt"), "GRAFANA_ADMIN_PASSWORD": []byte("grafana")}
 	read := func(ns, kind, name string) (map[string][]byte, error) { return data, nil }
-	api := []dependencyReference{{Kind: "Secret", Name: "credentials", Key: "JWT_SECRET"}}
+	api := []dependencyReference{{Kind: "Secret", Name: "credentials", Key: "JWT_VERIFY_KEY"}}
 	grafana := []dependencyReference{{Kind: "Secret", Name: "credentials", Key: "GRAFANA_ADMIN_PASSWORD"}}
 	a, _ := dependencyRevision("namespace", api, read)
 	g, _ := dependencyRevision("namespace", grafana, read)

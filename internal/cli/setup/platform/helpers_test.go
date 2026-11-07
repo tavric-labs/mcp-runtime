@@ -1251,6 +1251,11 @@ func TestRenderAnalyticsSecretManifestReusesExistingPassword(t *testing.T) {
 	mock := &core.MockExecutor{
 		CommandFunc: func(spec core.ExecSpec) *core.MockCommand {
 			if contains(spec.Args, "get") && contains(spec.Args, "secret") {
+				for _, arg := range spec.Args {
+					if strings.Contains(arg, "JWT_") {
+						return &core.MockCommand{Args: spec.Args} // setup generates the key pair
+					}
+				}
 				return &core.MockCommand{Args: spec.Args, OutputData: []byte(encoded)}
 			}
 			return &core.MockCommand{Args: spec.Args}
@@ -1480,8 +1485,11 @@ func TestRenderAnalyticsSecretManifestGeneratesKeysWhenMissing(t *testing.T) {
 	if data["POSTGRES_DSN"] == "" {
 		t.Fatalf("expected generated postgres DSN, got %q", manifest)
 	}
-	if data["JWT_SECRET"] == "" {
-		t.Fatalf("expected generated jwt secret, got %q", manifest)
+	if data["JWT_SIGNING_KEY"] == "" || data["JWT_VERIFY_KEY"] == "" {
+		t.Fatalf("expected generated jwt key pair, got %q", manifest)
+	}
+	if _, ok := data["JWT_SECRET"]; ok {
+		t.Fatalf("the shared JWT_SECRET must no longer be generated, got %q", manifest)
 	}
 	if data["INTERNAL_AUTH_TOKEN"] == "" {
 		t.Fatalf("expected generated internal auth token, got %q", manifest)

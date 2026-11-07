@@ -9,7 +9,7 @@ import (
 )
 
 func TestSignVerifySingleAudience(t *testing.T) {
-	secret := []byte("test-secret")
+	signer, verifier := testKeys(t)
 	want := Principal{
 		Role:              RoleUser,
 		Subject:           "user-1",
@@ -19,12 +19,12 @@ func TestSignVerifySingleAudience(t *testing.T) {
 		Teams:             []PrincipalTeam{{ID: "team-1", Slug: "a", Name: "A", Namespace: "team-a", Role: "owner"}},
 		AuthType:          "platform_jwt",
 	}
-	token, err := Sign(secret, want, time.Minute, []string{AudiencePlatform})
+	token, err := Sign(signer, want, time.Minute, []string{AudiencePlatform})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, audience := range []string{AudiencePlatform} {
-		claims, err := Verify(secret, token, audience)
+		claims, err := verifier.Verify(token, audience)
 		if err != nil {
 			t.Fatalf("Verify(%q): %v", audience, err)
 		}
@@ -36,22 +36,22 @@ func TestSignVerifySingleAudience(t *testing.T) {
 }
 
 func TestVerifyRejectsInvalidClaims(t *testing.T) {
-	secret := []byte("test-secret")
+	signer, verifier := testKeys(t)
 	p := Principal{Subject: "user-1"}
-	token, err := Sign(secret, p, time.Minute, []string{AudiencePlatform})
+	token, err := Sign(signer, p, time.Minute, []string{AudiencePlatform})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Verify(secret, token, AudienceRuntime); err == nil {
+	if _, err := verifier.Verify(token, AudienceRuntime); err == nil {
 		t.Fatal("expected wrong audience rejection")
 	}
 
-	expired, err := Sign(secret, p, time.Nanosecond, []string{AudiencePlatform})
+	expired, err := Sign(signer, p, time.Nanosecond, []string{AudiencePlatform})
 	if err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(time.Millisecond)
-	if _, err := Verify(secret, expired, AudiencePlatform); err == nil {
+	if _, err := verifier.Verify(expired, AudiencePlatform); err == nil {
 		t.Fatal("expected expired token rejection")
 	}
 
@@ -61,11 +61,8 @@ func TestVerifyRejectsInvalidClaims(t *testing.T) {
 		Audience:  jwt.ClaimStrings{AudiencePlatform},
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
 	}}
-	badIssuer, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(secret)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Verify(secret, badIssuer, AudiencePlatform); err == nil {
+	badIssuer := signRawClaims(t, signer, claims)
+	if _, err := verifier.Verify(badIssuer, AudiencePlatform); err == nil {
 		t.Fatal("expected issuer rejection")
 	}
 
@@ -73,7 +70,7 @@ func TestVerifyRejectsInvalidClaims(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Verify(secret, noneToken, AudiencePlatform); err == nil {
+	if _, err := verifier.Verify(noneToken, AudiencePlatform); err == nil {
 		t.Fatal("expected none algorithm rejection")
 	}
 }
@@ -133,17 +130,5 @@ func TestAdminAPIKeyRequiresExplicitAdminKeyEntry(t *testing.T) {
 	}
 	if p.Role != RoleAdmin {
 		t.Fatalf("role = %q, want %q", p.Role, RoleAdmin)
-	}
-}
-
-func TestJWTSecretFromEnv(t *testing.T) {
-	t.Setenv("JWT_SECRET", "  s3cret  ")
-	got, err := JWTSecretFromEnv()
-	if err != nil || string(got) != "s3cret" {
-		t.Fatalf("JWTSecretFromEnv() = %q, %v; want trimmed secret", got, err)
-	}
-	t.Setenv("JWT_SECRET", "   ")
-	if _, err := JWTSecretFromEnv(); err == nil || err.Error() != "JWT_SECRET is required" {
-		t.Fatalf("JWTSecretFromEnv() error = %v, want JWT_SECRET is required", err)
 	}
 }

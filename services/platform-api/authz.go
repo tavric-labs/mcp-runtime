@@ -7,6 +7,7 @@ import (
 	"mcp-platform-api/internal/apiauth"
 	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/apikit"
+	"mcp-runtime/pkg/passport"
 )
 
 const (
@@ -49,12 +50,12 @@ const (
 	accessApplyMaxBytes    = apikit.ApplyMaxBytes
 )
 
-func newPlatformStore(ctx context.Context, dsn string, jwtSecret []byte) (*platformStore, error) {
-	return platformstore.Open(ctx, dsn, jwtSecret)
+func newPlatformStore(ctx context.Context, dsn string, signer passport.Signer, verifier passport.Verifier) (*platformStore, error) {
+	return platformstore.Open(ctx, dsn, signer, verifier)
 }
 
-func newTestPlatformStore(jwtSecret []byte) *platformStore {
-	return platformstore.NewForTest(jwtSecret)
+func newTestPlatformStore(signer passport.Signer, verifier passport.Verifier) *platformStore {
+	return platformstore.NewForTest(signer, verifier)
 }
 
 func platformUserActivityWhere(filter adminOperationsFilter) (string, []any) {

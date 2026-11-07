@@ -80,7 +80,7 @@ func TestCreateTeamUserTransaction(t *testing.T) {
 }
 
 func TestCreateTeamUserValidatesBeforePersistence(t *testing.T) {
-	store := NewForTest(nil)
+	store := NewForTest(nil, nil)
 	for _, tc := range []struct{ email, password, role, message string }{
 		{"invalid", "password123", "member", "valid email required"},
 		{"member@example.com", "short", "member", "password must be at least 8 characters"},
@@ -95,7 +95,7 @@ func TestCreateTeamUserValidatesBeforePersistence(t *testing.T) {
 }
 
 func TestUpsertMembershipRejectsInvalidInputBeforePersistence(t *testing.T) {
-	store := NewForTest(nil)
+	store := NewForTest(nil, nil)
 	for _, tc := range []struct{ userID, role, message string }{
 		{"not-a-uuid", "member", "valid user ID required"},
 		{"", "member", "userID is required"},

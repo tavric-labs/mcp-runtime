@@ -86,11 +86,11 @@ spec:
                   name: mcp-runtime-api-credentials
                   key: ADMIN_API_KEYS
                   optional: true
-            - name: JWT_SECRET
+            - name: JWT_VERIFY_KEY
               valueFrom:
                 secretKeyRef:
                   name: mcp-runtime-api-credentials
-                  key: JWT_SECRET
+                  key: JWT_VERIFY_KEY
             - name: INTERNAL_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:

@@ -92,11 +92,11 @@ spec:
                   name: mcp-platform-api-credentials
                   key: POSTGRES_DSN
                   optional: true
-            - name: JWT_SECRET
+            - name: JWT_SIGNING_KEY
               valueFrom:
                 secretKeyRef:
                   name: mcp-platform-api-credentials
-                  key: JWT_SECRET
+                  key: JWT_SIGNING_KEY
                   optional: true
             - name: INTERNAL_AUTH_TOKEN
               valueFrom:
