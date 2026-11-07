@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- `mcp-runtime update` now provisions the platform token key pair itself before it rolls platform-api, runtime-api or analytics-api. The 0.16.0 notes said update would generate the ES256 pair, but only `setup` did, so updating a platform that held just the old `JWT_SECRET` left platform-api crash-looping on a missing `JWT_SIGNING_KEY` and the update rolled back. Update keeps an existing pair, generates a signing key when none exists, adds its public key to the verification set, writes `JWT_SIGNING_KEY` only to platform-api's Secret and `JWT_VERIFY_KEY` to the platform-api, runtime-api and analytics-api Secrets, and never removes existing verification keys or the legacy `JWT_SECRET`. A signing key it cannot parse stops the update before any change, and `--dry-run` reports the provisioning without writing. platform-api now rolls after runtime-api and analytics-api so every verifier trusts the key first. This is the one place update writes Secrets. A platform whose 0.16.0 update was rolled back needs only a rerun of update from the release containing this fix; no fresh setup is required. See [platform token keys](hack/deploy/reference/platform-token-keys.md).
+
 ## [0.16.0] - 2026-11-07
 
 Breaking `0.x` release: platform tokens move to ES256 with a platform-api-only

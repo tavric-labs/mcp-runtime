@@ -27,9 +27,17 @@ and rehearse the update on disposable infrastructure first.
 ## Deploy
 
 Run `mcp-runtime update` from the recorded revision with the preview's explicit
-kubeconfig, expected cluster UID and reviewed installation configuration. Setup
-keeps an existing key pair, generates one when none exists, and adds the
-signing key's public key to the verification set.
+kubeconfig, expected cluster UID and reviewed installation configuration. When
+the release rolls platform-api, runtime-api or analytics-api, update first keeps
+an existing key pair, generates one when none exists, and adds the signing key's
+public key to the verification set, writing `JWT_SIGNING_KEY` only to
+platform-api's Secret and `JWT_VERIFY_KEY` to all three Secrets before any
+workload rolls. runtime-api and analytics-api roll before platform-api. `--dry-run`
+reports this without writing. The legacy `JWT_SECRET` key is left in place. Update
+releases before the one that added this step (v0.16.0) never provisioned the
+pair: on a platform that only holds `JWT_SECRET`, platform-api crash-loops until
+the pair exists, and rerunning update from the fixed release (or `mcp-runtime
+setup`) provisions it. Setup uses the same rules.
 
 Verify without printing values:
 

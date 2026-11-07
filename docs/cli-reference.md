@@ -1047,7 +1047,18 @@ refuses to expose an organization/team namespace as public. Catalog namespaces
 are additive and retained on rollback or a later mode change. `--only` skips
 ConfigMaps and catalog preparation and cannot be combined with `--platform-mode`.
 
-update never modifies Secrets, PVCs, cert-manager
+When a platform-api, runtime-api or analytics-api rollout is planned, update first
+makes sure the platform token key pair exists. It keeps an existing
+`JWT_SIGNING_KEY` and `JWT_VERIFY_KEY`, generates a signing key when none exists,
+adds its public key to the verification set, and writes `JWT_SIGNING_KEY` only to
+platform-api's credentials Secret and `JWT_VERIFY_KEY` to the platform-api,
+runtime-api and analytics-api Secrets, verifiers before platform-api. Existing
+verification keys and other Secret keys, including a legacy `JWT_SECRET`, are
+never removed, and a signing key that cannot be parsed stops the update before
+any change. platform-api rolls after runtime-api and analytics-api. `--dry-run`
+reports the provisioning without writing and never prints key material.
+
+Apart from those two keys, update never modifies Secrets, PVCs, cert-manager
 Issuers/Certificates, Services, or Ingresses, other RBAC, or other Deployment
 settings, and never deletes or recreates workloads. mcp-auth and cert-manager
 are skipped unless selected with `--include-auth`, `--include-cert-manager`, or

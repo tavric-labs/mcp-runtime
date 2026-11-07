@@ -25,10 +25,21 @@ dependent workloads restart and failed rollouts restore the previous keys.
 Use --platform-mode org|public to change mode and prepare its catalog namespaces.
 Existing catalog scopes cannot be changed, and namespaces are never deleted.
 With --only, CRD, platform object and ConfigMap apply are skipped; --platform-mode
-cannot be combined with --only. update never modifies Secrets, PVCs,
+cannot be combined with --only. update never modifies Secrets (except adding the platform token key pair, below), PVCs,
 cert-manager Issuers/Certificates, Services, or Ingresses, and never
 deletes or recreates workloads. mcp-auth and cert-manager are skipped unless
 selected with --include-auth, --include-cert-manager, or --only.
+
+When a platform-api, runtime-api or analytics-api rollout is planned, update first
+makes sure the platform token key pair exists: it keeps an existing
+JWT_SIGNING_KEY and JWT_VERIFY_KEY, generates a signing key when none exists,
+adds its public key to the verification set, and writes JWT_SIGNING_KEY only to
+platform-api's credentials Secret and JWT_VERIFY_KEY to the platform-api,
+runtime-api and analytics-api Secrets, verifiers before platform-api. Existing
+verification keys and other Secret keys (including a legacy JWT_SECRET) are never
+removed, and a signing key that cannot be parsed stops the update. platform-api
+rolls after runtime-api and analytics-api. --dry-run reports the provisioning
+without writing.
 
 With --build, update builds and pushes Built-component images from the release
 that are missing from the registry (sequential by default; use

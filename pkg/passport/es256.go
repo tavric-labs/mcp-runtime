@@ -260,3 +260,24 @@ func EnsureVerifyKey(signingPEM, existingVerifyPEM []byte) ([]byte, error) {
 	merged := append(bytes.TrimRight(existingVerifyPEM, "\n"), '\n')
 	return append(merged, own...), nil
 }
+
+// EnsureKeyPair returns the signing key and verification key set a deployment
+// should publish. An existing signing key is kept; a blank one is generated.
+// The verification set keeps every existing public key and gains the signing
+// key's public key when it is absent. A signing key or verification set that
+// cannot be parsed is an error, so a credential that cannot be read is never
+// overwritten.
+func EnsureKeyPair(existingSigningPEM, existingVerifyPEM []byte) (signingPEM, verifyPEM []byte, err error) {
+	signingPEM = existingSigningPEM
+	if len(bytes.TrimSpace(signingPEM)) == 0 {
+		signingPEM, _, err = GenerateES256KeyPair()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	verifyPEM, err = EnsureVerifyKey(signingPEM, existingVerifyPEM)
+	if err != nil {
+		return nil, nil, err
+	}
+	return signingPEM, verifyPEM, nil
+}

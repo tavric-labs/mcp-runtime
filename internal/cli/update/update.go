@@ -114,10 +114,21 @@ dependent workloads restart and failed rollouts restore the previous keys.
 Use --platform-mode org|public to change mode and prepare its catalog namespaces.
 Existing catalog scopes cannot be changed, and namespaces are never deleted.
 With --only, CRD, platform object and ConfigMap apply are skipped; --platform-mode
-cannot be combined with --only. update never modifies Secrets, PVCs,
+cannot be combined with --only. update never modifies Secrets (except adding the platform token key pair, below), PVCs,
 cert-manager Issuers/Certificates, Services, or Ingresses, and never
 deletes or recreates workloads. mcp-auth and cert-manager are skipped unless
 selected with --include-auth, --include-cert-manager, or --only.
+
+When a platform-api, runtime-api or analytics-api rollout is planned, update first
+makes sure the platform token key pair exists: it keeps an existing
+JWT_SIGNING_KEY and JWT_VERIFY_KEY, generates a signing key when none exists,
+adds its public key to the verification set, and writes JWT_SIGNING_KEY only to
+platform-api's credentials Secret and JWT_VERIFY_KEY to the platform-api,
+runtime-api and analytics-api Secrets, verifiers before platform-api. Existing
+verification keys and other Secret keys (including a legacy JWT_SECRET) are never
+removed, and a signing key that cannot be parsed stops the update. platform-api
+rolls after runtime-api and analytics-api. --dry-run reports the provisioning
+without writing.
 
 With --build, update builds and pushes Built-component images from the release
 that are missing from the registry (sequential by default; use
@@ -215,6 +226,13 @@ func run(ctx context.Context, out io.Writer, opts Options, d deps) error {
 			return core.WrapWithBase(core.ErrUpdateInventoryFailed, err, fmt.Sprintf("compare platform objects: %v", err))
 		}
 	}
+	if needsTokenKeys(plan) {
+		keys, err := planTokenKeys(ctx, kh.Clientset)
+		if err != nil {
+			return core.WrapWithBase(core.ErrUpdateInventoryFailed, err, fmt.Sprintf("platform token keys: %v; no changes were made", err))
+		}
+		plan.TokenKeys = keys
+	}
 	if len(plan.configMaps) > 0 {
 		if err := refineConfigMapPlan(ctx, kh.Clientset, plan); err != nil {
 			return core.WrapWithBase(core.ErrUpdateInventoryFailed, err, fmt.Sprintf("compare ConfigMaps: %v", err))
@@ -297,6 +315,9 @@ func run(ctx context.Context, out io.Writer, opts Options, d deps) error {
 				if len(plan.configToWrite) > 0 {
 					extra += fmt.Sprintf(" and %d ConfigMap(s)", len(plan.configToWrite))
 				}
+				if plan.TokenKeys.Needed() {
+					extra += fmt.Sprintf(" and %d token key Secret(s)", len(plan.TokenKeys.Secrets))
+				}
 				if len(plan.namespacesToWrite) > 0 {
 					extra += fmt.Sprintf(" and %d catalog namespace(s)", len(plan.namespacesToWrite))
 				}
@@ -340,6 +361,15 @@ func run(ctx context.Context, out io.Writer, opts Options, d deps) error {
 		buildOpts.Progress = progress
 		buildOpts.SkipRegistryProbe = false
 		if err := buildAndPushChanged(ctx, plan.ImageBuilds, buildOpts); err != nil {
+			return err
+		}
+	}
+	// Verifiers must trust the signing key before any workload that needs the
+	// key pair rolls, so the Secrets are written first. They are additive and
+	// stay in place if the update fails or rolls back.
+	if plan.TokenKeys.Needed() {
+		progress(fmt.Sprintf("Provisioning platform token keys (%s) in %s", plan.TokenKeys.Action, stringsJoin(plan.TokenKeys.Secrets)))
+		if err := provisionTokenKeys(ctx, kh.Clientset, plan.TokenKeys); err != nil {
 			return err
 		}
 	}

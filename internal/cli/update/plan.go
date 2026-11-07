@@ -27,7 +27,7 @@ const (
 
 // preservedResources is the fixed list of resource classes update never modifies.
 var preservedResources = []string{
-	"Secrets (credentials, registry pull secrets, TLS material)",
+	"Secrets (credentials, registry pull secrets, TLS material), except that JWT_SIGNING_KEY and JWT_VERIFY_KEY are added when a platform-api, runtime-api or analytics-api rollout needs the token key pair",
 	"PersistentVolumeClaims and PersistentVolumes (ClickHouse, Kafka, Postgres, registry data)",
 	"ConfigMap keys not declared by the release or --platform-mode",
 	"Namespace contents and scope labels (catalog namespaces are additive; existing scopes cannot change)",
@@ -100,10 +100,12 @@ type Plan struct {
 	namespacesToWrite []*corev1.Namespace
 	// crdsYAML is the multi-document YAML applied when ApplyCRDs is true.
 	// It is omitted from JSON output (large); use CRDNames in plans.
-	crdsYAML  string
-	Rows      []Row    `json:"components"`
-	Preserved []string `json:"preservedResources"`
-	Warnings  []string `json:"warnings,omitempty"`
+	crdsYAML string
+	// TokenKeys previews the platform token key pair provisioning (no key material).
+	TokenKeys *TokenKeyPlan `json:"tokenKeys,omitempty"`
+	Rows      []Row         `json:"components"`
+	Preserved []string      `json:"preservedResources"`
+	Warnings  []string      `json:"warnings,omitempty"`
 }
 
 // Changed returns the rows that will be updated.
@@ -119,7 +121,7 @@ func (p *Plan) Changed() []Row {
 
 // NeedsApply reports whether the plan would mutate the cluster (CRDs and/or images).
 func (p *Plan) NeedsApply() bool {
-	return p != nil && (p.ApplyCRDs || len(p.objects) > 0 || len(p.configToWrite) > 0 || len(p.namespacesToWrite) > 0 || len(p.Changed()) > 0)
+	return p != nil && (p.ApplyCRDs || len(p.objects) > 0 || len(p.configToWrite) > 0 || len(p.namespacesToWrite) > 0 || p.TokenKeys.Needed() || len(p.Changed()) > 0)
 }
 
 // Blocked returns rows blocked by a safety rule.
