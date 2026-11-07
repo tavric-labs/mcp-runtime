@@ -52,11 +52,11 @@ func TestIssueSessionCertificateSubmitsPEMRequest(t *testing.T) {
 	svc := &AccessService{k8sClients: &k8sclient.Clients{Dynamic: dyn}}
 
 	const trust, ns, sess = "cluster.local", "mcp-servers", "sess-1"
-	_, csrPEM, _, err := identity.BuildSessionCSR(trust, ns, sess)
+	_, csrPEM, spiffeID, err := identity.BuildSessionCSR(trust, ns, sess)
 	if err != nil {
 		t.Fatalf("BuildSessionCSR: %v", err)
 	}
-	csrDER, err := identity.ValidateCSRPEM(string(csrPEM), identity.SessionSPIFFEID(trust, ns, sess))
+	csrDER, err := identity.ValidateCSRPEM(string(csrPEM), spiffeID)
 	if err != nil {
 		t.Fatalf("ValidateCSRPEM: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestIssueSessionCertificateSubmitsPEMRequest(t *testing.T) {
 	// thus our capture — happens first, which is all this test asserts.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_, _, _ = svc.issueSessionCertificateDER(ctx, ns, sess, csrDER, identity.SessionSPIFFEID(trust, ns, sess), time.Hour)
+	_, _, _ = svc.issueSessionCertificateDER(ctx, ns, sess, csrDER, spiffeID, time.Hour)
 
 	if capturedRequest == "" {
 		t.Fatal("no CertificateRequest was created")

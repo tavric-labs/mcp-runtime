@@ -10,7 +10,9 @@ deployment, choosing access rules, or contributing a change.
    side effects, gateways, and adapters.
 2. [Identity and Authorization](identity-and-authorization.md): platform login,
    human and agent identity, delegated access, session lifetime, and enforcement.
-3. [Architecture](architecture.md): control, runtime, policy, and observability
+3. [SPIFFE Agent Identity](spiffe-agent-identity.md): how session-bound SPIFFE
+   certificates are issued, validated and checked on each request.
+4. [Architecture](architecture.md): control, runtime, policy, and observability
    planes and the paths between their components.
 
 ## Put the model to work
