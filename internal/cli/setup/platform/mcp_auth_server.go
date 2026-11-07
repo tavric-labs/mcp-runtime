@@ -334,14 +334,15 @@ func renderMCPAuthServerManifest(raw string, opts mcpAuthServerOptions) (string,
 		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_SIGNING_KEY_VOLUME_MOUNT_BLOCK", "")
 		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_SIGNING_KEY_POD_VOLUME_BLOCK", "")
 	}
-	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_HOST_VALUE", parsedIssuer.Host)
+	// An Ingress host rule is a DNS name, so it carries no port even when the issuer does.
+	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_HOST_VALUE", parsedIssuer.Hostname())
 	// The placeholder owns its whole line, so the block carries its own
 	// indentation and test mode removes the line rather than leaving a stray
 	// indented blank inside the Ingress spec.
 	if opts.TestMode {
 		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_TLS_BLOCK\n", "")
 	} else {
-		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_TLS_BLOCK", "  tls:\n    - hosts: ["+strconv.Quote(parsedIssuer.Host)+"]\n      secretName: "+opts.TLSSecret)
+		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_TLS_BLOCK", "  tls:\n    - hosts: ["+strconv.Quote(parsedIssuer.Hostname())+"]\n      secretName: "+opts.TLSSecret)
 	}
 
 	if strings.TrimSpace(opts.ConnectorsFile) != "" {

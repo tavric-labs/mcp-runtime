@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -123,7 +124,7 @@ func TestRenderMCPAuthServerManifestTestModeDefaults(t *testing.T) {
 		`{name: MCP_AUTH_LOCAL_TOKEN_EXCHANGE, value: "true"}`,
 		`{name: MCP_AUTH_REQUIRE_HTTPS, value: "false"}`,
 		`{name: MCP_AUTH_STORE, value: memory}`,
-		"- host: localhost:18080",
+		"- host: localhost\n",
 		"kind: NetworkPolicy",
 	} {
 		if !strings.Contains(manifest, want) {
@@ -132,6 +133,10 @@ func TestRenderMCPAuthServerManifestTestModeDefaults(t *testing.T) {
 	}
 	if strings.Contains(manifest, "tls:") {
 		t.Error("test-mode manifest should not carry an ingress TLS block")
+	}
+	// A Kubernetes Ingress host is a DNS name; an API server rejects one with a port.
+	if portInHost := regexp.MustCompile(`(?m)^\s*- host: \S*:\S*$`).FindString(manifest); portInHost != "" {
+		t.Errorf("ingress host carries a port the API server rejects: %q", portInHost)
 	}
 }
 
