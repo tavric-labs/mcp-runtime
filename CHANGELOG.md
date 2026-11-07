@@ -7,6 +7,15 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-11-08
+
+Patch release that fixes the failed 0.16.0 production update. `mcp-runtime update`
+now provisions the platform token key pair and wires the `JWT_SIGNING_KEY` and
+`JWT_VERIFY_KEY` env from Secrets before it rolls platform services (#913 and
+#914). Do not deploy 0.16.0 with `update`; use 0.16.1. Update now writes the two
+JWT keys into Secrets and rewrites the Deployment env wiring. Users sign in again
+after the token cutover; API keys, OIDC identities and sessions are unaffected.
+
 ### Changed
 
 - **Behavior change:** `mcp-runtime update` now applies `secretKeyRef` env and env removal that a release declares in `config/release/wiring.yaml` (`secretEnv`, `removeEnv`), not only literal env. The release declares `JWT_SIGNING_KEY` for platform-api and `JWT_VERIFY_KEY` for runtime-api and analytics-api (each from the service's own credentials Secret, matching `k8s/`) and retires the `JWT_SECRET` env on all three. A failed rollout restores the previous env, including `JWT_SECRET`, and the printed recovery commands cover the new env. Other env is untouched, `--dry-run` reports the drift, and the key Secrets are provisioned before any of these Deployments roll.
@@ -773,7 +782,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.1...v0.14.2
