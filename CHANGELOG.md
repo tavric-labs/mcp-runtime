@@ -7,6 +7,11 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- `setup --test-mode --with-mcp-auth-server` no longer stops at the `mcp-auth-server` step on a real cluster. The Ingress host (and TLS host) is now the issuer's hostname without its port, `localhost` and not `localhost:18080`, because Kubernetes rejects a port in an Ingress host. No fresh setup is required.
+- `setup --test-mode --with-mcp-auth-server` no longer creates the unused `mcp-auth-server-data` PersistentVolumeClaim. Test mode keeps MCP Auth's state in memory and mounts an `emptyDir`, so the claim stayed Pending and made setup's own PVC verification fail. Production still creates it for the SQLite store. A claim left by an earlier test-mode setup can be deleted.
+
 ### Security
 
 - **Breaking:** platform tokens are signed with ES256 and only platform-api holds the private key (`JWT_SIGNING_KEY`). runtime-api and analytics-api receive only public keys (`JWT_VERIFY_KEY`), pin the algorithm and select the key by `kid`, so a compromised backend can no longer mint platform or service tokens. The shared HS256 `JWT_SECRET` and its code path are removed. Setup generates the key pair, keeps an existing one, and delivers the private key to platform-api alone ([#903](https://github.com/tavric-labs/mcp-runtime/issues/903), AUTH-02).
