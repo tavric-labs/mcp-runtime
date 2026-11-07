@@ -329,3 +329,29 @@ func TestGatewayStatusReportsWorkloadAndServicesWithoutKeys(t *testing.T) {
 		t.Fatalf("status names key files:\n%s", out.String())
 	}
 }
+
+func TestInstallKeepsResourceLoginsAndClientsWrittenBesideTheGateway(t *testing.T) {
+	ctx := context.Background()
+	c := authCluster(nil)
+	const logins = `{"methods":[{"id":"res-example-api","type":"oidc","connector":"resource-login-example-api","subject_prefix":"res-example-api:","resources":["https://mcp.example.com/example-api/mcp"]}]}`
+	const clients = `[{"client_id":"example-mcp","name":"resource:example-api","resource":"https://mcp.example.com/example-api/mcp","public_key_pem":"x"}]`
+	if _, err := c.CoreV1().ConfigMaps(mcpAuthNamespace).Create(ctx, &corev1.ConfigMap{
+		ObjectMeta: gatewayMeta(authgateway.WiringName),
+		Data:       map[string]string{"resource-logins.json": logins, "resource-clients.json": clients},
+	}, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := installGateway(ctx, c, testInstall(t, false)); err != nil {
+		t.Fatal(err)
+	}
+	wiring, err := c.CoreV1().ConfigMaps(mcpAuthNamespace).Get(ctx, authgateway.WiringName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wiring.Data["resource-clients.json"] != clients {
+		t.Fatalf("the resource clients written beside the gateway were dropped: %q", wiring.Data["resource-clients.json"])
+	}
+	if got := wiring.Data["resource-logins.json"]; !strings.Contains(got, "res-example-api") || !strings.Contains(got, "form-demo") {
+		t.Fatalf("resource logins = %s, want the gateway's form-demo and the kept res-example-api", got)
+	}
+}

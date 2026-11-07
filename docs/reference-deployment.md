@@ -588,11 +588,11 @@ For an existing installation, update the identity connector without changing
 its credential Secret or other platform configuration:
 
 ```bash
-./bin/mcp-runtime cluster mcp-auth-connector apply \
+./bin/mcp-runtime cluster mcp-auth connector apply \
   --file config/deployments/mcpruntime-org-keycloak-connectors.json \
   --connector keycloak --kubeconfig "$PROD_KUBECONFIG" \
   --context "$PROD_CONTEXT" --dry-run
-./bin/mcp-runtime cluster mcp-auth-connector apply \
+./bin/mcp-runtime cluster mcp-auth connector apply \
   --file config/deployments/mcpruntime-org-keycloak-connectors.json \
   --connector keycloak --kubeconfig "$PROD_KUBECONFIG" \
   --context "$PROD_CONTEXT" --yes
