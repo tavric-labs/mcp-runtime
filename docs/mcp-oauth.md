@@ -270,7 +270,7 @@ The TLS certificate for the issuer host is provisioned by setup using the
 configured TLS ClusterIssuer. Pass `--mcp-auth-tls-secret` only when the
 certificate is externally managed (and use `--provided-tls-secrets`).
 
-The default image is `docker.io/princekrroshan01/mcp-auth-server:0.7.1`.
+The default image is `docker.io/princekrroshan01/mcp-auth-server:0.8.0`.
 The server uses SQLite on a PVC in production and memory storage only in
 `--test-mode`. The setup flag is opt-in; when it is absent, Runtime does not
 deploy this authorization server.
@@ -278,7 +278,7 @@ deploy this authorization server.
 An explicitly empty `MCP_AUTH_RESOURCES` is a deny-all audience allowlist:
 discovery, JWKS and readiness remain available before the first OAuth server
 is deployed and after the last one is removed. Authorization and token issuance
-reject unregistered audiences. MCP Auth 0.7.1 fixes startup in this state while
+reject unregistered audiences. MCP Auth 0.7.1 and later fix startup in this state while
 retaining HTTPS, persistent signing-key and storage requirements.
 
 The mcp-auth server image is released independently from the MCP Runtime CLI
@@ -289,10 +289,10 @@ An image-only update preserves the existing connector configuration, SQLite
 PVC, signing key, and TLS Secret; it does not require rerunning `setup` or
 issuing a certificate.
 Existing installations need a separately reviewed component manifest selecting
-MCP Auth 0.7.1 and `mcp-runtime update --only mcp-auth`; updating Runtime alone
+MCP Auth 0.8.0 and `mcp-runtime update --only mcp-auth`; updating Runtime alone
 does not replace the installed Auth image.
 
-Client ID Metadata Documents (CIMD) are enabled by default in MCP Auth 0.7.1.
+Client ID Metadata Documents (CIMD) are enabled by default in MCP Auth 0.7.1 and later.
 Set `MCP_AUTH_CLIENT_ID_METADATA_ENABLED=false` to disable them. When enabled,
 authorization server metadata advertises `client_id_metadata_document_supported: true`.
 `MCP_AUTH_CLIENT_ID_METADATA_HOSTS` can restrict fetched metadata documents to
