@@ -174,5 +174,66 @@ class ArticlesNewsletterTest(unittest.TestCase):
             self.assertEqual(client.get("/newsletter/export.csv?token=wrong").status_code, 403)
 
 
+class ArticlesFeedTest(unittest.TestCase):
+    def _client(self, tmp: str):
+        app_module = load_app(
+            MCP_ARTICLES_BASE_URL="https://articles.example.org",
+            MCP_ARTICLES_SECRET_KEY="test-secret",
+            MCP_ARTICLES_DB_PATH=os.path.join(tmp, "articles.db"),
+        )
+        return app_module, app_module.app.test_client()
+
+    def test_feed_is_valid_rss_with_every_article_newest_first(self) -> None:
+        import xml.etree.ElementTree as ET
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app_module, client = self._client(tmp)
+
+            response = client.get("/feed.xml")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.mimetype, "application/rss+xml")
+            root = ET.fromstring(response.get_data())
+            self.assertEqual(root.tag, "rss")
+            self.assertEqual(root.get("version"), "2.0")
+            channel = root.find("channel")
+            self.assertEqual(channel.findtext("link"), "https://articles.example.org/")
+            items = channel.findall("item")
+            articles = app_module.load_articles()
+            self.assertEqual(len(items), len(articles))
+            self.assertEqual([i.findtext("link") for i in items], [a.canonical_url for a in articles])
+            first = items[0]
+            self.assertEqual(first.findtext("guid"), articles[0].canonical_url)
+            self.assertEqual(first.find("guid").get("isPermaLink"), "true")
+            self.assertTrue(first.findtext("pubDate").endswith("+0000"))
+            self.assertTrue(first.findtext("title"))
+            self.assertTrue(first.findtext("description"))
+
+    def test_feed_carries_full_content_with_absolute_urls(self) -> None:
+        import xml.etree.ElementTree as ET
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _, client = self._client(tmp)
+
+            root = ET.fromstring(client.get("/feed.xml").get_data())
+
+            ns = {"content": "http://purl.org/rss/1.0/modules/content/"}
+            encoded = [i.findtext("content:encoded", namespaces=ns) for i in root.iter("item")]
+            self.assertTrue(all(encoded))
+            joined = "".join(encoded)
+            self.assertNotIn('src="/', joined)
+            self.assertNotIn('href="/', joined)
+            self.assertIn("https://articles.example.org/static/articles/", joined)
+
+    def test_pages_advertise_the_feed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            _, client = self._client(tmp)
+
+            body = client.get("/").get_data(as_text=True)
+
+            self.assertIn('rel="alternate" type="application/rss+xml"', body)
+            self.assertIn("https://articles.example.org/feed.xml", body)
+
+
 if __name__ == "__main__":
     unittest.main()
