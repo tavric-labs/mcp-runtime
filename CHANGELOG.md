@@ -11,6 +11,11 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 - `mcp-runtime cluster mcp-auth resource apply` wires an OAuth MCP server's own provider login, resource client and connector into an installed MCP Auth from a YAML or JSON file kept with the server, so a server can exchange a person's MCP token for their upstream provider token without a second auth server. It validates before writing, supports `--dry-run`, keeps entries it does not own (including the credential gateway's), and only checks that the connector secret key exists. Re-applying the credential gateway now preserves these resource entries. Needs an MCP Auth release with login `downstream_token` support ([mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)); see [Give one resource its own provider login and token](docs/mcp-oauth.md#give-one-resource-its-own-provider-login-and-token). No fresh setup is required.
 
+### Fixed
+
+- `setup --test-mode --with-mcp-auth-server` no longer stops at the `mcp-auth-server` step on a real cluster. The Ingress host (and TLS host) is now the issuer's hostname without its port, `localhost` and not `localhost:18080`, because Kubernetes rejects a port in an Ingress host. No fresh setup is required.
+- `setup --test-mode --with-mcp-auth-server` no longer creates the unused `mcp-auth-server-data` PersistentVolumeClaim. Test mode keeps MCP Auth's state in memory and mounts an `emptyDir`, so the claim stayed Pending and made setup's own PVC verification fail. Production still creates it for the SQLite store. A claim left by an earlier test-mode setup can be deleted.
+
 ### Security
 
 - **Breaking:** platform tokens are signed with ES256 and only platform-api holds the private key (`JWT_SIGNING_KEY`). runtime-api and analytics-api receive only public keys (`JWT_VERIFY_KEY`), pin the algorithm and select the key by `kid`, so a compromised backend can no longer mint platform or service tokens. The shared HS256 `JWT_SECRET` and its code path are removed. Setup generates the key pair, keeps an existing one, and delivers the private key to platform-api alone ([#903](https://github.com/tavric-labs/mcp-runtime/issues/903), AUTH-02).
