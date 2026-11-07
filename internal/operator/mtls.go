@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -122,12 +123,25 @@ func (r *MCPServerReconciler) mtlsBackendSecretsReady(ctx context.Context, mcpSe
 // traefikProxySPIFFEID is the identity the ingress presents to the gateway over
 // the re-encrypted hop. The gateway pins this via TRUSTED_PROXY_SPIFFE_ID so a
 // non-ingress holder of an identity-CA cert cannot impersonate the ingress.
-func (r *MCPServerReconciler) traefikProxySPIFFEID(mcpServer *mcpv1alpha1.MCPServer) string {
-	trustDomain := strings.TrimSpace(r.AdapterTrustDomain)
-	if trustDomain == "" {
-		return ""
+//
+// It returns "" with no error only when no trust domain is configured (mTLS is
+// off). A configured but invalid trust domain, namespace or service account is
+// an error, never "", so callers cannot mistake it for "no pin" and run the
+// gateway without one.
+func (r *MCPServerReconciler) traefikProxySPIFFEID(_ *mcpv1alpha1.MCPServer) (string, error) {
+	raw := strings.TrimSpace(r.AdapterTrustDomain)
+	if raw == "" {
+		return "", nil
 	}
-	return fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, r.ingressControllerNamespace(), r.ingressControllerServiceAccount())
+	trustDomain, err := spiffeid.TrustDomainFromString(raw)
+	if err != nil {
+		return "", fmt.Errorf("ingress SPIFFE ID: %w", err)
+	}
+	id, err := spiffeid.FromSegments(trustDomain, "ns", r.ingressControllerNamespace(), "sa", r.ingressControllerServiceAccount())
+	if err != nil {
+		return "", fmt.Errorf("ingress SPIFFE ID: %w", err)
+	}
+	return id.String(), nil
 }
 
 func (r *MCPServerReconciler) ingressControllerNamespace() string {
@@ -250,7 +264,10 @@ func (r *MCPServerReconciler) reconcileTraefikClientCertificate(ctx context.Cont
 	if issuer == "" {
 		return fmt.Errorf("adapter certificate validation requires MCP_MTLS_CLUSTER_ISSUER on the operator")
 	}
-	spiffeID := r.traefikProxySPIFFEID(mcpServer)
+	spiffeID, err := r.traefikProxySPIFFEID(mcpServer)
+	if err != nil {
+		return err
+	}
 	if spiffeID == "" {
 		return fmt.Errorf("adapter certificate validation requires MCP_TRUST_DOMAIN on the operator")
 	}

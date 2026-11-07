@@ -44,7 +44,11 @@ func BenchmarkSessionCertificateAuthorization(b *testing.B) {
 				if outcome == "foreign-spiffe" {
 					trustDomain = "foreign.test"
 				}
-				request.Header.Set(defaultVerifiedSPIFFEHeader, identity.SessionSPIFFEID(trustDomain, "team", name))
+				spiffeID, err := identity.SessionSPIFFEID(trustDomain, "team", name)
+				if err != nil {
+					b.Fatal(err)
+				}
+				request.Header.Set(defaultVerifiedSPIFFEHeader, spiffeID)
 				b.ReportAllocs()
 				b.ResetTimer()
 				for b.Loop() {

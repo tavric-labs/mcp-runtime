@@ -590,7 +590,11 @@ func (r *MCPServerReconciler) buildGatewayContainer(mcpServer *mcpv1alpha1.MCPSe
 		)
 		// Pin the ingress identity so only the Traefik client certificate (not
 		// any other identity-CA-signed cert) is accepted over the re-encrypted hop.
-		if proxyID := r.traefikProxySPIFFEID(mcpServer); proxyID != "" {
+		proxyID, err := r.traefikProxySPIFFEID(mcpServer)
+		if err != nil {
+			return corev1.Container{}, err
+		}
+		if proxyID != "" {
 			envVars = append(envVars, corev1.EnvVar{Name: "TRUSTED_PROXY_SPIFFE_ID", Value: proxyID})
 		}
 		envVars = append(envVars, corev1.EnvVar{Name: "VERIFIED_SPIFFE_HEADER", Value: verifiedSPIFFEHeader})
