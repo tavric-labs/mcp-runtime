@@ -71,6 +71,9 @@ func writePlanText(out io.Writer, plan *Plan) {
 		}
 		_ = tw.Flush()
 	}
+	if plan.TokenKeys.Needed() {
+		fmt.Fprintf(out, "\nPlatform token keys: would %s; write to %s (key material is never printed)\n", plan.TokenKeys.Action, stringsJoin(plan.TokenKeys.Secrets))
+	}
 	if len(plan.CatalogNamespaces) > 0 {
 		fmt.Fprintln(out, "\nCatalog namespaces (additive; retained on rollback):")
 		for _, ns := range plan.CatalogNamespaces {
@@ -109,6 +112,9 @@ func writeConfirmSummary(out io.Writer, plan *Plan, build bool) {
 	}
 	if len(plan.configToWrite) > 0 {
 		fmt.Fprintf(out, "This update will write %d ConfigMap(s) and restart the workloads that read them.\n", len(plan.configToWrite))
+	}
+	if plan.TokenKeys.Needed() {
+		fmt.Fprintf(out, "This update will add the platform token key pair (%s) to %d Secret(s) before rolling workloads; the keys are kept if the update fails.\n", plan.TokenKeys.Action, len(plan.TokenKeys.Secrets))
 	}
 	if len(plan.namespacesToWrite) > 0 {
 		fmt.Fprintf(out, "This update will prepare %d catalog namespace(s); namespaces are retained on rollback.\n", len(plan.namespacesToWrite))

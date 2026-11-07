@@ -118,7 +118,7 @@ func Apply(ctx context.Context, cs kubernetes.Interface, plan *Plan, opts ApplyO
 	if waiter == nil {
 		waiter = DefaultWaiter(cs)
 	}
-	workloads := groupByWorkload(plan.Changed())
+	workloads := verifiersFirst(groupByWorkload(plan.Changed()))
 	res := &Result{}
 
 	if plan.ApplyCRDs {
@@ -366,4 +366,37 @@ func recoveryCommands(w *WorkloadResult) []string {
 		cmds = append(cmds, fmt.Sprintf("kubectl -n %s set image deployment/%s %s=%s", w.Namespace, w.Deployment, c.Container, ch.previous))
 	}
 	return cmds
+}
+
+// verifiersFirst moves the platform-api workload after the last runtime-api or
+// analytics-api workload, so every verifier that is rolled trusts the platform
+// token key before platform-api starts signing with it. Other order is kept.
+func verifiersFirst(workloads []*WorkloadResult) []*WorkloadResult {
+	has := func(w *WorkloadResult, names ...string) bool {
+		for _, c := range w.Components {
+			for _, n := range names {
+				if c == n {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	signer, lastVerifier := -1, -1
+	for i, w := range workloads {
+		if has(w, "platform-api") {
+			signer = i
+		}
+		if has(w, "runtime-api", "analytics-api") {
+			lastVerifier = i
+		}
+	}
+	if signer < 0 || lastVerifier < signer {
+		return workloads
+	}
+	out := make([]*WorkloadResult, 0, len(workloads))
+	out = append(out, workloads[:signer]...)
+	out = append(out, workloads[signer+1:lastVerifier+1]...)
+	out = append(out, workloads[signer])
+	return append(out, workloads[lastVerifier+1:]...)
 }

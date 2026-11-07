@@ -2012,17 +2012,13 @@ func platformTokenKeyPair(readSecret analyticsSecretValueReader) (signingKey, ve
 		signingKey, existingVerify = "", ""
 	}
 	if strings.TrimSpace(signingKey) == "" {
-		private, public, genErr := passport.GenerateES256KeyPair()
-		if genErr != nil {
-			return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, genErr, fmt.Sprintf("failed to generate JWT signing key: %v", genErr))
-		}
-		return string(private), string(public), nil
+		existingVerify = "" // a verification set without its signing key is not carried over
 	}
-	verify, err := passport.EnsureVerifyKey([]byte(signingKey), []byte(existingVerify))
+	signing, verify, err := passport.EnsureKeyPair([]byte(signingKey), []byte(existingVerify))
 	if err != nil {
 		return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("invalid JWT signing credentials: %v", err))
 	}
-	return signingKey, string(verify), nil
+	return string(signing), string(verify), nil
 }
 
 func existingSecretDataValueOrRandomWithReader(readSecret analyticsSecretValueReader, namespace, name, key string, size int) (string, error) {
