@@ -28,7 +28,7 @@ import (
 const (
 	// connectorSecretName is the Secret setup creates from the connectors'
 	// client_secret_env variables. mcp-auth reads it with envFrom.
-	connectorSecretName = "mcp-auth-connector-secrets"
+	connectorSecretName = "mcp-auth-connector-secrets" // #nosec G101 -- Secret object name, not a credential value
 	// resourceWiringHashAnnotation restarts mcp-auth when the wiring changes.
 	resourceWiringHashAnnotation = "mcpruntime.org/resource-wiring-hash"
 )
