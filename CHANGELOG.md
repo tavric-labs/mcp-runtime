@@ -9,7 +9,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Added
 
-- `mcp-runtime cluster mcp-auth resource apply` wires an OAuth MCP server's own provider login, resource client and connector into an installed MCP Auth, so a server can exchange a person's MCP token for their upstream provider token without a second auth server. It validates before writing, supports `--dry-run`, keeps entries it does not own (including the credential gateway's), and only checks that the connector secret key exists. Re-applying the credential gateway now preserves these resource entries. Needs an MCP Auth release with login `downstream_token` support ([mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)); see [Give one resource its own provider login and token](docs/mcp-oauth.md#give-one-resource-its-own-provider-login-and-token). No fresh setup is required.
+- `mcp-runtime cluster mcp-auth resource apply` wires an OAuth MCP server's own provider login, resource client and connector into an installed MCP Auth from a YAML or JSON file kept with the server, so a server can exchange a person's MCP token for their upstream provider token without a second auth server. It validates before writing, supports `--dry-run`, keeps entries it does not own (including the credential gateway's), and only checks that the connector secret key exists. Re-applying the credential gateway now preserves these resource entries. Needs an MCP Auth release with login `downstream_token` support ([mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)); see [Give one resource its own provider login and token](docs/mcp-oauth.md#give-one-resource-its-own-provider-login-and-token). No fresh setup is required.
 
 ### Security
 

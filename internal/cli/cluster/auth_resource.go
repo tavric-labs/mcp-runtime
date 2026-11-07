@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -67,7 +68,7 @@ func newMCPAuthResourceCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("read resource file: %w", err)
 			}
-			spec, err := authgateway.ParseResourceSpec(data)
+			spec, err := parseResourceFile(data)
 			if err != nil {
 				return err
 			}
@@ -96,7 +97,7 @@ func newMCPAuthResourceCmd() *cobra.Command {
 			return nil
 		},
 	}
-	apply.Flags().StringVar(&file, "file", "", "Resource JSON file (no secrets: the connector names its client secret variable)")
+	apply.Flags().StringVar(&file, "file", "", "Resource file, YAML or JSON (no secrets: the connector names its client secret variable)")
 	apply.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Explicit kubeconfig path")
 	apply.Flags().StringVar(&kubeContext, "context", "", "Explicit Kubernetes context")
 	apply.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and show whether MCP Auth would change, without writing")
@@ -115,6 +116,19 @@ func newMCPAuthCmd() *cobra.Command {
 	cmd.AddCommand(newMCPAuthConnectorCmd())
 	cmd.AddCommand(newMCPAuthResourceCmd())
 	return cmd
+}
+
+// parseResourceFile reads a resource file as YAML or JSON. The file sits beside the
+// server's YAML metadata; JSON is valid YAML, so one conversion accepts both and the
+// strict validation in authgateway.ParseResourceSpec applies to either. The
+// conversion is here, not in pkg/authgateway, because that support package may not
+// import Kubernetes libraries.
+func parseResourceFile(data []byte) (*authgateway.ResourceSpec, error) {
+	converted, err := yaml.YAMLToJSON(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse resource file: %w", err)
+	}
+	return authgateway.ParseResourceSpec(converted)
 }
 
 // applyResource validates the installation, computes the wiring and, unless

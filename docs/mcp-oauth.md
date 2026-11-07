@@ -436,7 +436,10 @@ token and the server caches none.
 
 `mcp-runtime cluster mcp-auth resource apply` wires one such resource into an
 installed MCP Auth that signs everyone else in through its selected connector.
-Describe the resource in a JSON file. It holds no secret: the connector names the
+Describe the resource in a YAML or JSON file, typically kept in the MCP server's own
+`.mcp/` directory, since the provider's connector settings are that server's concern: the
+file is applied by an administrator and is not part of the tenant-deployed `servers.yaml`.
+It holds no secret: the connector names the
 environment variable that carries its client secret, and the resource client is a
 public key.
 
@@ -459,6 +462,13 @@ public key.
   }
 }
 ```
+
+The `connector` object is an ordinary MCP Auth connector, so provider quirks go there and
+stay out of Runtime: for a provider that refuses client-secret authentication for a code
+issued with PKCE, or whose ID tokens carry no `nonce`, set `"pkce": false` and
+`"id_token_nonce_policy": "disabled"` as MCP Auth's
+[connector guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-server.md)
+describes. Runtime passes the object through and names no provider.
 
 ```bash
 mcp-runtime cluster mcp-auth resource apply --file resource.json \

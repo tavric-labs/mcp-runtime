@@ -206,3 +206,66 @@ func TestApplyResourceDoesNotTouchAnUnownedWiringConfigMap(t *testing.T) {
 		t.Fatal("a ConfigMap without Runtime ownership was overwritten")
 	}
 }
+
+const exampleSpecYAML = `
+# An admin-applied file kept beside the MCP server's own metadata.
+id: example-api
+resource_url: https://mcp.example.com/example-api/mcp
+required_scopes: [tools:read, tools:write]
+resource_client:
+  client_id: example-mcp
+  public_key_pem: |
+    -----BEGIN PUBLIC KEY-----
+    MIIB
+    -----END PUBLIC KEY-----
+login:
+  label: Sign in with Example
+  downstream_token: upstream_session
+connector:
+  issuer: https://idp.example.com/oauth
+  authorization_endpoint: https://idp.example.com/oauth/authorize
+  token_endpoint: https://idp.example.com/oauth/token
+  client_id: example-client-id
+  client_secret_env: EXAMPLE_IDP_CLIENT_SECRET
+  token_endpoint_auth_method: client_secret_post
+  exchange_client_id: example-client-id
+  scopes: [openid, profile]
+  pkce: false
+  id_token_nonce_policy: disabled
+`
+
+// The server's .mcp directory holds YAML, so the command accepts a resource file as
+// YAML as well as JSON, with the same validation. The conversion lives in the CLI
+// adapter: pkg/authgateway is a support package and may not import Kubernetes libraries.
+func TestParseResourceFileAcceptsYAML(t *testing.T) {
+	spec, err := parseResourceFile([]byte(exampleSpecYAML))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.ID != "example-api" || spec.Login.DownstreamToken != "upstream_session" || !strings.Contains(spec.ResourceClient.PublicKeyPEM, "BEGIN PUBLIC KEY") {
+		t.Fatalf("spec = %+v", spec)
+	}
+	// Provider-specific connector settings pass through untouched for mcp-auth to read.
+	if !strings.Contains(string(spec.Connector), `"pkce":false`) || !strings.Contains(string(spec.Connector), `"id_token_nonce_policy":"disabled"`) {
+		t.Fatalf("connector settings were lost converting from YAML: %s", spec.Connector)
+	}
+}
+
+func TestParseResourceFileYAMLStillValidates(t *testing.T) {
+	for name, doc := range map[string]string{
+		"unknown field": exampleSpecYAML + "colour: blue\n",
+		"bad yaml":      "id: [unclosed\n",
+		"inline secret": strings.Replace(exampleSpecYAML, "client_secret_env: EXAMPLE_IDP_CLIENT_SECRET", "client_secret: hunter2", 1),
+		"http resource": strings.Replace(exampleSpecYAML, "https://mcp.example.com", "http://mcp.example.com", 1),
+	} {
+		if _, err := parseResourceFile([]byte(doc)); err == nil {
+			t.Errorf("accepted %s", name)
+		}
+	}
+}
+
+func TestParseResourceFileStillAcceptsJSON(t *testing.T) {
+	if _, err := parseResourceFile([]byte(exampleResourceSpec)); err != nil {
+		t.Fatalf("an existing JSON resource file stopped working: %v", err)
+	}
+}
