@@ -7,6 +7,20 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-07
+
+Breaking `0.x` release: platform tokens move to ES256 with a platform-api-only
+private key, and the MCP Auth connector command moves under `cluster mcp-auth`.
+Deploy with `mcp-runtime update`. Users sign in again after the update because
+earlier login tokens stop verifying; API keys, OIDC identities and sessions are
+unaffected. No database reset or fresh setup is required when updating from
+0.15.0. Before updating, back up the platform credentials Secret; after the
+update it also holds the new token private key (see
+[platform token keys](hack/deploy/reference/platform-token-keys.md)). Recovery
+on a rebuilt platform is the existing backup, fresh setup and restore procedure
+with that Secret restored. Verify login, an allowed and a denied tool call, and
+audit after updating.
+
 ### Added
 
 - `mcp-runtime cluster mcp-auth resource apply` wires an OAuth MCP server's own provider login, resource client and connector into an installed MCP Auth from a YAML or JSON file kept with the server, so a server can exchange a person's MCP token for their upstream provider token without a second auth server. It validates before writing, supports `--dry-run`, keeps entries it does not own (including the credential gateway's), and only checks that the connector secret key exists. Re-applying the credential gateway now preserves these resource entries. Needs MCP Auth 0.8.0 or later for login `downstream_token` support ([mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)); see [Give one resource its own provider login and token](docs/mcp-oauth.md#give-one-resource-its-own-provider-login-and-token). No fresh setup is required.
@@ -749,7 +763,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.0...v0.14.1
