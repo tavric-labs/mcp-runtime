@@ -48,6 +48,40 @@ We bind identity to a session on purpose, not to an agent or a machine.
 
 The certificate is also never the whole decision. A valid identity for an active session still needs a grant for the specific server and tool. SPIFFE tells us *who*. Platform policy decides *what they may do*.
 
+[![A human starts a platform session. The session names the SPIFFE ID in the agent's certificate and carries the grants. Revoking the session ends the identity.](/static/articles/identity-policy/agent-identity-with-spiffe/01-session-and-grant.png)](/static/articles/identity-policy/agent-identity-with-spiffe/01-session-and-grant.png)
+
+## Our reasoning: why SPIFFE, because of sessions and grants
+
+We did not start from "let's use SPIFFE". We started from what the platform's access model needs, and SPIFFE turned out to fit it closely.
+
+MCP Runtime's access model has two records that carry all the meaning:
+
+- A **session**: a human authorized one agent to work against one server for a limited time. It is stored by the platform, can expire and can be revoked.
+- A **grant**: which servers and which tools that agent may use, with a trust level and limits on side effects.
+
+Every request therefore has to answer three separate questions, and the answers live in different places:
+
+1. **Who is calling?** A cryptographic proof, carried by the connection.
+2. **On whose behalf, and is that still valid?** The session record.
+3. **What may it do?** The grants attached to that session.
+
+That shape puts a specific demand on the identity layer. It must be **a name for the session**, not for the machine or the agent. It must be **cheap to verify on every request** without a database call before TLS has even finished. It must be **short-lived and tied to the session's lifetime**. And it must be a **strict, standard string** that the gateway can turn into "this session" with no room for interpretation, because that string is the key into the session store and, through it, the grants.
+
+A SPIFFE ID fits that demand almost exactly. The path is ours to define, so `ns/<namespace>/session/<name>` is the session's qualified reference, written in a format every TLS stack already carries in a certificate. The trust domain pins it to our issuer. The specification fixes what a legal ID looks like, so the string cannot be bent into someone else's session.
+
+Here is how the alternatives looked against that demand:
+
+| Option | Why it fell short for sessions and grants |
+|---|---|
+| Identity header set by the client | A claim, not proof. Anyone can write it. |
+| Shared or per-agent API key | Says "someone who knows the secret". It does not name a session, does not expire with one, and revoking a key is not the same as ending a consented session. |
+| Bearer JWT per session | Close, but a leaked token works from any machine until it expires, because nothing binds it to a private key the holder keeps. |
+| mTLS with our own subject or SAN format | The right mechanism with the wrong naming. We would own the format, the parser and every confusable-ID bug. |
+| Full workload identity with SPIRE | Solves a different problem: long-lived workload attestation. Our identities are per session and issued after a human authorizes them. It adds a system to run for a lifetime we deliberately do not want. |
+| **SPIFFE ID in an X.509 certificate** | Proof of key possession during the TLS handshake, a standard strict name for the session, short-lived by construction, and nothing else to operate. |
+
+So the decision is really two decisions that happen to meet. The **session** decides what an identity *means*: a person's time-limited consent. The **grant** decides what that identity *may do*. SPIFFE is how we **write the session's name down** so it can be proven and checked everywhere, with a standard we did not have to invent.
+
 ## Why SPIFFE, concretely
 
 **1. The agent's key never leaves its machine.** The adapter generates a P-256 key locally and sends only a certificate signing request. The platform validates the request, has a workload issuer sign it, and returns a certificate. A stolen certificate without the key is useless, which a leaked bearer token is not.
@@ -64,15 +98,9 @@ The certificate is also never the whole decision. A valid identity for an active
 
 ## How the identity travels
 
-```text
-adapter ── CSR (one SPIFFE URI SAN) ──> runtime API
-runtime API ── validates ownership, session, grant ──> workload issuer signs
-adapter ── mTLS request ──> ingress (verifies chain, sets identity header)
-ingress ── authenticated hop ──> gateway
-gateway ── parse ID, look up session, apply grants ──> allow or deny
-```
+[![The agent presents a SPIFFE certificate over mTLS. The ingress verifies the chain. The gateway checks the identity, the session and the grant, and denies on any failure.](/static/articles/identity-policy/agent-identity-with-spiffe/02-request-path.png)](/static/articles/identity-policy/agent-identity-with-spiffe/02-request-path.png)
 
-Three checks make this safe, and each fails closed:
+Before any of that, the agent enrolls: it sends a CSR with one SPIFFE URI SAN, the runtime API validates ownership, session and grant, and the workload issuer signs it. Then each request follows the path above. Three checks make this safe, and each fails closed:
 
 - **Before signing**, the runtime API recomputes the expected ID from its configured trust domain plus the namespace and session in the request. It accepts the CSR only if the CSR carries exactly that URI and no other SAN of any kind.
 - **After signing**, the platform and the adapter both re-check the issued certificate: one URI SAN equal to the expected ID, a non-CA, client-auth-only leaf, bound to the CSR's key, within the session lifetime.
