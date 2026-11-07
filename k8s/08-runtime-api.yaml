@@ -102,6 +102,8 @@ spec:
               value: "" # MCP_POD_EGRESS_CIDRS
             - name: MCP_POD_EGRESS_EXCEPT_CIDRS
               value: "" # MCP_POD_EGRESS_EXCEPT_CIDRS
+            - name: MCP_POD_EGRESS_ALLOW_ALL
+              value: "" # MCP_POD_EGRESS_ALLOW_ALL
             - name: MCP_REGISTRY_PUSH_TEMP_DIR
               value: /tmp
             - name: POD_IP
