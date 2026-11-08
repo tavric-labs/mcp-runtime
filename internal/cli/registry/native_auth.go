@@ -114,6 +114,7 @@ func validateNativeRealm(raw string, testMode bool) error {
 
 type registryCredentialCreator interface {
 	CheckRegistryAdmin(context.Context) error
+	WaitRegistryAdminReady(context.Context, func(reason string)) error
 	CreateRegistryPullCredential(context.Context, registryauth.PullScope) (platformapi.RegistryPullCredential, error)
 }
 
@@ -250,6 +251,14 @@ func configureNativeAuth(ctx context.Context, clients *k8sclient.Clients, api re
 		if _, err = cs.CoreV1().Secrets(journal.Namespace).Create(ctx, journal, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
 		}
+	}
+	// platform-api was just rolled; the ingress may still be swapping endpoints
+	// and answer 502/503/504. Wait for it to serve consistently, then issue each
+	// credential exactly once (credential creation is not idempotent).
+	if err := api.WaitRegistryAdminReady(ctx, func(reason string) {
+		core.Info("Waiting for the platform API behind the ingress to settle: " + reason)
+	}); err != nil {
+		return fmt.Errorf("platform API not ready for registry credentials; backend authentication unchanged: %w", err)
 	}
 	for _, namespace := range targets {
 		repos, err := registryNamespaceRepositories(ctx, cs, namespace, hosts)
