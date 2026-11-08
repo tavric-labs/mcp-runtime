@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- `mcp-runtime setup` no longer aborts with `create scoped registry pull credential: HTTP 502` when the ingress is still swapping platform-api endpoints right after the registry-auth rollout. Before it issues the namespace pull credentials, setup now waits until the registry administration preflight answers correctly three times in a row, riding through HTTP 502, 503 and 504 and connection errors for up to 60 seconds and logging why it waits. Credential creation itself is still attempted once per namespace, so a failure cannot leave duplicate credentials; 401, 403 and 404 still fail immediately. No fresh setup is required; rerunning setup is safe.
+
 ## [0.16.1] - 2026-11-08
 
 Patch release that fixes the failed 0.16.0 production update. `mcp-runtime update`
