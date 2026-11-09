@@ -97,6 +97,25 @@ with open(os.environ['COMMAND_LOG'],'a') as f: f.write(json.dumps(['backup', '--
         self.assertLess(source.index('Verified protected pre-update snapshot'), source.index('./bin/mcp-runtime update'))
         self.assertLess(source.index('./bin/mcp-runtime cluster doctor'), source.index('./bin/mcp-runtime update'))
 
+    def test_every_mcp_runtime_command_exists_in_the_cli(self):
+        # The deploy builds the CLI from the release tag, so every command the
+        # workflow runs must exist there. Each word must be listed in its
+        # parent command's help golden (a renamed command left an old name here
+        # and failed a live deploy after the platform had already been updated).
+        golden = ROOT / 'test/golden/cli/testdata'
+        source = WORKFLOW.read_text().replace('\\\n', ' ')
+        commands = set()
+        for match in re.finditer(r'\./bin/mcp-runtime((?: [a-z][a-z-]*)+)', source):
+            commands.add(tuple(match.group(1).split()))
+        self.assertTrue(commands)
+        for words in sorted(commands):
+            for depth in range(len(words)):
+                name = 'mcp-runtime' + ''.join('_' + word.replace('-', '_') for word in words[:depth]) + '_help.golden'
+                listing = (golden / name).read_text()
+                self.assertRegex(
+                    listing, r'(?m)^\s+' + re.escape(words[depth]) + r'\s',
+                    f'workflow runs unknown command: mcp-runtime {" ".join(words)}')
+
     def test_deployment_shell_syntax_and_lint(self):
         source = WORKFLOW.read_text().split('      - name: Deploy and verify Runtime', 1)[1]
         source = source.split('        run: |\n', 1)[1].split('\n  publish-live-version:', 1)[0]
