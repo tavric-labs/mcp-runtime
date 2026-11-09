@@ -29,7 +29,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.13.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.10.1 // indirect
-	github.com/XSAM/otelsql v0.40.0 // indirect
+	github.com/XSAM/otelsql v0.44.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.47.7 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.15 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.7 // indirect
@@ -88,7 +88,7 @@ require (
 	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/spiffe/go-spiffe/v2 v2.7.0 // indirect
+	github.com/spiffe/go-spiffe/v2 v2.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0 // indirect
