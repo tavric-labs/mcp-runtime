@@ -92,7 +92,7 @@ compares the next checkout to that image's content-hash label. Set
 
 ## Safety: the disposable-target guard
 
-The suite installs and uninstalls k3s, prunes every Docker image, and wipes
+The suite installs and uninstalls k3s, prunes unused Docker images, and wipes
 kubelet/CNI state. It must never run against the live production install
 (`platform.mcpruntime.org`, `registry.mcpruntime.org`, `mcp.mcpruntime.org`,
 `auth.mcpruntime.org`). Before anything is copied to or run on the VM, the
@@ -259,6 +259,7 @@ request or include token values in that reason.
 | Stage | Asserts |
 | --- | --- |
 | `target-guard` | The disposable-target guard above |
+| `disk-guard` | Enough free disk on the k3s, Docker and run-directory filesystems before the cell starts |
 | `prerequisites` / `dependencies`, `go-toolchain` | Local tools; the CLI builds |
 | `staging-roots` | Let's Encrypt staging roots trusted on the VM |
 | `k3s`, `traefik` | Node Ready, kubeconfig reachable, disk headroom, bundled Traefik exposed |
@@ -302,11 +303,32 @@ If certificates, registry credentials, or an identity-provider installation
 must survive a VM reset, place access-controlled backup material in the same
 directory. The runner supports either an executable `restore.sh` hook or
 declarative files below `manifests/`. Cleanup removes everything except the
-backup directory: k3s with its CNI and kubelet state, all Docker images,
-containers, volumes and build cache, and any repository or scratch directory an
-earlier run left behind. The runner checks free disk before setup (about 6 GiB,
-`E2E_MIN_DISK_GIB` overrides it) because a full disk evicts pods and surfaces
-only as an unexplained deployment timeout. On-VM run directories live in
+backup directory: k3s with its CNI and kubelet state, unused Docker images
+(`docker image prune -a`: images a running container uses, such as unrelated
+projects on the same VM, are never removed, and neither are the QA content-hash
+images), BuildKit cache above `E2E_DOCKER_BUILD_CACHE_MAX` (default 8GB), and
+any repository or scratch directory an earlier run left behind. Running
+containers and volumes are not touched.
+
+After k3s is uninstalled, and again before it is installed, the runner calls
+`/usr/local/bin/k3s-killall.sh` when present, then stops any containerd shim
+that is clearly k3s's (`-namespace k8s.io` with the `/run/k3s/` socket; SIGTERM,
+then SIGKILL) and unmounts leftovers under `/run/k3s`, `/var/lib/kubelet` and
+`/var/lib/rancher/k3s`. Docker's shims (`-namespace moby`) are never signalled.
+A shim that survives SIGKILL fails the stage. Stale shims otherwise made the
+next cell's k3s service fail to start.
+
+The `disk-guard` stage runs first. It requires at least 15 GiB free
+(`E2E_MIN_FREE_GIB`) and at most 80% used (`E2E_MAX_USED_PCT`) on each
+filesystem holding `/var/lib/rancher/k3s`, `/var/lib/docker` and the run
+directory. If short, it prunes only suite-owned garbage (earlier
+`/var/tmp/mcp-runtime-e2e-*` directories, image archives, unused Docker
+images, build cache), re-measures, and otherwise fails before starting the
+cell, because a cell on a nearly full disk dies of kubelet DiskPressure. Free
+space outside the suite (finished projects' unused images, old logs) and
+re-run. `diagnostics/vm-resources.txt` records `df`, memory, k3s shim PIDs,
+k3s mounts and processes, and the k3s service status.
+On-VM run directories live in
 `/var/lib/mcp-runtime-e2e-backup/runs/<run-id>`; the ten most recent are kept.
 
 ## Running it
