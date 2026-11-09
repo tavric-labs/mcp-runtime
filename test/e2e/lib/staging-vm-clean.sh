@@ -18,10 +18,13 @@ STAGING_MOUNTS_FILE="${STAGING_MOUNTS_FILE:-/proc/mounts}"
 # PIDs of containerd shims that belong to k3s. k3s runs its own containerd
 # with `-namespace k8s.io -address /run/k3s/containerd/containerd.sock`;
 # Docker's shims use `-namespace moby` and /run/containerd/containerd.sock.
-# Both markers must be present.
+# Both markers must be present, and the executable itself (first word of the
+# arguments) must be a containerd shim: matching the markers anywhere in the
+# line would also select this filter and any shell whose command line merely
+# mentions them.
 staging_k3s_shim_pids() {
   staging_process_table | awk '
-    index($0, "containerd-shim") && index($0, "-namespace k8s.io") && index($0, "-address /run/k3s/") { print $1 }'
+    $2 ~ /(^|\/)containerd-shim[^\/ ]*$/ && index($0, "-namespace k8s.io") && index($0, "-address /run/k3s/") { print $1 }'
 }
 
 staging_kill_stale_k3s_shims() {
