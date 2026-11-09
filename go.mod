@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.50.0
-	github.com/XSAM/otelsql v0.40.0
+	github.com/XSAM/otelsql v0.44.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/getkin/kin-openapi v0.152.0
 	github.com/go-logr/logr v1.4.4
@@ -16,7 +16,7 @@ require (
 	github.com/pterm/pterm v0.12.84
 	github.com/segmentio/kafka-go v0.4.51
 	github.com/spf13/cobra v1.10.2
-	github.com/spiffe/go-spiffe/v2 v2.7.0
+	github.com/spiffe/go-spiffe/v2 v2.9.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
 	go.opentelemetry.io/otel v1.47.0
