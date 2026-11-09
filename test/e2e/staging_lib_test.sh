@@ -687,6 +687,23 @@ shim_selection_case() (
   [[ "$(staging_k3s_shim_pids | tr '\n' ' ')" == '101 ' ]]
 )
 expect_ok "stale shim selection matches only the k3s k8s.io shim, never moby/docker or a k3s server" shim_selection_case
+shim_selfmatch_case() (
+  # The filter itself and the shell that runs it carry the marker strings in
+  # their own arguments; they must never be selected as shims.
+  staging_process_table() {
+    shim_fixture_table
+    echo "  505 awk index(\$0, \"containerd-shim\") && index(\$0, \"-namespace k8s.io\") && index(\$0, \"-address /run/k3s/\") { print \$1 }"
+    echo "  506 bash -c pgrep containerd-shim -namespace k8s.io -address /run/k3s/ | grep"
+  }
+  [[ "$(staging_k3s_shim_pids | tr '\n' ' ')" == '101 ' ]]
+)
+expect_ok "shim selection ignores the filter process and shells that merely mention the markers" shim_selfmatch_case
+shim_live_process_table_case() (
+  # Real ps, no fixture: with no k3s shim on this machine nothing may match,
+  # including the awk that does the matching.
+  [[ -z "$(staging_k3s_shim_pids | tr -d ' \n')" ]]
+)
+expect_ok "shim selection against the real process table never matches its own awk" shim_live_process_table_case
 shim_kill_case() (
   STAGING_SHIM_WAIT=0
   local alive=" 101 202 303 404 " signals="${TMP}/signals"
