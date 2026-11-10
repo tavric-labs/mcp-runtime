@@ -323,3 +323,66 @@ func MissingLoginConnectors(logins, connectors string) ([]MissingLoginConnector,
 	}
 	return missing, nil
 }
+
+// ownedConnectorPrefixes are the connector names Runtime owns besides the
+// installation's own: the credential gateway's logins and the resource command's.
+var ownedConnectorPrefixes = []string{ConnectorPrefix, ResourceConnectorPrefix}
+
+// RuntimeOwnedConnector reports whether name is a connector entry Runtime owns.
+func RuntimeOwnedConnector(name string) bool {
+	for _, prefix := range ownedConnectorPrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// PreserveOwnedConnectors keeps the connectors Runtime owns (gateway-login-*
+// and resource-login-*) when an identity-connector file does not mention them.
+// gateway apply and the resource command own those entries; replacing the whole
+// file with the main connector removes a login mcp-auth needs and the server
+// exits at startup.
+func PreserveOwnedConnectors(existing, replacement string) (string, error) {
+	current, err := connectorDocument(existing)
+	if err != nil {
+		return "", err
+	}
+	keep := false
+	for name := range current {
+		if RuntimeOwnedConnector(name) {
+			keep = true
+			break
+		}
+	}
+	if !keep {
+		return replacement, nil
+	}
+	incoming, err := connectorDocument(replacement)
+	if err != nil {
+		return "", err
+	}
+	for name, raw := range current {
+		if RuntimeOwnedConnector(name) {
+			if _, present := incoming[name]; !present {
+				incoming[name] = raw
+			}
+		}
+	}
+	encoded, err := json.Marshal(incoming)
+	if err != nil {
+		return "", err
+	}
+	return string(encoded), nil
+}
+
+func connectorDocument(data string) (map[string]json.RawMessage, error) {
+	if strings.TrimSpace(data) == "" {
+		return map[string]json.RawMessage{}, nil
+	}
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(data), &doc); err != nil || doc == nil {
+		return nil, errors.New("connectors file is not a JSON object")
+	}
+	return doc, nil
+}

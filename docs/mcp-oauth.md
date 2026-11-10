@@ -270,6 +270,11 @@ The TLS certificate for the issuer host is provisioned by setup using the
 configured TLS ClusterIssuer. Pass `--mcp-auth-tls-secret` only when the
 certificate is externally managed (and use `--provided-tls-secrets`).
 
+Setup writes the connectors file as the main connector, but keeps the
+`gateway-login-*` and `resource-login-*` entries that `gateway apply` and
+`cluster mcp-auth resource apply` added to the live `mcp-auth-connectors`
+ConfigMap, as `connector apply` does. A fresh install has none to keep.
+
 The default image is `docker.io/princekrroshan01/mcp-auth-server:0.8.0`.
 The server uses SQLite on a PVC in production and memory storage only in
 `--test-mode`. The setup flag is opt-in; when it is absent, Runtime does not

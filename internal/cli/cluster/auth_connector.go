@@ -127,7 +127,7 @@ func applyMCPAuthConnector(ctx context.Context, client kubernetes.Interface, dat
 		if err != nil {
 			return fmt.Errorf("read existing MCP Auth connector ConfigMap: %w", err)
 		}
-		merged, err := preserveOwnedConnectors(cm.Data["connectors.json"], data)
+		merged, err := authgateway.PreserveOwnedConnectors(cm.Data["connectors.json"], data)
 		if err != nil {
 			return err
 		}
@@ -192,66 +192,4 @@ func requireNoNewDanglingLogin(ctx context.Context, client kubernetes.Interface,
 		reasons[i] = m.String()
 	}
 	return fmt.Errorf("refusing to apply, nothing was changed: %s; MCP Auth would exit at startup. Keep that connector in the file, or change the login method first", strings.Join(reasons, "; "))
-}
-
-// ownedConnectorPrefixes are the connector names Runtime owns besides the
-// installation's own: the credential gateway's logins and the resource command's.
-var ownedConnectorPrefixes = []string{authgateway.ConnectorPrefix, authgateway.ResourceConnectorPrefix}
-
-func runtimeOwnedConnector(name string) bool {
-	for _, prefix := range ownedConnectorPrefixes {
-		if strings.HasPrefix(name, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
-// preserveOwnedConnectors keeps the connectors Runtime owns (gateway-login-*
-// and resource-login-*) when an identity-connector file does not mention them.
-// gateway apply and the resource command own those entries; replacing the whole
-// file with the main connector removes a login mcp-auth needs and the server
-// exits at startup.
-func preserveOwnedConnectors(existing, replacement string) (string, error) {
-	current, err := connectorDocument(existing)
-	if err != nil {
-		return "", err
-	}
-	keep := false
-	for name := range current {
-		if runtimeOwnedConnector(name) {
-			keep = true
-			break
-		}
-	}
-	if !keep {
-		return replacement, nil
-	}
-	incoming, err := connectorDocument(replacement)
-	if err != nil {
-		return "", err
-	}
-	for name, raw := range current {
-		if runtimeOwnedConnector(name) {
-			if _, present := incoming[name]; !present {
-				incoming[name] = raw
-			}
-		}
-	}
-	encoded, err := json.Marshal(incoming)
-	if err != nil {
-		return "", err
-	}
-	return string(encoded), nil
-}
-
-func connectorDocument(data string) (map[string]json.RawMessage, error) {
-	if strings.TrimSpace(data) == "" {
-		return map[string]json.RawMessage{}, nil
-	}
-	var doc map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(data), &doc); err != nil || doc == nil {
-		return nil, errors.New("connectors file is not a JSON object")
-	}
-	return doc, nil
 }
