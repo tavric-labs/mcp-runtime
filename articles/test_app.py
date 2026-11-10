@@ -235,5 +235,17 @@ class ArticlesFeedTest(unittest.TestCase):
             self.assertIn("https://articles.example.org/feed.xml", body)
 
 
+class ArticleAssetsTest(unittest.TestCase):
+    def test_every_static_image_an_article_references_exists(self) -> None:
+        import re
+        from pathlib import Path
+
+        root = Path(__file__).parent
+        for article in (root / "content").rglob("*.md"):
+            for ref in re.findall(r"\]\((/static/[^)\s]+)\)", article.read_text()):
+                with self.subTest(article=article.name, ref=ref):
+                    self.assertTrue((root / ref.lstrip("/")).is_file())
+
+
 if __name__ == "__main__":
     unittest.main()
