@@ -363,7 +363,8 @@ Auth0, Microsoft Entra ID, Google, or other provider-specific adapter:
 MCP_AUTH_CONNECTORS_FILE → MCP_AUTH_CONNECTOR → IdentityProvider/TokenExchanger
 ```
 
-One auth-server process selects one connector and one MCP resource. A file may
+One auth-server process selects one main connector and serves every resource in
+`MCP_AUTH_RESOURCES`. A file may
 contain several named connectors for different environments, but changing the
 selected provider requires changing `--mcp-auth-connector` and restarting or
 rolling out the deployment. This keeps provider credentials and provider
@@ -410,7 +411,9 @@ Typical issuer patterns are:
 Support for optional features varies by provider. Verify discovery, callback behavior, token endpoint
 authentication, scopes, refresh behavior, and claims with the provider before
 using it in production. The mcp-auth project has provider-specific notes and a
-verified-provider matrix in its [authorization-server guide](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/auth-server.md).
+verified-provider matrix in its [authorization-server guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-server.md).
+The full connector schema and the login method types are in its
+[connectors guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/connectors.md).
 
 Before setup, run the Runtime preflight against the provider issuer:
 
@@ -584,8 +587,8 @@ The SDK runs at the application boundary, outside Runtime governance:
 The SDK consumes provider-neutral MCP authorization metadata and JWTs. Switching
 from Keycloak to Okta or PingOne changes the connector and IdP client
 configuration; MCP tool code stays the same. Read the
-mcp-auth project's [auth-server architecture](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/architecture.md)
-and [auth-client SDK guide](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/auth-client.md)
+mcp-auth project's [auth-server architecture](https://github.com/tavric-labs/mcp-auth/blob/main/docs/architecture.md)
+and [auth-client SDK guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-client.md)
 for the Python and Go APIs, verifier options, metadata discovery, and token
 exchange boundaries.
 
