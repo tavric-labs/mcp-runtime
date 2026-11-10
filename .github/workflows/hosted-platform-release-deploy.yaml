@@ -182,10 +182,10 @@ jobs:
             jq -n --argjson current "$current" --argjson incoming "$(cat config/deployments/mcpruntime-org-keycloak-connectors.json)" \
               '($current | with_entries(select(.key | startswith("gateway-login-")))) + $incoming' \
               > "$auth_connectors"
-            ./bin/mcp-runtime cluster mcp-auth-connector apply \
+            ./bin/mcp-runtime cluster mcp-auth connector apply \
               --file "$auth_connectors" \
               --connector keycloak --kubeconfig "$kubeconfig" --context default --dry-run
-            ./bin/mcp-runtime cluster mcp-auth-connector apply \
+            ./bin/mcp-runtime cluster mcp-auth connector apply \
               --file "$auth_connectors" \
               --connector keycloak --kubeconfig "$kubeconfig" --context default --yes
 
