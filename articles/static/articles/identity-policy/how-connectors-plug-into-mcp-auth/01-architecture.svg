@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" width="1920" height="1120" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif">
+  <title>Where connectors sit between MCP clients and identity providers</title>
+  <desc>An MCP client talks to mcp-auth. Inside mcp-auth, login methods choose how a person signs in and a connector describes the upstream provider that an OIDC login method uses. The connector reaches an OIDC provider, a plain OAuth 2.0 provider or a gateway's login endpoints. The MCP server behind the gateway validates the access token and exchanges it with mcp-auth, using its resource client key, for the provider's token.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0b1b3a"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f6feb"/></marker>
+  </defs>
+  <rect width="960" height="560" rx="14" fill="#faf6ec" stroke="#d9d0bb"/>
+  <text x="480" y="36" text-anchor="middle" font-size="20" font-weight="700" fill="#0b1b3a">A connector is the adapter between mcp-auth and one upstream provider</text>
+
+  <!-- client -->
+  <rect x="24" y="150" width="150" height="90" rx="10" fill="#ffffff" stroke="#0b1b3a" stroke-width="1.5"/>
+  <text x="99" y="188" text-anchor="middle" font-size="16" font-weight="700" fill="#0b1b3a">MCP client</text>
+  <text x="99" y="209" text-anchor="middle" font-size="12" fill="#3a4a6b">asks for a token for</text>
+  <text x="99" y="225" text-anchor="middle" font-size="12" fill="#3a4a6b">one resource URL</text>
+
+  <!-- mcp-auth -->
+  <rect x="250" y="64" width="400" height="300" rx="14" fill="#0b1b3a"/>
+  <text x="450" y="92" text-anchor="middle" font-size="18" font-weight="700" fill="#faf6ec">mcp-auth</text>
+  <text x="450" y="110" text-anchor="middle" font-size="12" fill="#c9d6f2">OAuth server: tokens bound to a resource audience</text>
+
+  <rect x="270" y="126" width="360" height="62" rx="8" fill="#faf6ec"/>
+  <text x="285" y="148" font-size="14" font-weight="700" fill="#0b1b3a">Login methods</text>
+  <text x="285" y="168" font-size="12" fill="#3a4a6b">oidc · google · github · ldap, optionally per resource</text>
+
+  <rect x="270" y="204" width="360" height="62" rx="8" fill="#1f6feb"/>
+  <text x="285" y="226" font-size="14" font-weight="700" fill="#ffffff">Connectors (connectors.json)</text>
+  <text x="285" y="246" font-size="12" fill="#ffffff">endpoints, client id, secret by env name, scopes, PKCE, claims</text>
+
+  <rect x="270" y="282" width="170" height="64" rx="8" fill="#faf6ec"/>
+  <text x="285" y="304" font-size="13" font-weight="700" fill="#0b1b3a">Resource clients</text>
+  <text x="285" y="322" font-size="11" fill="#3a4a6b">public keys, private_key_jwt</text>
+  <text x="285" y="337" font-size="11" fill="#3a4a6b">for the exchange endpoint</text>
+  <rect x="460" y="282" width="170" height="64" rx="8" fill="#faf6ec"/>
+  <text x="475" y="304" font-size="13" font-weight="700" fill="#0b1b3a">Token exchange</text>
+  <text x="475" y="322" font-size="11" fill="#3a4a6b">hands the provider's token</text>
+  <text x="475" y="337" font-size="11" fill="#3a4a6b">to the resource server</text>
+  <line x1="450" y1="188" x2="450" y2="202" stroke="#1f6feb" stroke-width="2" marker-end="url(#b)"/>
+
+  <!-- providers -->
+  <rect x="740" y="64" width="196" height="76" rx="10" fill="#ffffff" stroke="#0b1b3a" stroke-width="1.5"/>
+  <text x="838" y="96" text-anchor="middle" font-size="14" font-weight="700" fill="#0b1b3a">OIDC provider</text>
+  <text x="838" y="116" text-anchor="middle" font-size="12" fill="#3a4a6b">ID token, discovery</text>
+  <rect x="740" y="156" width="196" height="76" rx="10" fill="#ffffff" stroke="#0b1b3a" stroke-width="1.5"/>
+  <text x="838" y="188" text-anchor="middle" font-size="14" font-weight="700" fill="#0b1b3a">Plain OAuth 2.0</text>
+  <text x="838" y="208" text-anchor="middle" font-size="12" fill="#3a4a6b">no ID token, userinfo</text>
+  <rect x="740" y="248" width="196" height="76" rx="10" fill="#ffffff" stroke="#0b1b3a" stroke-width="1.5"/>
+  <text x="838" y="280" text-anchor="middle" font-size="14" font-weight="700" fill="#0b1b3a">Gateway login</text>
+  <text x="838" y="300" text-anchor="middle" font-size="12" fill="#3a4a6b">/login/authorize, /token</text>
+  <line x1="630" y1="235" x2="738" y2="102" stroke="#1f6feb" stroke-width="2" marker-end="url(#b)"/>
+  <line x1="630" y1="235" x2="738" y2="194" stroke="#1f6feb" stroke-width="2" marker-end="url(#b)"/>
+  <line x1="630" y1="235" x2="738" y2="286" stroke="#1f6feb" stroke-width="2" marker-end="url(#b)"/>
+  <text x="840" y="346" text-anchor="middle" font-size="11" fill="#3a4a6b">redirect, code exchange, userinfo</text>
+
+  <line x1="174" y1="195" x2="248" y2="195" stroke="#0b1b3a" stroke-width="2" marker-end="url(#a)"/>
+  <text x="211" y="185" text-anchor="middle" font-size="11" fill="#3a4a6b">authorize</text>
+  <text x="211" y="219" text-anchor="middle" font-size="11" fill="#3a4a6b">token</text>
+
+  <!-- server -->
+  <rect x="24" y="420" width="190" height="92" rx="10" fill="#ffffff" stroke="#0b1b3a" stroke-width="1.5"/>
+  <text x="119" y="452" text-anchor="middle" font-size="15" font-weight="700" fill="#0b1b3a">MCP Runtime gateway</text>
+  <text x="119" y="472" text-anchor="middle" font-size="12" fill="#3a4a6b">checks issuer, audience,</text>
+  <text x="119" y="488" text-anchor="middle" font-size="12" fill="#3a4a6b">scopes, then grants</text>
+  <rect x="290" y="420" width="190" height="92" rx="10" fill="#ffffff" stroke="#1f6feb" stroke-width="2.5"/>
+  <text x="385" y="452" text-anchor="middle" font-size="15" font-weight="700" fill="#0b1b3a">Your MCP server</text>
+  <text x="385" y="472" text-anchor="middle" font-size="12" fill="#3a4a6b">holds a private key,</text>
+  <text x="385" y="488" text-anchor="middle" font-size="12" fill="#3a4a6b">never a client secret</text>
+  <line x1="214" y1="466" x2="288" y2="466" stroke="#0b1b3a" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M99,242 L99,418" stroke="#0b1b3a" stroke-width="2" fill="none" marker-end="url(#a)"/>
+  <text x="108" y="338" font-size="11" fill="#3a4a6b">Bearer token,</text>
+  <text x="108" y="353" font-size="11" fill="#3a4a6b">aud = resource</text>
+  <path d="M385,420 L385,366" stroke="#1f6feb" stroke-width="2" fill="none" marker-end="url(#b)"/>
+  <text x="396" y="396" font-size="11" fill="#0b1b3a">RFC 8693 exchange</text>
+  <text x="396" y="410" font-size="11" fill="#0b1b3a">private_key_jwt</text>
+
+  <rect x="560" y="420" width="190" height="92" rx="10" fill="#ffffff" stroke="#0b1b3a" stroke-width="1.5"/>
+  <text x="655" y="452" text-anchor="middle" font-size="15" font-weight="700" fill="#0b1b3a">Provider's API</text>
+  <text x="655" y="472" text-anchor="middle" font-size="12" fill="#3a4a6b">called as the person</text>
+  <text x="655" y="488" text-anchor="middle" font-size="12" fill="#3a4a6b">with the provider's token</text>
+  <line x1="480" y1="466" x2="558" y2="466" stroke="#1f6feb" stroke-width="2" marker-end="url(#b)"/>
+</svg>
