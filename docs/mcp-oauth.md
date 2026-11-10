@@ -275,7 +275,8 @@ Setup writes the connectors file as the main connector, but keeps the
 `cluster mcp-auth resource apply` added to the live `mcp-auth-connectors`
 ConfigMap, as `connector apply` does. A fresh install has none to keep.
 
-The default image is `docker.io/princekrroshan01/mcp-auth-server:0.9.0`.
+The default image is the one pinned in `config/release/mcp-auth/Dockerfile`
+(`setup --help` prints it).
 The server uses SQLite on a PVC in production and memory storage only in
 `--test-mode`. The setup flag is opt-in; when it is absent, Runtime does not
 deploy this authorization server.
@@ -294,7 +295,7 @@ An image-only update preserves the existing connector configuration, SQLite
 PVC, signing key, and TLS Secret; it does not require rerunning `setup` or
 issuing a certificate.
 Existing installations need a separately reviewed component manifest selecting
-MCP Auth 0.9.0 and `mcp-runtime update --only mcp-auth`; updating Runtime alone
+the pinned MCP Auth version and `mcp-runtime update --only mcp-auth`; updating Runtime alone
 does not replace the installed Auth image.
 
 Client ID Metadata Documents (CIMD) are enabled by default in MCP Auth 0.7.1 and later.
