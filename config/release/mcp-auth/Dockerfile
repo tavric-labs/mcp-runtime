@@ -5,5 +5,7 @@
 # a PR that bumps the tag, and so the CLI can embed the value
 # (config/release/mcp-auth/assets.go). Keep exactly one FROM line, with a
 # docker.io/princekrroshan01/mcp-auth-server:<MAJOR.MINOR.PATCH> reference.
-# See docs/contributor/mcp-auth-pin.md.
+# The USER line only satisfies the Trivy Dockerfile misconfiguration scan (the
+# file is not an image). See docs/contributor/mcp-auth-pin.md.
 FROM docker.io/princekrroshan01/mcp-auth-server:0.9.0
+USER 65532:65532
