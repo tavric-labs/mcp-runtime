@@ -219,3 +219,17 @@ func TestParseResourceSpecAllowsPlainHTTPOnlyForLoopback(t *testing.T) {
 		}
 	}
 }
+
+func TestMissingLoginConnectors(t *testing.T) {
+	logins := `{"methods":[{"id":"a","connector":"one"},{"id":"b","connector":"gone"},{"id":"c"}]}`
+	missing, err := MissingLoginConnectors(logins, `{"one":{}}`)
+	if err != nil || len(missing) != 1 || missing[0] != (MissingLoginConnector{Method: "b", Connector: "gone"}) {
+		t.Fatalf("missing = %v, %v", missing, err)
+	}
+	if missing, err := MissingLoginConnectors("", ""); err != nil || len(missing) != 0 {
+		t.Fatalf("empty files = %v, %v", missing, err)
+	}
+	if _, err := MissingLoginConnectors(logins, "[]"); err == nil {
+		t.Fatal("non-object connectors accepted")
+	}
+}

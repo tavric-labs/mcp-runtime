@@ -436,6 +436,21 @@ func installGateway(ctx context.Context, c kubernetes.Interface, in gatewayInsta
 	if in.image == "" {
 		return nil, errors.New("--gateway-image is required: the operator does not declare MCP_GATEWAY_PROXY_IMAGE")
 	}
+	oldWiring, err := c.CoreV1().ConfigMaps(mcpAuthNamespace).Get(ctx, authgateway.WiringName, metav1.GetOptions{})
+	wiringExists := err == nil
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	}
+	if wiringExists && !ownedByRuntime(oldWiring.ObjectMeta) {
+		return nil, errors.New("the gateway wiring ConfigMap exists without Runtime ownership")
+	}
+	finalFiles, err := gatewayWiringFiles(oldWiring, wiringExists, in)
+	if err != nil {
+		return nil, err
+	}
+	if err := requireLoginConnectors(finalFiles["resource-logins.json"], mergedConnectors); err != nil {
+		return nil, err
+	}
 	report := &installReport{image: in.image}
 	if in.dryRun {
 		report.notes = append(report.notes,
@@ -709,21 +724,9 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 	if exists && !ownedByRuntime(old.ObjectMeta) {
 		return "", errors.New("the gateway wiring ConfigMap exists without Runtime ownership")
 	}
-	files := make(map[string]string, len(in.wiring.Files)+1)
-	for name, content := range in.wiring.Files {
-		files[name] = content
-	}
-	if exists {
-		// The ConfigMap is shared with the resource command: keep the clients
-		// file and every login method the gateway does not own.
-		if clients, ok := old.Data[authgateway.ResourceClientsKey]; ok {
-			files[authgateway.ResourceClientsKey] = clients
-		}
-		kept, err := authgateway.PreserveForeignLogins(old.Data["resource-logins.json"], files["resource-logins.json"])
-		if err != nil {
-			return "", err
-		}
-		files["resource-logins.json"] = kept
+	files, err := gatewayWiringFiles(old, exists, in)
+	if err != nil {
+		return "", err
 	}
 
 	sum := sha256.New()
@@ -826,6 +829,47 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 		return err
 	})
 	return hash, err
+}
+
+// gatewayWiringFiles is the final content of the shared wiring ConfigMap after a
+// gateway apply: the generated files plus the clients file and every login
+// method the gateway does not own, taken from the existing ConfigMap.
+func gatewayWiringFiles(old *corev1.ConfigMap, exists bool, in gatewayInstall) (map[string]string, error) {
+	files := make(map[string]string, len(in.wiring.Files)+1)
+	for name, content := range in.wiring.Files {
+		files[name] = content
+	}
+	if exists {
+		// The ConfigMap is shared with the resource command: keep the clients
+		// file and every login method the gateway does not own.
+		if clients, ok := old.Data[authgateway.ResourceClientsKey]; ok {
+			files[authgateway.ResourceClientsKey] = clients
+		}
+		kept, err := authgateway.PreserveForeignLogins(old.Data["resource-logins.json"], files["resource-logins.json"])
+		if err != nil {
+			return nil, err
+		}
+		files["resource-logins.json"] = kept
+	}
+	return files, nil
+}
+
+// requireLoginConnectors refuses a change that would leave a login method naming
+// a connector the connectors file does not define: mcp-auth exits at startup in
+// that state. Callers pass the final content of both files, before writing either.
+func requireLoginConnectors(logins, connectors string) error {
+	missing, err := authgateway.MissingLoginConnectors(logins, connectors)
+	if err != nil {
+		return err
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	reasons := make([]string, len(missing))
+	for i, m := range missing {
+		reasons[i] = m.String()
+	}
+	return fmt.Errorf("refusing to apply, nothing was changed: %s; MCP Auth would exit at startup. Add the missing connector with `cluster mcp-auth connector apply`, or restore gateway connectors with `cluster gateway apply`", strings.Join(reasons, "; "))
 }
 
 // setPlainEnv sets a plain (non secret-backed) environment variable, replacing

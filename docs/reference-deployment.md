@@ -598,7 +598,10 @@ its credential Secret or other platform configuration:
   --context "$PROD_CONTEXT" --yes
 ```
 
-The next MCP Auth rollout loads the updated file. Entries named
+The command updates the ConfigMap only. MCP Auth reads the connectors file when it
+starts, so roll the Deployment (`kubectl -n mcp-platform rollout restart
+deployment/mcp-auth-server`, with an explicit `--context`) for the change to take
+effect. Entries named
 `gateway-login-*` stay in place when the file does not mention them, so
 refreshing the identity connector does not remove a credential gateway's
 resource login. Connector configuration

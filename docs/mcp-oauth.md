@@ -270,6 +270,11 @@ The TLS certificate for the issuer host is provisioned by setup using the
 configured TLS ClusterIssuer. Pass `--mcp-auth-tls-secret` only when the
 certificate is externally managed (and use `--provided-tls-secrets`).
 
+Setup writes the connectors file as the main connector, but keeps the
+`gateway-login-*` and `resource-login-*` entries that `gateway apply` and
+`cluster mcp-auth resource apply` added to the live `mcp-auth-connectors`
+ConfigMap, as `connector apply` does. A fresh install has none to keep.
+
 The default image is `docker.io/princekrroshan01/mcp-auth-server:0.9.0`.
 The server uses SQLite on a PVC in production and memory storage only in
 `--test-mode`. The setup flag is opt-in; when it is absent, Runtime does not
@@ -363,7 +368,8 @@ Auth0, Microsoft Entra ID, Google, or other provider-specific adapter:
 MCP_AUTH_CONNECTORS_FILE → MCP_AUTH_CONNECTOR → IdentityProvider/TokenExchanger
 ```
 
-One auth-server process selects one connector and one MCP resource. A file may
+One auth-server process selects one main connector and serves every resource in
+`MCP_AUTH_RESOURCES`. A file may
 contain several named connectors for different environments, but changing the
 selected provider requires changing `--mcp-auth-connector` and restarting or
 rolling out the deployment. This keeps provider credentials and provider
@@ -410,7 +416,9 @@ Typical issuer patterns are:
 Support for optional features varies by provider. Verify discovery, callback behavior, token endpoint
 authentication, scopes, refresh behavior, and claims with the provider before
 using it in production. The mcp-auth project has provider-specific notes and a
-verified-provider matrix in its [authorization-server guide](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/auth-server.md).
+verified-provider matrix in its [authorization-server guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-server.md).
+The full connector schema and the login method types are in its
+[connectors guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/connectors.md).
 
 Before setup, run the Runtime preflight against the provider issuer:
 
@@ -486,7 +494,16 @@ command checks that:
   unserved resource would stop MCP Auth from starting;
 - the `mcp-auth-connector-secrets` Secret already has the connector's
   `client_secret_env` key. The command checks the key name only and never reads
-  or prints a value.
+  or prints a value;
+- after the apply, every login method in the wiring ConfigMap names a connector
+  that the connectors ConfigMap defines. MCP Auth exits at startup when one does
+  not, so the command refuses (also under `--dry-run`), names the method and the
+  missing connector, and writes nothing. Repair the state with
+  `mcp-runtime cluster mcp-auth connector apply` (add the missing entry) or
+  `mcp-runtime cluster gateway apply` (restores `gateway-login-*` entries), then
+  apply the resource again. `connector apply` and `gateway apply` run the same
+  check on their final files; `connector apply` refuses only a change that makes a
+  login method newly point at a missing connector, so it can still repair one.
 
 The command adds a login method `res-<id>`, a resource client named
 `resource:<id>` and a connector `resource-login-<id>` to the wiring MCP Auth
@@ -584,8 +601,8 @@ The SDK runs at the application boundary, outside Runtime governance:
 The SDK consumes provider-neutral MCP authorization metadata and JWTs. Switching
 from Keycloak to Okta or PingOne changes the connector and IdP client
 configuration; MCP tool code stays the same. Read the
-mcp-auth project's [auth-server architecture](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/architecture.md)
-and [auth-client SDK guide](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/auth-client.md)
+mcp-auth project's [auth-server architecture](https://github.com/tavric-labs/mcp-auth/blob/main/docs/architecture.md)
+and [auth-client SDK guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-client.md)
 for the Python and Go APIs, verifier options, metadata discovery, and token
 exchange boundaries.
 
