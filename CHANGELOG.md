@@ -12,8 +12,9 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 Breaking `0.x` release: the MCP Auth apply commands now refuse to leave a login
 method without its connector, and setup keeps the connectors that gateway and
 resource logins own. The bundled MCP Auth default is now 0.9.0, which disables
-an invalid login method instead of crashing at startup. This release also adds a
-article on how connectors plug into MCP Auth, updates test infrastructure and bumps dependencies. The 0.16.1 fixes
+an invalid login method instead of crashing at startup. This release also adds an
+article on how connectors plug into MCP Auth, updates test infrastructure and
+bumps dependencies. The 0.16.1 fixes
 (`update` provisions the JWT keys and wires their env) are unchanged.
 
 Deploy with `mcp-runtime update` and, for the hosted deploy workflow, the
