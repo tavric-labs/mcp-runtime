@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Changed
+
+- The bundled MCP Auth default image is now `docker.io/princekrroshan01/mcp-auth-server:0.9.0` (it was 0.8.0). Fresh `setup --with-mcp-auth-server` installs get 0.9.0. Existing installs keep their current image until you run `mcp-runtime update --only mcp-auth` with a component manifest selecting 0.9.0, or pass the hosted deploy's `mcp_auth_version` input. No fresh setup is required.
+
 ### Fixed
 
 - Staging E2E now stops stale k3s containerd shims (and unmounts leftover k3s mounts) after uninstalling k3s and before installing it, and a new `disk-guard` stage prunes suite-owned garbage and fails fast when the VM has under 15 GiB free or is over 80% used. A shim left running by one cell's uninstall made the next cell's k3s service fail to start, and a nearly full disk caused kubelet DiskPressure evictions. Docker containers and images used by other workloads on the VM are never touched. Contributors see the new stage and a richer `diagnostics/vm-resources.txt`; no setup change is needed.

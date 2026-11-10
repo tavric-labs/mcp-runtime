@@ -270,7 +270,7 @@ The TLS certificate for the issuer host is provisioned by setup using the
 configured TLS ClusterIssuer. Pass `--mcp-auth-tls-secret` only when the
 certificate is externally managed (and use `--provided-tls-secrets`).
 
-The default image is `docker.io/princekrroshan01/mcp-auth-server:0.8.0`.
+The default image is `docker.io/princekrroshan01/mcp-auth-server:0.9.0`.
 The server uses SQLite on a PVC in production and memory storage only in
 `--test-mode`. The setup flag is opt-in; when it is absent, Runtime does not
 deploy this authorization server.
@@ -289,7 +289,7 @@ An image-only update preserves the existing connector configuration, SQLite
 PVC, signing key, and TLS Secret; it does not require rerunning `setup` or
 issuing a certificate.
 Existing installations need a separately reviewed component manifest selecting
-MCP Auth 0.8.0 and `mcp-runtime update --only mcp-auth`; updating Runtime alone
+MCP Auth 0.9.0 and `mcp-runtime update --only mcp-auth`; updating Runtime alone
 does not replace the installed Auth image.
 
 Client ID Metadata Documents (CIMD) are enabled by default in MCP Auth 0.7.1 and later.
@@ -501,7 +501,7 @@ set for the people who sign in to that resource and hand it to the resource's
 server on exchange. That table holds usable secrets, so protect MCP Auth's database
 as a credential store. A provider that issues no refresh token cannot be renewed
 silently: after its access token expires the person signs in again. This needs an
-MCP Auth release that supports login `downstream_token`
+MCP Auth 0.8.0 or later, which supports login `downstream_token`
 ([tavric-labs/mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)).
 
 ## Clean setup and credential preservation
