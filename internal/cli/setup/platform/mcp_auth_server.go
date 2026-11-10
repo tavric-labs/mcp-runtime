@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"mcp-runtime/pkg/topology"
@@ -16,6 +17,11 @@ import (
 	"mcp-runtime/internal/cli/registry/config"
 	"mcp-runtime/internal/cli/setup/assetpath"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
+	"mcp-runtime/pkg/authgateway"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // mcpAuthInternalIssuerURLForCluster returns the in-cluster address gateway
@@ -184,6 +190,14 @@ func deployMCPAuthServer(opts mcpAuthServerOptions, deps SetupDeps) error {
 
 	if strings.TrimSpace(connectorsFile) != "" {
 		connectorJSON, secretValues, err := readMCPAuthConnector(connectorsFile, connector)
+		if err != nil {
+			return err
+		}
+		clients, err := platformKubernetesClients()
+		if err != nil {
+			return err
+		}
+		connectorJSON, err = connectorsPreservingOwned(context.Background(), clients.Clientset, connectorJSON)
 		if err != nil {
 			return err
 		}
@@ -463,6 +477,27 @@ func mcpAuthResourceURLs(configured []string, issuer string, testMode bool) ([]s
 		seen[resource] = true
 	}
 	return resources, nil
+}
+
+// connectorsPreservingOwned adds the gateway-login-* and resource-login-*
+// entries of the live connectors ConfigMap to the rendered main connector, as
+// `cluster mcp-auth connector apply` does. Setup replaces the whole file; without
+// this a re-run drops entries that `gateway apply` and `resource apply` own while
+// their login methods remain, and mcp-auth exits at startup. A fresh install
+// (no ConfigMap) renders the file unchanged.
+func connectorsPreservingOwned(ctx context.Context, client kubernetes.Interface, rendered []byte) ([]byte, error) {
+	existing, err := client.CoreV1().ConfigMaps("mcp-platform").Get(ctx, "mcp-auth-connectors", metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return rendered, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read the live mcp-auth connectors: %w", err)
+	}
+	merged, err := authgateway.PreserveOwnedConnectors(existing.Data["connectors.json"], string(rendered))
+	if err != nil {
+		return nil, fmt.Errorf("keep the owned mcp-auth connectors: %w", err)
+	}
+	return []byte(merged), nil
 }
 
 func renderMCPAuthConnectorConfigMap(connectorJSON []byte) string {

@@ -1227,6 +1227,11 @@ instead; see [Give one resource its own provider login and token](mcp-oauth.md#g
 The two coexist in the same MCP Auth wiring, and re-applying either keeps the
 other's entries.
 
+`gateway apply`, `cluster mcp-auth resource apply` and `cluster mcp-auth connector apply`
+refuse, before writing anything (also under `--dry-run`), a change that would leave a
+login method naming a connector the connectors ConfigMap does not define, because MCP
+Auth exits at startup in that state. The error names the method and the connector.
+
 `mcp-runtime gateway apply` installs the credential gateway as its
 own workload next to MCP Auth, and wires MCP Auth to it. The workload is one shared
 Deployment of Runtime's existing `mcp-gateway` image run in credential mode
