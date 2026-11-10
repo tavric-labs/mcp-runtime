@@ -7,10 +7,29 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-10
+
+Breaking `0.x` release: the MCP Auth apply commands now refuse to leave a login
+method without its connector, and setup keeps the connectors that gateway and
+resource logins own. The bundled MCP Auth default is now 0.9.0, which disables
+an invalid login method instead of crashing at startup. This release also adds an
+article on how connectors plug into MCP Auth, updates test infrastructure and
+bumps dependencies. The 0.16.1 fixes
+(`update` provisions the JWT keys and wires their env) are unchanged.
+
+Deploy with `mcp-runtime update` and, for the hosted deploy workflow, the
+`mcp_auth_version` input. No fresh setup, backup-and-restore or data reset is
+required: existing installs keep their current MCP Auth image until you update
+it, and platform data, API keys, OIDC identities and sessions are unaffected.
+Users sign in again only if they have not already done so since 0.16.1. For a
+rebuilt platform, the existing backup, fresh setup and restore procedure
+applies. Verify sign-in, an allowed and a denied tool call, and audit after
+updating.
+
 ### Changed
 
 - **Behavior change:** `cluster mcp-auth resource apply`, `gateway apply` and `cluster mcp-auth connector apply` now compute the final connectors and login methods first and refuse, naming the method and the missing connector and writing nothing (also under `--dry-run`), when a login method would name a connector the connectors ConfigMap does not define. Before, such an apply succeeded and the next MCP Auth pod exited at startup (seen on the reference platform after a connectors ConfigMap lost `gateway-login-*`). `connector apply` refuses only a change that newly leaves a method dangling, so it and `gateway apply` still repair the state; no setup change is needed.
-- The bundled MCP Auth default image is now `docker.io/princekrroshan01/mcp-auth-server:0.9.0` (it was 0.8.0). Fresh `setup --with-mcp-auth-server` installs get 0.9.0. Existing installs keep their current image until you run `mcp-runtime update --only mcp-auth` with a component manifest selecting 0.9.0, or pass the hosted deploy's `mcp_auth_version` input. No fresh setup is required.
+- The bundled MCP Auth default image is now `docker.io/princekrroshan01/mcp-auth-server:0.9.0` (it was 0.8.0). Fresh `setup --with-mcp-auth-server` installs get 0.9.0, which disables a login method that is invalid instead of exiting at startup. Existing installs keep their current image until you run `mcp-runtime update --only mcp-auth` with a component manifest selecting 0.9.0, or pass the hosted deploy's `mcp_auth_version` input. No fresh setup is required.
 
 ### Fixed
 
@@ -794,7 +813,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.2...v0.15.0
