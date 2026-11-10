@@ -457,3 +457,29 @@ func TestVerifyStepCallsChecks(t *testing.T) {
 		t.Fatalf("expected 1 post-setup smoke call, got %d", smokeCalls)
 	}
 }
+
+func TestVerifyStepWaitsForMCPAuthRolloutAfterOperatorRestart(t *testing.T) {
+	var order []string
+	ctx := &SetupContext{Plan: setupplan.Plan{DeployMCPAuthServer: true}}
+	deps := SetupDeps{
+		WaitForDeploymentRolledOut: func(_ *zap.Logger, name, _, _ string, _ time.Duration) error {
+			order = append(order, "rollout:"+name)
+			return nil
+		},
+		WaitForDeploymentAvailable: func(_ *zap.Logger, name, _, _ string, _ time.Duration) error { return nil },
+		PrintDeploymentDiagnostics: func(_, _, _ string) {},
+		CheckCRDInstalled:          func(string) error { return nil },
+		RunPostSetupSmoke: func() error {
+			order = append(order, "smoke")
+			return nil
+		},
+		GetDeploymentTimeout: func() time.Duration { return time.Second },
+	}
+	if err := (verifyStep{}).Run(zap.NewNop(), deps, ctx); err != nil {
+		t.Fatalf("verify step failed: %v", err)
+	}
+	want := []string{"rollout:mcp-auth-server", "smoke"}
+	if !reflect.DeepEqual(order, want) {
+		t.Fatalf("order = %v, want %v (the operator re-reconciles mcp-auth after its restart, so smoke must wait for that rollout)", order, want)
+	}
+}
