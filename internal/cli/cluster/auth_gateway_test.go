@@ -341,6 +341,15 @@ func TestInstallKeepsResourceLoginsAndClientsWrittenBesideTheGateway(t *testing.
 	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
+	// The kept login's connector exists, as it does after a resource apply.
+	connectors, err := c.CoreV1().ConfigMaps(mcpAuthNamespace).Get(ctx, mcpAuthConnectorName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	connectors.Data["connectors.json"] = `{"resource-login-example-api":{"issuer":"https://idp.example.com"}}`
+	if _, err := c.CoreV1().ConfigMaps(mcpAuthNamespace).Update(ctx, connectors, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := installGateway(ctx, c, testInstall(t, false)); err != nil {
 		t.Fatal(err)
 	}

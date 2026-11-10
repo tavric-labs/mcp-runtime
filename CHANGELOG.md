@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Changed
+
+- **Behavior change:** `cluster mcp-auth resource apply`, `gateway apply` and `cluster mcp-auth connector apply` now compute the final connectors and login methods first and refuse, naming the method and the missing connector and writing nothing (also under `--dry-run`), when a login method would name a connector the connectors ConfigMap does not define. Before, such an apply succeeded and the next MCP Auth pod exited at startup (seen on the reference platform after a connectors ConfigMap lost `gateway-login-*`). `connector apply` refuses only a change that newly leaves a method dangling, so it and `gateway apply` still repair the state; no setup change is needed.
+
 ### Fixed
 
 - Staging E2E now stops stale k3s containerd shims (and unmounts leftover k3s mounts) after uninstalling k3s and before installing it, and a new `disk-guard` stage prunes suite-owned garbage and fails fast when the VM has under 15 GiB free or is over 80% used. A shim left running by one cell's uninstall made the next cell's k3s service fail to start, and a nearly full disk caused kubelet DiskPressure evictions. Docker containers and images used by other workloads on the VM are never touched. Contributors see the new stage and a richer `diagnostics/vm-resources.txt`; no setup change is needed.

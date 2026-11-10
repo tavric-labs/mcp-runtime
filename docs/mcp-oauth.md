@@ -486,7 +486,16 @@ command checks that:
   unserved resource would stop MCP Auth from starting;
 - the `mcp-auth-connector-secrets` Secret already has the connector's
   `client_secret_env` key. The command checks the key name only and never reads
-  or prints a value.
+  or prints a value;
+- after the apply, every login method in the wiring ConfigMap names a connector
+  that the connectors ConfigMap defines. MCP Auth exits at startup when one does
+  not, so the command refuses (also under `--dry-run`), names the method and the
+  missing connector, and writes nothing. Repair the state with
+  `mcp-runtime cluster mcp-auth connector apply` (add the missing entry) or
+  `mcp-runtime cluster gateway apply` (restores `gateway-login-*` entries), then
+  apply the resource again. `connector apply` and `gateway apply` run the same
+  check on their final files; `connector apply` refuses only a change that makes a
+  login method newly point at a missing connector, so it can still repair one.
 
 The command adds a login method `res-<id>`, a resource client named
 `resource:<id>` and a connector `resource-login-<id>` to the wiring MCP Auth

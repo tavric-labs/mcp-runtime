@@ -195,6 +195,9 @@ func applyResource(ctx context.Context, c kubernetes.Interface, in resourceInsta
 	if files[authgateway.ResourceClientsKey], err = authgateway.MergeResourceClients(files[authgateway.ResourceClientsKey], wiring.Client); err != nil {
 		return nil, err
 	}
+	if err := requireLoginConnectors(files["resource-logins.json"], mergedConnectors); err != nil {
+		return nil, err
+	}
 	hash := wiringHash(files, mergedConnectors)
 
 	desired := auth.DeepCopy()

@@ -13,6 +13,7 @@ import (
 	"mcp-runtime/pkg/authgateway"
 
 	"github.com/spf13/cobra"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -130,6 +131,9 @@ func applyMCPAuthConnector(ctx context.Context, client kubernetes.Interface, dat
 		if err != nil {
 			return err
 		}
+		if err := requireNoNewDanglingLogin(ctx, client, cm.Data["connectors.json"], merged); err != nil {
+			return err
+		}
 		if cm.Data["connectors.json"] == merged {
 			changed = false
 			return nil
@@ -147,6 +151,47 @@ func applyMCPAuthConnector(ctx context.Context, client kubernetes.Interface, dat
 		return err
 	})
 	return changed, err
+}
+
+// requireNoNewDanglingLogin refuses a connector apply that would leave a login
+// method in the wiring ConfigMap naming a connector the new file does not define.
+// A method that already named a missing connector does not block the command, so
+// it can still be used to repair that state.
+func requireNoNewDanglingLogin(ctx context.Context, client kubernetes.Interface, current, merged string) error {
+	wiring, err := client.CoreV1().ConfigMaps(mcpAuthNamespace).Get(ctx, authgateway.WiringName, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read the MCP Auth wiring ConfigMap: %w", err)
+	}
+	logins := wiring.Data["resource-logins.json"]
+	before, err := authgateway.MissingLoginConnectors(logins, current)
+	if err != nil {
+		return err
+	}
+	already := map[authgateway.MissingLoginConnector]bool{}
+	for _, m := range before {
+		already[m] = true
+	}
+	after, err := authgateway.MissingLoginConnectors(logins, merged)
+	if err != nil {
+		return err
+	}
+	var fresh []authgateway.MissingLoginConnector
+	for _, m := range after {
+		if !already[m] {
+			fresh = append(fresh, m)
+		}
+	}
+	if len(fresh) == 0 {
+		return nil
+	}
+	reasons := make([]string, len(fresh))
+	for i, m := range fresh {
+		reasons[i] = m.String()
+	}
+	return fmt.Errorf("refusing to apply, nothing was changed: %s; MCP Auth would exit at startup. Keep that connector in the file, or change the login method first", strings.Join(reasons, "; "))
 }
 
 // ownedConnectorPrefixes are the connector names Runtime owns besides the

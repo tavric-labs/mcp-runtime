@@ -282,3 +282,44 @@ func MergeResourceConnector(existing, name string, entry json.RawMessage) (strin
 	out, err := json.MarshalIndent(connectors, "", "  ")
 	return string(out) + "\n", err
 }
+
+// MissingLoginConnector is a login method that names a connector the connectors
+// file does not define.
+type MissingLoginConnector struct {
+	Method    string
+	Connector string
+}
+
+func (m MissingLoginConnector) String() string {
+	return fmt.Sprintf("login method %q names connector %q, which is not in the connectors file", m.Method, m.Connector)
+}
+
+// MissingLoginConnectors lists, in file order, every login method in the
+// resource logins file whose connector is absent from the connectors file.
+// mcp-auth refuses to start in that state, so callers check the final files
+// before writing either of them. A method without a connector name is not
+// checked.
+func MissingLoginConnectors(logins, connectors string) ([]MissingLoginConnector, error) {
+	doc, err := readLogins(logins)
+	if err != nil {
+		return nil, err
+	}
+	defined := map[string]json.RawMessage{}
+	if strings.TrimSpace(connectors) != "" {
+		if err := json.Unmarshal([]byte(connectors), &defined); err != nil {
+			return nil, errors.New("the connectors file is not a JSON object")
+		}
+	}
+	var missing []MissingLoginConnector
+	for _, m := range doc.Methods {
+		name, _ := m["connector"].(string)
+		if name == "" {
+			continue
+		}
+		if _, ok := defined[name]; !ok {
+			id, _ := m["id"].(string)
+			missing = append(missing, MissingLoginConnector{Method: id, Connector: name})
+		}
+	}
+	return missing, nil
+}
