@@ -7,5 +7,5 @@
 # docker.io/princekrroshan01/mcp-auth-server:<MAJOR.MINOR.PATCH> reference.
 # The USER line only satisfies the Trivy Dockerfile misconfiguration scan (the
 # file is not an image). See docs/contributor/mcp-auth-pin.md.
-FROM docker.io/princekrroshan01/mcp-auth-server:0.9.0
+FROM docker.io/princekrroshan01/mcp-auth-server:0.9.1
 USER 65532:65532

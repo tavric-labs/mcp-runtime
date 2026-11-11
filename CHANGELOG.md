@@ -9,7 +9,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
-- The bundled MCP Auth default image now lives in one file, `config/release/mcp-auth/Dockerfile`, which Dependabot bumps. The default value and flags are unchanged and it is never `latest`; the setup help, docs and deployment profile no longer repeat the version ([maintainer guide](docs/contributor/mcp-auth-pin.md)). No fresh setup is required.
+- The bundled MCP Auth default image now lives in one file, `config/release/mcp-auth/Dockerfile`, which Dependabot bumps. The default moves from 0.9.0 to 0.9.1 (the release production runs: it fixes the client metadata document fetch for hosts that publish IPv6, and caches fetched documents); the flags are unchanged and it is never `latest`; the setup help, docs and deployment profile no longer repeat the version ([maintainer guide](docs/contributor/mcp-auth-pin.md)). No fresh setup is required.
 
 ## [0.17.0] - 2026-11-10
 
