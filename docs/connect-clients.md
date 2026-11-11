@@ -668,6 +668,14 @@ connections so subsequent requests renegotiate with it. Long-running adapters
 keep working without restarts. To reuse `enroll` output instead of in-memory
 enrollment, pass the `--tls-client-cert`/`-key`/`-ca-bundle` files.
 
+Sessions request low trust by default, even when the grant permits higher
+trust. For a tool that requires medium or high trust, explicitly pass
+`--requested-trust medium` or `--requested-trust high` to `adapter enroll` or
+the enrolling `adapter proxy`. `MCP_RUNTIME_ADAPTER_REQUESTED_TRUST` supplies
+the same optional default. The platform still caps consent at the selected
+grant's ceiling; a larger grant alone does not elevate a session. Automatic
+certificate renewal preserves the explicit request.
+
 Adapters authenticate with the session-bound certificate; grant and session
 policy authorize that identity. On OAuth-enabled targets they also forward the
 bearer and the gateway binds the certificate session human to the OAuth

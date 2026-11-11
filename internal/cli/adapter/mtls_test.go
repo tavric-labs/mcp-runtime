@@ -66,14 +66,15 @@ func fakeMTLSServer(t *testing.T, expiresAt time.Time, certCalls *int32) (*httpt
 			var req platformapi.AdapterSessionRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
 			_ = json.NewEncoder(w).Encode(platformapi.AdapterSession{
-				Name:        "adapter-fake",
-				Namespace:   "mcp-team-acme",
-				HumanID:     "user-123",
-				AgentID:     req.AgentID,
-				TeamID:      "team-acme",
-				ServerName:  req.ServerName,
-				TrustDomain: "mcpruntime.org",
-				ExpiresAt:   expiresAt,
+				Name:           "adapter-fake",
+				Namespace:      "mcp-team-acme",
+				HumanID:        "user-123",
+				AgentID:        req.AgentID,
+				TeamID:         "team-acme",
+				ServerName:     req.ServerName,
+				TrustDomain:    "mcpruntime.org",
+				ConsentedTrust: req.RequestedTrust,
+				ExpiresAt:      expiresAt,
 			})
 		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/v1/runtime/adapter/sessions/"):
 			w.WriteHeader(http.StatusOK)

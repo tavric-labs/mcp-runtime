@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- `adapter enroll` and automatic `adapter proxy` enrollment now accept `--requested-trust low|medium|high` (or `MCP_RUNTIME_ADAPTER_REQUESTED_TRUST`) and send that explicit consent request to the session API. Previously they always omitted it, leaving sessions at low trust and denying medium/high-trust tools even with a suitable grant. Low remains the default, grant ceilings remain enforced, and automatic renewal preserves the request. Existing adapters can restart with the explicit level; no platform rollout is needed for the CLI fix.
+
 ## [0.17.0] - 2026-11-10
 
 Breaking `0.x` release: the MCP Auth apply commands now refuse to leave a login

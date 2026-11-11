@@ -12,10 +12,11 @@ const (
 	// EnvPlatformURL overrides the platform API base URL used for certificate enrollment.
 	EnvPlatformURL = "MCP_PLATFORM_API_URL"
 	// EnvAdapterServer / Namespace / Agent identify the enrollment target.
-	EnvAdapterServer      = "MCP_RUNTIME_ADAPTER_SERVER"
-	EnvAdapterNamespace   = "MCP_RUNTIME_ADAPTER_NAMESPACE"
-	EnvAdapterAgent       = "MCP_RUNTIME_ADAPTER_AGENT"
-	EnvAdapterAutoRefresh = "MCP_RUNTIME_ADAPTER_AUTO_REFRESH"
+	EnvAdapterServer         = "MCP_RUNTIME_ADAPTER_SERVER"
+	EnvAdapterNamespace      = "MCP_RUNTIME_ADAPTER_NAMESPACE"
+	EnvAdapterAgent          = "MCP_RUNTIME_ADAPTER_AGENT"
+	EnvAdapterAutoRefresh    = "MCP_RUNTIME_ADAPTER_AUTO_REFRESH"
+	EnvAdapterRequestedTrust = "MCP_RUNTIME_ADAPTER_REQUESTED_TRUST"
 	// EnvMTLSTrustDomain optionally overrides the platform-wide SPIFFE trust domain.
 	EnvMTLSTrustDomain = "MCP_TRUST_DOMAIN"
 	// adapterRefreshLead is how far in advance of expiry the refresher fires.
@@ -27,11 +28,12 @@ const (
 
 // platformSessionFlags carries the platform certificate enrollment settings.
 type platformSessionFlags struct {
-	server      string
-	namespace   string
-	agent       string
-	platformURL string
-	autoRefresh bool
+	server         string
+	namespace      string
+	agent          string
+	platformURL    string
+	autoRefresh    bool
+	requestedTrust string
 }
 
 func (f *platformSessionFlags) enabled() bool {
@@ -47,6 +49,8 @@ func bindPlatformSessionFlags(cmd *cobra.Command, f *platformSessionFlags) {
 		"Agent identifier to associate with the certificate identity (default: $"+EnvAdapterAgent+")")
 	cmd.Flags().StringVar(&f.platformURL, "platform-url", os.Getenv(EnvPlatformURL),
 		"Platform API base URL; overrides the URL stored by mcp-runtime auth login (default: $"+EnvPlatformURL+")")
+	cmd.Flags().StringVar(&f.requestedTrust, "requested-trust", os.Getenv(EnvAdapterRequestedTrust),
+		"Explicit session trust request: low, medium, or high; capped by the grant (default: low or $"+EnvAdapterRequestedTrust+")")
 	cmd.Flags().BoolVar(&f.autoRefresh, "auto-refresh", parseEnvBoolSimple(EnvAdapterAutoRefresh),
 		"Renew the in-memory adapter certificate a few minutes before expiry (default: $"+EnvAdapterAutoRefresh+")")
 }
