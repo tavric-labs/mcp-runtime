@@ -38,12 +38,18 @@ var agentPattern = regexp.MustCompile(`agt_[a-z0-9]{26}`)
 var teamPattern = regexp.MustCompile(`(?m)^Team: .* \(([a-zA-Z0-9-]+)\)$`)
 var sessionPattern = regexp.MustCompile(`/session/([a-zA-Z0-9-]+)`)
 
+// grantName names every grant, agent and session this runner creates
+// prod-audit-YYYYMMDD-<suffix> (UTC date), so a reader can tell what made it and when.
+func grantName(now time.Time, entropy [8]byte) string {
+	return fmt.Sprintf("prod-audit-%s-%x", now.UTC().Format("20060102"), entropy)
+}
+
 func (r *postRunner) exercise(ctx context.Context, dir string) (err error) {
 	var entropy [8]byte
 	if _, err = rand.Read(entropy[:]); err != nil {
 		return err
 	}
-	name := fmt.Sprintf("prod-audit-%x", entropy)
+	name := grantName(time.Now(), entropy)
 	agent := ""
 	grantCreated := false
 	var stopProxy context.CancelFunc
