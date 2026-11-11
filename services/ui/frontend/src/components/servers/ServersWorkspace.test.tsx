@@ -900,72 +900,17 @@ describe("ServersWorkspace connect config, protocol inventory, and observability
   });
 });
 
-describe("ServersWorkspace public-mode anonymous browsing", () => {
-  function stubPublicCatalog() {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (!url.startsWith("/api/public/v1/")) {
-        throw new Error(`unexpected authenticated fetch in public mode: ${url}`);
-      }
-      const payload = url.includes("/servers") ? SERVERS : TOOLS;
-      return { ok: true, status: 200, json: async () => payload } as unknown as Response;
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    return fetchMock;
-  }
+describe("ServersWorkspace signed-out browsing", () => {
+  it("shows the sign-in prompt in every platform mode and fetches nothing", () => {
+    for (const mode of ["org", "public"]) {
+      window.MCP_PLATFORM_MODE = mode;
+      const fetchMock = stubCatalog();
 
-  it("still shows the sign-in prompt outside public mode", () => {
-    const fetchMock = stubCatalog();
+      const { unmount } = renderWorkspace({ authenticated: false });
 
-    renderWorkspace({ authenticated: false });
-
-    expect(screen.getByTestId("catalog-signed-out")).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("browses the catalog anonymously in public mode, with no credentials and no retire action", async () => {
-    window.MCP_PLATFORM_MODE = "public";
-    const fetchMock = stubPublicCatalog();
-
-    renderWorkspace({ authenticated: false });
-
-    await screen.findByTestId("server-list");
-    expect(screen.getAllByTestId("server-card")).toHaveLength(2);
-    expect(screen.getAllByTestId("tool-row")).toHaveLength(3);
-    expect(screen.queryByTestId("server-card-retire")).not.toBeInTheDocument();
-    expect(screen.getByTestId("public-catalog-sign-in")).toBeInTheDocument();
-
-    for (const call of fetchMock.mock.calls) {
-      const init = call[1] as RequestInit | undefined;
-      expect(init?.credentials).not.toBe("same-origin");
-      expect(new Headers(init?.headers).get("x-api-key")).toBeNull();
+      expect(screen.getByTestId("catalog-signed-out")).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+      unmount();
     }
-  });
-
-  it("narrows the public tool catalog when a server is selected", async () => {
-    window.MCP_PLATFORM_MODE = "public";
-    stubPublicCatalog();
-    const user = userEvent.setup();
-
-    renderWorkspace({ authenticated: false });
-    await screen.findByTestId("server-list");
-    expect(screen.getAllByTestId("tool-row")).toHaveLength(3);
-
-    const [firstCard] = screen.getAllByTestId("server-card");
-    await user.click(within(firstCard).getByTestId("server-card-select"));
-
-    expect(screen.getAllByTestId("tool-row")).toHaveLength(2);
-    expect(screen.getByTestId("tool-table")).not.toHaveTextContent("probe");
-  });
-
-  it("surfaces a load failure instead of a blank public catalog", async () => {
-    window.MCP_PLATFORM_MODE = "public";
-    const fetchMock = vi.fn(async () => ({ ok: false, status: 502, text: async () => "upstream_error" }) as unknown as Response);
-    vi.stubGlobal("fetch", fetchMock);
-
-    renderWorkspace({ authenticated: false });
-
-    // TanStack Query retries once with backoff before the error surfaces.
-    expect(await screen.findByTestId("public-catalog-error", {}, { timeout: 5000 })).toBeInTheDocument();
   });
 });

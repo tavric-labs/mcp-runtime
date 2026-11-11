@@ -218,7 +218,7 @@ func TestRuntimeServersIncludesMCPServerInventory(t *testing.T) {
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Description:      "Demo server for basic arithmetic and text tools.",
-			Image:            "10.43.69.247:5000/public/demo:latest",
+			Image:            "10.43.69.247:5000/org/demo:latest",
 			PublicPathPrefix: "demo-one",
 			Tools: []mcpv1alpha1.ToolConfig{
 				{Name: "add", Description: "Add two numbers", RequiredTrust: mcpv1alpha1.TrustLevelLow},
@@ -264,7 +264,7 @@ func TestRuntimeServersIncludesMCPServerInventory(t *testing.T) {
 	if got.Description != "Demo server for basic arithmetic and text tools." {
 		t.Fatalf("description = %q", got.Description)
 	}
-	if got.Image != "registry.mcpruntime.org/public/demo:latest" {
+	if got.Image != "registry.mcpruntime.org/org/demo:latest" {
 		t.Fatalf("image = %q", got.Image)
 	}
 	if len(got.Prompts) != 1 || got.Prompts[0].Name != "summarize" {
@@ -1199,7 +1199,7 @@ func TestRuntimeServerApplyNonAdminRejectsSharedCatalogNamespace(t *testing.T) {
 	}
 }
 
-func TestRuntimeServerApplyPublicModeDefaultsPublicNamespace(t *testing.T) {
+func TestRuntimeServerApplyPublicModeDefaultsOrgNamespace(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	t.Setenv("PLATFORM_TEAM_TRAEFIK_WATCH", "disabled")
 	scheme := runtime.NewScheme()
@@ -1214,7 +1214,7 @@ func TestRuntimeServerApplyPublicModeDefaultsPublicNamespace(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "demo",
-		"spec": {"image":"registry.example.com/public/demo"}
+		"spec": {"image":"registry.example.com/org/demo"}
 	}`)))
 	request = request.WithContext(withPrincipal(request.Context(), principal{
 		Role:      roleUser,
@@ -1236,15 +1236,15 @@ func TestRuntimeServerApplyPublicModeDefaultsPublicNamespace(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.Server.Namespace != defaultPublicCatalogNamespace {
-		t.Fatalf("namespace = %q, want %q", payload.Server.Namespace, defaultPublicCatalogNamespace)
+	if payload.Server.Namespace != defaultOrgCatalogNamespace {
+		t.Fatalf("namespace = %q, want %q", payload.Server.Namespace, defaultOrgCatalogNamespace)
 	}
-	if _, err := server.k8sClients.Clientset.CoreV1().Namespaces().Get(request.Context(), defaultPublicCatalogNamespace, metav1.GetOptions{}); err != nil {
-		t.Fatalf("expected public catalog namespace to be created: %v", err)
+	if _, err := server.k8sClients.Clientset.CoreV1().Namespaces().Get(request.Context(), defaultOrgCatalogNamespace, metav1.GetOptions{}); err != nil {
+		t.Fatalf("expected org catalog namespace to be created: %v", err)
 	}
 }
 
-func TestRuntimeServerApplyPublicScopeResolvesCatalogNamespace(t *testing.T) {
+func TestRuntimeServerApplyOrgScopeResolvesCatalogNamespace(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	t.Setenv("PLATFORM_TEAM_TRAEFIK_WATCH", "disabled")
 	scheme := runtime.NewScheme()
@@ -1259,8 +1259,8 @@ func TestRuntimeServerApplyPublicScopeResolvesCatalogNamespace(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "demo",
-		"scope": "public",
-		"spec": {"image":"registry.example.com/public/demo"}
+		"scope": "org",
+		"spec": {"image":"registry.example.com/org/demo"}
 	}`)))
 	request = request.WithContext(withPrincipal(request.Context(), principal{
 		Role:      roleUser,
@@ -1275,12 +1275,12 @@ func TestRuntimeServerApplyPublicScopeResolvesCatalogNamespace(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, "demo")
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, "demo")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
-	if current.Labels[platformScopeLabel] != "public" {
-		t.Fatalf("scope label = %q, want public", current.Labels[platformScopeLabel])
+	if current.Labels[platformScopeLabel] != "org" {
+		t.Fatalf("scope label = %q, want org", current.Labels[platformScopeLabel])
 	}
 }
 
@@ -1305,9 +1305,9 @@ func TestRuntimeServerApplyDefaultsGatewayAndExplicitAnalyticsSecret(t *testing.
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "demo",
-		"scope": "public",
+		"scope": "org",
 		"spec": {
-			"image":"registry.example.com/public/demo",
+			"image":"registry.example.com/org/demo",
 			"analytics":{"ingestURL":"http://custom-ingest.example/events"}
 		}
 	}`)))
@@ -1323,7 +1323,7 @@ func TestRuntimeServerApplyDefaultsGatewayAndExplicitAnalyticsSecret(t *testing.
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, "demo")
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, "demo")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
@@ -1339,7 +1339,7 @@ func TestRuntimeServerApplyDefaultsGatewayAndExplicitAnalyticsSecret(t *testing.
 	if current.Spec.Analytics.APIKeySecretRef.Name != "demo-analytics-creds" || current.Spec.Analytics.APIKeySecretRef.Key != "api-key" {
 		t.Fatalf("analytics secret ref = %#v", current.Spec.Analytics.APIKeySecretRef)
 	}
-	secret, err := server.k8sClients.Clientset.CoreV1().Secrets(defaultPublicCatalogNamespace).Get(context.Background(), "demo-analytics-creds", metav1.GetOptions{})
+	secret, err := server.k8sClients.Clientset.CoreV1().Secrets(defaultOrgCatalogNamespace).Get(context.Background(), "demo-analytics-creds", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("analytics secret missing: %v", err)
 	}
@@ -1369,8 +1369,8 @@ func TestRuntimeServerApplyEnablesAnalyticsByDefault(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "demo",
-		"scope": "public",
-		"spec": {"image":"registry.example.com/public/demo"}
+		"scope": "org",
+		"spec": {"image":"registry.example.com/org/demo"}
 	}`)))
 	request = request.WithContext(withPrincipal(request.Context(), principal{
 		Role:      roleUser,
@@ -1384,7 +1384,7 @@ func TestRuntimeServerApplyEnablesAnalyticsByDefault(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, "demo")
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, "demo")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
@@ -1397,7 +1397,7 @@ func TestRuntimeServerApplyEnablesAnalyticsByDefault(t *testing.T) {
 	if got := current.Spec.Analytics.IngestURL; got != "http://mcp-ingest.mcp-observability.svc.cluster.local:8081/events" {
 		t.Fatalf("analytics ingest URL = %q, want configured default", got)
 	}
-	if _, err := server.k8sClients.Clientset.CoreV1().Secrets(defaultPublicCatalogNamespace).Get(context.Background(), "demo-analytics-creds", metav1.GetOptions{}); err != nil {
+	if _, err := server.k8sClients.Clientset.CoreV1().Secrets(defaultOrgCatalogNamespace).Get(context.Background(), "demo-analytics-creds", metav1.GetOptions{}); err != nil {
 		t.Fatalf("analytics secret lookup err = %v, want created", err)
 	}
 }
@@ -1424,9 +1424,9 @@ func TestRuntimeServerApplyDefaultsAnalyticsSecretNameFitsDNSLabelLimit(t *testi
 	longName := strings.Repeat("demo", 16)
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "`+longName+`",
-		"scope": "public",
+		"scope": "org",
 		"spec": {
-			"image":"registry.example.com/public/demo",
+			"image":"registry.example.com/org/demo",
 			"analytics":{"ingestURL":"http://mcp-ingest.mcp-observability.svc.cluster.local:8081/events"}
 		}
 	}`)))
@@ -1442,7 +1442,7 @@ func TestRuntimeServerApplyDefaultsAnalyticsSecretNameFitsDNSLabelLimit(t *testi
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, longName)
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, longName)
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
@@ -1472,8 +1472,8 @@ func TestRuntimeServerApplyAllowsMissingDefaultAnalyticsSecret(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "demo",
-		"scope": "public",
-		"spec": {"image":"registry.example.com/public/demo"}
+		"scope": "org",
+		"spec": {"image":"registry.example.com/org/demo"}
 	}`)))
 	request = request.WithContext(withPrincipal(request.Context(), principal{
 		Role:      roleUser,
@@ -1487,7 +1487,7 @@ func TestRuntimeServerApplyAllowsMissingDefaultAnalyticsSecret(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, "demo")
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, "demo")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
@@ -1512,7 +1512,7 @@ func TestApplyPublishedServerDefaultsSkipsAnalyticsSecretWhenRBACRestricted(t *t
 	})
 	client.Fake.PrependReactor("create", "secrets", func(action ktesting.Action) (bool, runtime.Object, error) {
 		create := action.(ktesting.CreateAction)
-		if create.GetNamespace() == defaultPublicCatalogNamespace {
+		if create.GetNamespace() == defaultOrgCatalogNamespace {
 			return true, nil, apierrors.NewForbidden(schema.GroupResource{Resource: "secrets"}, "demo-analytics-creds", errors.New("blocked"))
 		}
 		return false, nil, nil
@@ -1525,7 +1525,7 @@ func TestApplyPublishedServerDefaultsSkipsAnalyticsSecretWhenRBACRestricted(t *t
 		Analytics: &mcpv1alpha1.AnalyticsConfig{IngestURL: "http://mcp-ingest.mcp-observability.svc.cluster.local:8081/events"},
 	}
 
-	if err := server.applyPublishedServerDefaults(context.Background(), defaultPublicCatalogNamespace, "demo", spec); err != nil {
+	if err := server.applyPublishedServerDefaults(context.Background(), defaultOrgCatalogNamespace, "demo", spec); err != nil {
 		t.Fatalf("applyPublishedServerDefaults() error = %v", err)
 	}
 	if spec.Analytics != nil && spec.Analytics.APIKeySecretRef != nil {
@@ -1554,9 +1554,9 @@ func TestRuntimeServerApplyPreservesExplicitGatewaySettings(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "demo",
-		"scope": "public",
+		"scope": "org",
 		"spec": {
-			"image":"registry.example.com/public/demo",
+			"image":"registry.example.com/org/demo",
 			"gateway":{"enabled":false}
 		}
 	}`)))
@@ -1572,7 +1572,7 @@ func TestRuntimeServerApplyPreservesExplicitGatewaySettings(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, "demo")
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, "demo")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
@@ -1605,9 +1605,9 @@ func TestRuntimeServerApplyPreservesExplicitAnalyticsDisable(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "demo",
-		"scope": "public",
+		"scope": "org",
 		"spec": {
-			"image":"registry.example.com/public/demo",
+			"image":"registry.example.com/org/demo",
 			"analytics":{"disabled":true}
 		}
 	}`)))
@@ -1623,7 +1623,7 @@ func TestRuntimeServerApplyPreservesExplicitAnalyticsDisable(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, "demo")
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, "demo")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
@@ -1638,7 +1638,7 @@ func TestRuntimeServerApplyPreservesExplicitAnalyticsDisable(t *testing.T) {
 	}
 }
 
-func TestRuntimeServerApplyPublicScopeExpandsShortImage(t *testing.T) {
+func TestRuntimeServerApplyOrgScopeExpandsShortImage(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	t.Setenv("PLATFORM_TEAM_TRAEFIK_WATCH", "disabled")
 	t.Setenv("MCP_REGISTRY_ENDPOINT", "10.96.223.152:5000")
@@ -1657,7 +1657,7 @@ func TestRuntimeServerApplyPublicScopeExpandsShortImage(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "go-example",
-		"scope": "public",
+		"scope": "org",
 		"spec": {"image":"go-example"}
 	}`)))
 	request = request.WithContext(withPrincipal(request.Context(), principal{
@@ -1672,11 +1672,11 @@ func TestRuntimeServerApplyPublicScopeExpandsShortImage(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, "go-example")
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, "go-example")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
-	if got, want := current.Spec.Image, "10.96.223.152:5000/public/go-example"; got != want {
+	if got, want := current.Spec.Image, "10.96.223.152:5000/org/go-example"; got != want {
 		t.Fatalf("image = %q, want %q", got, want)
 	}
 	if got := envValue(current.Spec.EnvVars, "MCP_PATH"); got != "" {
@@ -1734,37 +1734,6 @@ func TestRuntimeServerApplyTenantScopeExpandsShortImageToTeamSlug(t *testing.T) 
 	}
 	if got := envValue(current.Spec.EnvVars, "MCP_PATH"); got != "" {
 		t.Fatalf("MCP_PATH = %q, want it omitted for operator derivation", got)
-	}
-}
-
-func TestRuntimeServerApplyRejectsPublicScopeWhenModeDisabled(t *testing.T) {
-	scheme := runtime.NewScheme()
-	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("AddToScheme: %v", err)
-	}
-	server := &RuntimeServer{
-		k8sClients: &k8sclient.Clients{
-			Dynamic:   dynamicfake.NewSimpleDynamicClient(scheme),
-			Clientset: kubernetesfake.NewSimpleClientset(),
-		},
-	}
-	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
-		"name": "demo",
-		"scope": "public",
-		"spec": {"image":"registry.example.com/public/demo"}
-	}`)))
-	request = request.WithContext(withPrincipal(request.Context(), principal{
-		Role:      roleUser,
-		Subject:   "user-1",
-		Namespace: "user-1",
-		AllowedNamespaces: []string{
-			"user-1",
-		},
-	}))
-	recorder := httptest.NewRecorder()
-	server.HandleRuntimeServers(recorder, request)
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("status = %d body = %s, want 403", recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -2020,7 +1989,7 @@ func TestRuntimeServerApplyRejectsExistingOwnedServerWithoutUpdate(t *testing.T)
 	}
 }
 
-func TestRuntimeServerApplyAllowsLegacyUnlabeledPublicCatalogServer(t *testing.T) {
+func TestRuntimeServerApplyAllowsLegacyUnlabeledOrgCatalogServer(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	t.Setenv("PLATFORM_TEAM_TRAEFIK_WATCH", "disabled")
 	t.Setenv(envActiveServerLimit, "0")
@@ -2032,10 +2001,10 @@ func TestRuntimeServerApplyAllowsLegacyUnlabeledPublicCatalogServer(t *testing.T
 	existing := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo",
-			Namespace: defaultPublicCatalogNamespace,
+			Namespace: defaultOrgCatalogNamespace,
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{
-			Image: "registry.example.com/" + defaultPublicCatalogNamespace + "/demo",
+			Image: "registry.example.com/" + defaultOrgCatalogNamespace + "/demo",
 		},
 	}
 	server := &RuntimeServer{
@@ -2046,9 +2015,9 @@ func TestRuntimeServerApplyAllowsLegacyUnlabeledPublicCatalogServer(t *testing.T
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "demo",
-		"namespace": "mcp-servers-public",
+		"namespace": "mcp-servers-org",
 		"update": true,
-		"spec": {"image":"registry.example.com/mcp-servers-public/demo"}
+		"spec": {"image":"registry.example.com/mcp-servers-org/demo"}
 	}`)))
 	request = request.WithContext(withPrincipal(request.Context(), principal{
 		Role:      roleUser,
@@ -2065,7 +2034,7 @@ func TestRuntimeServerApplyAllowsLegacyUnlabeledPublicCatalogServer(t *testing.T
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	current, err := server.controlPlane().GetServer(context.Background(), defaultPublicCatalogNamespace, "demo")
+	current, err := server.controlPlane().GetServer(context.Background(), defaultOrgCatalogNamespace, "demo")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}
@@ -2528,31 +2497,6 @@ func TestRuntimeGrantApplyRejectsTeamMemberServerOwner(t *testing.T) {
 	server.Access().handleRuntimeGrantApply(recorder, request)
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status = %d body=%s, want 403", recorder.Code, recorder.Body.String())
-	}
-}
-
-func TestRuntimeGrantApplyRejectsPublicCatalogReader(t *testing.T) {
-	t.Setenv("PLATFORM_MODE", "public")
-	accessMgr := newTestAccessManagerWithObjects(t, &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "demo",
-			Namespace: defaultPublicCatalogNamespace,
-		},
-	})
-	server := &RuntimeServer{accessMgr: accessMgr}
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/runtime/grants", bytes.NewReader([]byte(`{
-		"name": "grant-public",
-		"namespace": "mcp-servers-public",
-		"serverRef": {"name": "demo"},
-		"subject": {"humanID": "user-1"},
-		"allowedSideEffects": ["read"],
-		"maxTrust": "low"
-	}`)))
-	request = request.WithContext(withPrincipal(request.Context(), PublicCatalogPrincipal()))
-	server.Access().handleRuntimeGrantApply(recorder, request)
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
 

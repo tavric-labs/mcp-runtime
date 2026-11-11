@@ -54,8 +54,7 @@ kubectl get mcpservers -A \
 Rules to verify:
 
 - Single-team/example MCPs in this guide live in `mcp-servers`.
-- Org-mode and public-mode catalogs live in `mcp-servers-org` and
-  `mcp-servers-public`; tenant MCPs live in `mcp-team-<slug>` namespaces with
+- The org catalog lives in `mcp-servers-org`; tenant MCPs live in `mcp-team-<slug>` namespaces with
   matching ownership.
 - Non-admin users should receive `403` when explicitly requesting another
   tenant namespace.

@@ -26,8 +26,8 @@ for the gateway's host.
 ```bash
 mcp-runtime server validate
 mcp-runtime server build image credential-form-demo --tag form-review
-mcp-runtime server push --image registry.example.com/public/credential-form-demo:form-review --scope public
-mcp-runtime server deploy credential-form-demo --scope public --tag form-review
+mcp-runtime server push --image registry.example.com/org/credential-form-demo:form-review --scope org
+mcp-runtime server deploy credential-form-demo --scope org --tag form-review
 ```
 
 Adjust the image repository to your registry. Runtime sets `MCP_PATH` to the

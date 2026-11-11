@@ -18,7 +18,7 @@ import (
 
 func TestAPIRolloutReconcilesAllManagedNamespacePolicies(t *testing.T) {
 	var objects []runtime.Object
-	for _, name := range []string{"mcp-team-example", "mcp-servers-org", "mcp-servers-public", "user-example"} {
+	for _, name := range []string{"mcp-team-example", "mcp-servers-org", "user-example"} {
 		objects = append(objects, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{platformManagedLabel: "true"}}})
 		old := k8sprovision.DefaultDenyNetworkPolicy(name)
 		old.Spec.Ingress = []networkingv1.NetworkPolicyIngressRule{{}}
@@ -30,7 +30,7 @@ func TestAPIRolloutReconcilesAllManagedNamespacePolicies(t *testing.T) {
 	if err := server.Deployments().ReconcileTeamNamespaceNetworkPolicies(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"mcp-team-example", "mcp-servers-org", "mcp-servers-public", "user-example"} {
+	for _, name := range []string{"mcp-team-example", "mcp-servers-org", "user-example"} {
 		policy, err := client.NetworkingV1().NetworkPolicies(name).Get(context.Background(), "platform-default-deny", metav1.GetOptions{})
 		if err != nil || len(policy.Spec.Ingress) != 0 {
 			t.Fatalf("%s retained broad policy: %v %#v", name, err, policy)

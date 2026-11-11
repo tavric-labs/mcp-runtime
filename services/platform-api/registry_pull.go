@@ -48,9 +48,6 @@ func (s *apiServer) handleRegistryPullCredentials(w http.ResponseWriter, r *http
 		if slug, ok := strings.CutPrefix(scope.Namespace, "mcp-team-"); ok && slug != "" {
 			scope.Prefixes = append(scope.Prefixes, slug)
 		}
-		if scope.Namespace == "mcp-servers-public" {
-			scope.Prefixes = append(scope.Prefixes, "public")
-		}
 		if scope.Namespace == "mcp-servers-org" {
 			scope.Prefixes = append(scope.Prefixes, "org")
 		}

@@ -23,14 +23,14 @@ func TestEnsureTraefikWatchRBACUsesNamespaceRole(t *testing.T) {
 		ServiceAccount: "traefik",
 	}
 	existingRole := &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{Name: TraefikWatchRoleName, Namespace: "mcp-servers-public"},
+		ObjectMeta: metav1.ObjectMeta{Name: TraefikWatchRoleName, Namespace: "mcp-servers-org"},
 		Rules: []rbacv1.PolicyRule{
 			{APIGroups: []string{""}, Resources: []string{"services", "endpoints"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"networking.k8s.io"}, Resources: []string{"ingresses"}, Verbs: []string{"get", "list", "watch"}},
 		},
 	}
 	existingBinding := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: TraefikWatchRoleName, Namespace: "mcp-servers-public"},
+		ObjectMeta: metav1.ObjectMeta{Name: TraefikWatchRoleName, Namespace: "mcp-servers-org"},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
@@ -42,17 +42,17 @@ func TestEnsureTraefikWatchRBACUsesNamespaceRole(t *testing.T) {
 	}
 	client := kubernetesfake.NewSimpleClientset(existingRole, existingBinding)
 
-	if err := ensureTraefikWatchRBAC(context.Background(), client, "mcp-servers-public", cfg); err != nil {
+	if err := ensureTraefikWatchRBAC(context.Background(), client, "mcp-servers-org", cfg); err != nil {
 		t.Fatalf("ensureTraefikWatchRBAC() error = %v", err)
 	}
-	binding, err := client.RbacV1().RoleBindings("mcp-servers-public").Get(context.Background(), TraefikWatchRoleName, metav1.GetOptions{})
+	binding, err := client.RbacV1().RoleBindings("mcp-servers-org").Get(context.Background(), TraefikWatchRoleName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("traefik watch rolebinding missing: %v", err)
 	}
 	if binding.RoleRef.Kind != "Role" || binding.RoleRef.Name != TraefikWatchRoleName {
 		t.Fatalf("traefik watch binding role ref = %#v, want Role/%s", binding.RoleRef, TraefikWatchRoleName)
 	}
-	role, err := client.RbacV1().Roles("mcp-servers-public").Get(context.Background(), TraefikWatchRoleName, metav1.GetOptions{})
+	role, err := client.RbacV1().Roles("mcp-servers-org").Get(context.Background(), TraefikWatchRoleName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("traefik watch role missing: %v", err)
 	}

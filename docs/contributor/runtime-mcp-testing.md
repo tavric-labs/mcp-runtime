@@ -8,16 +8,16 @@ gateway policy, and clean up stale runtime objects in a contributor cluster.
 `mcp-servers` is the legacy single-team/example namespace used by the local
 testing manifests below. In default `org` platform mode, signed-in users see
 the `mcp-servers-org` authenticated catalog and their authorized team namespaces.
-`--platform-mode public` adds `mcp-servers-public` as the anonymous preview
-catalog. Team-specific MCPs belong in namespaces such as `mcp-team-tenant-a`.
+`--platform-mode public` is the hosted profile with the same catalogs.
+Team-specific MCPs belong in namespaces such as `mcp-team-tenant-a`.
 
 Expected UI/API behavior:
 
 | Principal | Expected catalog |
 |---|---|
-| Anonymous | `401` for `/api/v1/runtime/servers`, except public mode can read `mcp-servers-public` |
+| Anonymous | `401` for `/api/v1/runtime/servers` in every mode |
 | User in org mode | MCPs from `mcp-servers-org` and authorized team namespaces |
-| User in public mode | MCPs from public, org, and authorized team namespaces |
+| User in public mode | MCPs from `mcp-servers-org` and authorized team namespaces |
 | Admin | Cluster-wide management visibility, with namespace/team checks on writes |
 
 ## Deploy the bundled workspace assistant

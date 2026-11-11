@@ -3805,7 +3805,7 @@ mirror_upstream_images_parallel() {
 
 wait_core_platform_rollouts() {
   echo "[verify] waiting for core platform components"
-  kubectl get namespace mcp-servers mcp-servers-org mcp-servers-public >/dev/null
+  kubectl get namespace mcp-servers mcp-servers-org >/dev/null
 
   # Setup already waits for these workloads. Keep the post-setup sanity check
   # sequential so transient kubectl watch cancellation does not fail a healthy run.
@@ -3895,7 +3895,7 @@ platform_cache_ready() {
     expected_kafka_replicas=3
   fi
   [[ "$(kubectl get statefulset kafka -n mcp-observability -o jsonpath='{.spec.replicas}' 2>/dev/null)" == "${expected_kafka_replicas}" ]] || return 1
-  kubectl get namespace registry mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers mcp-servers-org mcp-servers-public >/dev/null 2>&1 || return 1
+  kubectl get namespace registry mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers mcp-servers-org >/dev/null 2>&1 || return 1
   kubectl rollout status deploy/registry -n registry --timeout=5s >/dev/null 2>&1 || return 1
   kubectl rollout status deploy/mcp-runtime-operator-controller-manager -n mcp-runtime --timeout=5s >/dev/null 2>&1 || return 1
   kubectl rollout status deploy/traefik -n traefik --timeout=5s >/dev/null 2>&1 || return 1
@@ -3924,8 +3924,8 @@ import sys
 deployment = json.load(sys.stdin)
 args = deployment["spec"]["template"]["spec"]["containers"][0]["args"]
 desired = {
-    "--providers.kubernetesingress.namespaces=": "--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers,mcp-servers-org,mcp-servers-public",
-    "--providers.kubernetescrd.namespaces=": "--providers.kubernetescrd.namespaces=mcp-platform,mcp-observability,mcp-servers,mcp-servers-org,mcp-servers-public",
+    "--providers.kubernetesingress.namespaces=": "--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers,mcp-servers-org",
+    "--providers.kubernetescrd.namespaces=": "--providers.kubernetescrd.namespaces=mcp-platform,mcp-observability,mcp-servers,mcp-servers-org",
 }
 patch = []
 for prefix, value in desired.items():

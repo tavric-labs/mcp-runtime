@@ -42,7 +42,7 @@ const usage = {
   requests: [
     {
       server: "demo",
-      namespace: "mcp-servers-public",
+      namespace: "mcp-servers-org",
       rpc_method: "tools/call",
       tool_name: "echo",
       decision: "allow",
@@ -151,13 +151,13 @@ it("queries the selected team, server, method and tool and clears dependent filt
   );
   expect(screen.getByTestId("analytics-tool")).toBeDisabled();
   expect(screen.getByTestId("analytics-tool")).toHaveValue("");
-  await user.selectOptions(screen.getByTestId("analytics-scope"), "public");
+  await user.selectOptions(screen.getByTestId("analytics-scope"), "org");
   await waitFor(() =>
     expect(
       fetchMock.mock.calls.some(([url]) => {
         const q = new URL(String(url), "https://example.test").searchParams;
         return (
-          q.get("scope") === "public" &&
+          q.get("scope") === "org" &&
           !q.has("team_id") &&
           !q.has("server") &&
           !q.has("tool_name")

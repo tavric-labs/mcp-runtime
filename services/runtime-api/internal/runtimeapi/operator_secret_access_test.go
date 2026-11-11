@@ -27,7 +27,7 @@ func TestAdminServerApplyPreparesSharedCatalogNamespace(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	t.Setenv("PLATFORM_TEAM_TRAEFIK_WATCH", "disabled")
 	clearRegistryPullSecretEnv(t)
-	for _, namespace := range []string{defaultPublicCatalogNamespace, defaultOrgCatalogNamespace} {
+	for _, namespace := range []string{defaultOrgCatalogNamespace} {
 		client := fake.NewSimpleClientset()
 		server := &RuntimeServer{k8sClients: &k8sclient.Clients{Clientset: client}}
 		ctx := context.Background()

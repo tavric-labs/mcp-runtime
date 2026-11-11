@@ -183,11 +183,7 @@ func (cfg *AuthzConfig) catalogScopeWritable(scope string) bool {
 	}
 	scope = strings.TrimSpace(scope)
 	switch cfg.mode {
-	case string(topology.ScopePublic):
-		if scope == topology.PublicRegistryAlias || scope == topology.OrgRegistryAlias {
-			return true
-		}
-	case string(topology.ScopeOrg):
+	case string(topology.ModePublic), string(topology.ModeOrg):
 		if scope == topology.OrgRegistryAlias {
 			return true
 		}
@@ -203,7 +199,7 @@ func (cfg *AuthzConfig) sharedCatalogWritableForUsers() bool {
 		return false
 	}
 	switch cfg.mode {
-	case string(topology.ScopePublic), string(topology.ScopeOrg):
+	case string(topology.ModePublic), string(topology.ModeOrg):
 		return true
 	default:
 		return false

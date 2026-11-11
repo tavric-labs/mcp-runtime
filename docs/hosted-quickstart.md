@@ -207,7 +207,7 @@ The `Gateway` badge identifies servers configured to run the Runtime gateway;
 readiness and OAuth/header authentication have their own badges.
 
 Platform admins can open **Requests** to filter recorded gateway
-requests by time range, public/org/team scope, team, server, MCP method, tool,
+requests by time range, org/team scope, team, server, MCP method, tool,
 policy decision/version and HTTP outcome. Choose **Teams**, search a team by
 name or slug, then select it to scope the chart and totals. The **Server
 requests** table combines method and tool activity, with request counts, HTTP

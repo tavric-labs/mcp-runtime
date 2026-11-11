@@ -114,7 +114,6 @@ func (s *RuntimeServer) HandleRuntimeNamespaceItem(w http.ResponseWriter, r *htt
 		entry := catalogNamespaceEntry(namespace)
 		if namespace == sharedCatalogNamespace && !sharedCatalogWritableForUsers() {
 			entry["scope"] = "shared"
-			entry["is_public"] = false
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"namespace": entry})
 		return
@@ -124,15 +123,9 @@ func (s *RuntimeServer) HandleRuntimeNamespaceItem(w http.ResponseWriter, r *htt
 
 func catalogNamespaceEntry(namespace string) map[string]any {
 	scope := "shared"
-	isPublic := false
 	scopeName := "Shared catalog"
 	if namespace != sharedCatalogNamespace {
-		switch catalogScope, _ := catalogScopeForNamespace(namespace); catalogScope {
-		case "public":
-			scope = "public"
-			isPublic = true
-			scopeName = "Public preview"
-		case "org":
+		if catalogScope, _ := catalogScopeForNamespace(namespace); catalogScope == "org" {
 			scope = "org"
 			scopeName = "Organization"
 		}
@@ -140,7 +133,6 @@ func catalogNamespaceEntry(namespace string) map[string]any {
 	return map[string]any{
 		"namespace":  namespace,
 		"is_shared":  namespace == sharedCatalogNamespace,
-		"is_public":  isPublic,
 		"scope":      scope,
 		"scope_name": scopeName,
 	}

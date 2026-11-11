@@ -21,7 +21,7 @@ func TestServerListVisibilityScopes(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	namespaces := []string{defaultPublicCatalogNamespace, defaultOrgCatalogNamespace, "user-1", "mcp-team-acme", "mcp-team-other"}
+	namespaces := []string{defaultOrgCatalogNamespace, "user-1", "mcp-team-acme", "mcp-team-other"}
 	var objects []runtime.Object
 	for _, ns := range namespaces {
 		objects = append(objects, &mcpv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: ns}})
@@ -35,8 +35,8 @@ func TestServerListVisibilityScopes(t *testing.T) {
 		status    int
 		want      []string
 	}{
-		{"member defaults", member, "", http.StatusOK, []string{defaultOrgCatalogNamespace, defaultPublicCatalogNamespace, "mcp-team-acme", "user-1"}},
-		{"admin defaults", principal{Role: roleAdmin, Subject: "admin"}, "", http.StatusOK, []string{defaultOrgCatalogNamespace, defaultPublicCatalogNamespace, "mcp-team-acme", "mcp-team-other", "user-1"}},
+		{"member defaults", member, "", http.StatusOK, []string{defaultOrgCatalogNamespace, "mcp-team-acme", "user-1"}},
+		{"admin defaults", principal{Role: roleAdmin, Subject: "admin"}, "", http.StatusOK, []string{defaultOrgCatalogNamespace, "mcp-team-acme", "mcp-team-other", "user-1"}},
 		{"member own team", member, "mcp-team-acme", http.StatusOK, []string{"mcp-team-acme"}},
 		{"member other team denied", member, "mcp-team-other", http.StatusForbidden, nil},
 		{"admin other team", principal{Role: roleAdmin, Subject: "admin"}, "mcp-team-other", http.StatusOK, []string{"mcp-team-other"}},

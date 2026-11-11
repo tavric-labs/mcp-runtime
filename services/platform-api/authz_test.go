@@ -101,10 +101,6 @@ func TestRequireRole(t *testing.T) {
 	testAuthenticator(srv)
 }
 
-func TestAuthOrPublicCatalogAllowsAnonymousPublicServerList(t *testing.T) {
-	t.Skip("public catalog auth is owned by runtime-api, not platform-api")
-}
-
 type fakeRegistryCredentialAuth struct {
 	principal principal
 	ok        bool
@@ -206,7 +202,7 @@ func TestRegistryAuthzAllowsUserAPIKeyForTeamRepositoryScope(t *testing.T) {
 	}
 }
 
-func TestRegistryAuthzAllowsPublicAliasInPublicMode(t *testing.T) {
+func TestRegistryAuthzAllowsOrgAliasInPublicMode(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	srv := &apiServer{
 		userKeys: &fakeUserAPIKeyStore{
@@ -224,7 +220,7 @@ func TestRegistryAuthzAllowsPublicAliasInPublicMode(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/registry/authz", nil)
 	req.Header.Set("x-api-key", "mcpu_user")
-	for _, prefix := range []string{"public", "org", "mcp-servers-public", "mcp-servers-org"} {
+	for _, prefix := range []string{"org", "mcp-servers-org"} {
 		rec = httptest.NewRecorder()
 		req.Header.Set("X-Forwarded-Uri", "/v2/"+prefix+"/demo/manifests/latest")
 		srv.handleRegistryAuthz(rec, req)
@@ -252,7 +248,7 @@ func TestRegistryAuthzCachesPlatformModePerServer(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/registry/authz", nil)
 	req.Header.Set("x-api-key", "mcpu_user")
-	req.Header.Set("X-Forwarded-Uri", "/v2/public/demo/manifests/latest")
+	req.Header.Set("X-Forwarded-Uri", "/v2/org/demo/manifests/latest")
 	srv.handleRegistryAuthz(rec, req)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("initial status = %d body = %s, want 204", rec.Code, rec.Body.String())
@@ -262,14 +258,35 @@ func TestRegistryAuthzCachesPlatformModePerServer(t *testing.T) {
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/api/registry/authz", nil)
 	req.Header.Set("x-api-key", "mcpu_user")
-	req.Header.Set("X-Forwarded-Uri", "/v2/public/demo/manifests/latest")
+	req.Header.Set("X-Forwarded-Uri", "/v2/org/demo/manifests/latest")
 	srv.handleRegistryAuthz(rec, req)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("cached status = %d body = %s, want 204", rec.Code, rec.Body.String())
 	}
 }
 
-func TestRegistryAuthzRejectsPublicAliasInOrgMode(t *testing.T) {
+func TestRegistryAuthzRejectsRemovedPublicAliasInPublicMode(t *testing.T) {
+	t.Setenv("PLATFORM_MODE", "public")
+	srv := &apiServer{
+		userKeys: &fakeUserAPIKeyStore{
+			ok:        true,
+			principal: principal{Role: roleUser, Subject: "user-1", Namespace: "user-1", AuthType: "user_api_key"},
+		},
+	}
+	testAuthenticator(srv)
+	for _, prefix := range []string{"public", "mcp-servers-public"} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/registry/authz", nil)
+		req.Header.Set("x-api-key", "mcpu_user")
+		req.Header.Set("X-Forwarded-Uri", "/v2/"+prefix+"/demo/manifests/latest")
+		srv.handleRegistryAuthz(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("prefix=%s status=%d body=%s, want 403", prefix, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestRegistryAuthzRejectsRemovedPublicAliasInOrgMode(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
 	srv := &apiServer{
 		userKeys: &fakeUserAPIKeyStore{
@@ -294,7 +311,7 @@ func TestRegistryAuthzRejectsPublicAliasInOrgMode(t *testing.T) {
 	}
 }
 
-func TestRegistryAuthzRejectsPublicAliasInTenantMode(t *testing.T) {
+func TestRegistryAuthzRejectsRemovedPublicAliasInDefaultMode(t *testing.T) {
 	srv := &apiServer{
 		userKeys: &fakeUserAPIKeyStore{
 			ok: true,

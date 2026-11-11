@@ -12,7 +12,7 @@ Flags:
       --metadata-dir string       Directory where servers.yaml will be written (default ".mcp")
       --policy-mode string        Policy mode: allow-list or observe (default "allow-list")
       --port int32                Container port (default 8088)
-      --scope string              Publish scope: tenant, org, or public (default "tenant")
+      --scope string              Publish scope: tenant or org (default "tenant")
       --session-required          Require adapter-issued agent sessions (default true)
       --tag string                Container image tag (default "latest")
       --tool stringArray          Tool name to add with read side-effect metadata; repeat for multiple tools

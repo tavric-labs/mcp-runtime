@@ -127,21 +127,21 @@ servers:
 		metadataFile := filepath.Join(tmp, "servers.yaml")
 		if err := os.WriteFile(metadataFile, []byte(`version: v1
 servers:
-  - name: public-server
-    scope: public
+  - name: org-server
+    scope: org
 `), 0o600); err != nil {
 			t.Fatalf("write metadata: %v", err)
 		}
 
-		err := buildImage(context.Background(), logger, "public-server", "Dockerfile", metadataFile, ".", "registry.example.com", "v1", "", ".")
+		err := buildImage(context.Background(), logger, "org-server", "Dockerfile", metadataFile, ".", "registry.example.com", "v1", "", ".")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		for _, cmd := range mock.Commands {
 			if cmd.Name == "docker" {
-				if !contains(cmd.Args, "registry.example.com/public/public-server:v1") {
-					t.Fatalf("docker args = %v, want public-scoped tag", cmd.Args)
+				if !contains(cmd.Args, "registry.example.com/org/org-server:v1") {
+					t.Fatalf("docker args = %v, want org-scoped tag", cmd.Args)
 				}
 				return
 			}
