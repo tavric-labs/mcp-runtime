@@ -75,6 +75,11 @@ func mentionsRetiredNamespace(line string) bool {
 		before, after := byte(' '), byte(' ')
 		if i > 0 {
 			before = line[i-1]
+			// Shell defaults like ${VAR:-mcp-servers} put a hyphen before the
+			// name that is an operator, not part of a longer identifier.
+			if before == '-' && i > 1 && line[i-2] == ':' {
+				before = ' '
+			}
 		}
 		if end < len(line) {
 			after = line[end]

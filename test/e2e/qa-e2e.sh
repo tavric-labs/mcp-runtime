@@ -349,7 +349,7 @@ if scenario_requested "trust" || scenario_requested "smoke-auth" || scenario_req
   export MCP_ADAPTER_CERTIFICATES="${MCP_ADAPTER_CERTIFICATES:-true}"
   export MCP_SETUP_MTLS_CLUSTER_ISSUER="${MCP_SETUP_MTLS_CLUSTER_ISSUER:-mcp-runtime-ca}"
   export MCP_TRUST_DOMAIN="${MCP_TRUST_DOMAIN:-cluster.local}"
-  export MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE="${MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE:-mcp-servers}"
+  export MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE="${MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE:-mcp-platform}"
 fi
 if scenario_requested "adapter-certificates"; then
   scenario_requested "oauth" || E2E_SCENARIO_LIST+=("oauth")
@@ -1392,7 +1392,7 @@ print(json.dumps({"email": os.environ["PLATFORM_ADMIN_EMAIL"], "password": os.en
 }
 
 qa_session_update() {
-  local name="$1" patch="$2" namespace="${3:-mcp-servers}"
+  local name="$1" patch="$2" namespace="${3:-mcp-servers-org}"
   local current="${WORKDIR}/${name}-session-current.json" manifest="${WORKDIR}/${name}-session-update.json"
   qa_platform_cli access session get "${name}" --namespace "${namespace}" >"${current}"
   python3 - "${current}" "${patch}" "${manifest}" <<'PY'
@@ -1411,7 +1411,7 @@ PY
 }
 
 qa_session_assert_field() {
-  local name="$1" field="$2" expected="$3" namespace="${4:-mcp-servers}"
+  local name="$1" field="$2" expected="$3" namespace="${4:-mcp-servers-org}"
   qa_platform_cli access session get "${name}" --namespace "${namespace}" | python3 -c '
 import json,sys
 session = json.load(sys.stdin)
@@ -1420,7 +1420,7 @@ assert str(session.get(sys.argv[1])) == sys.argv[2], session
 }
 
 qa_session_delete_if_present() {
-  local name="$1" namespace="${2:-mcp-servers}" code
+  local name="$1" namespace="${2:-mcp-servers-org}" code
   qa_platform_cli auth status >/dev/null
   code="$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${ADAPTER_PLATFORM_TOKEN}" \
     "http://127.0.0.1:${PLATFORM_PORT}/api/v1/runtime/sessions/${namespace}/${name}")"
@@ -4060,7 +4060,7 @@ if scenario_selected "adapter-certificates" || [[ "${MCP_ADAPTER_CERTIFICATES:-}
   export MCP_TRUST_DOMAIN="${MCP_TRUST_DOMAIN:-cluster.local}"
   # All path-based routes on a shared host must use the same TLSOption. The
   # operator stores its managed default in this Traefik-watched namespace.
-  export MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE="${MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE:-mcp-servers}"
+  export MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE="${MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE:-mcp-platform}"
 fi
 
 PLATFORM_CACHE_READY=0

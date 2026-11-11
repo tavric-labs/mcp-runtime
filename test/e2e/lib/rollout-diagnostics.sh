@@ -322,7 +322,7 @@ rollout_status_with_logs() {
 
 wait_for_named_server_ready() {
   local server_name="$1"
-  local namespace="${2:-mcp-servers}"
+  local namespace="${2:-mcp-servers-org}"
   local tries="${3:-60}"
   local i deployment_ready service_ready ingress_ready phase
   for ((i = 0; i < tries; i++)); do
