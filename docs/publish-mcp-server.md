@@ -316,6 +316,16 @@ exclusively managed analytics credential, and delete the server. Shared image
 pull credentials, user-provided secrets, agents, teams, and historical audit
 and analytics records are retained.
 
+The operator links issued per-server gateway and ingress-client TLS Secrets to
+the MCPServer as non-controller dependents. Retirement garbage-collects those
+credentials even when cert-manager keeps Secrets after Certificate deletion.
+Reconciliation adds the link only when the issued TLS Secret identifies the
+expected Certificate and configured ClusterIssuer; it preserves certificate
+data and any cert-manager controller owner. A matching name alone does not
+authorize adopting a user-provided credential. Credentials orphaned before
+this ownership repair need a separately reviewed cleanup after checking that
+no server, Certificate or workload references them.
+
 For servers applied directly through Kubernetes, retirement repairs a missing
 namespace-local API credential binding after checking ownership. It waits up to
 five seconds for Kubernetes authorization to observe that binding and never
