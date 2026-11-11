@@ -80,19 +80,6 @@ func (m *ClusterManager) InitCluster(kubeconfig, context string) error {
 		return wrappedErr
 	}
 
-	m.logger.Info("Creating mcp-servers namespace")
-	if err := m.EnsureNamespace(core.NamespaceMCPServers); err != nil {
-		wrappedErr := core.WrapWithBaseAndContext(
-			core.ErrEnsureServersNamespaceFailed,
-			err,
-			fmt.Sprintf("failed to ensure mcp-servers namespace: %v", err),
-			map[string]any{"namespace": core.NamespaceMCPServers, "component": "cluster"},
-		)
-		core.Error("Failed to ensure mcp-servers namespace")
-		core.LogStructuredError(m.logger, wrappedErr, "Failed to ensure mcp-servers namespace")
-		return wrappedErr
-	}
-
 	m.logger.Info("Cluster initialized successfully")
 	return nil
 }
@@ -778,17 +765,6 @@ kind: Namespace
 metadata:
   name: %s
 `, name)
-	if name == core.NamespaceMCPServers {
-		nsYAML = fmt.Sprintf(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: %s
-  labels:
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/warn: restricted
-`, name)
-	}
 	// #nosec G204 -- fixed kubectl command, input via stdin; name from internal code.
 	cmd, err := m.kubectl.CommandArgs([]string{"apply", "--validate=false", "-f", "-"})
 	if err != nil {

@@ -57,7 +57,7 @@ A public preview runs at [platform.mcpruntime.org](https://platform.mcpruntime.o
 - Bundled platform stack for ingest, processing, API, UI, and observability.
   Control-plane services run in `mcp-platform`. The event pipeline and
   telemetry stack run in `mcp-observability`. Promtail runs in
-  `mcp-log-collector`. MCP servers stay in `mcp-servers`, `mcp-servers-org`,
+  `mcp-log-collector`. MCP servers stay in `mcp-servers-org`
   or `mcp-team-{slug}`. See [Namespaces](docs/namespaces.md).
 
 ## Requirements

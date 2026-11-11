@@ -147,7 +147,7 @@ func TestScanEventRow(t *testing.T) {
 			"gateway",
 			"tools/call",
 			"demo-one",
-			"mcp-servers",
+			"mcp-servers-org",
 			"team-acme",
 			"kind",
 			"user-123",

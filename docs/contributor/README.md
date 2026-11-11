@@ -89,7 +89,6 @@ The contributor Kind flow installs a full local stack:
 - analytics-api, ingest, processor, and the telemetry stores in `mcp-observability`
 - Traefik ingress on the local gateway path
 - A bundled registry for runtime images
-- `mcp-servers` as the legacy single-team/example MCP namespace
 - `mcp-servers-org` in both platform modes
 - Optional `mcp-team-<slug>` namespaces for tenant isolation
 

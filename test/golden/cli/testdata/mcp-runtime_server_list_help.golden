@@ -8,7 +8,7 @@ directly; the platform API still checks read access. --team and --namespace
 are mutually exclusive.
 
 With --use-kube, --namespace selects a Kubernetes namespace (default:
-mcp-servers); --team is unavailable.
+mcp-servers-org); --team is unavailable.
 
 Usage:
   mcp-runtime server list [flags]

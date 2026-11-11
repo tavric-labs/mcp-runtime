@@ -8,7 +8,7 @@ import (
 
 func gitlabInput() ServerInput {
 	return ServerInput{
-		Name: "gitlab", Namespace: "mcp-servers", IngressHost: "mcp.example.com", IngressPath: "/gitlab/mcp",
+		Name: "gitlab", Namespace: "mcp-servers-org", IngressHost: "mcp.example.com", IngressPath: "/gitlab/mcp",
 		Headers: []string{"X-GitLab-Username", "X-GitLab-PAT-Token"}, ValidationPath: "/auth/check",
 	}
 }
@@ -18,7 +18,7 @@ func TestServiceForDerivesAFormServiceFromTheServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if service.ID != "gitlab" || service.ServerName != "gitlab" || service.Namespace != "mcp-servers" ||
+	if service.ID != "gitlab" || service.ServerName != "gitlab" || service.Namespace != "mcp-servers-org" ||
 		service.ResourceURL != "https://auth.example.com/gitlab/mcp" ||
 		service.UpstreamURL != "https://mcp.example.com/gitlab/mcp" || service.ValidationURL != "https://mcp.example.com/gitlab/mcp/auth/check" {
 		t.Fatalf("urls: %+v", service)

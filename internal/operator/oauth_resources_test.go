@@ -39,7 +39,7 @@ func bundledAuthDeployment() *appsv1.Deployment {
 
 func oauthMCPServer(name, audience string) *mcpv1alpha1.MCPServer {
 	return &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "mcp-servers-org"},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Image:            "example.com/" + name,
 			PublicPathPrefix: name,

@@ -346,7 +346,7 @@ func (m *ServerManager) ListServers(namespace, team string) error {
 		return nil
 	}
 	if namespace == "" {
-		namespace = core.NamespaceMCPServers
+		namespace = core.DefaultServerNamespace
 	}
 	namespace, err = validateManifestValue("namespace", namespace)
 	if err != nil {
@@ -644,7 +644,7 @@ func (m *ServerManager) DeployServer(name, namespace, team, scope, image, imageT
 			scope = string(selectedMetadata.Scope)
 		}
 		if namespace == "" && team == "" && (scope == "" || scope == string(topology.ScopeTenant)) {
-			if !(scope == string(topology.ScopeTenant) && strings.TrimSpace(selectedMetadata.Namespace) == core.NamespaceMCPServers) {
+			if !(scope == string(topology.ScopeTenant) && strings.TrimSpace(selectedMetadata.Namespace) == core.DefaultServerNamespace) {
 				namespace = selectedMetadata.Namespace
 			}
 		}

@@ -52,7 +52,6 @@ func (s *RuntimeServer) HandleRuntimeNamespaces(w http.ResponseWriter, r *http.R
 		}
 		entry := map[string]any{
 			"namespace": namespace,
-			"is_shared": namespace == sharedCatalogNamespace,
 		}
 		for _, team := range p.Teams {
 			if strings.TrimSpace(team.Namespace) == namespace {
@@ -110,12 +109,8 @@ func (s *RuntimeServer) HandleRuntimeNamespaceItem(w http.ResponseWriter, r *htt
 		writeJSON(w, http.StatusOK, map[string]any{"namespace": item})
 		return
 	}
-	if namespace == sharedCatalogNamespace || isModeCatalogNamespace(namespace) {
-		entry := catalogNamespaceEntry(namespace)
-		if namespace == sharedCatalogNamespace && !sharedCatalogWritableForUsers() {
-			entry["scope"] = "shared"
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"namespace": entry})
+	if isModeCatalogNamespace(namespace) {
+		writeJSON(w, http.StatusOK, map[string]any{"namespace": catalogNamespaceEntry(namespace)})
 		return
 	}
 	writeAPIError(w, http.StatusNotFound, "namespace not found")
@@ -124,15 +119,12 @@ func (s *RuntimeServer) HandleRuntimeNamespaceItem(w http.ResponseWriter, r *htt
 func catalogNamespaceEntry(namespace string) map[string]any {
 	scope := "shared"
 	scopeName := "Shared catalog"
-	if namespace != sharedCatalogNamespace {
-		if catalogScope, _ := catalogScopeForNamespace(namespace); catalogScope == "org" {
-			scope = "org"
-			scopeName = "Organization"
-		}
+	if catalogScope, _ := catalogScopeForNamespace(namespace); catalogScope == "org" {
+		scope = "org"
+		scopeName = "Organization"
 	}
 	return map[string]any{
 		"namespace":  namespace,
-		"is_shared":  namespace == sharedCatalogNamespace,
 		"scope":      scope,
 		"scope_name": scopeName,
 	}
@@ -145,8 +137,7 @@ func appendCatalogNamespaceEntries(namespaces []map[string]any) []map[string]any
 			seen[namespace] = struct{}{}
 		}
 	}
-	catalogNamespaces := append([]string{sharedCatalogNamespace}, modeCatalogNamespaces()...)
-	for _, namespace := range dedupeNonEmptyStrings(catalogNamespaces) {
+	for _, namespace := range dedupeNonEmptyStrings(modeCatalogNamespaces()) {
 		if _, ok := seen[namespace]; ok {
 			continue
 		}

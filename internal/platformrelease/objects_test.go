@@ -87,6 +87,7 @@ subjects:
 		{"user subject", binding("mcp-ingest-tokenreview", "{kind: User, name: mallory}"), "only ServiceAccount"},
 		{"foreign namespace subject", binding("mcp-ingest-tokenreview", "{kind: ServiceAccount, name: a, namespace: kube-system}"), "not a platform namespace"},
 		{"foreign namespace object", "apiVersion: v1\nkind: ServiceAccount\nmetadata: {name: x, namespace: kube-system}\n", "not a platform namespace"},
+		{"release bindings in a server namespace", "apiVersion: rbac.authorization.k8s.io/v1\nkind: RoleBinding\nmetadata: {name: mcp-runtime-operator-managed-secrets, namespace: mcp-servers-org}\nroleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: mcp-runtime-operator-managed-secrets}\nsubjects:\n- {kind: ServiceAccount, name: mcp-runtime-operator-controller-manager, namespace: mcp-runtime}\n", "not a platform namespace"},
 		{"unprefixed cluster role", strings.Replace(goodRole, "mcp-ingest-tokenreview", "admin-ish", 1), `must start with "mcp-"`},
 	}
 	for _, tc := range tests {

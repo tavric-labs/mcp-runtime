@@ -263,7 +263,6 @@ var (
 	ErrDeploymentTimeout              = newBaseError("deployment timed out waiting for readiness", errx.CodeCluster, errx.DescCluster)
 	ErrInstallCRDFailed               = newBaseError("failed to install CRD", errx.CodeCluster, errx.DescCluster)
 	ErrEnsureRuntimeNamespaceFailed   = newBaseError("failed to ensure mcp-runtime namespace", errx.CodeCluster, errx.DescCluster)
-	ErrEnsureServersNamespaceFailed   = newBaseError("failed to ensure mcp-servers namespace", errx.CodeCluster, errx.DescCluster)
 	ErrKubeconfigNotReadable          = newBaseError("kubeconfig not found or not readable", errx.CodeCluster, errx.DescCluster)
 	ErrSetKubeconfigFailed            = newBaseError("failed to set KUBECONFIG", errx.CodeCluster, errx.DescCluster)
 	ErrSetContextFailed               = newBaseError("failed to set context", errx.CodeCluster, errx.DescCluster)

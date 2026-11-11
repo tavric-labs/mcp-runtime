@@ -50,11 +50,11 @@ func TestSlowestToolRequiresScopedActualCallEvidence(t *testing.T) {
 	for _, tool := range []string{"", "slow-tool"} {
 		conn := &observedToolConn{rows: &observedToolRows{tool: tool}}
 		server := &RuntimeServer{db: &chpkg.Client{Conn: conn, DBName: "mcp"}}
-		got, err := server.slowestObservedTool(context.Background(), "mcp-servers", "demo", "current-uid")
+		got, err := server.slowestObservedTool(context.Background(), "mcp-servers-org", "demo", "current-uid")
 		if err != nil || got != tool {
 			t.Fatalf("tool=%q err=%v", got, err)
 		}
-		if !reflect.DeepEqual(conn.args, []any{"mcp-servers", "demo", "current-uid"}) {
+		if !reflect.DeepEqual(conn.args, []any{"mcp-servers-org", "demo", "current-uid"}) {
 			t.Fatalf("scope was not parameterized with current UID: %v", conn.args)
 		}
 		for _, required := range []string{"namespace = ?", "server = ?", "JSONExtractString(payload, 'server_uid') = ?", "INTERVAL 1 HOUR", "timestamp <= now()", "'tools/call'", "event_type = 'mcp.request'", "decision = 'allow'", "HAVING count() >= 5", "quantileExact(0.95)"} {

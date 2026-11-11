@@ -60,7 +60,7 @@ func TestValidateGrantRequestDefaultsAndNormalizes(t *testing.T) {
 		t.Fatalf("Name = %q, want grant-a", req.Name)
 	}
 	if req.Namespace != mcpaccess.DefaultMCPResourceNamespace {
-		t.Fatalf("Namespace = %q, want mcp-servers", req.Namespace)
+		t.Fatalf("Namespace = %q, want mcp-servers-org", req.Namespace)
 	}
 	if req.PolicyVersion != "v1" {
 		t.Fatalf("PolicyVersion = %q, want v1", req.PolicyVersion)
@@ -169,8 +169,8 @@ func TestRuntimeGrantApplyRejectsUnknownServer(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/grants", bytes.NewReader([]byte(`{
 		"name": "grant-orphan",
-		"namespace": "mcp-servers",
-		"serverRef": {"name": "definitely-missing", "namespace": "mcp-servers"},
+		"namespace": "mcp-servers-org",
+		"serverRef": {"name": "definitely-missing", "namespace": "mcp-servers-org"},
 		"subject": {"humanID": "user-1"},
 		"allowedSideEffects": ["read"],
 		"maxTrust": "low"
@@ -190,8 +190,8 @@ func TestRuntimeSessionApplyRejectsUnknownServer(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/sessions", bytes.NewReader([]byte(`{
 		"name": "sess-orphan",
-		"namespace": "mcp-servers",
-		"serverRef": {"name": "definitely-missing", "namespace": "mcp-servers"},
+		"namespace": "mcp-servers-org",
+		"serverRef": {"name": "definitely-missing", "namespace": "mcp-servers-org"},
 		"subject": {"humanID": "user-1"},
 		"consentedTrust": "low"
 	}`)))
@@ -213,7 +213,7 @@ func TestRuntimeServersIncludesMCPServerInventory(t *testing.T) {
 	srv := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "demo-one",
-			Namespace:         "mcp-servers",
+			Namespace:         "mcp-servers-org",
 			CreationTimestamp: metav1.Now(),
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{
@@ -242,7 +242,7 @@ func TestRuntimeServersIncludesMCPServerInventory(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/runtime/servers?namespace=mcp-servers", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/runtime/servers?namespace=mcp-servers-org", nil)
 	request = request.WithContext(withPrincipal(request.Context(), principal{Role: roleAdmin, Subject: "admin-1"}))
 	server.HandleRuntimeServers(recorder, request)
 	if recorder.Code != http.StatusOK {
@@ -418,7 +418,7 @@ func TestPublicMCPEndpointHonorsPlatformDomain(t *testing.T) {
 	t.Setenv("MCP_PLATFORM_DOMAIN", "example.com")
 
 	mcpServer := mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers-org"},
 	}
 	endpoint := publicMCPEndpoint(mcpServer)
 	if endpoint != "https://mcp.example.com/demo-one/mcp" {
@@ -431,7 +431,7 @@ func TestRuntimeServerAccessJSONUsesForwardedLocalOrigin(t *testing.T) {
 	t.Setenv("MCP_PLATFORM_DOMAIN", "")
 
 	mcpServer := mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers-org"},
 	}
 	request := httptest.NewRequest(http.MethodGet, "/api/runtime/servers", nil)
 	request.Header.Set("X-Forwarded-Host", "localhost:18080")
@@ -451,7 +451,7 @@ func TestRuntimeServerAccessJSONMapsForwardedPlatformOrigin(t *testing.T) {
 	t.Setenv("MCP_PLATFORM_DOMAIN", "")
 
 	mcpServer := mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers-org"},
 	}
 	request := httptest.NewRequest(http.MethodGet, "/api/runtime/servers", nil)
 	request.Header.Set("X-Forwarded-Host", "platform.mcpruntime.org")
@@ -516,10 +516,10 @@ func TestRuntimeServersAdminDefaultsToAllNamespaces(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme: %v", err)
 	}
-	shared := &mcpv1alpha1.MCPServer{
+	team := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "shared-server",
-			Namespace: sharedCatalogNamespace,
+			Name:      "team-server",
+			Namespace: "mcp-team-acme",
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{Image: "demo:latest"},
 	}
@@ -532,7 +532,7 @@ func TestRuntimeServersAdminDefaultsToAllNamespaces(t *testing.T) {
 	}
 	server := &RuntimeServer{
 		k8sClients: &k8sclient.Clients{
-			Dynamic:   dynamicfake.NewSimpleDynamicClient(scheme, shared, org),
+			Dynamic:   dynamicfake.NewSimpleDynamicClient(scheme, team, org),
 			Clientset: kubernetesfake.NewSimpleClientset(),
 		},
 	}
@@ -554,11 +554,11 @@ func TestRuntimeServersAdminDefaultsToAllNamespaces(t *testing.T) {
 	if len(payload.Servers) != 2 {
 		t.Fatalf("servers = %#v, want both namespaces", payload.Servers)
 	}
-	if payload.Servers[0].Namespace != sharedCatalogNamespace || payload.Servers[0].Name != "shared-server" {
-		t.Fatalf("first server = %#v, want shared-server sorted by namespace", payload.Servers[0])
+	if payload.Servers[0].Namespace != defaultOrgCatalogNamespace || payload.Servers[0].Name != "org-server" {
+		t.Fatalf("first server = %#v, want org-server sorted by namespace", payload.Servers[0])
 	}
-	if payload.Servers[1].Namespace != defaultOrgCatalogNamespace || payload.Servers[1].Name != "org-server" {
-		t.Fatalf("second server = %#v, want org-server", payload.Servers[1])
+	if payload.Servers[1].Namespace != "mcp-team-acme" || payload.Servers[1].Name != "team-server" {
+		t.Fatalf("second server = %#v, want team-server", payload.Servers[1])
 	}
 }
 
@@ -570,7 +570,7 @@ func TestRuntimeServersNonAdminDefaultsToAccessibleCatalog(t *testing.T) {
 	shared := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "shared-server",
-			Namespace: "mcp-servers",
+			Namespace: "mcp-servers-org",
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Image: "demo:latest",
@@ -619,7 +619,7 @@ func TestRuntimeServersNonAdminDefaultsToAccessibleCatalog(t *testing.T) {
 		Namespace: "user-1",
 		AllowedNamespaces: []string{
 			"user-1",
-			sharedCatalogNamespace,
+			defaultOrgCatalogNamespace,
 			"mcp-team-acme",
 		},
 		Teams: []principalTeam{{
@@ -645,7 +645,7 @@ func TestRuntimeServersNonAdminDefaultsToAccessibleCatalog(t *testing.T) {
 	for _, server := range payload.Servers {
 		got = append(got, server.Namespace+"/"+server.Name)
 	}
-	want := []string{"mcp-servers/shared-server", "mcp-team-acme/team-server", "user-1/private-server"}
+	want := []string{"mcp-servers-org/shared-server", "mcp-team-acme/team-server", "user-1/private-server"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("servers = %#v, want %v", got, want)
 	}
@@ -682,7 +682,7 @@ func TestRuntimeServersNonAdminRejectsOtherNamespace(t *testing.T) {
 		Namespace: "user-1",
 		AllowedNamespaces: []string{
 			"user-1",
-			sharedCatalogNamespace,
+			defaultOrgCatalogNamespace,
 		},
 	}))
 	recorder := httptest.NewRecorder()
@@ -701,7 +701,7 @@ func TestRuntimeServersObservabilityLinksOnlyForObservableServers(t *testing.T) 
 	shared := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "shared-demo",
-			Namespace: sharedCatalogNamespace,
+			Namespace: defaultOrgCatalogNamespace,
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{Image: "registry.example.com/shared-demo"},
 	}
@@ -718,7 +718,7 @@ func TestRuntimeServersObservabilityLinksOnlyForObservableServers(t *testing.T) 
 		Namespace: "user-1",
 		AllowedNamespaces: []string{
 			"user-1",
-			sharedCatalogNamespace,
+			defaultOrgCatalogNamespace,
 		},
 	}))
 	recorder := httptest.NewRecorder()
@@ -780,7 +780,7 @@ func TestRuntimeObservabilityLinksAllowOwnedNamespace(t *testing.T) {
 				Namespace: "user-1",
 				AllowedNamespaces: []string{
 					"user-1",
-					sharedCatalogNamespace,
+					defaultOrgCatalogNamespace,
 				},
 			}))
 			recorder := httptest.NewRecorder()
@@ -875,7 +875,7 @@ func TestRuntimeObservabilityRejectsCrossTenantServer(t *testing.T) {
 		Namespace: "tenant-a",
 		AllowedNamespaces: []string{
 			"tenant-a",
-			sharedCatalogNamespace,
+			defaultOrgCatalogNamespace,
 		},
 	}))
 	recorder := httptest.NewRecorder()
@@ -891,18 +891,18 @@ func TestRuntimeObservabilityRejectsUnownedSharedCatalogServer(t *testing.T) {
 	server := newRuntimeServerWithMCPServers(t, &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "shared-demo",
-			Namespace: sharedCatalogNamespace,
+			Namespace: defaultOrgCatalogNamespace,
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{Image: "registry.example.com/shared-demo"},
 	})
-	request := httptest.NewRequest(http.MethodGet, "/api/runtime/observability/links?namespace=mcp-servers&server=shared-demo", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/runtime/observability/links?namespace=mcp-servers-org&server=shared-demo", nil)
 	request = request.WithContext(withPrincipal(request.Context(), principal{
 		Role:      roleUser,
 		Subject:   "user-1",
 		Namespace: "user-1",
 		AllowedNamespaces: []string{
 			"user-1",
-			sharedCatalogNamespace,
+			defaultOrgCatalogNamespace,
 		},
 	}))
 	recorder := httptest.NewRecorder()
@@ -933,7 +933,7 @@ func TestRuntimeObservabilityPrometheusProxyScopesQuery(t *testing.T) {
 		Namespace: "user-1",
 		AllowedNamespaces: []string{
 			"user-1",
-			sharedCatalogNamespace,
+			defaultOrgCatalogNamespace,
 		},
 	}))
 	recorder := httptest.NewRecorder()
@@ -1095,7 +1095,7 @@ func TestRuntimeObservabilityLogsProxyScopesQuery(t *testing.T) {
 		Role:              roleUser,
 		Subject:           "user-1",
 		Namespace:         "user-1",
-		AllowedNamespaces: []string{"user-1", sharedCatalogNamespace},
+		AllowedNamespaces: []string{"user-1", defaultOrgCatalogNamespace},
 	}))
 	recorder := httptest.NewRecorder()
 	server.HandleRuntimeObservabilityLogs(recorder, request)
@@ -1141,7 +1141,7 @@ func TestRuntimeObservabilityLogsRejectsCrossTenantServer(t *testing.T) {
 		Role:              roleUser,
 		Subject:           "user-a",
 		Namespace:         "tenant-a",
-		AllowedNamespaces: []string{"tenant-a", sharedCatalogNamespace},
+		AllowedNamespaces: []string{"tenant-a", defaultOrgCatalogNamespace},
 	}))
 	recorder := httptest.NewRecorder()
 	server.HandleRuntimeObservabilityLogs(recorder, request)
@@ -1168,34 +1168,6 @@ func newRuntimeServerWithMCPServers(t *testing.T, servers ...*mcpv1alpha1.MCPSer
 			Dynamic:   dynamicfake.NewSimpleDynamicClient(scheme, objects...),
 			Clientset: kubernetesfake.NewSimpleClientset(),
 		},
-	}
-}
-
-func TestRuntimeServerApplyNonAdminRejectsSharedCatalogNamespace(t *testing.T) {
-	server := &RuntimeServer{
-		k8sClients: &k8sclient.Clients{
-			Dynamic:   dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()),
-			Clientset: kubernetesfake.NewSimpleClientset(),
-		},
-	}
-	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
-		"name": "demo",
-		"namespace": "mcp-servers",
-		"spec": {"image":"registry.example.com/core/demo"}
-	}`)))
-	request = request.WithContext(withPrincipal(request.Context(), principal{
-		Role:      roleUser,
-		Subject:   "user-1",
-		Namespace: "mcp-team-core",
-		AllowedNamespaces: []string{
-			"mcp-team-core",
-			sharedCatalogNamespace,
-		},
-	}))
-	recorder := httptest.NewRecorder()
-	server.HandleRuntimeServers(recorder, request)
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -2243,7 +2215,7 @@ func TestScopedNamespaceForPrincipal(t *testing.T) {
 	if err != nil || got != "user-1" {
 		t.Fatalf("scoped namespace explicit = %q err=%v, want user-1 nil", got, err)
 	}
-	if _, err := server.Access().scopedNamespaceForPrincipal(userCtx, "mcp-servers"); err == nil {
+	if _, err := server.Access().scopedNamespaceForPrincipal(userCtx, "mcp-team-other"); err == nil {
 		t.Fatal("expected forbidden namespace error")
 	}
 }
@@ -2274,7 +2246,7 @@ func TestRuntimeGrantApplyRejectsNormalUserInPersonalNamespace(t *testing.T) {
 		Namespace: "user-1",
 		AllowedNamespaces: []string{
 			"user-1",
-			sharedCatalogNamespace,
+			defaultOrgCatalogNamespace,
 		},
 	}))
 	server.Access().handleRuntimeGrantApply(recorder, request)
@@ -2574,7 +2546,7 @@ func TestRuntimeGrantApplyNonAdminRejectsSharedCatalogNamespace(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/grants", bytes.NewReader([]byte(`{
 		"name": "grant-shared",
-		"namespace": "mcp-servers",
+		"namespace": "mcp-servers-org",
 		"serverRef": {"name": "demo"},
 		"subject": {"humanID": "user-1"},
 		"allowedSideEffects": ["read"],
@@ -2586,7 +2558,7 @@ func TestRuntimeGrantApplyNonAdminRejectsSharedCatalogNamespace(t *testing.T) {
 		Namespace: "mcp-team-core",
 		AllowedNamespaces: []string{
 			"mcp-team-core",
-			sharedCatalogNamespace,
+			defaultOrgCatalogNamespace,
 		},
 	}))
 	server.Access().handleRuntimeGrantApply(recorder, request)
@@ -2981,8 +2953,8 @@ func TestActionRestartRejectsNonPost(t *testing.T) {
 func TestRuntimeGrantDeleteMapsNotFound(t *testing.T) {
 	server := &RuntimeServer{accessMgr: newTestAccessManager(t)}
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodDelete, "/api/runtime/grants/mcp-servers/missing", nil)
-	server.Access().handleGrantDelete(recorder, request, "mcp-servers", "missing")
+	request := httptest.NewRequest(http.MethodDelete, "/api/runtime/grants/mcp-servers-org/missing", nil)
+	server.Access().handleGrantDelete(recorder, request, "mcp-servers-org", "missing")
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
 	}
@@ -3052,8 +3024,8 @@ func TestRuntimeGrantDeleteAllowsNamespaceOwnerWithStaleServerRef(t *testing.T) 
 func TestRuntimeSessionDeleteMapsNotFound(t *testing.T) {
 	server := &RuntimeServer{accessMgr: newTestAccessManager(t)}
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodDelete, "/api/runtime/sessions/mcp-servers/missing", nil)
-	server.Access().handleSessionDelete(recorder, request, "mcp-servers", "missing")
+	request := httptest.NewRequest(http.MethodDelete, "/api/runtime/sessions/mcp-servers-org/missing", nil)
+	server.Access().handleSessionDelete(recorder, request, "mcp-servers-org", "missing")
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
 	}
@@ -3268,7 +3240,7 @@ func TestRuntimeGrantApplyPreservesOmittedDisabled(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/grants", bytes.NewReader([]byte(`{
 		"name": "grant-new",
-		"namespace": "mcp-servers",
+		"namespace": "mcp-servers-org",
 		"serverRef": {"name": "demo"},
 		"subject": {"humanID": "user-1"},
 		"allowedSideEffects": ["read"],
@@ -3280,7 +3252,7 @@ func TestRuntimeGrantApplyPreservesOmittedDisabled(t *testing.T) {
 	}
 
 	if _, err := accessMgr.ApplyGrant(ctx, &k8sstore.MCPAccessGrant{
-		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers-org"},
 		Spec: mcpaccess.MCPAccessGrantSpec{
 			ServerRef: mcpaccess.ServerReference{Name: "demo"},
 			Subject:   mcpaccess.SubjectRef{HumanID: "user-1"},
@@ -3294,7 +3266,7 @@ func TestRuntimeGrantApplyPreservesOmittedDisabled(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodPost, "/api/runtime/grants", bytes.NewReader([]byte(`{
 		"name": "grant-a",
-		"namespace": "mcp-servers",
+		"namespace": "mcp-servers-org",
 		"serverRef": {"name": "demo"},
 		"subject": {"humanID": "user-1"},
 		"allowedSideEffects": ["read"],
@@ -3304,7 +3276,7 @@ func TestRuntimeGrantApplyPreservesOmittedDisabled(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
-	grant, err := accessMgr.GetGrant(ctx, "grant-a", "mcp-servers")
+	grant, err := accessMgr.GetGrant(ctx, "grant-a", "mcp-servers-org")
 	if err != nil {
 		t.Fatalf("get grant: %v", err)
 	}
@@ -3315,7 +3287,7 @@ func TestRuntimeGrantApplyPreservesOmittedDisabled(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodPost, "/api/runtime/grants", bytes.NewReader([]byte(`{
 		"name": "grant-a",
-		"namespace": "mcp-servers",
+		"namespace": "mcp-servers-org",
 		"serverRef": {"name": "demo"},
 		"subject": {"humanID": "user-1"},
 		"allowedSideEffects": ["read"],
@@ -3326,7 +3298,7 @@ func TestRuntimeGrantApplyPreservesOmittedDisabled(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
-	grant, err = accessMgr.GetGrant(ctx, "grant-a", "mcp-servers")
+	grant, err = accessMgr.GetGrant(ctx, "grant-a", "mcp-servers-org")
 	if err != nil {
 		t.Fatalf("get grant after explicit false: %v", err)
 	}
@@ -3343,7 +3315,7 @@ func TestRuntimeSessionApplyPreservesOmittedRevoked(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/sessions", bytes.NewReader([]byte(`{
 		"name": "session-new",
-		"namespace": "mcp-servers",
+		"namespace": "mcp-servers-org",
 		"serverRef": {"name": "demo"},
 		"subject": {"humanID": "user-1"},
 		"consentedTrust": "low"
@@ -3354,7 +3326,7 @@ func TestRuntimeSessionApplyPreservesOmittedRevoked(t *testing.T) {
 	}
 
 	if _, err := accessMgr.ApplySession(ctx, &k8sstore.MCPAgentSession{
-		ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "session-a", Namespace: "mcp-servers-org"},
 		Spec: mcpaccess.MCPAgentSessionSpec{
 			ServerRef:      mcpaccess.ServerReference{Name: "demo"},
 			Subject:        mcpaccess.SubjectRef{HumanID: "user-1"},
@@ -3368,7 +3340,7 @@ func TestRuntimeSessionApplyPreservesOmittedRevoked(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodPost, "/api/runtime/sessions", bytes.NewReader([]byte(`{
 		"name": "session-a",
-		"namespace": "mcp-servers",
+		"namespace": "mcp-servers-org",
 		"serverRef": {"name": "demo"},
 		"subject": {"humanID": "user-1"},
 		"consentedTrust": "medium"
@@ -3377,7 +3349,7 @@ func TestRuntimeSessionApplyPreservesOmittedRevoked(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
-	session, err := accessMgr.GetSession(ctx, "session-a", "mcp-servers")
+	session, err := accessMgr.GetSession(ctx, "session-a", "mcp-servers-org")
 	if err != nil {
 		t.Fatalf("get session: %v", err)
 	}
@@ -3388,7 +3360,7 @@ func TestRuntimeSessionApplyPreservesOmittedRevoked(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodPost, "/api/runtime/sessions", bytes.NewReader([]byte(`{
 		"name": "session-a",
-		"namespace": "mcp-servers",
+		"namespace": "mcp-servers-org",
 		"serverRef": {"name": "demo"},
 		"subject": {"humanID": "user-1"},
 		"consentedTrust": "medium",
@@ -3398,7 +3370,7 @@ func TestRuntimeSessionApplyPreservesOmittedRevoked(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
-	session, err = accessMgr.GetSession(ctx, "session-a", "mcp-servers")
+	session, err = accessMgr.GetSession(ctx, "session-a", "mcp-servers-org")
 	if err != nil {
 		t.Fatalf("get session after explicit false: %v", err)
 	}

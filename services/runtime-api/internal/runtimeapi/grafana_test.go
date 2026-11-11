@@ -18,11 +18,11 @@ func grafanaTestBody(expr string) string {
 
 func TestTenantGrafanaQueryBoundary(t *testing.T) {
 	t.Setenv("GRAFANA_SCOPED_USER_ACCESS", "true")
-	owned := ownedTestMCPServer("demo", "mcp-servers", "alice")
-	foreign := ownedTestMCPServer("foreign", "mcp-servers", "bob")
+	owned := ownedTestMCPServer("demo", "mcp-servers-org", "alice")
+	foreign := ownedTestMCPServer("foreign", "mcp-servers-org", "bob")
 	team := ownedTestMCPServer("team", "mcp-team-acme", "bob")
 	server := newRuntimeServerWithMCPServers(t, owned, foreign, team)
-	p := principal{Role: roleUser, Subject: "alice", Namespace: "alice", AllowedNamespaces: []string{"alice", "mcp-servers", "mcp-team-acme"}, Teams: []principalTeam{{Namespace: "mcp-team-acme", Role: "member"}}}
+	p := principal{Role: roleUser, Subject: "alice", Namespace: "alice", AllowedNamespaces: []string{"alice", "mcp-servers-org", "mcp-team-acme"}, Teams: []principalTeam{{Namespace: "mcp-team-acme", Role: "member"}}}
 	queries := scopedPrometheusQueries(owned.Namespace, owned.Name, string(owned.UID))
 	foreignQuery := scopedPrometheusQueries(foreign.Namespace, foreign.Name, string(foreign.UID))[0].Query
 	teamQuery := scopedPrometheusQueries(team.Namespace, team.Name, string(team.UID))[0].Query
@@ -117,7 +117,7 @@ func TestTenantGrafanaQueryBoundary(t *testing.T) {
 
 func TestTenantGrafanaRejectsAlternateDataRoutes(t *testing.T) {
 	t.Setenv("GRAFANA_SCOPED_USER_ACCESS", "true")
-	server := newRuntimeServerWithMCPServers(t, ownedTestMCPServer("demo", "mcp-servers", "alice"))
+	server := newRuntimeServerWithMCPServers(t, ownedTestMCPServer("demo", "mcp-servers-org", "alice"))
 	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("alternate data route reached shared Grafana") }))
 	defer upstream.Close()
 	t.Setenv("GRAFANA_UPSTREAM", upstream.URL)
@@ -144,14 +144,14 @@ func TestTenantGrafanaRejectsAlternateDataRoutes(t *testing.T) {
 
 func TestGrafanaRechecksOwnershipAndAdminAccess(t *testing.T) {
 	t.Setenv("GRAFANA_SCOPED_USER_ACCESS", "true")
-	owned := ownedTestMCPServer("demo", "mcp-servers", "alice")
+	owned := ownedTestMCPServer("demo", "mcp-servers-org", "alice")
 	query := scopedPrometheusQueries(owned.Namespace, owned.Name, string(owned.UID))[0].Query
 	server := newRuntimeServerWithMCPServers(t, owned)
 	// A subsequent request resolves the live MCPServer after ownership changes.
 	owned.Labels[platformUserIDLabel] = "bob"
 	server = newRuntimeServerWithMCPServers(t, owned)
 	r := httptest.NewRequest("POST", "/api/v1/runtime/observability/grafana/api/ds/query", strings.NewReader(grafanaTestBody(query)))
-	r = r.WithContext(withPrincipal(r.Context(), principal{Role: roleUser, Subject: "alice", AllowedNamespaces: []string{"mcp-servers"}}))
+	r = r.WithContext(withPrincipal(r.Context(), principal{Role: roleUser, Subject: "alice", AllowedNamespaces: []string{"mcp-servers-org"}}))
 	w := httptest.NewRecorder()
 	server.HandleRuntimeGrafana(w, r)
 	if w.Code != 403 {
@@ -179,7 +179,7 @@ func TestTenantGrafanaAuxiliaryFeedsNeverQueryGlobalStores(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("tenant auxiliary feed reached global Grafana data") }))
 	defer upstream.Close()
 	t.Setenv("GRAFANA_UPSTREAM", upstream.URL)
-	target := ownedTestMCPServer("demo", "mcp-servers", "alice")
+	target := ownedTestMCPServer("demo", "mcp-servers-org", "alice")
 	server := newRuntimeServerWithMCPServers(t, target)
 	for _, suffix := range []string{
 		"/api/prometheus/grafana/api/v1/rules", "/api/datasources/uid/prometheus/resources/api/v1/rules",
@@ -209,7 +209,7 @@ func TestTenantGrafanaAuxiliaryFeedsNeverQueryGlobalStores(t *testing.T) {
 				r = httptest.NewRequest(method, path, strings.NewReader(values.Encode()))
 				r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			}
-			r = r.WithContext(withPrincipal(r.Context(), principal{Role: roleUser, Subject: "alice", AllowedNamespaces: []string{"mcp-servers"}}))
+			r = r.WithContext(withPrincipal(r.Context(), principal{Role: roleUser, Subject: "alice", AllowedNamespaces: []string{"mcp-servers-org"}}))
 			w := httptest.NewRecorder()
 			server.HandleRuntimeGrafana(w, r)
 			want := 403

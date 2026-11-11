@@ -49,11 +49,11 @@ identity_diagnostic_case() (
   local fixture_exit="$1" fixture_message="$2"
   BIN=identity_fixture_cli
   identity_fixture_cli() {
-    [[ "$*" == 'cluster identity status --server mcp-servers/fixture' ]] || return 97
+    [[ "$*" == 'cluster identity status --server mcp-servers-org/fixture' ]] || return 97
     printf '%s\n' "${fixture_message}" 'Remedy: reconcile workload trust'
     return "${fixture_exit}"
   }
-  staging_identity_expect_failure mcp-servers/fixture 'workload CA expires within 30 days' "${TMP}/identity-output"
+  staging_identity_expect_failure mcp-servers-org/fixture 'workload CA expires within 30 days' "${TMP}/identity-output"
 )
 identity_cleanup_case() (
   local cleanup_status="$1" original_status="$2"
@@ -97,21 +97,21 @@ adapter_pull_scope_case() (
   PLATFORM_URL=https://platform.e2e.mcpruntime.org
   BIN=fake_registry_cli
   fake_registry_cli() {
-    [[ "${MCP_PLATFORM_API_PROFILE}" == e2e && "$*" == 'registry enable-auth --realm https://platform.e2e.mcpruntime.org/api/v1/registry/token --pull-namespace mcp-servers --allow-bundled-broker' ]] || return 1
+    [[ "${MCP_PLATFORM_API_PROFILE}" == e2e && "$*" == 'registry enable-auth --realm https://platform.e2e.mcpruntime.org/api/v1/registry/token --pull-namespace mcp-servers-org --allow-bundled-broker' ]] || return 1
     printf 'rotate\n' >>"${calls}"
   }
   kubectl() {
     case "$*" in
-      '-n mcp-servers get deploy fixture'|'-n mcp-servers get deploy other') return 0 ;;
-      '-n mcp-servers get secret mcp-runtime-registry-pull -o json')
+      '-n mcp-servers-org get deploy fixture'|'-n mcp-servers-org get deploy other') return 0 ;;
+      '-n mcp-servers-org get secret mcp-runtime-registry-pull -o json')
         [[ "$(cat "${calls}")" == rotate ]] || return 1
         printf '{"apiVersion":"v1","kind":"Secret","type":"kubernetes.io/dockerconfigjson","data":{}}'
         ;;
-      'apply -f -') jq -e '.metadata.namespace == "mcp-servers" and .metadata.name == "fixture-pull"' >/dev/null ;;
+      'apply -f -') jq -e '.metadata.namespace == "mcp-servers-org" and .metadata.name == "fixture-pull"' >/dev/null ;;
       *) return 1 ;;
     esac
   }
-  staging_adapter_provision_pull mcp-servers fixture-pull fixture other
+  staging_adapter_provision_pull mcp-servers-org fixture-pull fixture other
 )
 expect_ok "adapter fixture rotates and copies its own namespace credential" adapter_pull_scope_case
 
@@ -367,10 +367,10 @@ adapter_env() {
   )
 }
 expect_eq "adapter certificates enabled with the workload issuer" \
-  "$(adapter_env E2E_MTLS_CLUSTER_ISSUER=mcp-runtime-ca)" "true|e2e.mcpruntime.org|mcp-servers"
+  "$(adapter_env E2E_MTLS_CLUSTER_ISSUER=mcp-runtime-ca)" "true|e2e.mcpruntime.org|mcp-platform"
 expect_eq "adapter certificates honor an explicit trust domain" \
   "$(adapter_env E2E_MTLS_CLUSTER_ISSUER=mcp-runtime-ca E2E_ADAPTER_TRUST_DOMAIN=staging.example.test)" \
-  "true|staging.example.test|mcp-servers"
+  "true|staging.example.test|mcp-platform"
 expect_eq "adapter certificates off without a workload issuer" \
   "$(adapter_env E2E_MTLS_CLUSTER_ISSUER= MCP_ADAPTER_CERTIFICATES=true)" "||"
 expect_eq "adapter certificates opt-out" \

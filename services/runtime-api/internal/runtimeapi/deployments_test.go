@@ -230,10 +230,10 @@ func TestEnsureDefaultDenyNetworkPolicyAllowsPlatformEgress(t *testing.T) {
 
 func TestEnsureDefaultDenyNetworkPolicyAllowsRegistryEgress(t *testing.T) {
 	client := kubernetesfake.NewSimpleClientset()
-	if err := k8sprovision.EnsureDefaultDenyNetworkPolicy(context.Background(), client, "mcp-servers"); err != nil {
+	if err := k8sprovision.EnsureDefaultDenyNetworkPolicy(context.Background(), client, "mcp-servers-org"); err != nil {
 		t.Fatalf("k8sprovision.EnsureDefaultDenyNetworkPolicy() error = %v", err)
 	}
-	policy, err := client.NetworkingV1().NetworkPolicies("mcp-servers").Get(context.Background(), "platform-default-deny", metav1.GetOptions{})
+	policy, err := client.NetworkingV1().NetworkPolicies("mcp-servers-org").Get(context.Background(), "platform-default-deny", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get networkpolicy: %v", err)
 	}
@@ -258,10 +258,10 @@ func TestEnsureDefaultDenyNetworkPolicyAllowsSameNamespaceIngress(t *testing.T) 
 
 func TestEnsureDefaultDenyNetworkPolicyAllowsSameNamespaceEgress(t *testing.T) {
 	client := kubernetesfake.NewSimpleClientset()
-	if err := k8sprovision.EnsureDefaultDenyNetworkPolicy(context.Background(), client, "mcp-servers"); err != nil {
+	if err := k8sprovision.EnsureDefaultDenyNetworkPolicy(context.Background(), client, "mcp-servers-org"); err != nil {
 		t.Fatalf("k8sprovision.EnsureDefaultDenyNetworkPolicy() error = %v", err)
 	}
-	policy, err := client.NetworkingV1().NetworkPolicies("mcp-servers").Get(context.Background(), "platform-default-deny", metav1.GetOptions{})
+	policy, err := client.NetworkingV1().NetworkPolicies("mcp-servers-org").Get(context.Background(), "platform-default-deny", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get networkpolicy: %v", err)
 	}
@@ -389,7 +389,7 @@ func TestHandleDeploymentApplyAdminUsesRequestedNamespace(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/deployments", bytes.NewReader([]byte(`{
 		"name": "demo-workload",
-		"image": "registry.mcpruntime.org/mcp-servers/demo:latest",
+		"image": "registry.mcpruntime.org/mcp-servers-org/demo:latest",
 		"namespace": "tenant-a",
 		"replicas": 1,
 		"port": 8088
@@ -554,7 +554,7 @@ func TestHandleDeploymentApplyRejectsInvalidVersionTag(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/deployments", bytes.NewReader([]byte(`{
 		"name": "demo-workload",
-		"image": "registry.mcpruntime.org/mcp-servers/demo",
+		"image": "registry.mcpruntime.org/mcp-servers-org/demo",
 		"version": "latest@sha256:abc",
 		"namespace": "tenant-a",
 		"replicas": 1,
@@ -808,7 +808,7 @@ func TestEnsureTeamNamespaceConfiguresTraefikIngressWatch(t *testing.T) {
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "registry"}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-platform"}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-observability"}},
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers-org"}},
 		&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{Name: "traefik", Namespace: "traefik"},
 			Spec: appsv1.DeploymentSpec{
@@ -818,7 +818,7 @@ func TestEnsureTeamNamespaceConfiguresTraefikIngressWatch(t *testing.T) {
 							Name: "traefik",
 							Args: []string{
 								"--providers.kubernetesingress=true",
-								"--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers",
+								"--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers-org",
 							},
 						}},
 					},
@@ -865,7 +865,7 @@ func TestEnsureTeamNamespaceConfiguresTraefikIngressWatch(t *testing.T) {
 		t.Fatalf("traefik deployment missing: %v", err)
 	}
 	args := strings.Join(deployment.Spec.Template.Spec.Containers[0].Args, "\n")
-	if !strings.Contains(args, "--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers,mcp-team-acme") {
+	if !strings.Contains(args, "--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers-org,mcp-team-acme") {
 		t.Fatalf("traefik namespace args = %q", args)
 	}
 }

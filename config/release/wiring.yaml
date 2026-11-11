@@ -27,8 +27,6 @@ platformObjects:
   - ClusterRole/mcp-runtime-operator-managed-secrets
   - ClusterRole/mcp-runtime-operator-managed-workloads
   - ClusterRoleBinding/mcp-runtime-operator-rolebinding
-  - RoleBinding/mcp-servers/mcp-runtime-operator-managed-secrets
-  - RoleBinding/mcp-servers/mcp-runtime-operator-managed-workloads
   - Role/mcp-platform/mcp-runtime-operator-bundled-auth
   - RoleBinding/mcp-platform/mcp-runtime-operator-bundled-auth
   - ServiceAccount/mcp-observability/mcp-ingest

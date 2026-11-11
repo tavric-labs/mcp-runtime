@@ -34,7 +34,7 @@ func TestLoadFromFile(t *testing.T) {
 						Route:     "/test-server/mcp",
 						Port:      8088,
 						Replicas:  int32Ptr(1),
-						Namespace: "mcp-servers",
+						Namespace: "mcp-servers-org",
 					},
 					{
 						Name:        "custom-server",
@@ -217,7 +217,7 @@ func TestSetDefaults(t *testing.T) {
 				Route:     "/test-server/mcp",
 				Port:      8088,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers",
+				Namespace: "mcp-servers-org",
 			},
 		},
 		{
@@ -229,7 +229,7 @@ func TestSetDefaults(t *testing.T) {
 				Route:     "/test-server/mcp",
 				Port:      8088,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers",
+				Namespace: "mcp-servers-org",
 			},
 			want: &ServerMetadata{
 				Name:      "test-server",
@@ -238,7 +238,7 @@ func TestSetDefaults(t *testing.T) {
 				Route:     "/test-server/mcp",
 				Port:      8088,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers",
+				Namespace: "mcp-servers-org",
 			},
 		},
 		{
@@ -278,7 +278,7 @@ func TestSetDefaults(t *testing.T) {
 				Route:     "/gateway-server/mcp",
 				Port:      9090,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers",
+				Namespace: "mcp-servers-org",
 				Gateway: &GatewayConfig{
 					Enabled:     boolPtr(true),
 					Port:        8091,

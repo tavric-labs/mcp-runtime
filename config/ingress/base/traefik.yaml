@@ -26,15 +26,6 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: mcp-servers
-  labels:
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/warn: restricted
----
-apiVersion: v1
-kind: Namespace
-metadata:
   name: mcp-servers-org
   labels:
     pod-security.kubernetes.io/enforce: restricted
@@ -193,39 +184,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: traefik-watch
-  namespace: mcp-servers
-rules:
-  - apiGroups: [""]
-    resources: ["services", "endpoints", "secrets", "configmaps"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["discovery.k8s.io"]
-    resources: ["endpointslices"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["get"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses"]
-    verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: traefik-watch
-  namespace: mcp-servers
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: traefik-watch
-subjects:
-  - kind: ServiceAccount
-    name: traefik
-    namespace: traefik
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: traefik-watch
   namespace: mcp-servers-org
 rules:
   - apiGroups: [""]
@@ -306,9 +264,9 @@ spec:
               - ALL
         args:
           - --providers.kubernetesingress=true
-          - --providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers,mcp-servers-org
+          - --providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers-org
           - --providers.kubernetescrd=true
-          - --providers.kubernetescrd.namespaces=registry,mcp-platform,mcp-observability,mcp-servers,mcp-servers-org
+          - --providers.kubernetescrd.namespaces=registry,mcp-platform,mcp-observability,mcp-servers-org
           - --entrypoints.web.address=:8000
           - --entrypoints.web.forwardedHeaders.insecure=false
           - --entrypoints.web.http.redirections.entryPoint.to=websecure

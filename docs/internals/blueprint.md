@@ -53,7 +53,7 @@ Defaulting currently fills:
 - route shape when route is absent
 - default port `8088`
 - one replica
-- namespace `mcp-servers`
+- namespace `mcp-servers-org`
 
 Default image host resolution is environment-aware and lives in `pkg/topology`.
 `topology.ResolveRegistryHost`, `ResolveRegistryEndpoint`, `ResolveMcpIngressHost`,

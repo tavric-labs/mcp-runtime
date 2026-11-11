@@ -17,7 +17,7 @@ import (
 
 func mtlsServer() *mcpv1alpha1.MCPServer {
 	return &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "secure-server", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "secure-server", Namespace: "mcp-servers-org"},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Image:       "example.com/secure-server",
 			ServicePort: 80,
@@ -111,10 +111,10 @@ func TestReconcileMTLSTrustBundle(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("scheme: %v", err)
 	}
-	bundleKey := types.NamespacedName{Name: "secure-server-mtls-ca", Namespace: "mcp-servers"}
+	bundleKey := types.NamespacedName{Name: "secure-server-mtls-ca", Namespace: "mcp-servers-org"}
 	gatewaySecret := func() *corev1.Secret {
 		return &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: "secure-server-gateway-mtls", Namespace: "mcp-servers"},
+			ObjectMeta: metav1.ObjectMeta{Name: "secure-server-gateway-mtls", Namespace: "mcp-servers-org"},
 			Data:       map[string][]byte{"ca.crt": []byte("CA-PEM"), "tls.crt": []byte("LEAF"), "tls.key": []byte("KEY")},
 		}
 	}

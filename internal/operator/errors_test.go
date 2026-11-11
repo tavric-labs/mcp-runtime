@@ -80,7 +80,7 @@ func TestErrors_LogOperatorError(t *testing.T) {
 		err := errx.Operator("Failed to reconcile Deployment").
 			WithContextMap(map[string]any{
 				"mcpServer": "my-server",
-				"namespace": "mcp-servers",
+				"namespace": "mcp-servers-org",
 				"resource":  "deployment",
 			})
 
@@ -105,7 +105,7 @@ func TestErrors_LogOperatorError(t *testing.T) {
 		assert.Equal(t, errx.DescOperator, getValue(kv, "error.category"), "error.category should match")
 		assert.Equal(t, "Failed to reconcile Deployment", getValue(kv, "error.message"), "error.message should match")
 		assert.Equal(t, "my-server", getValue(kv, "error.context.mcpServer"), "context.mcpServer should match")
-		assert.Equal(t, "mcp-servers", getValue(kv, "error.context.namespace"), "context.namespace should match")
+		assert.Equal(t, "mcp-servers-org", getValue(kv, "error.context.namespace"), "context.namespace should match")
 		assert.Equal(t, "deployment", getValue(kv, "error.context.resource"), "context.resource should match")
 	})
 

@@ -13,13 +13,11 @@ import (
 	"mcp-runtime/pkg/envcfg"
 	"mcp-runtime/pkg/httpx"
 	"mcp-runtime/pkg/passport"
-	"mcp-runtime/pkg/topology"
 )
 
 const (
 	roleAdmin               = passport.RoleAdmin
 	roleUser                = passport.RoleUser
-	sharedCatalogNamespace  = topology.MCPServersNamespace
 	teamNamespacePrefix     = "mcp-team-"
 	teamRoleOwner           = "owner"
 	teamRoleMember          = "member"

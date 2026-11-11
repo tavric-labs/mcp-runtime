@@ -6,7 +6,7 @@ Usage:
 Flags:
       --client string      Client config: claude, cursor, vscode, or json (default "json")
   -h, --help               help for connect-config
-      --namespace string   Namespace (default "mcp-servers")
+      --namespace string   Namespace (default "mcp-servers-org")
   -o, --output string      Output format: text, json, or yaml (default "text")
 
 Global Flags:

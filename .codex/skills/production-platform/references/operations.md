@@ -350,7 +350,7 @@ Gotchas seen on real runs:
   issued, so the previous snapshot was kept on purpose.
 - `adapter-enrollment` needs the opt-in adapter-certificate platform feature:
   the runner exports `MCP_ADAPTER_CERTIFICATES=true`, `MCP_TRUST_DOMAIN`, and
-  `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-servers` before setup and the
+  `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-platform` before setup and the
   stage enrolls on a gateway-enabled MCPServer. OAuth is optional and is
   enabled only when `spec.auth` is present; adapter PKI is platform-wide. On failure, open the
   stage's `adapter-enrollment/` evidence directory first.

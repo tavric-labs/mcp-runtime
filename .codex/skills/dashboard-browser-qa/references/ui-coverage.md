@@ -232,8 +232,8 @@ Cross-check current inventory metrics:
 
 ```bash
 ./bin/mcp-runtime server list
-./bin/mcp-runtime access grant list --namespace mcp-servers
-./bin/mcp-runtime access session list --namespace mcp-servers
+./bin/mcp-runtime access grant list --namespace mcp-servers-org
+./bin/mcp-runtime access session list --namespace mcp-servers-org
 ```
 
 If dashboard metrics are historical rather than current, the UI label must make

@@ -15,7 +15,7 @@ func TestSignVerifySingleAudience(t *testing.T) {
 		Subject:           "user-1",
 		Email:             "user@example.com",
 		Namespace:         "team-a",
-		AllowedNamespaces: []string{"team-a", "mcp-servers"},
+		AllowedNamespaces: []string{"team-a", "mcp-servers-org"},
 		Teams:             []PrincipalTeam{{ID: "team-1", Slug: "a", Name: "A", Namespace: "team-a", Role: "owner"}},
 		AuthType:          "platform_jwt",
 	}
@@ -29,7 +29,7 @@ func TestSignVerifySingleAudience(t *testing.T) {
 			t.Fatalf("Verify(%q): %v", audience, err)
 		}
 		got := ToPrincipal(claims)
-		if got.Subject != want.Subject || got.Email != want.Email || got.TeamRole("a") != "owner" || !got.HasNamespace("mcp-servers") {
+		if got.Subject != want.Subject || got.Email != want.Email || got.TeamRole("a") != "owner" || !got.HasNamespace("mcp-servers-org") {
 			t.Fatalf("principal mismatch: %#v", got)
 		}
 	}

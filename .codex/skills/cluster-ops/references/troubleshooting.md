@@ -87,7 +87,7 @@ When a server is deployed but grants, policy, or analytics look wrong:
 ```bash
 SERVER=oauth-example-go-2025-11-25-gateway
 CONTAINER=oauth-example-go-2025-11-25-gateway
-NS=mcp-servers
+NS=mcp-servers-org
 
 kubectl get mcpservers -n "$NS"
 POD="$(kubectl get pods -n "$NS" -l app="$SERVER" -o jsonpath='{.items[0].metadata.name}')"

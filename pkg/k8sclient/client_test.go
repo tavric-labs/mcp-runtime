@@ -45,14 +45,14 @@ func TestBuildKubeconfigUsesKubeconfigEnvPathList(t *testing.T) {
 
 func TestBuildKubeconfigReturnsCurrentContextNamespace(t *testing.T) {
 	dir := t.TempDir()
-	path := writeTestKubeconfigWithNamespace(t, dir, "namespaced.yaml", "https://ns.example.com", "mcp-servers")
+	path := writeTestKubeconfigWithNamespace(t, dir, "namespaced.yaml", "https://ns.example.com", "mcp-servers-org")
 
 	_, namespace, err := buildKubeconfig(path)
 	if err != nil {
 		t.Fatalf("buildKubeconfig() error = %v", err)
 	}
-	if namespace != "mcp-servers" {
-		t.Fatalf("namespace = %q, want mcp-servers", namespace)
+	if namespace != "mcp-servers-org" {
+		t.Fatalf("namespace = %q, want mcp-servers-org", namespace)
 	}
 }
 
@@ -70,9 +70,9 @@ func TestNewFromConfigRejectsNil(t *testing.T) {
 }
 
 func TestEnvNamespaceTrimsWhitespace(t *testing.T) {
-	t.Setenv("NAMESPACE", "  mcp-servers  ")
-	if got := envNamespace(); got != "mcp-servers" {
-		t.Fatalf("envNamespace() = %q, want %q", got, "mcp-servers")
+	t.Setenv("NAMESPACE", "  mcp-servers-org  ")
+	if got := envNamespace(); got != "mcp-servers-org" {
+		t.Fatalf("envNamespace() = %q, want %q", got, "mcp-servers-org")
 	}
 }
 

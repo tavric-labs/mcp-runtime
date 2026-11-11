@@ -2,13 +2,13 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAgentSession
 metadata:
     name: example-rust-agent-session
-    namespace: mcp-servers
+    namespace: mcp-servers-org
 spec:
     consentedTrust: low
     policyVersion: v1
     serverRef:
         name: example-rust-2025-11-25-gateway
-        namespace: mcp-servers
+        namespace: mcp-servers-org
     subject:
         agentID: example-agent
         humanID: example-human

@@ -10,7 +10,7 @@ import (
 
 func gatewayDeploymentJSON(sa, audience string) string {
 	return fmt.Sprintf(`{"items":[{
-  "metadata":{"namespace":"mcp-servers","name":"cully"},
+  "metadata":{"namespace":"mcp-servers-org","name":"cully"},
   "spec":{"template":{"spec":{
     "serviceAccountName":%q,
     "containers":[{"name":"mcp-gateway",
@@ -71,7 +71,7 @@ func TestCheckGatewayAnalyticsDelivery(t *testing.T) {
 	})
 	t.Run("401s fail with the offending server", func(t *testing.T) {
 		check := run("2026/10/13 gateway analytics emission failed with status 401 to http://ingest/events\n")
-		if check.OK || !strings.Contains(check.Detail, "mcp-servers/cully") || !strings.Contains(check.Detail, "unauthorized") {
+		if check.OK || !strings.Contains(check.Detail, "mcp-servers-org/cully") || !strings.Contains(check.Detail, "unauthorized") {
 			t.Fatalf("got ok=%v detail=%q", check.OK, check.Detail)
 		}
 	})

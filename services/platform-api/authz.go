@@ -40,14 +40,13 @@ type auditWriter interface {
 }
 
 const (
-	sharedCatalogNamespace = platformstore.SharedCatalogNamespace
-	teamNamespacePrefix    = platformstore.TeamNamespacePrefix
-	teamRoleOwner          = platformstore.TeamRoleOwner
-	teamRoleMember         = platformstore.TeamRoleMember
-	namespaceScopeUser     = platformstore.NamespaceScopeUser
-	namespaceScopeTeam     = platformstore.NamespaceScopeTeam
-	oidcProviderPrefix     = platformstore.OIDCProviderPrefix
-	accessApplyMaxBytes    = apikit.ApplyMaxBytes
+	teamNamespacePrefix = platformstore.TeamNamespacePrefix
+	teamRoleOwner       = platformstore.TeamRoleOwner
+	teamRoleMember      = platformstore.TeamRoleMember
+	namespaceScopeUser  = platformstore.NamespaceScopeUser
+	namespaceScopeTeam  = platformstore.NamespaceScopeTeam
+	oidcProviderPrefix  = platformstore.OIDCProviderPrefix
+	accessApplyMaxBytes = apikit.ApplyMaxBytes
 )
 
 func newPlatformStore(ctx context.Context, dsn string, signer passport.Signer, verifier passport.Verifier) (*platformStore, error) {

@@ -8,7 +8,7 @@ import (
 func TestValidateAcceptsWellFormedDocument(t *testing.T) {
 	doc := &Document{
 		SchemaVersion: SchemaVersion,
-		Server:        Server{Name: "demo", Namespace: "mcp-servers"},
+		Server:        Server{Name: "demo", Namespace: "mcp-servers-org"},
 		Auth:          &Auth{IssuerURL: "https://issuer.example.com", Audience: "https://resource.example.com/mcp"},
 		Policy:        &Config{Mode: "allow-list", DefaultDecision: "deny"},
 		Tools: []Tool{
@@ -135,7 +135,7 @@ func TestStampRequiresMonitorGrantSchemaVersion(t *testing.T) {
 
 func TestValidateAcceptsAdapterTrustWithoutOAuth(t *testing.T) {
 	doc := &Document{
-		Server: Server{Name: "demo", Namespace: "mcp-servers"},
+		Server: Server{Name: "demo", Namespace: "mcp-servers-org"},
 		Auth:   &Auth{TrustDomain: "example.org"},
 	}
 	if err := Stamp(doc, ""); err != nil {
@@ -154,7 +154,7 @@ func TestValidateNilDocument(t *testing.T) {
 
 func grantExpiryTestDocument(expiresAt string) *Document {
 	return &Document{
-		Server: Server{Name: "demo", Namespace: "mcp-servers"},
+		Server: Server{Name: "demo", Namespace: "mcp-servers-org"},
 		Policy: &Config{Mode: "allow-list", DefaultDecision: "deny"},
 		Tools:  []Tool{{Name: "read-file", RequiredTrust: "low", SideEffect: "read"}},
 		Grants: []Grant{{

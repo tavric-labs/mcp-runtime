@@ -389,7 +389,7 @@ running. Credential values and request payloads are never included.
 
 In explicit direct Kubernetes mode, use
 `server list --use-kube --namespace mcp-team-acme`. This requires operator
-Kubernetes access, defaults to `mcp-servers` when no namespace is supplied, and
+Kubernetes access, defaults to `mcp-servers-org` when no namespace is supplied, and
 does not support `--team`.
 
 ```bash

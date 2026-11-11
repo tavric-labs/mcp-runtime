@@ -7,9 +7,9 @@ run_e2e_port_transition_scenario() {
   }
   local directory="${WORKDIR}/port-transition" old_port candidate_port deadline gateway_image
   mkdir -p "${directory}"
-  kubectl get mcpserver "${SERVER_NAME}" -n mcp-servers -o json >"${directory}/original.json"
-  kubectl get service "${SERVER_NAME}" -n mcp-servers -o json >"${directory}/service-before.json"
-  kubectl get deployment "${SERVER_NAME}" -n mcp-servers -o json >"${directory}/deployment-before.json"
+  kubectl get mcpserver "${SERVER_NAME}" -n mcp-servers-org -o json >"${directory}/original.json"
+  kubectl get service "${SERVER_NAME}" -n mcp-servers-org -o json >"${directory}/service-before.json"
+  kubectl get deployment "${SERVER_NAME}" -n mcp-servers-org -o json >"${directory}/deployment-before.json"
   old_port="$(jq -r '.spec.ports[0].targetPort' "${directory}/service-before.json")"
   # Use a port outside the retired static Traefik egress list (#618). The
   # operator must open Traefik egress for it through the per-server policy.
@@ -23,7 +23,7 @@ run_e2e_port_transition_scenario() {
   ./bin/mcp-runtime server --use-kube apply --file "${directory}/broken.json"
   deadline=$((SECONDS + 120))
   while true; do
-    kubectl get mcpserver "${SERVER_NAME}" -n mcp-servers -o json >"${directory}/status.json"
+    kubectl get mcpserver "${SERVER_NAME}" -n mcp-servers-org -o json >"${directory}/status.json"
     if jq -e '.metadata.generation as $g | any(.status.conditions[]?; .type=="DeploymentReady" and .status=="False" and .observedGeneration==$g)' "${directory}/status.json" >/dev/null; then break; fi
     ((SECONDS < deadline)) || { echo '[port-transition] broken candidate was not reported pending' >&2; return 1; }
     sleep 2
@@ -49,7 +49,7 @@ run_e2e_port_transition_scenario() {
   ./bin/mcp-runtime server --use-kube apply --file "${directory}/fixed.json"
   deadline=$((SECONDS + 180))
   while true; do
-    kubectl get mcpserver "${SERVER_NAME}" -n mcp-servers -o json >"${directory}/repaired-status.json"
+    kubectl get mcpserver "${SERVER_NAME}" -n mcp-servers-org -o json >"${directory}/repaired-status.json"
     if jq -e --arg image "${gateway_image}" \
       '.metadata.generation as $generation | .spec.gateway.image == $image and (.status.conditions // [] | any(.type=="DeploymentReady" and .status=="True" and .observedGeneration==$generation))' \
       "${directory}/repaired-status.json" >/dev/null; then
@@ -62,7 +62,7 @@ run_e2e_port_transition_scenario() {
     }
     sleep 2
   done
-  while [[ "$(kubectl get service "${SERVER_NAME}" -n mcp-servers -o jsonpath='{.spec.ports[0].targetPort}')" != "${candidate_port}" ]]; do
+  while [[ "$(kubectl get service "${SERVER_NAME}" -n mcp-servers-org -o jsonpath='{.spec.ports[0].targetPort}')" != "${candidate_port}" ]]; do
     ((SECONDS < deadline)) || { echo '[port-transition] ready candidate was not promoted' >&2; return 1; }
     sleep 2
   done
@@ -75,7 +75,7 @@ run_e2e_port_transition_scenario() {
     "${directory}/original.json" >"${directory}/restore.json"
   ./bin/mcp-runtime server --use-kube apply --file "${directory}/restore.json"
   deadline=$((SECONDS + 180))
-  while [[ "$(kubectl get service "${SERVER_NAME}" -n mcp-servers -o jsonpath='{.spec.ports[0].targetPort}')" != "${old_port}" ]]; do
+  while [[ "$(kubectl get service "${SERVER_NAME}" -n mcp-servers-org -o jsonpath='{.spec.ports[0].targetPort}')" != "${old_port}" ]]; do
     ((SECONDS < deadline)) || { echo '[port-transition] original route was not restored' >&2; return 1; }
     sleep 2
   done
@@ -84,22 +84,22 @@ run_e2e_port_transition_scenario() {
 port_transition_capture_route() {
   local directory="$1"
   mkdir -p "${directory}"
-  kubectl get service "${SERVER_NAME}" -n mcp-servers -o json >"${directory}/service.json" || true
-  kubectl get endpointslice -n mcp-servers -l "kubernetes.io/service-name=${SERVER_NAME}" -o json >"${directory}/endpointslices.json" || true
+  kubectl get service "${SERVER_NAME}" -n mcp-servers-org -o json >"${directory}/service.json" || true
+  kubectl get endpointslice -n mcp-servers-org -l "kubernetes.io/service-name=${SERVER_NAME}" -o json >"${directory}/endpointslices.json" || true
   e2e_diag_capture "workloads" "${directory}/pods.json" \
-    get deployment,replicaset,pod -n mcp-servers -l "app=${SERVER_NAME}" -o json
-  kubectl get networkpolicy "${SERVER_NAME}-mtls-gateway" -n mcp-servers -o json >"${directory}/networkpolicy.json" || true
-  kubectl get networkpolicy -n traefik -l "mcpruntime.org/component=traefik-egress,mcpruntime.org/server=${SERVER_NAME},mcpruntime.org/server-namespace=mcp-servers" -o json \
+    get deployment,replicaset,pod -n mcp-servers-org -l "app=${SERVER_NAME}" -o json
+  kubectl get networkpolicy "${SERVER_NAME}-mtls-gateway" -n mcp-servers-org -o json >"${directory}/networkpolicy.json" || true
+  kubectl get networkpolicy -n traefik -l "mcpruntime.org/component=traefik-egress,mcpruntime.org/server=${SERVER_NAME},mcpruntime.org/server-namespace=mcp-servers-org" -o json \
     >"${directory}/traefik-egress-networkpolicy.json" || true
   e2e_diag_capture "gateway-logs" "${directory}/gateway.log" \
-    logs -n mcp-servers -l "app=${SERVER_NAME}" -c mcp-gateway --prefix --since=10m --tail=100
+    logs -n mcp-servers-org -l "app=${SERVER_NAME}" -c mcp-gateway --prefix --since=10m --tail=100
   e2e_diag_capture "operator-logs" "${directory}/operator.log" \
     logs -n mcp-runtime deployment/mcp-runtime-operator-controller-manager --since=10m --tail=100
 }
 
 port_transition_assert_old_route() {
   local directory="$1"
-  kubectl get service "${SERVER_NAME}" -n mcp-servers -o json >"${directory}/service-current.json"
+  kubectl get service "${SERVER_NAME}" -n mcp-servers-org -o json >"${directory}/service-current.json"
   jq -e --slurpfile before "${directory}/service-before.json" \
     '.spec.ports == $before[0].spec.ports and .spec.selector == $before[0].spec.selector' \
     "${directory}/service-current.json" >/dev/null || {

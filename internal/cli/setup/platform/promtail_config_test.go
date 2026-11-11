@@ -270,7 +270,7 @@ func TestPromtailRelabelBuildsCRIPathAndWorkloadLabels(t *testing.T) {
 		{
 			name: "mcp server pod with operator app label",
 			meta: map[string]string{
-				"__meta_kubernetes_namespace":           "mcp-servers",
+				"__meta_kubernetes_namespace":           "mcp-servers-org",
 				"__meta_kubernetes_pod_name":            "buddy-7d9f8-abcde",
 				"__meta_kubernetes_pod_uid":             uid,
 				"__meta_kubernetes_pod_container_name":  "buddy",

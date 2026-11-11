@@ -120,7 +120,7 @@ func setDefaults(server *ServerMetadata) error {
 		if namespace, ok := topology.ScopeCatalogNamespace(scope); ok {
 			server.Namespace = namespace
 		} else {
-			server.Namespace = topology.MCPServersNamespace
+			server.Namespace = topology.DefaultServerNamespace
 		}
 	}
 	if server.Auth != nil && strings.EqualFold(strings.TrimSpace(server.Auth.Mode), identity.AuthModeHeader) {

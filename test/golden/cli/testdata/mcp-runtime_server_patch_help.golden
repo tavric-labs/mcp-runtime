@@ -5,7 +5,7 @@ Usage:
 
 Flags:
   -h, --help                help for patch
-      --namespace string    Namespace (default "mcp-servers")
+      --namespace string    Namespace (default "mcp-servers-org")
       --patch string        Inline JSON/YAML patch document
       --patch-file string   Path to a JSON/YAML patch document
       --type string         Patch type (merge|json|strategic) (default "merge")

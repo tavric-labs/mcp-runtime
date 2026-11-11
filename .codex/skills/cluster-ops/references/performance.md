@@ -107,7 +107,7 @@ are ready:
 
 ```bash
 export KUBECONFIG=/path/to/contributor-kubeconfig
-export PERF_SERVER_NAME=policy-mcp-server PERF_SERVER_NAMESPACE=mcp-servers
+export PERF_SERVER_NAME=policy-mcp-server PERF_SERVER_NAMESPACE=mcp-servers-org
 export PERF_GATEWAY_URL=http://127.0.0.1:18080/policy-mcp-server/mcp
 export PERF_DIRECT_URL=http://127.0.0.1:18095/mcp
 export PERF_AUTH_LABEL=same-enrolled-adapter-fixture

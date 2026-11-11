@@ -17,7 +17,7 @@ func newCacheTestServer(policyFile string) *gatewayServer {
 	return &gatewayServer{
 		policyFile:            policyFile,
 		serverName:            "demo",
-		serverNamespace:       "mcp-servers",
+		serverNamespace:       "mcp-servers-org",
 		defaultPolicyMode:     defaultPolicyMode,
 		defaultPolicyDecision: defaultPolicyDecision,
 		defaultPolicyVersion:  defaultPolicyVersion,
@@ -28,7 +28,7 @@ func newCacheTestServer(policyFile string) *gatewayServer {
 func writeStampedPolicy(t *testing.T, path string, mutate func(*policypkg.Document)) *policypkg.Document {
 	t.Helper()
 	doc := &policypkg.Document{
-		Server: policypkg.Server{Name: "demo", Namespace: "mcp-servers"},
+		Server: policypkg.Server{Name: "demo", Namespace: "mcp-servers-org"},
 		Policy: &policypkg.Config{Mode: "allow-list", DefaultDecision: "deny", PolicyVersion: "v1"},
 	}
 	if mutate != nil {

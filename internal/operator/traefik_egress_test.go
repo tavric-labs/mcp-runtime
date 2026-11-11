@@ -44,7 +44,7 @@ func traefikDefaultDeny(namespace string) *networkingv1.NetworkPolicy {
 
 func egressTestServer(port int32) *mcpv1alpha1.MCPServer {
 	return &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "mcp-servers-org"},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Port: 8088, ServicePort: 80,
 			Gateway: &mcpv1alpha1.GatewayConfig{Enabled: mcpv1alpha1.BoolPtr(true), Port: port},
@@ -104,13 +104,13 @@ func TestTraefikEgressAllowsServerPortOutsideStaticList(t *testing.T) {
 		t.Fatalf("want one narrow peer: %+v", policy.Spec.Egress)
 	}
 	peer := policy.Spec.Egress[0].To[0]
-	if peer.NamespaceSelector == nil || peer.NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"] != "mcp-servers" {
+	if peer.NamespaceSelector == nil || peer.NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"] != "mcp-servers-org" {
 		t.Fatalf("peer namespace selector = %+v", peer.NamespaceSelector)
 	}
 	if peer.PodSelector == nil || peer.PodSelector.MatchLabels[LabelApp] != "demo" || len(peer.PodSelector.MatchLabels) != 1 {
 		t.Fatalf("peer pod selector = %+v", peer.PodSelector)
 	}
-	if policy.Labels[labelServerName] != "demo" || policy.Labels[labelServerNamespace] != "mcp-servers" || policy.Labels[LabelManagedBy] != LabelManagedByValue {
+	if policy.Labels[labelServerName] != "demo" || policy.Labels[labelServerNamespace] != "mcp-servers-org" || policy.Labels[LabelManagedBy] != LabelManagedByValue {
 		t.Fatalf("policy labels = %v", policy.Labels)
 	}
 	if len(policy.OwnerReferences) != 0 {
@@ -321,7 +321,7 @@ func TestRequestsForTraefikEgressPolicy(t *testing.T) {
 	if got := r.requestsForTraefikEgressPolicy(ctx, traefikDefaultDeny("traefik")); len(got) != 2 {
 		t.Fatalf("Traefik namespace policy change must enqueue every server, got %v", got)
 	}
-	if got := r.requestsForTraefikEgressPolicy(ctx, traefikDefaultDeny("mcp-servers")); len(got) != 0 {
+	if got := r.requestsForTraefikEgressPolicy(ctx, traefikDefaultDeny("mcp-servers-org")); len(got) != 0 {
 		t.Fatalf("unrelated namespace policy must not enqueue servers, got %v", got)
 	}
 }

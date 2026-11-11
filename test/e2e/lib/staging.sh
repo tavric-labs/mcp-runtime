@@ -557,7 +557,7 @@ staging_finish() {
 # ---------------------------------------------------------------------------
 
 staging_platform_namespaces() {
-  printf '%s\n' mcp-runtime mcp-platform mcp-observability mcp-log-collector registry cert-manager mcp-servers traefik kube-system
+  printf '%s\n' mcp-runtime mcp-platform mcp-observability mcp-log-collector registry cert-manager mcp-servers-org traefik kube-system
 }
 
 # Collect the logs of EVERY pod a deployment owns. `kubectl logs deploy/<name>`
@@ -688,8 +688,8 @@ staging_failed_checks() {
 # E2E_DIAGNOSTICS_ACCEPTED (a |-separated list; empty = strict).
 #   - "platform OIDC configuration": org mode wants Google/OIDC login, and the
 #     staging VM has no identity provider unless E2E_WITH_MCP_AUTH/OIDC is set.
-#   - "mcp-servers image pull smoke" / "MCPServer reconcile smoke": the doctor
-#     smoke pod in mcp-servers pulls from the auth-protected public registry
+#   - "server namespace image pull smoke" / "MCPServer reconcile smoke": the doctor
+#     smoke pod in mcp-servers-org pulls from the auth-protected public registry
 #     before any managed deploy has provisioned the mcp-workload pull secret, so
 #     the pull is refused (no basic auth credentials). Tracked as a product
 #     finding; tenant pulls are asserted by the image-pulls and multitenancy
@@ -711,7 +711,7 @@ staging_check_release_profile() {
 }
 
 staging_default_accepted_checks() {
-  local accepted="mcp-servers image pull smoke|MCPServer reconcile smoke"
+  local accepted="server namespace image pull smoke|MCPServer reconcile smoke"
   if [[ -z "${OIDC_ISSUER:-}${GOOGLE_CLIENT_ID:-}${MCP_GOOGLE_CLIENT_ID:-}" ]] &&
     ! staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}"; then
     accepted+="|platform OIDC configuration"
@@ -1456,7 +1456,7 @@ staging_check_oidc() {
 # never requires, a client certificate. Omitting MCPServer.spec.auth keeps
 # OAuth off (cert-only); setting spec.auth enables OAuth + optional cert.
 # Setup reads these from the environment.
-STAGING_ADAPTER_TLS_NAMESPACE_DEFAULT="mcp-servers"
+STAGING_ADAPTER_TLS_NAMESPACE_DEFAULT="mcp-platform"
 
 # The SPIFFE trust domain is a name, not a DNS lookup; default it to the
 # disposable suffix so staging identities never look like production ones.
@@ -1915,7 +1915,7 @@ staging_check_adapter_enrollment() {
     image_tag="${image##*:}"
   fi
 
-  local ns=mcp-servers
+  local ns=mcp-servers-org
   # A tenant service account must not bypass the runtime API's session checks
   # by submitting its own CertificateRequest to the workload issuer.
   local sa decision

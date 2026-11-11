@@ -32,7 +32,7 @@ use HTTP, Kafka, ClickHouse, Postgres, or local files.
 | **platform-api** | Postgres-backed. Its Kubernetes access is narrow: TokenReview and read-only `get` on Pods, ReplicaSets, Deployments, MCPServers and MCPAccessGrants to authenticate gateway workloads, and reads of credential-source resources for the credential connector. It creates and changes no cluster resources. | Identity, auth, registry forwardAuth, admin namespaces/audit, `/internal/*` for runtime-api and analytics-api. | User API keys are hashed in Postgres; `k8s/08-platform-api-rbac.yaml` grants no Secret creation and no user-key Secret access. |
 | **runtime-api** | Kubernetes-aware via `pkg/k8sclient`. | MCPServer reconciliation helpers, grants/sessions, deployments, registry push (pod-local emptyDir + `POD_IP`). Broad ClusterRole in `k8s/08-runtime-api-rbac.yaml`. | Main privileged API for cluster mutations. NetworkPolicy egress to platform-api:8080 in `k8s/22-split-api-networkpolicy.yaml`. |
 | **analytics-api** | ClickHouse-only; `automountServiceAccountToken: false`. | Events, stats, usage queries; resolves display names via platform-api `/internal/*`. | No Kubernetes RBAC. NetworkPolicy egress to platform-api:8080. |
-| **gateway** | Kubernetes-aware Traefik ingress controller. | Watches Ingress, Service, Endpoint, Secret, and IngressClass resources for the namespaces it serves. The shared ingress overlays watch `registry`, `mcp-platform`, `mcp-observability`, `mcp-log-collector`, `mcp-servers`, and `mcp-servers-org`. | Keep watched namespaces explicit, avoid cluster-wide ingress watches unless required, route Grafana through the platform session and runtime query boundary, do not expose Prometheus directly on public hosts, and keep redaction middleware limited to routes that need it. |
+| **gateway** | Kubernetes-aware Traefik ingress controller. | Watches Ingress, Service, Endpoint, Secret, and IngressClass resources for the namespaces it serves. The shared ingress overlays watch `registry`, `mcp-platform`, `mcp-observability`, `mcp-log-collector`, `mcp-servers-org` and the org catalog. | Keep watched namespaces explicit, avoid cluster-wide ingress watches unless required, route Grafana through the platform session and runtime query boundary, do not expose Prometheus directly on public hosts, and keep redaction middleware limited to routes that need it. |
 | **mcp-gateway** | Kubernetes-integrated but Kubernetes API-agnostic. It is injected into MCP server pods and reads operator-rendered policy from mounted files and env vars. | Does not need a Kubernetes client or API access. It forwards MCP traffic to the local server container and emits audit events to ingest, authenticating with a short-lived projected ServiceAccount token (audience `mcp-ingest`) that ingest validates via TokenReview. | Keep `automountServiceAccountToken: false`, read-only policy mounts, `readOnlyRootFilesystem`, dropped capabilities, and non-root execution. The projected token is only valid for ingest; ingest accepts it only from a Pod-bound `mcp-workload` token and derives the audit server, namespace and MCPServer UID from the Pod's UID-checked ReplicaSet, Deployment and MCPServer controller chain. Events whose `server`, `namespace` or `server_uid` disagree are rejected with `403 attribution_mismatch`; absent fields are filled from the verified identity. An optional `ANALYTICS_API_KEY` is ingest-scoped, not an admin API key. |
 | **ui** | Kubernetes API-agnostic. | Serves the browser UI and proxies allowlisted read-only `GET /api/ui/v1/*` dashboard paths to runtime-api (`RUNTIME_UPSTREAM`) or analytics-api (`ANALYTICS_UPSTREAM`) using the server-held UI session credential. Login still uses `API_UPSTREAM` against platform-api. All other `/api/v1/*` traffic stays on Traefik split-API ingress. | Keep it behind TLS for public hosts, retain the security headers in `services/ui`, set `UI_REQUIRE_HTTPS=false` for deliberate local HTTP or a secured external TLS terminator, set `UI_FORCE_SECURE_COOKIE=true` when a TLS-terminating proxy does not send `X-Forwarded-Proto: https`, and do not grant it Kubernetes RBAC. The shipped Deployment runs two replicas with `UI_SESSION_STORE=postgres`. Session rows live in the shared `ui_sessions` table, encrypted with `UI_SESSION_ENCRYPTION_KEY` from `mcp-ui-credentials`. Rotating that key forces re-login. The gateway does not hold the cookie, so it can scale with the UI. |
 | **ingest** | Uses the Kubernetes TokenReview API and read-only `get` on Pods, ReplicaSets, Deployments and MCPServers when projected-token authentication is configured. | Authenticates `/events`, validates request size and event shape, and writes to Kafka. | Require `INGEST_API_KEYS`, complete OIDC authentication, or `INGEST_SA_TOKEN_AUDIENCE`; startup refuses an unconfigured authentication boundary. Use ingest-only keys, restrict network access to proxy/gateway callers, and keep the public `/ingest` route off production hosts unless intentionally exposed. |
@@ -759,7 +759,7 @@ Event intake body:
   "event_type": "mcp.request",
   "payload": {
     "server": "payments",
-    "namespace": "mcp-servers",
+    "namespace": "mcp-servers-org",
     "team_id": "7d0a0b8f-7c25-4761-a632-3cf0108e31d6",
     "subject_team_id": "7d0a0b8f-7c25-4761-a632-3cf0108e31d6",
     "decision": "deny",
@@ -848,7 +848,7 @@ authorized principals. `access session init|apply` matches the UI for
 
 For platform API writes, grants and sessions must reference a server in the same
 namespace as the access resource. Non-admin callers cannot write access
-resources into the shared `mcp-servers` catalog namespace. Team namespace writes
+resources into a namespace they are not authorized for. Team namespace writes
 default and validate server `spec.teamID` against the authenticated principal
 namespace. Grant/session writes default missing `subject.teamID` from the
 referenced server team, while preserving an explicit foreign `subject.teamID`
@@ -863,14 +863,14 @@ The operator renders a per-server policy ConfigMap
 (`<server>-gateway-policy`) holding only the grants and sessions whose
 `serverRef` points at that server. The `mcp-gateway` sidecar evaluates
 traffic against that policy alone. To verify isolation end-to-end, deploy two
-gateway-enabled servers in `mcp-servers` and grant disjoint subjects on each.
+gateway-enabled servers in `mcp-servers-org` and grant disjoint subjects on each.
 
 Apply two `MCPServer` resources (same image is fine, different `metadata.name` and `publicPathPrefix`) with `gateway.enabled: true`, OAuth settings under `auth`, `policy.mode: allow-list`, `session.required: true`, and tool inventory entries that declare `sideEffect`. Then apply two grant + session pairs:
 
 ```yaml
 apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
-metadata: {name: alice-server-a, namespace: mcp-servers}
+metadata: {name: alice-server-a, namespace: mcp-servers-org}
 spec:
   serverRef: {name: server-a-mcp}
   subject:   {humanID: alice, agentID: agt_01arz3ndektsv4rrffq69g5fav}
@@ -885,8 +885,8 @@ Confirm each server's policy contains only its own subject (after
 `mcp-runtime auth login --api-url <platform-url>`):
 
 ```bash
-mcp-runtime server policy inspect server-a-mcp --namespace mcp-servers   # alice only
-mcp-runtime server policy inspect server-b-mcp --namespace mcp-servers   # bob only
+mcp-runtime server policy inspect server-a-mcp --namespace mcp-servers-org   # alice only
+mcp-runtime server policy inspect server-b-mcp --namespace mcp-servers-org   # bob only
 ```
 
 Drive the cross-server matrix using OAuth tokens carrying the matching subject,

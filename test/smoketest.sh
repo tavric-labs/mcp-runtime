@@ -3,7 +3,7 @@ set -euo pipefail
 
 PLATFORM_NAMESPACE=${PLATFORM_NAMESPACE:-mcp-platform}
 OBSERVABILITY_NAMESPACE=${OBSERVABILITY_NAMESPACE:-mcp-observability}
-SERVERS_NAMESPACE=${SERVERS_NAMESPACE:-mcp-servers}
+SERVERS_NAMESPACE=${SERVERS_NAMESPACE:-mcp-servers-org}
 GATEWAY_PORT=${GATEWAY_PORT:-8083}
 API_KEY=${API_KEY:-changeme}
 REQ_START=${REQ_START:-20}
@@ -324,7 +324,7 @@ except Exception as exc:
     rows.append(("traces.error", str(exc)))
 
 try:
-    query = '{namespace=~"mcp-platform|mcp-observability|mcp-servers"}'
+    query = '{namespace=~"mcp-platform|mcp-observability|mcp-servers-org"}'
     end_ns = int(time.time() * 1e9)
     start_ns = end_ns - int(10 * 60 * 1e9)
     params = urllib.parse.urlencode({

@@ -11,14 +11,12 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"mcp-analytics-api/internal/identity"
 	"mcp-runtime/pkg/passport"
-	"mcp-runtime/pkg/topology"
 )
 
 const (
-	sharedCatalogNamespace = topology.MCPServersNamespace
-	defaultWindowDays      = 30
-	maxWindowDays          = 365
-	teamIDExpression       = "JSONExtractString(payload, 'team_id')"
+	defaultWindowDays = 30
+	maxWindowDays     = 365
+	teamIDExpression  = "JSONExtractString(payload, 'team_id')"
 )
 
 type Service struct {
@@ -204,7 +202,7 @@ func PrincipalOwnedScope(p passport.Principal) PrincipalScope {
 	var scope PrincipalScope
 	addNamespace := func(namespace string) {
 		namespace = strings.TrimSpace(namespace)
-		if namespace == "" || namespace == sharedCatalogNamespace {
+		if namespace == "" {
 			return
 		}
 		scope.Namespaces = append(scope.Namespaces, namespace)
@@ -226,7 +224,7 @@ func PrincipalOwnedScope(p passport.Principal) PrincipalScope {
 
 func principalScopeForNamespace(p passport.Principal, namespace string) (PrincipalScope, bool) {
 	namespace = strings.TrimSpace(namespace)
-	if namespace == "" || namespace == sharedCatalogNamespace {
+	if namespace == "" {
 		return PrincipalScope{}, false
 	}
 	if strings.TrimSpace(p.Namespace) == namespace {

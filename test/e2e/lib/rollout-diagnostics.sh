@@ -242,7 +242,7 @@ e2e_collect_setup_diagnostics() {
 # names the symptom, and the backend error is written by the service.
 E2E_DIAG_POD_LOG_NAMESPACES=(
   mcp-runtime mcp-platform mcp-observability mcp-log-collector
-  registry traefik cert-manager mcp-servers mcp-servers-org
+  registry traefik cert-manager mcp-servers-org
 )
 E2E_DIAG_MAX_PODS_PER_NAMESPACE=30
 # Total time for pod log collection; with the API server down every call waits
@@ -322,7 +322,7 @@ rollout_status_with_logs() {
 
 wait_for_named_server_ready() {
   local server_name="$1"
-  local namespace="${2:-mcp-servers}"
+  local namespace="${2:-mcp-servers-org}"
   local tries="${3:-60}"
   local i deployment_ready service_ready ingress_ready phase
   for ((i = 0; i < tries; i++)); do

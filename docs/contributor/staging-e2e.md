@@ -184,7 +184,7 @@ Setup then runs with
 on gateway MCPServer routes (OAuth optional), so the runner also exports
 `MCP_ADAPTER_CERTIFICATES=true`, `MCP_TRUST_DOMAIN` (default
 `e2e.mcpruntime.org`; override with `E2E_ADAPTER_TRUST_DOMAIN`), and
-`MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-servers` before setup. Path routes
+`MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-platform` before setup. Path routes
 share `mcp.e2e.mcpruntime.org`, so the operator keeps one Traefik `default`
 TLSOption in that namespace that requests, but never requires, a client
 certificate. The adapter-enrollment stage always proves cert-only HTTPS

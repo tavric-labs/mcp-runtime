@@ -50,7 +50,7 @@ grant_name = f"{server_name}-grant"
 oauth_public_base = f"http://{oauth_server_host}"
 server_mcp_path = f"/{server_name}/mcp"
 oauth_mcp_path = f"/{oauth_server_name}/mcp"
-catalog_namespace = "mcp-servers"
+catalog_namespace = "mcp-servers-org"
 test_user_password = "test-password-123"
 
 
@@ -337,8 +337,8 @@ bad_grant_body = expect_status(
     headers=auth_headers,
     body={
         "name": f"{server_name}-e2e-bad-grant",
-        "namespace": "mcp-servers",
-        "serverRef": {"name": not_a_server, "namespace": "mcp-servers"},
+        "namespace": "mcp-servers-org",
+        "serverRef": {"name": not_a_server, "namespace": "mcp-servers-org"},
         "subject": {"humanID": human_id, "agentID": agent_id},
         "maxTrust": "low",
         "allowedSideEffects": ["read"],
@@ -357,8 +357,8 @@ bad_grant_side_effect_body = expect_status(
     headers=auth_headers,
     body={
         "name": f"{server_name}-e2e-bad-side-effect-grant",
-        "namespace": "mcp-servers",
-        "serverRef": {"name": server_name, "namespace": "mcp-servers"},
+        "namespace": "mcp-servers-org",
+        "serverRef": {"name": server_name, "namespace": "mcp-servers-org"},
         "subject": {"humanID": human_id, "agentID": agent_id},
         "maxTrust": "low",
         "toolRules": [{"name": "add", "decision": "allow", "requiredTrust": "low"}],
@@ -376,8 +376,8 @@ bad_session_body = expect_status(
     headers=auth_headers,
     body={
         "name": f"{server_name}-e2e-bad-session",
-        "namespace": "mcp-servers",
-        "serverRef": {"name": not_a_server, "namespace": "mcp-servers"},
+        "namespace": "mcp-servers-org",
+        "serverRef": {"name": not_a_server, "namespace": "mcp-servers-org"},
         "subject": {"humanID": human_id, "agentID": agent_id},
         "consentedTrust": "low",
     },
@@ -395,8 +395,8 @@ created_grant = expect_json(
     headers=auth_headers,
     body={
         "name": api_runtime_grant,
-        "namespace": "mcp-servers",
-        "serverRef": {"name": server_name, "namespace": "mcp-servers"},
+        "namespace": "mcp-servers-org",
+        "serverRef": {"name": server_name, "namespace": "mcp-servers-org"},
         "subject": {"humanID": human_id, "agentID": agent_id},
         "maxTrust": "low",
         "allowedSideEffects": ["read"],
@@ -414,8 +414,8 @@ created_session = expect_json(
     headers=auth_headers,
     body={
         "name": api_runtime_session,
-        "namespace": "mcp-servers",
-        "serverRef": {"name": server_name, "namespace": "mcp-servers"},
+        "namespace": "mcp-servers-org",
+        "serverRef": {"name": server_name, "namespace": "mcp-servers-org"},
         "subject": {"humanID": human_id, "agentID": agent_id},
         "consentedTrust": "low",
     },
@@ -449,7 +449,7 @@ check(
     f"runtime components missing expected keys: {components}",
 )
 policy = expect_json(
-    f"{api_base}/api/v1/runtime/policy?namespace=mcp-servers&server={urllib.parse.quote(server_name)}",
+    f"{api_base}/api/v1/runtime/policy?namespace=mcp-servers-org&server={urllib.parse.quote(server_name)}",
     headers=auth_headers,
 )
 check(
@@ -460,7 +460,7 @@ check(
 
 # Runtime mutation paths through the API.
 disable = expect_json(
-    f"{api_base}/api/v1/runtime/grants/mcp-servers/{urllib.parse.quote(grant_name)}",
+    f"{api_base}/api/v1/runtime/grants/mcp-servers-org/{urllib.parse.quote(grant_name)}",
     method="PATCH",
     headers=auth_headers,
     body={"disabled": True},
@@ -471,7 +471,7 @@ check(
     f"grant disable response unexpected: {disable}",
 )
 enable = expect_json(
-    f"{api_base}/api/v1/runtime/grants/mcp-servers/{urllib.parse.quote(grant_name)}",
+    f"{api_base}/api/v1/runtime/grants/mcp-servers-org/{urllib.parse.quote(grant_name)}",
     method="PATCH",
     headers=auth_headers,
     body={"disabled": False},
@@ -482,7 +482,7 @@ check(
     f"grant enable response unexpected: {enable}",
 )
 revoke = expect_json(
-    f"{api_base}/api/v1/runtime/sessions/mcp-servers/{urllib.parse.quote(session_id)}",
+    f"{api_base}/api/v1/runtime/sessions/mcp-servers-org/{urllib.parse.quote(session_id)}",
     method="PATCH",
     headers=auth_headers,
     body={"revoked": True},
@@ -493,7 +493,7 @@ check(
     f"session revoke response unexpected: {revoke}",
 )
 unrevoke = expect_json(
-    f"{api_base}/api/v1/runtime/sessions/mcp-servers/{urllib.parse.quote(session_id)}",
+    f"{api_base}/api/v1/runtime/sessions/mcp-servers-org/{urllib.parse.quote(session_id)}",
     method="PATCH",
     headers=auth_headers,
     body={"revoked": False},
@@ -814,7 +814,7 @@ if deep_request_flows:
     )
 
     server_item = expect_json(
-        f"{api_base}/api/v1/runtime/servers/mcp-servers/{quote_segment(server_name)}",
+        f"{api_base}/api/v1/runtime/servers/mcp-servers-org/{quote_segment(server_name)}",
         headers=auth_headers,
     )
     check(
@@ -823,7 +823,7 @@ if deep_request_flows:
         f"server item response: {server_item}",
     )
     server_events = expect_json(
-        f"{api_base}/api/v1/runtime/server-events?namespace=mcp-servers&server={urllib.parse.quote(server_name)}&limit=5",
+        f"{api_base}/api/v1/runtime/server-events?namespace=mcp-servers-org&server={urllib.parse.quote(server_name)}&limit=5",
         headers=auth_headers,
     )
     check(
@@ -839,7 +839,7 @@ if deep_request_flows:
         headers=admin_headers,
         body={
             "name": temp_server_name,
-            "namespace": "mcp-servers",
+            "namespace": "mcp-servers-org",
             "spec": {
                 "image": "docker.io/library/nginx:1.27-alpine",
                 "port": 8080,
@@ -857,37 +857,37 @@ if deep_request_flows:
         f"temporary server response: {temp_server}",
     )
     expect_json(
-        f"{api_base}/api/v1/runtime/servers/mcp-servers/{quote_segment(temp_server_name)}",
+        f"{api_base}/api/v1/runtime/servers/mcp-servers-org/{quote_segment(temp_server_name)}",
         headers=admin_headers,
     )
     expect_json(
-        f"{api_base}/api/v1/runtime/servers/mcp-servers/{quote_segment(temp_server_name)}",
+        f"{api_base}/api/v1/runtime/servers/mcp-servers-org/{quote_segment(temp_server_name)}",
         method="DELETE",
         headers=admin_headers,
     )
 
     expect_json(
-        f"{api_base}/api/v1/runtime/grants/mcp-servers/{quote_segment(api_runtime_grant)}",
+        f"{api_base}/api/v1/runtime/grants/mcp-servers-org/{quote_segment(api_runtime_grant)}",
         headers=auth_headers,
     )
     expect_json(
-        f"{api_base}/api/v1/runtime/sessions/mcp-servers/{quote_segment(api_runtime_session)}",
+        f"{api_base}/api/v1/runtime/sessions/mcp-servers-org/{quote_segment(api_runtime_session)}",
         headers=auth_headers,
     )
     expect_json(
-        f"{api_base}/api/v1/runtime/sessions/mcp-servers/{quote_segment(api_runtime_session)}",
+        f"{api_base}/api/v1/runtime/sessions/mcp-servers-org/{quote_segment(api_runtime_session)}",
         method="DELETE",
         headers=auth_headers,
     )
     expect_json(
-        f"{api_base}/api/v1/runtime/grants/mcp-servers/{quote_segment(api_runtime_grant)}",
+        f"{api_base}/api/v1/runtime/grants/mcp-servers-org/{quote_segment(api_runtime_grant)}",
         method="DELETE",
         headers=auth_headers,
     )
 
     deployment_name = f"e2e-deep-deploy-{suffix}"
     expect_json(
-        f"{api_base}/api/v1/deployments?namespace=mcp-servers", headers=admin_headers
+        f"{api_base}/api/v1/deployments?namespace=mcp-servers-org", headers=admin_headers
     )
     deployment = expect_json(
         f"{api_base}/api/v1/deployments",
@@ -895,7 +895,7 @@ if deep_request_flows:
         headers=admin_headers,
         body={
             "name": deployment_name,
-            "namespace": "mcp-servers",
+            "namespace": "mcp-servers-org",
             "image": "docker.io/library/nginx:1.27-alpine",
             "port": 8080,
             "replicas": 1,
@@ -907,11 +907,11 @@ if deep_request_flows:
         f"deployment response: {deployment}",
     )
     expect_json(
-        f"{api_base}/api/v1/admin/deployments?namespace=mcp-servers",
+        f"{api_base}/api/v1/admin/deployments?namespace=mcp-servers-org",
         headers=admin_headers,
     )
     expect_json(
-        f"{api_base}/api/v1/deployments/mcp-servers/{quote_segment(deployment_name)}",
+        f"{api_base}/api/v1/deployments/mcp-servers-org/{quote_segment(deployment_name)}",
         method="DELETE",
         headers=admin_headers,
     )
