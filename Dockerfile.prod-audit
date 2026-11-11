@@ -1,0 +1,16 @@
+FROM --platform=$BUILDPLATFORM golang:1.26.10 AS build
+ARG TARGETARCH
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY hack/prod-audit/cmd/server ./hack/prod-audit/cmd/server
+COPY hack/prod-audit/internal/fixture ./hack/prod-audit/internal/fixture
+COPY hack/prod-audit/internal/server ./hack/prod-audit/internal/server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -o /out/prod-audit ./hack/prod-audit/cmd/server
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/prod-audit /prod-audit
+USER 65532:65532
+ENV PROD_AUDIT_LISTEN=:8080
+EXPOSE 8080
+ENTRYPOINT ["/prod-audit"]

@@ -1,5 +1,4 @@
 """Behavioral checks for automation boundaries; all commands use isolated fake tools."""
-import contextlib
 import hashlib
 import importlib.util
 import json
@@ -8,9 +7,7 @@ import socket
 from pathlib import Path
 import subprocess
 import tempfile
-import threading
 import unittest
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,7 +22,6 @@ def module(path, name):
 
 snapshot = module('hack/deploy/reference/lib/verify-snapshot.py', 'snapshot')
 authz = module('hack/lib/authz-matrix.py', 'authz')
-calls = module('hack/deploy/acceptance/check-calls.py', 'calls')
 
 
 class Commands(unittest.TestCase):
@@ -264,7 +260,7 @@ class SnapshotTests(unittest.TestCase):
             for p in self.root.iterdir() if p.name not in {'SHA256SUMS', 'BACKUP_COMPLETE', 'FULL_BACKUP_COMPLETE'}))
 
     def test_valid_full_snapshot(self):
-        self.assertEqual(snapshot.verify(self.root, 'cluster-a', True), self.root)
+        self.assertEqual(snapshot.verify(self.root, 'cluster-a', True), self.root.resolve())
 
     def test_tls_snapshot_is_not_full_recovery(self):
         (self.root / 'FULL_BACKUP_COMPLETE').unlink()
@@ -312,60 +308,39 @@ class MatrixTests(unittest.TestCase):
         with patch.dict(os.environ, env), self.assertRaises(ValueError): authz.run('unused')
 
 
-@contextlib.contextmanager
-def rpc_server(allowed_code=200, denied_code=403, public_code=401, denied_reason='tool_not_granted'):
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, *_): pass
-        def do_POST(self):
-            request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
-            method = request['method']
-            code = public_code if self.path == '/public' else 200
-            payload = {'jsonrpc': '2.0', 'id': 1, 'result': {}}
-            if method == 'tools/call' and self.path != '/public':
-                if request['params']['name'] == 'aaa-ping':
-                    code = allowed_code
-                    payload['result'] = {'content': [{'type': 'text', 'text': 'pong'}]}
-                else:
-                    code = denied_code
-                    payload = {'error': denied_reason}
-                    if code == 200: payload = {'error': {'code': -32601, 'message': 'method not found'}}
-            self.send_response(code)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(payload).encode())
-    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
-    thread = threading.Thread(target=server.serve_forever)
-    thread.start()
-    try:
-        base = f'http://127.0.0.1:{server.server_port}'
-        yield base + '/adapter', base + '/public'
-    finally:
-        server.shutdown(); thread.join(); server.server_close()
+class HostedAuditWrapper(unittest.TestCase):
+    setUp = Commands.setUp
+    tool = Commands.tool
+    run_script = Commands.run_script
+    commands = Commands.commands
+    def test_delegates_configuration_and_preserves_failed_audit_exit(self):
+        self.tool('auditor', '''import os,json,sys
+with open(os.environ['COMMAND_LOG'],'a') as f:f.write(json.dumps(sys.argv[1:])+'\\n')
+sys.exit(17)
+''')
+        self.env.update(PROD_AUDIT_BIN=str(self.bin / 'auditor'),
+                        PROD_AUDIT_RUNTIME_CLI='/reviewed/cli', PROD_AUDIT_CONTEXT='explicit-prod',
+                        PROD_AUDIT_MANIFEST='/reviewed/manifest.json',
+                        RELEASE_TAG='v1.2.3', MCP_EXPECTED_CLUSTER_UID='cluster-a',
+                        MCP_AUTH_VERSION='0.9.1', RUNNER_TEMP=str(self.path))
+        result = self.run_script('hack/deploy/acceptance/post-deploy-check.sh')
+        self.assertEqual(result.returncode, 17, result.stderr)
+        commands = self.commands()
+        self.assertEqual(len(commands), 1)
+        args = commands[0]
+        for flag, value in {'--runtime-cli': '/reviewed/cli', '--context': 'explicit-prod',
+                            '--kubeconfig': self.env['KUBECONFIG'], '--expected-cluster-uid': 'cluster-a',
+                            '--release': 'v1.2.3', '--release-manifest': '/reviewed/manifest.json',
+                            '--mcp-auth-version': '0.9.1',
+                            '--report': str(self.path / 'post-deploy-audit.json')}.items():
+            self.assertEqual(args[args.index(flag) + 1], value)
+        self.assertIn('--cluster-login', args)
 
-
-class HostedAcceptance(unittest.TestCase):
-    def test_allowed_and_policy_denied_calls(self):
-        with rpc_server() as urls: calls.check(*urls, attempts=1, delay=0)
-
-    def test_enrollment_alone_cannot_pass_when_tool_identity_fails(self):
-        with rpc_server(allowed_code=403) as urls, self.assertRaises(ValueError):
-            calls.check(*urls, attempts=1, delay=0)
-
-    def test_expired_identity_is_not_an_ungranted_tool_denial(self):
-        with rpc_server(denied_reason='session_expired') as urls, self.assertRaises(ValueError):
-            calls.check(*urls, attempts=1, delay=0)
-
-    def test_server_crash_is_not_policy_denial(self):
-        with rpc_server(denied_code=500) as urls, self.assertRaises(ValueError):
-            calls.check(*urls, attempts=1, delay=0)
-
-    def test_protocol_error_is_not_policy_denial(self):
-        with rpc_server(denied_code=200) as urls, self.assertRaises(ValueError):
-            calls.check(*urls, attempts=1, delay=0)
-
-    def test_anonymous_success_fails(self):
-        with rpc_server(public_code=200) as urls, self.assertRaises(ValueError):
-            calls.check(*urls, attempts=1, delay=0)
+    def test_missing_auditor_stops_before_any_cluster_command(self):
+        self.env.pop('PROD_AUDIT_BIN', None)
+        result = self.run_script('hack/deploy/acceptance/post-deploy-check.sh')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.commands(), [])
 
 
 if __name__ == '__main__': unittest.main()

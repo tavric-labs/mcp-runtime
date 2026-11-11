@@ -118,7 +118,7 @@ with open(os.environ['COMMAND_LOG'],'a') as f: f.write(json.dumps(['backup', '--
 
     def test_deployment_shell_syntax_and_lint(self):
         source = WORKFLOW.read_text().split('      - name: Deploy and verify Runtime', 1)[1]
-        source = source.split('        run: |\n', 1)[1].split('\n  publish-live-version:', 1)[0]
+        source = source.split('        run: |\n', 1)[1].split('\n      - name:', 1)[0]
         script = self.root / 'deploy-step.sh'
         script.write_text('\n'.join(line[10:] for line in source.splitlines()) + '\n')
         subprocess.run(['/bin/bash', '-n', str(script)], check=True)

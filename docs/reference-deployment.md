@@ -845,7 +845,7 @@ Secrets and PVCs in place. It leaves MCP Auth on its current image unless an
 operator passes `mcp_auth_version` for a manual Auth upgrade. The workflow uses
 GitHub's `production` environment and
 updates the README's live-version badge only after platform health and a
-temporary `qa-audit-*` MCP server pass their post-deploy checks. Publishing a
+the persistent `prod-audit` fixture pass their post-deploy checks. Publishing a
 release never triggers the production deploy automatically.
 
 Verify the user path after rollout:
@@ -853,17 +853,21 @@ Verify the user path after rollout:
 1. Install the candidate CLI built from the selected Runtime ref and confirm
    `mcp-runtime --version` reports that commit. After release publication,
    verify the `releases/latest` binary download reports the release tag.
-2. Follow [Quickstart](hosted-quickstart.md) against
-   `https://platform.mcpruntime.org`: log in, build/push/deploy a temporary
-   `qa-audit-*` server, create a grant, and verify the adapter result matches
-   the configured identity mode. The hosted preview currently leaves adapter
-   identity verification off, so its allow-list call returns `missing_identity`.
-   Verify a successful governed call separately on the guarded staging target
-   with adapter certificates enabled.
-3. Check the signed-out platform page and signed-in role-gated UI with browser
-   evidence. Use only temporary `qa-audit-*` resources and clean them up.
-4. Verify `mcp-runtime status`, server listing, deployment readiness, and
-   `cluster doctor`; confirm the existing certificate resources remain Ready.
+2. Run [the shared production audit](prod-audit.md) through
+   the development auditor (`hack/prod-audit/cmd/postdeploy`). The hosted workflow builds the auditor CLI
+   from its immutable `github.workflow_sha`; deployment still uses the selected
+   release's CLI. All verification logic lives in `hack/prod-audit/internal/audit`.
+   The auditor verifies the cluster UID, release images, completed rollouts,
+   authorization metadata, registry denial and `cluster doctor`, then checks
+   allowed tools, explicit tool-policy and anonymous denials, temporary CRUD,
+   session revocation and cleanup. It writes a JSON evidence report.
+3. Check signed-out and signed-in role-gated UI surfaces and correlate fixture
+   events in **Analytics → Tools** with browser evidence. These checks are
+   separate from the automated report; record anything skipped as unverified.
+4. Use only `prod-audit` for synthetic MCP calls. Temporary grants, sessions,
+   agents and bounded records are cleaned up; historical audit records remain.
+   Preserve LinkedIn and Cully for real work. New-server build/push/deploy tests
+   run on isolated Kind/staging, never through extra production demo servers.
 
 Users access the same `https://platform.mcpruntime.org` URL after a platform
 rollout. They update the CLI separately from the GitHub Releases page. Until a

@@ -7,9 +7,15 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Added
+
+- The development auditor (`hack/prod-audit/cmd/postdeploy`) verifies a deployed release through the dedicated prod-audit MCP, including image pins, rollout completion, auth metadata, governed tool results, temporary writes, policy denial, session revocation and cleanup. The fixture checker exercises the same bounded MCP locally or through an adapter. The fixture, shared Go checks and audit skill ship in this repository.
+
 ### Changed
 
 - The bundled MCP Auth default image now lives in one file, `config/release/mcp-auth/Dockerfile`, which Dependabot bumps. The default moves from 0.9.0 to 0.9.1 (the release production runs: it fixes the client metadata document fetch for hosts that publish IPv6, and caches fetched documents); the flags are unchanged and it is never `latest`; the setup help, docs and deployment profile no longer repeat the version ([maintainer guide](docs/contributor/mcp-auth-pin.md)). No fresh setup is required.
+
+- Hosted post-deployment acceptance reuses the Runtime auditor from the immutable workflow revision and uploads its JSON report. It no longer publishes disposable production MCP servers or fetches duplicate verification logic from a moving `main`. LinkedIn and Cully remain real services; only prod-audit receives synthetic MCP calls. Isolated Kind/staging retain publishing coverage. Write tests require the CLI's explicit session-trust support.
 
 ## [0.17.0] - 2026-11-10
 
