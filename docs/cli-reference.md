@@ -604,6 +604,12 @@ identity headers are not supported.
 
 The platform issues certificates only when an enabled `MCPAccessGrant` matches the server, signed-in user, and agent. Apply the grant first with `access grant apply`.
 
+`adapter enroll` and automatic `adapter proxy` enrollment request low session
+trust by default. Pass `--requested-trust medium|high` (or set
+`MCP_RUNTIME_ADAPTER_REQUESTED_TRUST`) when the intended tool needs it. The
+platform caps the request at the applicable grant's maximum trust; the CLI
+never infers higher consent from a grant.
+
 Before creating a session, `adapter enroll` checks the operator's existing
 adapter-certificate choice, matching operator/API issuer and trust domain, issuer
 readiness, and the selected route's actual client-certificate TLSOption and

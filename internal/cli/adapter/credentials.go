@@ -29,6 +29,12 @@ type issuedCredential struct {
 // MCPServer, then signs a session-bound client certificate for it. Each call
 // produces a fresh keypair, so rotating callers never reuse private keys.
 func issueAdapterCredential(ctx context.Context, client *platformapi.PlatformClient, flags platformSessionFlags, trustDomain string) (issuedCredential, error) {
+	requestedTrust := strings.ToLower(strings.TrimSpace(flags.requestedTrust))
+	switch requestedTrust {
+	case "", "low", "medium", "high":
+	default:
+		return issuedCredential{}, fmt.Errorf("--requested-trust must be low, medium, or high")
+	}
 	trustDomain = strings.TrimSpace(trustDomain)
 	preflight, err := client.PreflightAdapter(ctx, platformapi.AdapterPreflightRequest{
 		ServerName: strings.TrimSpace(flags.server),
@@ -50,9 +56,10 @@ func issueAdapterCredential(ctx context.Context, client *platformapi.PlatformCli
 		return issuedCredential{}, fmt.Errorf("configured trust domain %q does not match platform trust domain %q", trustDomain, preflight.TrustDomain)
 	}
 	session, err := client.CreateAdapterSession(ctx, platformapi.AdapterSessionRequest{
-		ServerName: strings.TrimSpace(flags.server),
-		Namespace:  strings.TrimSpace(flags.namespace),
-		AgentID:    strings.TrimSpace(flags.agent),
+		ServerName:     strings.TrimSpace(flags.server),
+		Namespace:      strings.TrimSpace(flags.namespace),
+		AgentID:        strings.TrimSpace(flags.agent),
+		RequestedTrust: requestedTrust,
 	})
 	if err != nil {
 		return issuedCredential{}, fmt.Errorf("create adapter session: %w", err)
