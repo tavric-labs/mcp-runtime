@@ -1,0 +1,68 @@
+version: v1
+servers:
+    - name: prod-audit
+      description: Dedicated bounded synthetic fixture for production platform audits.
+      image: registry.mcpruntime.org/org/prod-audit
+      imageTag: v0.1.1
+      route: /prod-audit/mcp
+      ingressHost: mcp.mcpruntime.org
+      publicPathPrefix: prod-audit
+      port: 8080
+      replicas: 1
+      envVars:
+        - name: PROD_AUDIT_LISTEN
+          value: :8080
+        - name: PROD_AUDIT_JSON_RESPONSE
+          value: "false"
+      namespace: mcp-servers-org
+      scope: org
+      tools:
+        - name: audit_inspect
+          description: Inspect fixture version, transport, limits and active data counts.
+          requiredTrust: low
+          sideEffect: read
+        - name: audit_echo
+          description: Echo a bounded synthetic marker to verify routing and analytics.
+          requiredTrust: low
+          sideEffect: read
+        - name: audit_record_get
+          description: Read one synthetic record from an exact test run.
+          requiredTrust: low
+          sideEffect: read
+        - name: audit_wait
+          description: Bounded delay with cancellation and optional SSE progress.
+          requiredTrust: low
+          sideEffect: read
+        - name: audit_fail
+          description: Deliberate tool-level failure for audit/error verification.
+          requiredTrust: low
+          sideEffect: read
+        - name: audit_run_open
+          description: Open an isolated synthetic run with automatic expiry.
+          requiredTrust: medium
+          sideEffect: write
+        - name: audit_record_put
+          description: Write a bounded synthetic record with optional revision checking.
+          requiredTrust: medium
+          sideEffect: write
+        - name: audit_record_delete
+          description: Delete one synthetic record from one test run.
+          requiredTrust: high
+          sideEffect: destructive
+        - name: audit_run_close
+          description: Close one exact run and delete its synthetic records.
+          requiredTrust: high
+          sideEffect: destructive
+      prompts:
+        - name: audit_plan
+          description: Plan a bounded production audit using prod-audit only.
+      mcpResources:
+        - name: audit-guide
+          description: Synthetic fixture use and cleanup rules.
+      policy:
+        mode: allow-list
+        defaultDecision: deny
+      session:
+        required: true
+      gateway:
+        enabled: true
