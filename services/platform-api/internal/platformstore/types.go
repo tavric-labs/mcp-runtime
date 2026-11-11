@@ -6,7 +6,6 @@ import (
 
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/passport"
-	"mcp-runtime/pkg/topology"
 )
 
 const (
@@ -28,8 +27,6 @@ const (
 )
 
 const (
-	// SharedCatalogNamespace is the legacy shared MCP server catalog namespace.
-	SharedCatalogNamespace = topology.MCPServersNamespace
 	// TeamNamespacePrefix is prepended to normalized team slugs for managed namespaces.
 	TeamNamespacePrefix = "mcp-team-"
 	// TeamRoleOwner grants team administration privileges.

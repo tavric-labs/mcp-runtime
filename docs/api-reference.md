@@ -93,7 +93,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPServer
 metadata:
   name: payments
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   teamID: 7d0a0b8f-7c25-4761-a632-3cf0108e31d6
   description: Payments MCP server for invoice lookup and refund workflows.
@@ -151,8 +151,7 @@ See [Multi-team isolation](teams-and-access.md).
 
 The platform API enforces the namespace boundary for access writes. Grants and
 sessions must live in the same namespace as their `serverRef`; non-admin
-callers cannot write access resources into the shared `mcp-servers` catalog
-namespace and can only operate in namespaces authorized on their principal.
+callers can only operate in namespaces authorized on their principal.
 Team namespace server writes default and validate `spec.teamID` against the
 authenticated principal namespace. Grant/session writes default missing
 `subject.teamID` from the referenced server team, while preserving an explicit
@@ -194,7 +193,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: payments-ops-agent
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   mode: enforce
   serverRef:
@@ -230,7 +229,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAgentSession
 metadata:
   name: sess-8f1b9d
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: payments
@@ -433,8 +432,7 @@ buckets filled as zero. Only recorded gateway events are included.
 `/api/v1/user/analytics/usage` is available to normal platform users. It returns
 the same analytics shape, but the API enforces scope before querying
 ClickHouse: non-admin callers can see only events from team namespaces they
-belong to, and the shared `mcp-servers` catalog is excluded from user
-analytics. Query: `window_days`, `limit`, `namespace`, `server`, `decision`,
+belong to. Query: `window_days`, `limit`, `namespace`, `server`, `decision`,
 and `tool_name`. Passing `namespace` narrows the result only when the caller
 owns that namespace or belongs to that team.
 
@@ -571,8 +569,8 @@ identify the human principal that should own the `MCPAgentSession`.
 ```json
 {
   "name": "payments-ops-agent",
-  "namespace": "mcp-servers",
-  "serverRef": {"name": "payments", "namespace": "mcp-servers"},
+  "namespace": "mcp-servers-org",
+  "serverRef": {"name": "payments", "namespace": "mcp-servers-org"},
   "subject": {"humanID": "user-123", "agentID": "agt_01arz3ndektsv4rrffq69g5fav"},
   "maxTrust": "high",
   "allowedSideEffects": ["read", "destructive"],
@@ -589,8 +587,8 @@ identify the human principal that should own the `MCPAgentSession`.
 ```json
 {
   "name": "sess-8f1b9d",
-  "namespace": "mcp-servers",
-  "serverRef": {"name": "payments", "namespace": "mcp-servers"},
+  "namespace": "mcp-servers-org",
+  "serverRef": {"name": "payments", "namespace": "mcp-servers-org"},
   "subject": {"humanID": "user-123", "agentID": "agt_01arz3ndektsv4rrffq69g5fav"},
   "consentedTrust": "medium",
   "policyVersion": "v1",

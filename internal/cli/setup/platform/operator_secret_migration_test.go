@@ -18,6 +18,7 @@ func TestOperatorSecretMigrationIncludesEmptyManagedNamespaces(t *testing.T) {
 	resetPlatformKubeconfig(t)
 	platformSetupKubeconfig = ""
 	clients := newPlatformKubernetesTestClients([]runtime.Object{
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers-org", Labels: map[string]string{"platform.mcpruntime.org/managed": "true"}}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-team-empty", Labels: map[string]string{"platform.mcpruntime.org/managed": "true"}}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "cert-manager", Labels: map[string]string{"platform.mcpruntime.org/managed": "true"}}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "unrelated"}},
@@ -32,7 +33,7 @@ func TestOperatorSecretMigrationIncludesEmptyManagedNamespaces(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	for _, ns := range []string{"mcp-servers", "mcp-team-existing", "mcp-team-empty"} {
+	for _, ns := range []string{"mcp-servers-org", "mcp-team-existing", "mcp-team-empty"} {
 		if _, err := clients.Clientset.RbacV1().RoleBindings(ns).Get(ctx, kubeworkload.OperatorSecretAccessName, metav1.GetOptions{}); err != nil {
 			t.Errorf("missing grant in %s: %v", ns, err)
 		}

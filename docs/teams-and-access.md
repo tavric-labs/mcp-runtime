@@ -113,7 +113,7 @@ Gateway audit shows actor and resource teams separately. Unknown historical
 actor attribution stays unknown; the resource `team_id` does not prove actor
 membership.
 
-The default `mcp-servers` namespace is fine for a single team, local
+The default `mcp-servers-org` namespace is fine for a single team, local
 development, and simple evaluation clusters. For a deployment that hosts
 multiple teams or tenant boundaries, use one namespace per team.
 
@@ -336,8 +336,6 @@ at `platform.mcpruntime.org` is a separate installation.
   accepts `org` and `tenant` in both modes and `public` only in public mode;
   `tenant` resolves to the caller's team namespace unless an authorized team
   namespace is provided.
-- Non-admin callers cannot write servers, grants, or sessions into the shared
-  `mcp-servers` catalog namespace unless it is explicitly configured as an active catalog.
 - Non-admin callers can only read or write resources in namespaces listed on
   their authenticated principal, except for the active `org`/`public` mode
   catalog namespace.
@@ -364,7 +362,7 @@ only grants and sessions whose `serverRef` points at the target server. Missing
 ## Ingress controller watch scope
 
 The bundled Traefik manifests watch only `registry`, `mcp-platform`,
-`mcp-observability`, `mcp-log-collector`, `mcp-servers`, `mcp-servers-org`, and
+`mcp-observability`, `mcp-log-collector`, `mcp-servers-org`, and
 `mcp-servers-public` by default so Traefik does not need broad namespace access.
 If MCP servers live in team namespaces,
 update the ingress controller watch list, bind the Traefik watch role in each
@@ -376,7 +374,7 @@ the repo-managed `traefik/traefik` Deployment when
 For the bundled Traefik overlay, extend the argument:
 
 ```text
---providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-log-collector,mcp-servers,mcp-servers-org,mcp-servers-public,mcp-team-acme,mcp-team-globex
+--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-log-collector,mcp-servers-org,mcp-servers-public,mcp-team-acme,mcp-team-globex
 ```
 
 External ingress controllers need equivalent namespace watch, RBAC, and
@@ -444,8 +442,7 @@ server owner's team without joining through namespace names.
   the guardrail for direct writers.
 - Cross-team server sharing is a privileged pattern. Prefer a shared namespace
   and explicit admin-owned grants when a server is intentionally shared.
-- The bundled setup manifests create the legacy single-team namespace and the
-  org/public catalog namespaces; per-team tenant namespaces are an explicit
+- The bundled setup manifests create the org/public catalog namespaces; per-team tenant namespaces are an explicit
   operational step. Personal user namespaces are not created for tenant
   publishing.
 

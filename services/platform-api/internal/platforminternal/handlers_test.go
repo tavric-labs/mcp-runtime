@@ -20,7 +20,7 @@ func (f *fakeStore) AuthenticateUserAPIKey(context.Context, string) (passport.Pr
 		Subject:           "user-1",
 		Email:             "user@example.com",
 		Teams:             []passport.PrincipalTeam{{ID: "team-1", Slug: "core", Namespace: "mcp-team-core", Role: "owner"}},
-		AllowedNamespaces: []string{"mcp-team-core", "mcp-servers"},
+		AllowedNamespaces: []string{"mcp-team-core", "mcp-servers-org"},
 		AuthType:          "user_api_key",
 		APIKeyID:          "key-1",
 	}, true, nil
@@ -167,7 +167,7 @@ func TestResolveAuthReturnsEnrichedPrincipal(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	for _, want := range []string{`"slug":"core"`, `"allowed_namespaces":["mcp-team-core","mcp-servers"]`, `"api_key_id":"key-1"`} {
+	for _, want := range []string{`"slug":"core"`, `"allowed_namespaces":["mcp-team-core","mcp-servers-org"]`, `"api_key_id":"key-1"`} {
 		if !bytes.Contains(rec.Body.Bytes(), []byte(want)) {
 			t.Fatalf("body %s missing %s", rec.Body.String(), want)
 		}

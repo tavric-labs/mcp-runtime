@@ -80,7 +80,7 @@ The default policy source is the live rendered policy for --server. Use --policy
 		},
 	}
 	cmd.Flags().StringVar(&opts.Server, "server", "", "MCPServer name to evaluate")
-	cmd.Flags().StringVar(&opts.Namespace, "namespace", core.NamespaceMCPServers, "MCPServer namespace")
+	cmd.Flags().StringVar(&opts.Namespace, "namespace", core.DefaultServerNamespace, "MCPServer namespace")
 	cmd.Flags().StringVar(&opts.HumanID, "human", "", "Human identity to evaluate")
 	cmd.Flags().StringVar(&opts.AgentID, "agent", "", "Agent identity to evaluate")
 	cmd.Flags().StringVar(&opts.TeamID, "team", "", "Team identity to evaluate")

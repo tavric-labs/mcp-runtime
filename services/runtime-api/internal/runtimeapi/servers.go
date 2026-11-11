@@ -160,10 +160,6 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 		writeAPIError(w, http.StatusForbidden, err.Error())
 		return
 	}
-	if p.Role != roleAdmin && namespace == sharedCatalogNamespace && !isModeCatalogNamespace(namespace) {
-		writeAPIError(w, http.StatusForbidden, "shared catalog namespace is read-only for team users")
-		return
-	}
 	if p.Role != roleAdmin && !principalCanPublishNamespace(p, namespace) {
 		writeAPIError(w, http.StatusForbidden, "forbidden namespace")
 		return
@@ -544,7 +540,7 @@ func scopedTenantNamespaceForApply(p principal, requested string) (string, error
 	if requested == "" {
 		return "", errors.New("tenant scope requires team membership")
 	}
-	if isModeCatalogNamespace(requested) || requested == sharedCatalogNamespace {
+	if isModeCatalogNamespace(requested) {
 		return "", errors.New("tenant scope requires a team namespace")
 	}
 	if _, ok := p.TeamForNamespace(requested); !ok {

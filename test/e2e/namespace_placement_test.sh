@@ -66,7 +66,7 @@ install_fake_kubectl() {
           return 0
           ;;
         *:traefik)
-          printf '%s' '--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers'
+          printf '%s' '--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers-org'
           return 0
           ;;
       esac
@@ -111,7 +111,7 @@ FAKE_CLICKHOUSE_PORT=9440 run_mode "test-mode install refuses the TLS port" clea
 run_mode "refuses a second platform certificate" tls-in-observability no
 run_mode "refuses a missing observability workload" missing-ingest no
 run_mode "accepts k3s Traefik watching every namespace" k3s-traefik yes
-run_mode "refuses a scoped Traefik missing mcp-servers" traefik-missing-servers no
+run_mode "refuses a scoped Traefik missing mcp-servers-org" traefik-missing-servers no
 
 if [[ "${FAILURES}" -ne 0 ]]; then
   printf '%s\n' "${FAILURES} namespace placement checks failed" >&2

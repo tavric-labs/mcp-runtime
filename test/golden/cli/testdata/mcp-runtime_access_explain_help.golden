@@ -10,7 +10,7 @@ Flags:
   -h, --help                 help for explain
       --human string         Human identity to evaluate
       --json                 Print a JSON decision for scripting
-      --namespace string     MCPServer namespace (default "mcp-servers")
+      --namespace string     MCPServer namespace (default "mcp-servers-org")
       --policy-file string   Local rendered policy JSON file (skips live policy lookup)
       --rpc-method string    MCP JSON-RPC method to evaluate (default "tools/call")
       --server string        MCPServer name to evaluate

@@ -326,13 +326,13 @@ func TestServerManager_ListServers(t *testing.T) {
 		cmd := mock.LastCommand()
 		found := false
 		for i, arg := range cmd.Args {
-			if arg == "-n" && i+1 < len(cmd.Args) && cmd.Args[i+1] == core.NamespaceMCPServers {
+			if arg == "-n" && i+1 < len(cmd.Args) && cmd.Args[i+1] == core.DefaultServerNamespace {
 				found = true
 				break
 			}
 		}
 		if !found {
-			t.Errorf("expected default namespace %q in args, got %v", core.NamespaceMCPServers, cmd.Args)
+			t.Errorf("expected default namespace %q in args, got %v", core.DefaultServerNamespace, cmd.Args)
 		}
 	})
 
@@ -428,7 +428,7 @@ func TestServerManager_ListServersModeSelection(t *testing.T) {
 		kubectl := core.NewTestKubectlClient(mock)
 		mgr := newKubeTestServerManager(kubectl)
 
-		if err := mgr.ListServers("mcp-servers", ""); err != nil {
+		if err := mgr.ListServers("mcp-servers-org", ""); err != nil {
 			t.Fatalf("unexpected kube list error: %v", err)
 		}
 		if len(mock.Commands) != 1 {
@@ -446,7 +446,7 @@ func TestServerManager_ListServersModeSelection(t *testing.T) {
 		kubectl := core.NewTestKubectlClient(mock)
 		mgr := newKubeTestServerManager(kubectl)
 
-		err := mgr.ListServers("mcp-servers", "")
+		err := mgr.ListServers("mcp-servers-org", "")
 		if err == nil {
 			t.Fatal("expected forbidden kube error")
 		}

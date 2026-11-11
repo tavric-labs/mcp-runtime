@@ -29,7 +29,7 @@ func TestListServersProjectsMCPServerInventoryAndDeploymentStatus(t *testing.T) 
 	server := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "demo-one",
-			Namespace:         "mcp-servers",
+			Namespace:         "mcp-servers-org",
 			CreationTimestamp: metav1.Now(),
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{
@@ -41,7 +41,7 @@ func TestListServersProjectsMCPServerInventoryAndDeploymentStatus(t *testing.T) 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo-one",
-			Namespace: "mcp-servers",
+			Namespace: "mcp-servers-org",
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by":     "mcp-runtime",
 				"mcpruntime.org/rollout-track":     "stable",
@@ -57,7 +57,7 @@ func TestListServersProjectsMCPServerInventoryAndDeploymentStatus(t *testing.T) 
 		Clientset: kubernetesfake.NewSimpleClientset(deployment),
 	})
 
-	result, err := mgr.ListServers(context.Background(), "mcp-servers")
+	result, err := mgr.ListServers(context.Background(), "mcp-servers-org")
 	if err != nil {
 		t.Fatalf("ListServers returned error: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestListServersEmptyCatalogDoesNotRequireDeploymentList(t *testing.T) {
 		Clientset: clientset,
 	})
 
-	result, err := mgr.ListServers(context.Background(), "mcp-servers")
+	result, err := mgr.ListServers(context.Background(), "mcp-servers-org")
 	if err != nil {
 		t.Fatalf("ListServers returned error for empty catalog: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestListServersWithOptionsFiltersMCPServersByLabel(t *testing.T) {
 	owned := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "owned",
-			Namespace: "mcp-servers",
+			Namespace: "mcp-servers-org",
 			Labels: map[string]string{
 				"platform.mcpruntime.org/user-id": "user-1",
 			},
@@ -139,7 +139,7 @@ func TestListServersWithOptionsFiltersMCPServersByLabel(t *testing.T) {
 	other := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "other",
-			Namespace: "mcp-servers",
+			Namespace: "mcp-servers-org",
 			Labels: map[string]string{
 				"platform.mcpruntime.org/user-id": "user-2",
 			},
@@ -151,7 +151,7 @@ func TestListServersWithOptionsFiltersMCPServersByLabel(t *testing.T) {
 		Clientset: kubernetesfake.NewSimpleClientset(),
 	})
 
-	result, err := mgr.ListServersWithOptions(context.Background(), "mcp-servers", ListServersOptions{
+	result, err := mgr.ListServersWithOptions(context.Background(), "mcp-servers-org", ListServersOptions{
 		LabelSelector:        "platform.mcpruntime.org/user-id=user-1",
 		SkipDeploymentStatus: true,
 	})
@@ -172,7 +172,7 @@ func TestListServersFallsBackToDeploymentsWhenMCPServerListFails(t *testing.T) {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "legacy-demo",
-			Namespace:         "mcp-servers",
+			Namespace:         "mcp-servers-org",
 			CreationTimestamp: metav1.Now(),
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "mcp-runtime",
@@ -193,7 +193,7 @@ func TestListServersFallsBackToDeploymentsWhenMCPServerListFails(t *testing.T) {
 		Clientset: kubernetesfake.NewSimpleClientset(deployment),
 	})
 
-	result, err := mgr.ListServers(context.Background(), "mcp-servers")
+	result, err := mgr.ListServers(context.Background(), "mcp-servers-org")
 	if err != nil {
 		t.Fatalf("ListServers returned error: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestApplyServerCreatesAndUpdatesMCPServer(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{APIVersion: mcpv1alpha1.GroupVersion.String(), Kind: "MCPServer"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo",
-			Namespace: "mcp-servers",
+			Namespace: "mcp-servers-org",
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{Image: "registry.example.com/core/demo", Description: "before"},
 	})
@@ -234,7 +234,7 @@ func TestApplyServerCreatesAndUpdatesMCPServer(t *testing.T) {
 		TypeMeta: metav1.TypeMeta{APIVersion: mcpv1alpha1.GroupVersion.String(), Kind: "MCPServer"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "demo",
-			Namespace: "mcp-servers",
+			Namespace: "mcp-servers-org",
 		},
 		Spec: mcpv1alpha1.MCPServerSpec{Image: "registry.example.com/core/demo", Description: "after"},
 	})
@@ -251,7 +251,7 @@ func TestPublicMCPEndpointHonorsPlatformDomain(t *testing.T) {
 	t.Setenv("MCP_PLATFORM_DOMAIN", "example.com")
 
 	got := PublicMCPEndpoint(mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers-org"},
 	})
 	if got != "https://mcp.example.com/demo-one/mcp" {
 		t.Fatalf("endpoint = %q, want platform domain MCP URL", got)
@@ -263,7 +263,7 @@ func TestPublicMCPEndpointPrefersOperatorPublishedURL(t *testing.T) {
 	t.Setenv("MCP_PLATFORM_DOMAIN", "example.com")
 
 	got := PublicMCPEndpoint(mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers-org"},
 		Status:     mcpv1alpha1.MCPServerStatus{URL: "http://mcp.internal.example/demo-one/mcp"},
 	})
 	if got != "http://mcp.internal.example/demo-one/mcp" {
@@ -278,7 +278,7 @@ func TestPublicMCPEndpointFallbackFollowsIngressPathPrecedence(t *testing.T) {
 	t.Setenv("MCP_PLATFORM_DOMAIN", "example.com")
 
 	got := PublicMCPEndpoint(mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers-org"},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			IngressPath:      "/demo-one/mcp",
 			PublicPathPrefix: "tools/demo",

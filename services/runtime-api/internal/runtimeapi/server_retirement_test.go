@@ -157,9 +157,9 @@ func TestRetirementRepairsMissingNamespaceCredentialBinding(t *testing.T) {
 		name, namespace            string
 		missing, denied, protected bool
 	}{
-		{name: "existing credential", namespace: "mcp-servers"},
-		{name: "absent credential", namespace: "mcp-servers", missing: true},
-		{name: "persistent denial", namespace: "mcp-servers", denied: true},
+		{name: "existing credential", namespace: "mcp-servers-org"},
+		{name: "absent credential", namespace: "mcp-servers-org", missing: true},
+		{name: "persistent denial", namespace: "mcp-servers-org", denied: true},
 		{name: "protected namespace", namespace: "mcp-platform", protected: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

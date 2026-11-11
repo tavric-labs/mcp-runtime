@@ -458,7 +458,7 @@ expect_json(
 )
 
 server_item = expect_json(
-    f"{api_base}/runtime/servers/mcp-servers/{quote_segment(server_name)}",
+    f"{api_base}/runtime/servers/mcp-servers-org/{quote_segment(server_name)}",
     headers=admin_key_headers,
 )
 check(
@@ -467,7 +467,7 @@ check(
     f"server item response: {server_item}",
 )
 server_events = expect_json(
-    f"{api_base}/runtime/server-events?namespace=mcp-servers&server={urllib.parse.quote(server_name)}&limit=5",
+    f"{api_base}/runtime/server-events?namespace=mcp-servers-org&server={urllib.parse.quote(server_name)}&limit=5",
     headers=admin_key_headers,
 )
 check(
@@ -479,7 +479,7 @@ check(
 api_runtime_grant = f"{server_name}-e2e-api-grant-{suffix}"
 api_runtime_session = f"{server_name}-e2e-api-session-{suffix}"
 runtime_namespace = expect_json(
-    f"{api_base}/runtime/namespaces/mcp-servers", headers=admin_key_headers
+    f"{api_base}/runtime/namespaces/mcp-servers-org", headers=admin_key_headers
 ).get("namespace", {})
 api_runtime_subject = {"humanID": human_id}
 runtime_team_slug = runtime_namespace.get("team_slug", "")
@@ -510,8 +510,8 @@ expect_json(
     headers=admin_key_headers,
     body={
         "name": api_runtime_grant,
-        "namespace": "mcp-servers",
-        "serverRef": {"name": server_name, "namespace": "mcp-servers"},
+        "namespace": "mcp-servers-org",
+        "serverRef": {"name": server_name, "namespace": "mcp-servers-org"},
         "subject": api_runtime_subject,
         "maxTrust": "low",
         "allowedSideEffects": ["read"],
@@ -524,27 +524,27 @@ expect_json(
     headers=admin_key_headers,
     body={
         "name": api_runtime_session,
-        "namespace": "mcp-servers",
-        "serverRef": {"name": server_name, "namespace": "mcp-servers"},
+        "namespace": "mcp-servers-org",
+        "serverRef": {"name": server_name, "namespace": "mcp-servers-org"},
         "subject": api_runtime_subject,
         "consentedTrust": "low",
     },
 )
 expect_json(
-    f"{api_base}/runtime/grants/mcp-servers/{quote_segment(api_runtime_grant)}",
+    f"{api_base}/runtime/grants/mcp-servers-org/{quote_segment(api_runtime_grant)}",
     headers=admin_key_headers,
 )
 expect_json(
-    f"{api_base}/runtime/sessions/mcp-servers/{quote_segment(api_runtime_session)}",
+    f"{api_base}/runtime/sessions/mcp-servers-org/{quote_segment(api_runtime_session)}",
     headers=admin_key_headers,
 )
 expect_json(
-    f"{api_base}/runtime/sessions/mcp-servers/{quote_segment(api_runtime_session)}",
+    f"{api_base}/runtime/sessions/mcp-servers-org/{quote_segment(api_runtime_session)}",
     method="DELETE",
     headers=admin_key_headers,
 )
 expect_json(
-    f"{api_base}/runtime/grants/mcp-servers/{quote_segment(api_runtime_grant)}",
+    f"{api_base}/runtime/grants/mcp-servers-org/{quote_segment(api_runtime_grant)}",
     method="DELETE",
     headers=admin_key_headers,
 )
@@ -556,7 +556,7 @@ temp_server = expect_json(
     headers=admin_headers,
     body={
         "name": temp_server_name,
-        "namespace": "mcp-servers",
+        "namespace": "mcp-servers-org",
         "spec": {
             "image": "docker.io/library/nginx:1.27-alpine",
             "port": 8080,
@@ -574,11 +574,11 @@ check(
     f"temporary server response: {temp_server}",
 )
 expect_json(
-    f"{api_base}/runtime/servers/mcp-servers/{quote_segment(temp_server_name)}",
+    f"{api_base}/runtime/servers/mcp-servers-org/{quote_segment(temp_server_name)}",
     headers=admin_headers,
 )
 expect_json(
-    f"{api_base}/runtime/servers/mcp-servers/{quote_segment(temp_server_name)}",
+    f"{api_base}/runtime/servers/mcp-servers-org/{quote_segment(temp_server_name)}",
     method="DELETE",
     headers=admin_headers,
 )

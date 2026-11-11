@@ -52,7 +52,6 @@ func (s *RuntimeServer) HandleRuntimeNamespaces(w http.ResponseWriter, r *http.R
 		}
 		entry := map[string]any{
 			"namespace": namespace,
-			"is_shared": namespace == sharedCatalogNamespace,
 		}
 		for _, team := range p.Teams {
 			if strings.TrimSpace(team.Namespace) == namespace {
@@ -110,13 +109,8 @@ func (s *RuntimeServer) HandleRuntimeNamespaceItem(w http.ResponseWriter, r *htt
 		writeJSON(w, http.StatusOK, map[string]any{"namespace": item})
 		return
 	}
-	if namespace == sharedCatalogNamespace || isModeCatalogNamespace(namespace) {
-		entry := catalogNamespaceEntry(namespace)
-		if namespace == sharedCatalogNamespace && !sharedCatalogWritableForUsers() {
-			entry["scope"] = "shared"
-			entry["is_public"] = false
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"namespace": entry})
+	if isModeCatalogNamespace(namespace) {
+		writeJSON(w, http.StatusOK, map[string]any{"namespace": catalogNamespaceEntry(namespace)})
 		return
 	}
 	writeAPIError(w, http.StatusNotFound, "namespace not found")
@@ -126,20 +120,17 @@ func catalogNamespaceEntry(namespace string) map[string]any {
 	scope := "shared"
 	isPublic := false
 	scopeName := "Shared catalog"
-	if namespace != sharedCatalogNamespace {
-		switch catalogScope, _ := catalogScopeForNamespace(namespace); catalogScope {
-		case "public":
-			scope = "public"
-			isPublic = true
-			scopeName = "Public preview"
-		case "org":
-			scope = "org"
-			scopeName = "Organization"
-		}
+	switch catalogScope, _ := catalogScopeForNamespace(namespace); catalogScope {
+	case "public":
+		scope = "public"
+		isPublic = true
+		scopeName = "Public preview"
+	case "org":
+		scope = "org"
+		scopeName = "Organization"
 	}
 	return map[string]any{
 		"namespace":  namespace,
-		"is_shared":  namespace == sharedCatalogNamespace,
 		"is_public":  isPublic,
 		"scope":      scope,
 		"scope_name": scopeName,
@@ -153,8 +144,7 @@ func appendCatalogNamespaceEntries(namespaces []map[string]any) []map[string]any
 			seen[namespace] = struct{}{}
 		}
 	}
-	catalogNamespaces := append([]string{sharedCatalogNamespace}, modeCatalogNamespaces()...)
-	for _, namespace := range dedupeNonEmptyStrings(catalogNamespaces) {
+	for _, namespace := range dedupeNonEmptyStrings(modeCatalogNamespaces()) {
 		if _, ok := seen[namespace]; ok {
 			continue
 		}

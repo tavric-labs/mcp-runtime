@@ -282,11 +282,11 @@ func TestSignInRequestCannotBeCompletedTwiceOrAfterExpiry(t *testing.T) {
 func TestSignInPageNamesTheServerAndEscapesIt(t *testing.T) {
 	h := newHarness(t)
 	h.p.cfg.ServerName = `gitlab <script>`
-	h.p.cfg.Namespace = "mcp-servers"
+	h.p.cfg.Namespace = "mcp-servers-org"
 	h.p.cfg.UpstreamHost = "mcp.example.com"
 	w := h.do(httptest.NewRequest(http.MethodGet, authorizeURL(nil), nil))
 	body := w.Body.String()
-	for _, want := range []string{"gitlab &lt;script&gt;", "mcp-servers", "mcp.example.com", "not a platform account"} {
+	for _, want := range []string{"gitlab &lt;script&gt;", "mcp-servers-org", "mcp.example.com", "not a platform account"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("sign-in page lacks %q\n%s", want, body)
 		}

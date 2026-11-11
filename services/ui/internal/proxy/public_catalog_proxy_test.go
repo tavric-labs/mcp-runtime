@@ -87,7 +87,7 @@ func TestPublicCatalogProxyRejectsUnknownPathsAndNonGET(t *testing.T) {
 		path   string
 	}{
 		{http.MethodGet, "/api/public/v1/namespaces"},
-		{http.MethodGet, "/api/public/v1/servers/mcp-servers/demo"},
+		{http.MethodGet, "/api/public/v1/servers/mcp-servers-org/demo"},
 		{http.MethodPost, "/api/public/v1/servers"},
 		{http.MethodDelete, "/api/public/v1/servers"},
 	}

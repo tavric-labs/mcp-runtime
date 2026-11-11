@@ -195,7 +195,7 @@ if suite_enabled I; then
   hits=0
   scanned=0
   pattern='Bearer [A-Za-z0-9._-]{20,}|sk-[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9._-]{20,}|x-api-key:[[:space:]]*[A-Za-z0-9_-]{12,}'
-  for ns in mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers traefik registry; do
+  for ns in mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers-org traefik registry; do
     if ! kubectl get ns "$ns" >/dev/null 2>&1; then
       continue
     fi

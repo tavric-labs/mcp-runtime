@@ -38,7 +38,7 @@ func TestIngressRouteProbeUsesHTTPSAndPublicSNI(t *testing.T) {
 				}
 				return &core.MockCommand{}
 			}}
-			check := checkIngressRouteProbe(core.NewTestKubectlClient(mock), "mcp-servers", DistroK3s)
+			check := checkIngressRouteProbe(core.NewTestKubectlClient(mock), "mcp-servers-org", DistroK3s)
 			if check.OK != tc.wantOK {
 				t.Fatalf("OK=%v want %v; %s", check.OK, tc.wantOK, check.Detail)
 			}

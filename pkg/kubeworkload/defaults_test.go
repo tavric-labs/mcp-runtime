@@ -30,10 +30,10 @@ func TestEnsureServiceAccount(t *testing.T) {
 	t.Parallel()
 
 	client := fake.NewSimpleClientset()
-	if err := EnsureServiceAccount(context.Background(), client, "mcp-servers"); err != nil {
+	if err := EnsureServiceAccount(context.Background(), client, "mcp-servers-org"); err != nil {
 		t.Fatalf("EnsureServiceAccount() error = %v", err)
 	}
-	sa, err := client.CoreV1().ServiceAccounts("mcp-servers").Get(context.Background(), DefaultServiceAccountName, metav1.GetOptions{})
+	sa, err := client.CoreV1().ServiceAccounts("mcp-servers-org").Get(context.Background(), DefaultServiceAccountName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}

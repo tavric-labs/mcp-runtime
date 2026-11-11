@@ -393,8 +393,8 @@ func reportHasRegistryOrPullFailure(r DoctorReport) bool {
 			"registry reachability (in-cluster)",
 			"MCPServer registry image refs",
 			"MCPServer imagePullSecrets",
-			"mcp-servers imagePullSecrets",
-			"mcp-servers image pull smoke",
+			"server namespace imagePullSecrets",
+			"server namespace image pull smoke",
 			"registry HTTP pull mismatch",
 			"registry image pull diagnostics":
 			return true

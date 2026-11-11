@@ -324,7 +324,7 @@ except Exception as exc:
     rows.append(("traces.error", str(exc)))
 
 try:
-    query = '{namespace=~"mcp-platform|mcp-observability|mcp-servers"}'
+    query = '{namespace=~"mcp-platform|mcp-observability|mcp-servers-org"}'
     end_ns = int(time.time() * 1e9)
     start_ns = end_ns - int(10 * 60 * 1e9)
     params = urllib.parse.urlencode({

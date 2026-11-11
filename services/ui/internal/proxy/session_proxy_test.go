@@ -18,8 +18,8 @@ func TestSessionProxyWriteAllowlist(t *testing.T) {
 		path   string
 		want   bool
 	}{
-		{http.MethodPatch, "/runtime/grants/mcp-servers/demo", true},
-		{http.MethodDelete, "/runtime/sessions/mcp-servers/demo", true},
+		{http.MethodPatch, "/runtime/grants/mcp-servers-org/demo", true},
+		{http.MethodDelete, "/runtime/sessions/mcp-servers-org/demo", true},
 		{http.MethodPost, "/runtime/teams", true},
 		{http.MethodPost, "/runtime/teams/acme/users", true},
 		{http.MethodPost, "/runtime/teams/acme/agents", true},
@@ -28,14 +28,14 @@ func TestSessionProxyWriteAllowlist(t *testing.T) {
 		{http.MethodPost, "/runtime/grants/mcp-team-a/cross-team/revoke-sessions", true},
 		{http.MethodPut, "/runtime/teams/acme/members/user-1", true},
 		{http.MethodPost, "/runtime/actions/restart", true},
-		{http.MethodPatch, "/runtime/grants/mcp-servers/demo/extra", false},
+		{http.MethodPatch, "/runtime/grants/mcp-servers-org/demo/extra", false},
 		{http.MethodPost, "/runtime/teams/acme/other", false},
 		{http.MethodPost, "/runtime/agents/agt_1/delete", false},
 		{http.MethodPost, "/runtime/delegation-recipients", false},
 		{http.MethodPost, "/runtime/servers", false},
-		{http.MethodDelete, "/runtime/servers/mcp-servers/demo", true},
-		{http.MethodPatch, "/runtime/servers/mcp-servers/demo", false},
-		{http.MethodDelete, "/runtime/servers/mcp-servers/demo/extra", false},
+		{http.MethodDelete, "/runtime/servers/mcp-servers-org/demo", true},
+		{http.MethodPatch, "/runtime/servers/mcp-servers-org/demo", false},
+		{http.MethodDelete, "/runtime/servers/mcp-servers-org/demo/extra", false},
 	}
 	for _, tc := range cases {
 		if got := sessionProxyWriteAllowed(tc.method, tc.path); got != tc.want {
@@ -60,7 +60,7 @@ func TestSessionProxyRequiresCSRFForWritesAndForwardsBody(t *testing.T) {
 	proxy := newTestSessionProxy(t, upstream.URL)
 	sess := createTestSession(t, proxy.store, uiSession{UpstreamAuthHeader: "Bearer session-token"})
 
-	withoutToken := httptest.NewRequest(http.MethodPatch, "/api/ui/v1/runtime/grants/mcp-servers/demo", bytes.NewBufferString(`{"disabled":true}`))
+	withoutToken := httptest.NewRequest(http.MethodPatch, "/api/ui/v1/runtime/grants/mcp-servers-org/demo", bytes.NewBufferString(`{"disabled":true}`))
 	withoutToken.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sess.ID})
 	rec := httptest.NewRecorder()
 	proxy.ServeHTTP(rec, withoutToken)
@@ -68,7 +68,7 @@ func TestSessionProxyRequiresCSRFForWritesAndForwardsBody(t *testing.T) {
 		t.Fatalf("missing CSRF status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 
-	withToken := httptest.NewRequest(http.MethodPatch, "/api/ui/v1/runtime/grants/mcp-servers/demo", bytes.NewBufferString(`{"disabled":true}`))
+	withToken := httptest.NewRequest(http.MethodPatch, "/api/ui/v1/runtime/grants/mcp-servers-org/demo", bytes.NewBufferString(`{"disabled":true}`))
 	withToken.Host = "ui.example.com"
 	withToken.Header.Set("origin", "http://ui.example.com")
 	withToken.Header.Set(CSRFHeaderName, sess.CSRFToken)
@@ -159,7 +159,7 @@ func TestSessionProxyInjectsBearerAndStripsClientAuth(t *testing.T) {
 		UpstreamAuthHeader: "Bearer session-token",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/ui/v1/runtime/servers?namespace=mcp-servers", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/ui/v1/runtime/servers?namespace=mcp-servers-org", nil)
 	req.Host = "localhost:18080"
 	req.Header.Set("x-forwarded-host", "platform.example.test")
 	req.Header.Set("x-forwarded-proto", "https")
@@ -177,7 +177,7 @@ func TestSessionProxyInjectsBearerAndStripsClientAuth(t *testing.T) {
 	if gotPath != "/api/v1/runtime/servers" {
 		t.Fatalf("upstream path = %q", gotPath)
 	}
-	if gotQuery != "namespace=mcp-servers" {
+	if gotQuery != "namespace=mcp-servers-org" {
 		t.Fatalf("upstream query = %q", gotQuery)
 	}
 	if gotAuth != "Bearer session-token" {
@@ -382,7 +382,7 @@ func TestSessionProxyRejectsUnknownAndNestedPaths(t *testing.T) {
 
 	for _, path := range []string{
 		"/api/ui/v1/runtime/unknown",
-		"/api/ui/v1/runtime/unknown/mcp-servers/demo",
+		"/api/ui/v1/runtime/unknown/mcp-servers-org/demo",
 		"/api/ui/v1/runtime/adapter/sessions",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)

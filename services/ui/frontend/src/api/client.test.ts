@@ -42,8 +42,8 @@ it("keeps prefixed session calls on the UI origin with CSRF and without caller c
 describe("apiURL", () => {
   it("routes allowlisted catalog GETs through the UI session proxy", () => {
     expect(apiURL("/runtime/namespaces", "/api/v1")).toBe("/api/ui/v1/runtime/namespaces");
-    expect(apiURL("/runtime/servers?namespace=mcp-servers", "/api/v1")).toBe(
-      "/api/ui/v1/runtime/servers?namespace=mcp-servers"
+    expect(apiURL("/runtime/servers?namespace=mcp-servers-org", "/api/v1")).toBe(
+      "/api/ui/v1/runtime/servers?namespace=mcp-servers-org"
     );
     expect(apiURL("/runtime/tools", "/api/v1")).toBe("/api/ui/v1/runtime/tools");
     expect(apiURL("/runtime/server-events", "/api/v1")).toBe("/api/ui/v1/runtime/server-events");
@@ -60,8 +60,8 @@ describe("apiURL", () => {
 
   it("keeps unmigrated paths on the public API base", () => {
     expect(apiURL("/runtime/policy", "/api/v1")).toBe("/api/v1/runtime/policy");
-    expect(apiURL("/runtime/servers/mcp-servers/demo", "/api/v1")).toBe(
-      "/api/v1/runtime/servers/mcp-servers/demo"
+    expect(apiURL("/runtime/servers/mcp-servers-org/demo", "/api/v1")).toBe(
+      "/api/v1/runtime/servers/mcp-servers-org/demo"
     );
   });
 
@@ -83,15 +83,15 @@ describe("apiURL", () => {
   });
 
   it("routes only concrete admin writes through the session proxy", () => {
-    expect(apiURL("/runtime/grants/mcp-servers/demo", "/api/v1", "PATCH")).toBe(
-      "/api/ui/v1/runtime/grants/mcp-servers/demo"
+    expect(apiURL("/runtime/grants/mcp-servers-org/demo", "/api/v1", "PATCH")).toBe(
+      "/api/ui/v1/runtime/grants/mcp-servers-org/demo"
     );
-    expect(apiURL("/runtime/sessions/mcp-servers/demo", "/api/v1", "DELETE")).toBe(
-      "/api/ui/v1/runtime/sessions/mcp-servers/demo"
+    expect(apiURL("/runtime/sessions/mcp-servers-org/demo", "/api/v1", "DELETE")).toBe(
+      "/api/ui/v1/runtime/sessions/mcp-servers-org/demo"
     );
     expect(apiURL("/runtime/grants", "/api/v1", "PATCH")).toBe("/api/v1/runtime/grants");
-    expect(apiURL("/runtime/grants/mcp-servers/demo/extra", "/api/v1", "PATCH")).toBe(
-      "/api/v1/runtime/grants/mcp-servers/demo/extra"
+    expect(apiURL("/runtime/grants/mcp-servers-org/demo/extra", "/api/v1", "PATCH")).toBe(
+      "/api/v1/runtime/grants/mcp-servers-org/demo/extra"
     );
   });
 
@@ -115,13 +115,13 @@ describe("fetchJSON", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchJSON("/runtime/servers?namespace=mcp-servers")).resolves.toEqual({
+    await expect(fetchJSON("/runtime/servers?namespace=mcp-servers-org")).resolves.toEqual({
       servers: [],
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/ui/v1/runtime/servers?namespace=mcp-servers");
+    expect(url).toBe("/api/ui/v1/runtime/servers?namespace=mcp-servers-org");
     expect(init.credentials).toBe("same-origin");
     const headers = new Headers(init.headers);
     expect(headers.get("authorization")).toBeNull();
@@ -170,14 +170,14 @@ describe("fetchJSON", () => {
     vi.stubGlobal("fetch", fetchMock);
     setCSRFToken("session-csrf");
 
-    await fetchJSON("/runtime/grants/mcp-servers/demo", {
+    await fetchJSON("/runtime/grants/mcp-servers-org/demo", {
       method: "PATCH",
       headers: { "X-CSRF-Token": "attacker-token", Authorization: "Bearer leaked" },
       body: JSON.stringify({ disabled: true }),
     });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/ui/v1/runtime/grants/mcp-servers/demo");
+    expect(url).toBe("/api/ui/v1/runtime/grants/mcp-servers-org/demo");
     const headers = new Headers(init.headers);
     expect(headers.get("x-csrf-token")).toBe("session-csrf");
     expect(headers.get("authorization")).toBeNull();
@@ -203,8 +203,8 @@ describe("fetchJSON", () => {
 
 describe("withQuery", () => {
   it("appends only non-empty parameters", () => {
-    expect(withQuery("/runtime/servers", { namespace: "mcp-servers" })).toBe(
-      "/runtime/servers?namespace=mcp-servers"
+    expect(withQuery("/runtime/servers", { namespace: "mcp-servers-org" })).toBe(
+      "/runtime/servers?namespace=mcp-servers-org"
     );
     expect(withQuery("/runtime/servers", { namespace: "  " })).toBe("/runtime/servers");
     expect(withQuery("/runtime/servers", { namespace: undefined })).toBe("/runtime/servers");

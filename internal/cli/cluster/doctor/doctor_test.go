@@ -158,11 +158,11 @@ func TestCheckNamespaceExists(t *testing.T) {
 	t.Run("ok when namespace exists", func(t *testing.T) {
 		mock := &core.MockExecutor{
 			CommandFunc: func(spec core.ExecSpec) *core.MockCommand {
-				return &core.MockCommand{OutputData: []byte("mcp-servers")}
+				return &core.MockCommand{OutputData: []byte("mcp-servers-org")}
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkNamespaceExists(kubectl, "mcp-servers")
+		check := checkNamespaceExists(kubectl, "mcp-servers-org")
 		if !check.OK {
 			t.Fatalf("expected OK, got detail=%q", check.Detail)
 		}
@@ -175,7 +175,7 @@ func TestCheckNamespaceExists(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkNamespaceExists(kubectl, "mcp-servers")
+		check := checkNamespaceExists(kubectl, "mcp-servers-org")
 		if check.OK {
 			t.Fatal("expected failure when namespace is missing")
 		}
@@ -808,17 +808,17 @@ func TestCheckRegistryReachableFromCluster(t *testing.T) {
 func TestParseImagePullCandidates(t *testing.T) {
 	sep := imagePullListSep
 	out := strings.Join([]string{
-		"mcp-servers|mcp-api-abc|10.96.64.95:5000/mcp-api:latest" + sep + "|ImagePullBackOff" + sep + "|",
+		"mcp-servers-org|mcp-api-abc|10.96.64.95:5000/mcp-api:latest" + sep + "|ImagePullBackOff" + sep + "|",
 		"mcp-runtime|operator-abc|registry.registry.svc.cluster.local:5000/mcp-runtime-operator:latest" + sep + "|Running" + sep + "|",
 		"registry|registry-abc|registry.local/distribution:latest" + sep + "|ErrImagePull" + sep + "|",
-		"mcp-servers|demo-init-abc|registry.local/bootstrap:latest" + sep + "registry.local/demo:latest" + sep + "|ImagePullBackOff" + sep + "|",
+		"mcp-servers-org|demo-init-abc|registry.local/bootstrap:latest" + sep + "registry.local/demo:latest" + sep + "|ImagePullBackOff" + sep + "|",
 	}, "\n")
 
 	candidates := parseImagePullCandidates(out)
 	if len(candidates) != 3 {
 		t.Fatalf("expected 3 image pull candidates, got %d", len(candidates))
 	}
-	if candidates[0].Namespace != "mcp-servers" || candidates[0].Name != "mcp-api-abc" {
+	if candidates[0].Namespace != "mcp-servers-org" || candidates[0].Name != "mcp-api-abc" {
 		t.Fatalf("unexpected first candidate: %#v", candidates[0])
 	}
 	if candidates[0].Images[0] != "10.96.64.95:5000/mcp-api:latest" {
@@ -837,7 +837,7 @@ func TestParseImagePullCandidatesPreservesCommasInMessages(t *testing.T) {
 	// must keep them intact rather than fragmenting the message.
 	sep := imagePullListSep
 	msg := `failed to pull image "registry.local/demo:latest": rpc error: code = Unknown, desc = failed to do request: ` + registryHTTPPullMismatch
-	line := "mcp-servers|demo-abc|registry.local/demo:latest" + sep + "|ImagePullBackOff" + sep + "|" + msg + sep
+	line := "mcp-servers-org|demo-abc|registry.local/demo:latest" + sep + "|ImagePullBackOff" + sep + "|" + msg + sep
 	candidates := parseImagePullCandidates(line)
 	if len(candidates) != 1 {
 		t.Fatalf("expected 1 candidate, got %d", len(candidates))
@@ -854,7 +854,7 @@ func TestCheckRegistryServiceIPImageRefs(t *testing.T) {
 	t.Run("fails when MCPServer image uses registry Service IP", func(t *testing.T) {
 		servers := strings.Join([]string{
 			"mcp-team-acme|acme-tools|10.43.174.51:5000/acme/acme-tools",
-			"mcp-servers|ok|registry.mcpruntime.org/public/ok",
+			"mcp-servers-org|ok|registry.mcpruntime.org/public/ok",
 		}, "\n")
 		mock := &core.MockExecutor{
 			CommandFunc: func(spec core.ExecSpec) *core.MockCommand {
@@ -890,7 +890,7 @@ func TestCheckRegistryServiceIPImageRefs(t *testing.T) {
 				case contains(spec.Args, "svc") && contains(spec.Args, "registry"):
 					return &core.MockCommand{OutputData: []byte("10.43.174.51")}
 				case contains(spec.Args, "mcpservers"):
-					return &core.MockCommand{OutputData: []byte("mcp-servers|ok|registry.mcpruntime.org/public/ok\n")}
+					return &core.MockCommand{OutputData: []byte("mcp-servers-org|ok|registry.mcpruntime.org/public/ok\n")}
 				default:
 					return &core.MockCommand{}
 				}
@@ -1195,9 +1195,9 @@ func TestCheckRegistryHTTPPullMismatch(t *testing.T) {
 	sep := imagePullListSep
 
 	t.Run("reports HTTP registry mismatch from describe pod events", func(t *testing.T) {
-		pods := "mcp-servers|mcp-api-abc|10.96.64.95:5000/mcp-api:latest" + sep + "|ImagePullBackOff" + sep + "|\n"
+		pods := "mcp-servers-org|mcp-api-abc|10.96.64.95:5000/mcp-api:latest" + sep + "|ImagePullBackOff" + sep + "|\n"
 		describe := `Name:             mcp-api-abc
-Namespace:        mcp-servers
+Namespace:        mcp-servers-org
 Events:
   Type     Reason     Age   From               Message
   ----     ------     ----  ----               -------
@@ -1220,7 +1220,7 @@ Events:
 		if check.OK {
 			t.Fatal("expected registry HTTP mismatch to fail")
 		}
-		for _, want := range []string{"mcp-servers/mcp-api-abc", "10.96.64.95:5000/mcp-api:latest", "(ImagePullBackOff)", registryHTTPPullMismatch} {
+		for _, want := range []string{"mcp-servers-org/mcp-api-abc", "10.96.64.95:5000/mcp-api:latest", "(ImagePullBackOff)", registryHTTPPullMismatch} {
 			if !strings.Contains(check.Detail, want) {
 				t.Fatalf("detail should contain %q, got %q", want, check.Detail)
 			}
@@ -1233,9 +1233,9 @@ Events:
 	})
 
 	t.Run("reports HTTP registry mismatch from init container pull events", func(t *testing.T) {
-		pods := "mcp-servers|demo-init-abc|registry.local/bootstrap:latest" + sep + "registry.local/demo:latest" + sep + "|Init:ImagePullBackOff" + sep + "|\n"
+		pods := "mcp-servers-org|demo-init-abc|registry.local/bootstrap:latest" + sep + "registry.local/demo:latest" + sep + "|Init:ImagePullBackOff" + sep + "|\n"
 		describe := `Name:             demo-init-abc
-Namespace:        mcp-servers
+Namespace:        mcp-servers-org
 Init Containers:
   bootstrap:
     Image:          registry.local/bootstrap:latest
@@ -1261,7 +1261,7 @@ Events:
 		if check.OK {
 			t.Fatal("expected registry HTTP mismatch for init container to fail")
 		}
-		for _, want := range []string{"mcp-servers/demo-init-abc", "registry.local/bootstrap:latest", "(Init:ImagePullBackOff)", registryHTTPPullMismatch} {
+		for _, want := range []string{"mcp-servers-org/demo-init-abc", "registry.local/bootstrap:latest", "(Init:ImagePullBackOff)", registryHTTPPullMismatch} {
 			if !strings.Contains(check.Detail, want) {
 				t.Fatalf("detail should contain %q, got %q", want, check.Detail)
 			}
@@ -1273,7 +1273,7 @@ Events:
 		// the candidate. Detail should still surface the mismatch but won't
 		// include a reason in parentheses.
 		msg := `failed to pull image "registry.local/bootstrap:latest": failed to do request: Head "https://registry.local/v2/bootstrap/manifests/latest": http: server gave HTTP response to HTTPS client`
-		pods := "mcp-servers|demo-status-abc|registry.local/bootstrap:latest" + sep + "registry.local/demo:latest" + sep + "||" + msg + sep
+		pods := "mcp-servers-org|demo-status-abc|registry.local/bootstrap:latest" + sep + "registry.local/demo:latest" + sep + "||" + msg + sep
 		mock := &core.MockExecutor{
 			CommandFunc: func(spec core.ExecSpec) *core.MockCommand {
 				if contains(spec.Args, "describe") {
@@ -1287,7 +1287,7 @@ Events:
 		if check.OK {
 			t.Fatal("expected registry HTTP mismatch from status message to fail")
 		}
-		for _, want := range []string{"mcp-servers/demo-status-abc", "registry.local/bootstrap:latest", registryHTTPPullMismatch} {
+		for _, want := range []string{"mcp-servers-org/demo-status-abc", "registry.local/bootstrap:latest", registryHTTPPullMismatch} {
 			if !strings.Contains(check.Detail, want) {
 				t.Fatalf("detail should contain %q, got %q", want, check.Detail)
 			}
@@ -1298,7 +1298,7 @@ Events:
 	})
 
 	t.Run("passes when pull failures do not include HTTP mismatch event", func(t *testing.T) {
-		pods := "mcp-servers|demo-abc|registry.local/demo:latest" + sep + "|ErrImagePull" + sep + "|\n"
+		pods := "mcp-servers-org|demo-abc|registry.local/demo:latest" + sep + "|ErrImagePull" + sep + "|\n"
 		describe := `Events:
   Warning  Failed  kubelet  Failed to pull image "registry.local/demo:latest": not found
 `
@@ -1319,8 +1319,8 @@ Events:
 
 	t.Run("fails when pod inspection fails for pull candidates", func(t *testing.T) {
 		pods := strings.Join([]string{
-			"mcp-servers|demo-a|registry.local/demo-a:latest" + sep + "|ErrImagePull" + sep + "|",
-			"mcp-servers|demo-b|registry.local/demo-b:latest" + sep + "|ImagePullBackOff" + sep + "|",
+			"mcp-servers-org|demo-a|registry.local/demo-a:latest" + sep + "|ErrImagePull" + sep + "|",
+			"mcp-servers-org|demo-b|registry.local/demo-b:latest" + sep + "|ImagePullBackOff" + sep + "|",
 		}, "\n")
 		mock := &core.MockExecutor{
 			CommandFunc: func(spec core.ExecSpec) *core.MockCommand {
@@ -1335,7 +1335,7 @@ Events:
 		if check.OK {
 			t.Fatal("expected registry HTTP mismatch check to fail when pod inspection fails")
 		}
-		for _, want := range []string{"pod inspection failed", "2/2", "mcp-servers/demo-a", "pods is forbidden"} {
+		for _, want := range []string{"pod inspection failed", "2/2", "mcp-servers-org/demo-a", "pods is forbidden"} {
 			if !strings.Contains(check.Detail, want) {
 				t.Fatalf("detail should contain %q, got %q", want, check.Detail)
 			}
@@ -1483,8 +1483,8 @@ func TestRunDoctorAggregates(t *testing.T) {
 			switch {
 			case contains(spec.Args, "jsonpath={.items[*].status.nodeInfo.kubeletVersion}"):
 				return &core.MockCommand{OutputData: []byte("v1.34.6+k3s1")}
-			case contains(spec.Args, "namespace mcp-servers"):
-				return &core.MockCommand{OutputData: []byte("mcp-servers")}
+			case contains(spec.Args, "namespace mcp-servers-org"):
+				return &core.MockCommand{OutputData: []byte("mcp-servers-org")}
 			case contains(spec.Args, "crd mcpservers.mcpruntime.org"):
 				return &core.MockCommand{OutputData: []byte("mcpservers.mcpruntime.org")}
 			case contains(spec.Args, "mcp-runtime-operator-controller-manager"):
@@ -1528,8 +1528,8 @@ func TestRunDoctorWithProgressReportsEachCheck(t *testing.T) {
 			switch {
 			case contains(spec.Args, "jsonpath={.items[*].status.nodeInfo.kubeletVersion}"):
 				return &core.MockCommand{OutputData: []byte("v1.34.6+k3s1")}
-			case contains(spec.Args, "namespace mcp-servers"):
-				return &core.MockCommand{OutputData: []byte("mcp-servers")}
+			case contains(spec.Args, "namespace mcp-servers-org"):
+				return &core.MockCommand{OutputData: []byte("mcp-servers-org")}
 			case contains(spec.Args, "crd mcpservers.mcpruntime.org"):
 				return &core.MockCommand{OutputData: []byte("mcpservers.mcpruntime.org")}
 			case contains(spec.Args, "mcp-runtime-operator-controller-manager"):
@@ -1615,7 +1615,7 @@ func TestDoctorCurlProbesPassPathValidator(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClientWithValidators(mock, validators)
-		check := checkIngressRouteProbe(kubectl, "mcp-servers", DistroGeneric)
+		check := checkIngressRouteProbe(kubectl, "mcp-servers-org", DistroGeneric)
 		if !check.OK {
 			t.Fatalf("expected OK, got detail=%q", check.Detail)
 		}
@@ -1794,7 +1794,7 @@ func TestCheckNamespacePodAdmission(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkNamespacePodAdmission(kubectl, "mcp-servers")
+		check := checkNamespacePodAdmission(kubectl, "mcp-servers-org")
 		if !check.OK {
 			t.Fatalf("expected OK, got detail=%q", check.Detail)
 		}
@@ -1810,7 +1810,7 @@ func TestCheckNamespacePodAdmission(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkNamespacePodAdmission(kubectl, "mcp-servers")
+		check := checkNamespacePodAdmission(kubectl, "mcp-servers-org")
 		if check.OK {
 			t.Fatalf("expected failure when dry-run rejected; detail=%q", check.Detail)
 		}
@@ -2277,7 +2277,7 @@ func TestCheckMCPServerReconcileSmoke(t *testing.T) {
 		}
 		kubectl := core.NewTestKubectlClient(mock)
 
-		check := checkMCPServerReconcileSmoke(kubectl, "mcp-servers")
+		check := checkMCPServerReconcileSmoke(kubectl, "mcp-servers-org")
 		if !check.OK {
 			t.Fatalf("expected OK, got detail=%q remedy=%q", check.Detail, check.Remedy)
 		}
@@ -2314,7 +2314,7 @@ func TestCheckMCPServerReconcileSmoke(t *testing.T) {
 		}
 		kubectl := core.NewTestKubectlClient(mock)
 
-		check := checkMCPServerReconcileSmoke(kubectl, "mcp-servers")
+		check := checkMCPServerReconcileSmoke(kubectl, "mcp-servers-org")
 		if check.OK {
 			t.Fatalf("expected failure when rollout fails; detail=%q", check.Detail)
 		}
@@ -2354,7 +2354,7 @@ func TestCheckMCPServerReconcileSmoke(t *testing.T) {
 		}
 		kubectl := core.NewTestKubectlClient(mock)
 
-		check := checkMCPServerReconcileSmoke(kubectl, "mcp-servers")
+		check := checkMCPServerReconcileSmoke(kubectl, "mcp-servers-org")
 		if !check.OK {
 			t.Fatalf("expected OK, got detail=%q remedy=%q", check.Detail, check.Remedy)
 		}
@@ -2475,7 +2475,7 @@ func TestCheckMCPServersImagePullSecrets(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers")
+		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers-org")
 		if !check.OK {
 			t.Fatalf("expected OK when no secrets configured, got detail=%q", check.Detail)
 		}
@@ -2495,7 +2495,7 @@ func TestCheckMCPServersImagePullSecrets(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers")
+		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers-org")
 		if !check.OK {
 			t.Fatalf("expected OK, got detail=%q", check.Detail)
 		}
@@ -2516,7 +2516,7 @@ func TestCheckMCPServersImagePullSecrets(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers")
+		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers-org")
 		if check.OK {
 			t.Fatalf("expected failure when a pull secret is missing; detail=%q", check.Detail)
 		}
@@ -2532,7 +2532,7 @@ func TestCheckMCPServersImagePullSecrets(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers")
+		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers-org")
 		if !check.OK {
 			t.Fatalf("expected OK when serviceaccount is missing before deploy, got detail=%q", check.Detail)
 		}
@@ -2548,7 +2548,7 @@ func TestCheckMCPServersImagePullSecrets(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers")
+		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers-org")
 		if !check.OK {
 			t.Fatalf("expected OK when notfound appears only on combined output, got detail=%q", check.Detail)
 		}
@@ -2561,7 +2561,7 @@ func TestCheckMCPServersImagePullSecrets(t *testing.T) {
 			},
 		}
 		kubectl := core.NewTestKubectlClient(mock)
-		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers")
+		check := checkMCPServersImagePullSecrets(kubectl, "mcp-servers-org")
 		if check.OK {
 			t.Fatal("expected failure when serviceaccount lookup fails")
 		}
@@ -2590,7 +2590,7 @@ func TestCheckMCPServersImagePullSmokeUsesRestrictedCompliantPodSpec(t *testing.
 		},
 	}
 	kubectl := core.NewTestKubectlClient(mock)
-	check := checkMCPServersImagePullSmoke(kubectl, "mcp-servers")
+	check := checkMCPServersImagePullSmoke(kubectl, "mcp-servers-org")
 	if !check.OK {
 		t.Fatalf("expected image pull smoke to pass, got detail=%q", check.Detail)
 	}
@@ -2936,6 +2936,37 @@ func TestCheckPlatformGrafanaProvisioning(t *testing.T) {
 		c := run(tc.ds, tc.dash, tc.deploy)
 		if c.OK || !strings.Contains(c.Detail, tc.want) || c.Remedy == "" {
 			t.Errorf("%s: got OK=%v detail=%q remedy=%q, want failure containing %q", name, c.OK, c.Detail, c.Remedy, tc.want)
+		}
+	}
+}
+
+// The doctor probes the organization catalog namespace; there is no base
+// server namespace to check or to launch smoke pods in.
+func TestDoctorServerNamespaceChecksTargetTheOrgCatalog(t *testing.T) {
+	t.Setenv("PLATFORM_CATALOG_NAMESPACE", "")
+	t.Setenv("MCP_PLATFORM_CATALOG_NAMESPACE", "")
+	t.Setenv("PLATFORM_ORG_NAMESPACE", "")
+	if got := doctorServerNamespace(); got != "mcp-servers-org" {
+		t.Fatalf("doctorServerNamespace() = %q, want mcp-servers-org", got)
+	}
+	var names []string
+	for _, spec := range doctorCheckSpecs(core.NewTestKubectlClient(&core.MockExecutor{}), DistroGeneric) {
+		names = append(names, spec.Name)
+		for _, word := range strings.Fields(spec.Name + " " + spec.Detail) {
+			if word == strings.Join([]string{"mcp", "servers"}, "-") {
+				t.Fatalf("check %q still names the retired base namespace", spec.Name)
+			}
+		}
+	}
+	for _, want := range []string{"namespace mcp-servers-org", "server namespace DNS/network", "server namespace imagePullSecrets", "server namespace image pull smoke"} {
+		found := false
+		for _, name := range names {
+			if strings.HasPrefix(name, want) {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("doctor checks %v are missing %q", names, want)
 		}
 	}
 }

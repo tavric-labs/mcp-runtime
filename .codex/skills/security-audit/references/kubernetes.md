@@ -40,7 +40,7 @@ Repo-owned namespaces (per `CLAUDE.md`):
 - `mcp-platform` — platform-api, runtime-api, UI, gateway, Postgres, optional mcp-auth.
 - `mcp-observability` — analytics-api, ingest, processor, ClickHouse, Kafka, Grafana, Prometheus, Loki, Tempo, otel-collector.
 - `mcp-log-collector` — Promtail.
-- `mcp-servers` — user MCP server workloads, gateway sidecars.
+- `mcp-servers-org` — user MCP server workloads, gateway sidecars.
 - `registry` — Distribution v2 registry.
 - `traefik` — ingress controller (or `kube-system/traefik` on k3s).
 
@@ -90,7 +90,7 @@ Findings to flag:
 - Bindings to `system:authenticated` or `system:unauthenticated` → **Critical**.
 
 Confirm Traefik narrowing (CLAUDE.md): bundled manifests should watch only
-`registry`, `mcp-platform`, `mcp-observability`, `mcp-servers`. Any extra namespace with a
+`registry`, `mcp-platform`, `mcp-observability`, `mcp-servers-org`. Any extra namespace with a
 `traefik-watch` Role binding without a documented reason is a Medium finding.
 
 ## Step 3 — Pod Security Standards
@@ -99,7 +99,7 @@ The repo claims "restricted pod-security labels in repo-owned namespaces."
 Verify every namespace label:
 
 ```sh
-kubectl get ns mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers registry traefik \
+kubectl get ns mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers-org registry traefik \
   -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.labels}{"\n"}{end}'
 ```
 
@@ -181,7 +181,7 @@ explicitly selected disposable test namespace; do not run it against production
 without specific authorization. Clean up the pod after the probe.
 
 ```sh
-kubectl -n mcp-servers run probe --rm -i --image=busybox:1.36 --restart=Never -- sh -c '
+kubectl -n mcp-servers-org run probe --rm -i --image=busybox:1.36 --restart=Never -- sh -c '
   wget -T2 -qO- http://mcp-platform-api.mcp-platform.svc:8080/health || echo BLOCKED
 '
 ```

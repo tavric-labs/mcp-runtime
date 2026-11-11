@@ -607,9 +607,9 @@ cleanup() {
   done
   if scenario_selected "adapter-certificates" && [[ -n "${KUBECONFIG_FILE:-}" && -f "${KUBECONFIG_FILE}" ]]; then
     KUBECONFIG="${KUBECONFIG_FILE}" kubectl delete mcpaccessgrant "${OAUTH_SERVER_NAME}-adapter-cert-grant" \
-      -n mcp-servers --ignore-not-found --wait=false >/dev/null 2>&1 || true
+      -n mcp-servers-org --ignore-not-found --wait=false >/dev/null 2>&1 || true
     KUBECONFIG="${KUBECONFIG_FILE}" kubectl delete mcpserver "${ADAPTER_CERT_WRONG_SERVER_NAME}" \
-      -n mcp-servers --ignore-not-found --wait=false >/dev/null 2>&1 || true
+      -n mcp-servers-org --ignore-not-found --wait=false >/dev/null 2>&1 || true
     KUBECONFIG="${KUBECONFIG_FILE}" kubectl set env deployment/mcp-runtime-operator-controller-manager \
       -n mcp-runtime MCP_ADAPTER_CERTIFICATES- >/dev/null 2>&1 || true
   fi
@@ -1257,7 +1257,7 @@ ensure_server_proxy_port_forward() {
   fi
   if [[ -z "${SERVER_PROXY_PORT_FORWARD_PID:-}" ]]; then
     echo "[port-forward] exposing ${SERVER_NAME} service on localhost:${SERVER_PROXY_PORT}"
-    port_forward_bg mcp-servers "${SERVER_NAME}" "${SERVER_PROXY_PORT}" 80 "${WORKDIR}/server-proxy-port-forward.log"
+    port_forward_bg mcp-servers-org "${SERVER_NAME}" "${SERVER_PROXY_PORT}" 80 "${WORKDIR}/server-proxy-port-forward.log"
     SERVER_PROXY_PORT_FORWARD_PID="${LAST_MANAGED_PID}"
   fi
   wait_port "${SERVER_PROXY_PORT}"
@@ -1363,7 +1363,7 @@ start_e2e_adapter_proxy() {
       --runtime-url "${adapter_runtime_url}" \
       --host-header "${SERVER_HOST}" \
       --server "${SERVER_NAME}" \
-      --namespace mcp-servers \
+      --namespace mcp-servers-org \
       --agent "${adapter_agent_id}" \
       --request-timeout 20s \
       --log-level info \
@@ -1443,12 +1443,12 @@ emit_cert_session_deny_reasons() {
   fi
 
   local expires_backup
-  expires_backup="$(qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers | python3 -c 'import json,sys; print(json.load(sys.stdin).get("expiresAt") or "")')"
+  expires_backup="$(qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org | python3 -c 'import json,sys; print(json.load(sys.stdin).get("expiresAt") or "")')"
 
   log_line mcp "emitting session_revoked via adapter certificate"
-  qa_platform_cli access session revoke "${ADAPTER_SESSION_NAME}" --namespace mcp-servers
+  qa_platform_cli access session revoke "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org
   wait_for_mcp_initialize_result "${MCP_TRUST_SESSION_URL}" 401 "session_revoked"
-  qa_platform_cli access session unrevoke "${ADAPTER_SESSION_NAME}" --namespace mcp-servers
+  qa_platform_cli access session unrevoke "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org
   wait_for_mcp_initialize_result "${MCP_TRUST_SESSION_URL}" 200
   wait_for_mcp_tool_result "${MCP_TRUST_SESSION_URL}" "aaa-ping" '{}' 200 "pong" 20 "" "" "cert-session-unrevoke"
 
@@ -1464,7 +1464,7 @@ emit_cert_session_deny_reasons() {
   wait_for_mcp_tool_result "${MCP_TRUST_SESSION_URL}" "aaa-ping" '{}' 200 "pong" 20 "" "" "cert-session-unexpire"
 
   log_line mcp "emitting session_not_found via adapter certificate"
-  qa_platform_cli access session delete "${ADAPTER_SESSION_NAME}" --namespace mcp-servers
+  qa_platform_cli access session delete "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org
   wait_for_mcp_initialize_result "${MCP_TRUST_SESSION_URL}" 401 "session_not_found"
   # Recreate the deterministic adapter session and re-enroll a fresh certificate.
   ensure_trust_adapter_session
@@ -1486,7 +1486,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: ${TRUST_GRANT_NAME}
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${SERVER_NAME}
@@ -1520,7 +1520,7 @@ ensure_trust_adapter_session() {
   ensure_adapter_agent_identity
   ensure_gateway_port_forward
   local session_body session_resp
-  session_body="$(printf '{"serverName":"%s","namespace":"mcp-servers","agentID":"%s"}' "${SERVER_NAME}" "${ADAPTER_AGENT_ID}")"
+  session_body="$(printf '{"serverName":"%s","namespace":"mcp-servers-org","agentID":"%s"}' "${SERVER_NAME}" "${ADAPTER_AGENT_ID}")"
   session_resp="$(curl -fsS -X POST \
     -H "Authorization: Bearer ${ADAPTER_CALLER_TOKEN}" \
     -H "content-type: application/json" \
@@ -1532,7 +1532,7 @@ ensure_trust_adapter_session() {
     ADAPTER_TEAM_ID="$(printf '%s' "${session_resp}" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("teamID") or "")')"
   fi
   TRUST_SESSION_NAME="${ADAPTER_SESSION_NAME}"
-  qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers >/dev/null
+  qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org >/dev/null
 }
 
 # ensure_trust_session_proxy starts a certificate adapter for trust/governance
@@ -2421,7 +2421,7 @@ wait_for_policy_text() {
   local i
   for i in $(seq 1 "${tries}"); do
     local current
-    current="$(kubectl get configmap "${server}-gateway-policy" -n mcp-servers -o "jsonpath={.data.policy\.json}" 2>/dev/null || true)"
+    current="$(kubectl get configmap "${server}-gateway-policy" -n mcp-servers-org -o "jsonpath={.data.policy\.json}" 2>/dev/null || true)"
     if [[ "${current}" == *"${text}"* ]]; then
       return 0
     fi
@@ -2950,7 +2950,7 @@ run_selected_http_flow_scenarios() {
 
 print_gateway_policy_debug() {
   local policy_json
-  policy_json="$(kubectl get configmap "${SERVER_NAME}-gateway-policy" -n mcp-servers -o "jsonpath={.data.policy\.json}" 2>/dev/null || true)"
+  policy_json="$(kubectl get configmap "${SERVER_NAME}-gateway-policy" -n mcp-servers-org -o "jsonpath={.data.policy\.json}" 2>/dev/null || true)"
   if [[ -z "${policy_json}" ]]; then
     echo "[debug] gateway policy ConfigMap is unavailable"
     return 0
@@ -2998,7 +2998,7 @@ PY
 }
 
 wait_for_server_ready() {
-  wait_for_named_server_ready "${SERVER_NAME}" "mcp-servers" "${1:-60}"
+  wait_for_named_server_ready "${SERVER_NAME}" "mcp-servers-org" "${1:-60}"
 }
 
 restart_deployment_pods() {
@@ -3186,9 +3186,9 @@ deploy_example_server_via_pipeline() {
   )
 
   echo "[deploy] waiting for ${server_name} rollout"
-  wait_for_deployment_exists mcp-servers "${server_name}"
-  rollout_status_with_logs mcp-servers deploy "${server_name}" 180s "${server_name}" || exit $?
-  wait_for_named_server_ready "${server_name}" "mcp-servers" 60
+  wait_for_deployment_exists mcp-servers-org "${server_name}"
+  rollout_status_with_logs mcp-servers-org deploy "${server_name}" 180s "${server_name}" || exit $?
+  wait_for_named_server_ready "${server_name}" "mcp-servers-org" 60
 }
 
 wait_for_grant_tool_rule() {
@@ -3199,7 +3199,7 @@ wait_for_grant_tool_rule() {
   local i
   for i in $(seq 1 "${tries}"); do
     local policy_json
-    policy_json="$(kubectl get configmap "${SERVER_NAME}-gateway-policy" -n mcp-servers -o "jsonpath={.data.policy\.json}" 2>/dev/null || true)"
+    policy_json="$(kubectl get configmap "${SERVER_NAME}-gateway-policy" -n mcp-servers-org -o "jsonpath={.data.policy\.json}" 2>/dev/null || true)"
     if POLICY_JSON="${policy_json}" GRANT_NAME="${grant_name}" TOOL_NAME="${tool_name}" EXPECTED_DECISION="${expected_decision}" python3 <<'PY'
 import json
 import os
@@ -3233,7 +3233,7 @@ PY
     sleep 2
   done
   echo "timed out waiting for tool rule ${tool_name}=${expected_decision} in grant ${grant_name}" >&2
-  kubectl get configmap "${SERVER_NAME}-gateway-policy" -n mcp-servers -o yaml || true
+  kubectl get configmap "${SERVER_NAME}-gateway-policy" -n mcp-servers-org -o yaml || true
   return 1
 }
 
@@ -3258,15 +3258,15 @@ restore_policy_server_grant_defaults() {
   if [[ -n "${ADAPTER_SESSION_NAME:-}" ]]; then
     log_line policy "restoring adapter session consented trust to low"
     qa_session_update "${ADAPTER_SESSION_NAME}" '{"consentedTrust":"low"}'
-    qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers >/dev/null
+    qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org >/dev/null
   fi
 
   # ConfigMap updates can appear in kubectl before the gateway sidecar's mounted
   # policy.json reflects the restored allow rules. Restart so the next ingress
   # checks do not sit in a long tool_denied retry loop against stale policy.
   log_line policy "restarting ${SERVER_NAME} so the gateway reloads restored policy"
-  restart_deployment_pods mcp-servers "${SERVER_NAME}"
-  wait_for_named_server_ready "${SERVER_NAME}" "mcp-servers" 60
+  restart_deployment_pods mcp-servers-org "${SERVER_NAME}"
+  wait_for_named_server_ready "${SERVER_NAME}" "mcp-servers-org" 60
   restart_traefik_port_forward_force
 
   ensure_trust_session_proxy
@@ -3805,7 +3805,7 @@ mirror_upstream_images_parallel() {
 
 wait_core_platform_rollouts() {
   echo "[verify] waiting for core platform components"
-  kubectl get namespace mcp-servers mcp-servers-org mcp-servers-public >/dev/null
+  kubectl get namespace mcp-servers-org mcp-servers-public >/dev/null
 
   # Setup already waits for these workloads. Keep the post-setup sanity check
   # sequential so transient kubectl watch cancellation does not fail a healthy run.
@@ -3895,7 +3895,7 @@ platform_cache_ready() {
     expected_kafka_replicas=3
   fi
   [[ "$(kubectl get statefulset kafka -n mcp-observability -o jsonpath='{.spec.replicas}' 2>/dev/null)" == "${expected_kafka_replicas}" ]] || return 1
-  kubectl get namespace registry mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers mcp-servers-org mcp-servers-public >/dev/null 2>&1 || return 1
+  kubectl get namespace registry mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers-org mcp-servers-public >/dev/null 2>&1 || return 1
   kubectl rollout status deploy/registry -n registry --timeout=5s >/dev/null 2>&1 || return 1
   kubectl rollout status deploy/mcp-runtime-operator-controller-manager -n mcp-runtime --timeout=5s >/dev/null 2>&1 || return 1
   kubectl rollout status deploy/traefik -n traefik --timeout=5s >/dev/null 2>&1 || return 1
@@ -3924,8 +3924,8 @@ import sys
 deployment = json.load(sys.stdin)
 args = deployment["spec"]["template"]["spec"]["containers"][0]["args"]
 desired = {
-    "--providers.kubernetesingress.namespaces=": "--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers,mcp-servers-org,mcp-servers-public",
-    "--providers.kubernetescrd.namespaces=": "--providers.kubernetescrd.namespaces=mcp-platform,mcp-observability,mcp-servers,mcp-servers-org,mcp-servers-public",
+    "--providers.kubernetesingress.namespaces=": "--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers-org,mcp-servers-public",
+    "--providers.kubernetescrd.namespaces=": "--providers.kubernetescrd.namespaces=mcp-platform,mcp-observability,mcp-servers-org,mcp-servers-public",
 }
 patch = []
 for prefix, value in desired.items():
@@ -4191,7 +4191,7 @@ echo "[cli] checking bootstrap, cluster, registry, and ops commands"
   --dry-run >"${WORKDIR}/cluster-provision-dry-run.txt"
 if cache_mode_enabled; then
   echo "[cache] removing previous policy/OAuth test grants and sessions"
-  kubectl delete mcpaccessgrant -n mcp-servers \
+  kubectl delete mcpaccessgrant -n mcp-servers-org \
     "${SERVER_NAME}-grant" \
     "${SERVER_NAME}-e2e-api-grant" \
     "${OAUTH_SERVER_NAME}-grant" \
@@ -4202,26 +4202,26 @@ if cache_mode_enabled; then
     qa_session_delete_if_present "${cached_session}"
   done
   echo "[cache] removing previous policy/OAuth test workloads before cluster doctor"
-  kubectl delete mcpserver -n mcp-servers "${SERVER_NAME}" "${OAUTH_SERVER_NAME}" "${GO_EXAMPLE_STANDALONE_NAME}" "${MT_TENANT_A}" "${MT_TENANT_B}" --ignore-not-found --wait=true >/dev/null
-  kubectl delete deployment -n mcp-servers "${SERVER_NAME}" "${OAUTH_SERVER_NAME}" "${GO_EXAMPLE_STANDALONE_NAME}" "${MT_TENANT_A}" "${MT_TENANT_B}" --ignore-not-found --wait=true >/dev/null
-  kubectl delete pod -n mcp-servers -l "app=${SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
-  kubectl delete pod -n mcp-servers -l "app=${OAUTH_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
-  kubectl delete pod -n mcp-servers -l "app=${MT_TENANT_A}" --ignore-not-found --wait=false >/dev/null
-  kubectl delete pod -n mcp-servers -l "app=${MT_TENANT_B}" --ignore-not-found --wait=false >/dev/null
+  kubectl delete mcpserver -n mcp-servers-org "${SERVER_NAME}" "${OAUTH_SERVER_NAME}" "${GO_EXAMPLE_STANDALONE_NAME}" "${MT_TENANT_A}" "${MT_TENANT_B}" --ignore-not-found --wait=true >/dev/null
+  kubectl delete deployment -n mcp-servers-org "${SERVER_NAME}" "${OAUTH_SERVER_NAME}" "${GO_EXAMPLE_STANDALONE_NAME}" "${MT_TENANT_A}" "${MT_TENANT_B}" --ignore-not-found --wait=true >/dev/null
+  kubectl delete pod -n mcp-servers-org -l "app=${SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
+  kubectl delete pod -n mcp-servers-org -l "app=${OAUTH_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
+  kubectl delete pod -n mcp-servers-org -l "app=${MT_TENANT_A}" --ignore-not-found --wait=false >/dev/null
+  kubectl delete pod -n mcp-servers-org -l "app=${MT_TENANT_B}" --ignore-not-found --wait=false >/dev/null
   echo "[cache] removing previous example workloads before cluster doctor"
-  kubectl delete mcpserver -n mcp-servers \
+  kubectl delete mcpserver -n mcp-servers-org \
     "${PYTHON_EXAMPLE_SERVER_NAME}" \
     "${RUST_EXAMPLE_SERVER_NAME}" \
     "${GO_EXAMPLE_SERVER_NAME}" \
     --ignore-not-found --wait=false >/dev/null
-  kubectl delete deployment -n mcp-servers \
+  kubectl delete deployment -n mcp-servers-org \
     "${PYTHON_EXAMPLE_SERVER_NAME}" \
     "${RUST_EXAMPLE_SERVER_NAME}" \
     "${GO_EXAMPLE_SERVER_NAME}" \
     --ignore-not-found --wait=false >/dev/null
-  kubectl delete pod -n mcp-servers -l "app=${PYTHON_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
-  kubectl delete pod -n mcp-servers -l "app=${RUST_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
-  kubectl delete pod -n mcp-servers -l "app=${GO_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
+  kubectl delete pod -n mcp-servers-org -l "app=${PYTHON_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
+  kubectl delete pod -n mcp-servers-org -l "app=${RUST_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
+  kubectl delete pod -n mcp-servers-org -l "app=${GO_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
   stale_team_namespaces=()
   while IFS= read -r ns; do
     stale_team_namespaces+=("${ns#namespace/}")
@@ -4230,8 +4230,8 @@ if cache_mode_enabled; then
     echo "[cache] deleting stale team namespaces before cluster doctor"
     kubectl delete namespace "${stale_team_namespaces[@]}" --ignore-not-found --wait=false >/dev/null
   fi
-  echo "[cache] deleting stale pending mcp-servers pods before cluster doctor"
-  kubectl delete pod -n mcp-servers --field-selector=status.phase=Pending --ignore-not-found --wait=false >/dev/null
+  echo "[cache] deleting stale pending mcp-servers-org pods before cluster doctor"
+  kubectl delete pod -n mcp-servers-org --field-selector=status.phase=Pending --ignore-not-found --wait=false >/dev/null
   echo "[cache] refreshing operator e2e environment before cluster doctor"
   kubectl set env deploy/mcp-runtime-operator-controller-manager -n mcp-runtime \
     "MCP_INGRESS_READINESS_MODE=${MCP_INGRESS_READINESS_MODE}" \
@@ -4334,7 +4334,7 @@ GO_EXAMPLE_WORKDIR="${WORKDIR}/oauth-example-go-2025-11-25"
 if checkpoint_enabled "platform"; then
   echo "[deploy] creating server-local analytics credentials secret"
   kubectl create secret generic "${SERVER_SECRET_NAME}" \
-    -n mcp-servers \
+    -n mcp-servers-org \
     --from-literal=api-key="${INGEST_API_KEY}" \
     --dry-run=client -o yaml | kubectl apply -f -
 
@@ -4347,7 +4347,7 @@ servers:
     route: /${SERVER_NAME}/mcp
     publicPathPrefix: ${SERVER_NAME}
     port: 8090
-    namespace: mcp-servers
+    namespace: mcp-servers-org
     resources:
       requests:
         cpu: 1m
@@ -4414,33 +4414,33 @@ EOF
   run_logged_stage "deploy primary MCP server manifests" bash -lc "MCP_RUNTIME_CONFIG_DIR=\"${E2E_PIPELINE_CONFIG_DIR}\" ./bin/mcp-runtime server generate --metadata-file \"${METADATA_FILE}\" --output \"${MANIFEST_DIR}\" && ./bin/mcp-runtime server --use-kube apply --file \"${MANIFEST_DIR}/${SERVER_NAME}.yaml\""
 
   echo "[deploy] waiting for MCP server rollout"
-  wait_for_deployment_exists mcp-servers "${SERVER_NAME}"
-  rollout_status_with_logs mcp-servers deploy "${SERVER_NAME}" 180s "${SERVER_NAME}" || exit $?
+  wait_for_deployment_exists mcp-servers-org "${SERVER_NAME}"
+  rollout_status_with_logs mcp-servers-org deploy "${SERVER_NAME}" 180s "${SERVER_NAME}" || exit $?
   wait_for_server_ready
 
   echo "[cli] checking server mutation helpers"
   SERVER_EXPORT_FILE="${WORKDIR}/${SERVER_NAME}-export.yaml"
   ./bin/mcp-runtime server --use-kube apply --file "${MANIFEST_DIR}/${SERVER_NAME}.yaml"
   ./bin/mcp-runtime server --use-kube export "${SERVER_NAME}" \
-    --namespace mcp-servers \
+    --namespace mcp-servers-org \
     --file "${SERVER_EXPORT_FILE}"
   assert_file_contains "name: ${SERVER_NAME}" "${SERVER_EXPORT_FILE}"
   ./bin/mcp-runtime server --use-kube patch "${SERVER_NAME}" \
-    --namespace mcp-servers \
+    --namespace mcp-servers-org \
     --type merge \
     --patch '{"metadata":{"annotations":{"e2e.mcpruntime.org/cli-patch":"true"}}}'
-  ./bin/mcp-runtime server --use-kube status --namespace mcp-servers >"${WORKDIR}/server-status.txt"
+  ./bin/mcp-runtime server --use-kube status --namespace mcp-servers-org >"${WORKDIR}/server-status.txt"
   assert_file_contains "${SERVER_NAME}" "${WORKDIR}/server-status.txt"
   ./bin/mcp-runtime server --use-kube logs "${SERVER_NAME}" \
-    --namespace mcp-servers \
+    --namespace mcp-servers-org \
     --tail 20 >"${WORKDIR}/server-logs.txt"
   TEMP_CLI_SERVER="${SERVER_NAME}-cli-create"
   ./bin/mcp-runtime server --use-kube create "${TEMP_CLI_SERVER}" \
-    --namespace mcp-servers \
+    --namespace mcp-servers-org \
     --image docker.io/library/nginx \
     --tag 1.27-alpine
-  ./bin/mcp-runtime server --use-kube delete "${TEMP_CLI_SERVER}" --namespace mcp-servers
-  kubectl wait --for=delete "mcpserver/${TEMP_CLI_SERVER}" -n mcp-servers --timeout=120s || true
+  ./bin/mcp-runtime server --use-kube delete "${TEMP_CLI_SERVER}" --namespace mcp-servers-org
+  kubectl wait --for=delete "mcpserver/${TEMP_CLI_SERVER}" -n mcp-servers-org --timeout=120s || true
 
   echo "[deploy] using single primary MCP server ${SERVER_NAME} (extra sample servers disabled; budget=$(e2e_mcp_server_budget))"
 
@@ -4449,7 +4449,7 @@ EOF
 
 # --- server list: assert the primary server appears ---
 _cli_list_file="${WORKDIR}/server-list.txt"
-if ! run_with_retry "server list" env KUBECONFIG="${KUBECONFIG_FILE}" ./bin/mcp-runtime server --use-kube list --namespace mcp-servers >"${_cli_list_file}" 2>&1; then
+if ! run_with_retry "server list" env KUBECONFIG="${KUBECONFIG_FILE}" ./bin/mcp-runtime server --use-kube list --namespace mcp-servers-org >"${_cli_list_file}" 2>&1; then
   echo "[cli][fail] 'server list' failed" >&2
   cat "${_cli_list_file}" >&2
   exit 1
@@ -4464,7 +4464,7 @@ echo "[cli][pass] server list contains ${SERVER_NAME}"
 
 # --- server get: capture YAML and assert readiness fields ---
 _cli_get_file="${WORKDIR}/${SERVER_NAME}-get.yaml"
-if ! run_with_retry "server get ${SERVER_NAME}" env KUBECONFIG="${KUBECONFIG_FILE}" ./bin/mcp-runtime server --use-kube get "${SERVER_NAME}" --namespace mcp-servers >"${_cli_get_file}" 2>&1; then
+if ! run_with_retry "server get ${SERVER_NAME}" env KUBECONFIG="${KUBECONFIG_FILE}" ./bin/mcp-runtime server --use-kube get "${SERVER_NAME}" --namespace mcp-servers-org >"${_cli_get_file}" 2>&1; then
   echo "[cli][fail] 'server get ${SERVER_NAME}' failed" >&2
   cat "${_cli_get_file}" >&2
   exit 1
@@ -4570,22 +4570,22 @@ if checkpoint_enabled "policy"; then
     --force
   qa_platform_cli access session apply --file "${WORKDIR}/access-session.yaml"
 
-  qa_platform_cli access session get "${SESSION_ID}" --namespace mcp-servers >/dev/null
+  qa_platform_cli access session get "${SESSION_ID}" --namespace mcp-servers-org >/dev/null
   qa_session_assert_field "${SESSION_ID}" consentedTrust low
   print_gateway_policy_debug
   ./bin/mcp-runtime server --use-kube policy inspect "${SERVER_NAME}" \
-    --namespace mcp-servers >"${WORKDIR}/server-policy.json"
+    --namespace mcp-servers-org >"${WORKDIR}/server-policy.json"
   python3 -c 'import json,sys; assert not json.load(sys.stdin).get("sessions"), "sessions leaked into policy ConfigMap"' <"${WORKDIR}/server-policy.json"
 
   if scenario_selected "governance"; then
     echo "[cli] checking access management commands"
-    ./bin/mcp-runtime access --use-kube grant list --namespace mcp-servers >"${WORKDIR}/access-grant-list.txt"
+    ./bin/mcp-runtime access --use-kube grant list --namespace mcp-servers-org >"${WORKDIR}/access-grant-list.txt"
     assert_file_contains "${SERVER_NAME}-grant" "${WORKDIR}/access-grant-list.txt"
-    ./bin/mcp-runtime access --use-kube grant get "${SERVER_NAME}-grant" --namespace mcp-servers >"${WORKDIR}/access-grant-get.yaml"
+    ./bin/mcp-runtime access --use-kube grant get "${SERVER_NAME}-grant" --namespace mcp-servers-org >"${WORKDIR}/access-grant-get.yaml"
     assert_file_contains "maxTrust: high" "${WORKDIR}/access-grant-get.yaml"
-    qa_platform_cli access session list --namespace mcp-servers >"${WORKDIR}/access-session-list.txt"
+    qa_platform_cli access session list --namespace mcp-servers-org >"${WORKDIR}/access-session-list.txt"
     assert_file_contains "${SESSION_ID}" "${WORKDIR}/access-session-list.txt"
-    qa_platform_cli access session get "${SESSION_ID}" --namespace mcp-servers >"${WORKDIR}/access-session-get.yaml"
+    qa_platform_cli access session get "${SESSION_ID}" --namespace mcp-servers-org >"${WORKDIR}/access-session-get.yaml"
     assert_file_contains '"consentedTrust": "low"' "${WORKDIR}/access-session-get.yaml"
 
     cat >"${WORKDIR}/access-temp.yaml" <<EOF
@@ -4593,7 +4593,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: ${SERVER_NAME}-grant-cli-temp
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${SERVER_NAME}
@@ -4610,7 +4610,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAgentSession
 metadata:
   name: ${SESSION_ID}-cli-temp
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${SERVER_NAME}
@@ -4622,12 +4622,12 @@ spec:
   policyVersion: v1
 EOF
     qa_platform_cli access grant apply --file "${WORKDIR}/access-temp.yaml"
-    ./bin/mcp-runtime access --use-kube grant disable "${SERVER_NAME}-grant-cli-temp" --namespace mcp-servers
-    ./bin/mcp-runtime access --use-kube grant enable "${SERVER_NAME}-grant-cli-temp" --namespace mcp-servers
-    qa_platform_cli access session revoke "${SESSION_ID}-cli-temp" --namespace mcp-servers
-    qa_platform_cli access session unrevoke "${SESSION_ID}-cli-temp" --namespace mcp-servers
-    ./bin/mcp-runtime access --use-kube grant delete "${SERVER_NAME}-grant-cli-temp" --namespace mcp-servers
-    qa_platform_cli access session delete "${SESSION_ID}-cli-temp" --namespace mcp-servers
+    ./bin/mcp-runtime access --use-kube grant disable "${SERVER_NAME}-grant-cli-temp" --namespace mcp-servers-org
+    ./bin/mcp-runtime access --use-kube grant enable "${SERVER_NAME}-grant-cli-temp" --namespace mcp-servers-org
+    qa_platform_cli access session revoke "${SESSION_ID}-cli-temp" --namespace mcp-servers-org
+    qa_platform_cli access session unrevoke "${SESSION_ID}-cli-temp" --namespace mcp-servers-org
+    ./bin/mcp-runtime access --use-kube grant delete "${SERVER_NAME}-grant-cli-temp" --namespace mcp-servers-org
+    qa_platform_cli access session delete "${SESSION_ID}-cli-temp" --namespace mcp-servers-org
   fi
 
   if scenario_selected "governance" || scenario_selected "adapter-proxy"; then
@@ -4646,7 +4646,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: ${SERVER_NAME}-adapter-grant
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${SERVER_NAME}
@@ -4667,7 +4667,7 @@ EOF
     log_line policy "logging in team member for adapter-session test"
 
     log_line policy "adapter-session endpoint should issue a session for the team agent grant"
-    ADAPTER_SESSION_BODY="$(printf '{"serverName":"%s","namespace":"mcp-servers","agentID":"%s"}' "${SERVER_NAME}" "${ADAPTER_AGENT_ID}")"
+    ADAPTER_SESSION_BODY="$(printf '{"serverName":"%s","namespace":"mcp-servers-org","agentID":"%s"}' "${SERVER_NAME}" "${ADAPTER_AGENT_ID}")"
     ADAPTER_SESSION_RESP="$(curl -fsS -X POST \
       -H "Authorization: Bearer ${ADAPTER_CALLER_TOKEN}" \
       -H "content-type: application/json" \
@@ -4676,7 +4676,7 @@ EOF
     echo "${ADAPTER_SESSION_RESP}" | ADAPTER_AGENT_ID="${ADAPTER_AGENT_ID}" python3 -c "
 import json, os, sys
 resp = json.load(sys.stdin)
-assert resp['namespace'] == 'mcp-servers', resp
+assert resp['namespace'] == 'mcp-servers-org', resp
 assert resp['serverName'] == '${SERVER_NAME}', resp
 assert resp['agentID'] == os.environ['ADAPTER_AGENT_ID'], resp
 assert resp['name'].startswith('adapter-'), resp
@@ -4686,11 +4686,11 @@ assert resp['expiresAt'], resp
 print('adapter-session issued:', resp['name'], 'reused=', resp['reused'])
 "
     ADAPTER_SESSION_NAME="$(echo "${ADAPTER_SESSION_RESP}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["name"])')"
-    if ! qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers >/dev/null; then
-      echo "expected platform session ${ADAPTER_SESSION_NAME} in mcp-servers" >&2
+    if ! qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org >/dev/null; then
+      echo "expected platform session ${ADAPTER_SESSION_NAME} in mcp-servers-org" >&2
       exit 1
     fi
-    qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers >/dev/null
+    qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org >/dev/null
 
     # The second call must hit the platform's reuse path: same body within the
     # same run, no Kubernetes round-trip, reused=true. This is independent of
@@ -4713,7 +4713,7 @@ print('adapter-session reused:', resp['name'])
     ADAPTER_SESSION_REJECT_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
       -H "Authorization: Bearer ${ADAPTER_CALLER_TOKEN}" \
       -H "content-type: application/json" \
-      --data "{\"serverName\":\"definitely-missing\",\"namespace\":\"mcp-servers\",\"agentID\":\"${ADAPTER_AGENT_ID}\"}" \
+      --data "{\"serverName\":\"definitely-missing\",\"namespace\":\"mcp-servers-org\",\"agentID\":\"${ADAPTER_AGENT_ID}\"}" \
       "http://127.0.0.1:${PLATFORM_PORT}/api/v1/runtime/adapter/sessions")"
     if [[ "${ADAPTER_SESSION_REJECT_STATUS}" != "403" ]]; then
       echo "expected 403 when no grant matches, got ${ADAPTER_SESSION_REJECT_STATUS}" >&2
@@ -4750,12 +4750,12 @@ print(json.dumps({"email": os.environ["PLATFORM_ADMIN_EMAIL"], "password": os.en
       --password-stdin \
       --role member >/dev/null
     env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime team user list "${DEEP_CLI_TEAM_SLUG}" >/dev/null
-    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server list --namespace mcp-servers >/dev/null
-    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server get "${SERVER_NAME}" --namespace mcp-servers >/dev/null
-    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access grant list --namespace mcp-servers >/dev/null
-    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access grant get "${SERVER_NAME}-grant" --namespace mcp-servers >/dev/null
-    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access session list --namespace mcp-servers >/dev/null
-    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access session get "${SESSION_ID}" --namespace mcp-servers >/dev/null
+    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server list --namespace mcp-servers-org >/dev/null
+    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server get "${SERVER_NAME}" --namespace mcp-servers-org >/dev/null
+    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access grant list --namespace mcp-servers-org >/dev/null
+    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access grant get "${SERVER_NAME}-grant" --namespace mcp-servers-org >/dev/null
+    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access session list --namespace mcp-servers-org >/dev/null
+    env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access session get "${SESSION_ID}" --namespace mcp-servers-org >/dev/null
   fi
 
   if scenario_selected "trust"; then
@@ -4780,7 +4780,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: ${TRUST_GRANT_NAME}
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${SERVER_NAME}
@@ -4817,7 +4817,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: ${TRUST_GRANT_NAME}
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${SERVER_NAME}
@@ -4867,7 +4867,7 @@ if checkpoint_enabled "oauth"; then
     port_forward_bg mcp-observability mcp-ingest "${INGEST_METRICS_PORT}" 9091 "${WORKDIR}/ingest-metrics-port-forward.log"
     port_forward_bg mcp-observability mcp-processor "${PROCESSOR_METRICS_PORT}" 9102 "${WORKDIR}/processor-metrics-port-forward.log"
     port_forward_bg mcp-observability prometheus "${PROMETHEUS_PORT}" 9090 "${WORKDIR}/prometheus-port-forward.log"
-    port_forward_resource_bg mcp-servers "deployment/${SERVER_NAME}" "${SERVER_UPSTREAM_PORT}" 8090 "${WORKDIR}/server-upstream-port-forward.log"
+    port_forward_resource_bg mcp-servers-org "deployment/${SERVER_NAME}" "${SERVER_UPSTREAM_PORT}" 8090 "${WORKDIR}/server-upstream-port-forward.log"
   fi
   if server_proxy_paths_selected; then
     ensure_server_proxy_port_forward
@@ -5069,7 +5069,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ${OAUTH_ISSUER_NAME}
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   selector:
     app: ${OAUTH_ISSUER_NAME}
@@ -5083,7 +5083,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: ${OAUTH_ISSUER_NAME}-allow-${OAUTH_SERVER_NAME}
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   podSelector:
     matchLabels:
@@ -5106,7 +5106,7 @@ spec:
           port: 8080
 EOF
   if [[ -z "${OAUTH_ISSUER_URL}" ]]; then
-    OAUTH_ISSUER_CLUSTER_IP="$(kubectl get svc "${OAUTH_ISSUER_NAME}" -n mcp-servers -o jsonpath='{.spec.clusterIP}')"
+    OAUTH_ISSUER_CLUSTER_IP="$(kubectl get svc "${OAUTH_ISSUER_NAME}" -n mcp-servers-org -o jsonpath='{.spec.clusterIP}')"
     if [[ -z "${OAUTH_ISSUER_CLUSTER_IP}" || "${OAUTH_ISSUER_CLUSTER_IP}" == "None" ]]; then
       echo "failed to resolve ClusterIP for OAuth issuer service ${OAUTH_ISSUER_NAME}" >&2
       exit 1
@@ -5120,11 +5120,11 @@ EOF
 
   echo "[oauth] deploying mock OAuth issuer"
   OAUTH_ISSUER_DEPLOYMENT_EXISTED=0
-  if kubectl get deployment "${OAUTH_ISSUER_NAME}" -n mcp-servers >/dev/null 2>&1; then
+  if kubectl get deployment "${OAUTH_ISSUER_NAME}" -n mcp-servers-org >/dev/null 2>&1; then
     OAUTH_ISSUER_DEPLOYMENT_EXISTED=1
   fi
   kubectl create configmap "${OAUTH_ISSUER_NAME}-files" \
-    -n mcp-servers \
+    -n mcp-servers-org \
     --from-file=oauth-authorization-server="${OAUTH_FIXTURE_DIR}/oauth-authorization-server" \
     --from-file=keys="${OAUTH_FIXTURE_DIR}/keys" \
     --dry-run=client -o yaml | kubectl apply -f -
@@ -5133,7 +5133,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ${OAUTH_ISSUER_NAME}
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   replicas: 1
   selector:
@@ -5185,12 +5185,12 @@ EOF
   # The issuer mounts fixture files through subPath, so restart to pick up new
   # JWKS/token fixtures when E2E cache mode reuses an existing Deployment.
   if [[ "${OAUTH_ISSUER_DEPLOYMENT_EXISTED}" == "1" ]]; then
-    kubectl rollout restart "deploy/${OAUTH_ISSUER_NAME}" -n mcp-servers >/dev/null
+    kubectl rollout restart "deploy/${OAUTH_ISSUER_NAME}" -n mcp-servers-org >/dev/null
   fi
-  kubectl rollout status "deploy/${OAUTH_ISSUER_NAME}" -n mcp-servers --timeout=180s
+  kubectl rollout status "deploy/${OAUTH_ISSUER_NAME}" -n mcp-servers-org --timeout=180s
   OAUTH_ISSUER_ENDPOINT_READY=0
   for _oauth_endpoint_try in $(seq 1 60); do
-    if [[ -n "$(kubectl get endpoints "${OAUTH_ISSUER_NAME}" -n mcp-servers -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null || true)" ]]; then
+    if [[ -n "$(kubectl get endpoints "${OAUTH_ISSUER_NAME}" -n mcp-servers-org -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null || true)" ]]; then
       OAUTH_ISSUER_ENDPOINT_READY=1
       break
     fi
@@ -5198,9 +5198,9 @@ EOF
   done
   if [[ "${OAUTH_ISSUER_ENDPOINT_READY}" != "1" ]]; then
     echo "timed out waiting for OAuth issuer service endpoint" >&2
-    kubectl get svc,endpoints,pods -n mcp-servers -o wide >&2 || true
-    kubectl describe deployment "${OAUTH_ISSUER_NAME}" -n mcp-servers >&2 || true
-    kubectl logs -n mcp-servers -l "app=${OAUTH_ISSUER_NAME}" --tail=100 >&2 || true
+    kubectl get svc,endpoints,pods -n mcp-servers-org -o wide >&2 || true
+    kubectl describe deployment "${OAUTH_ISSUER_NAME}" -n mcp-servers-org >&2 || true
+    kubectl logs -n mcp-servers-org -l "app=${OAUTH_ISSUER_NAME}" --tail=100 >&2 || true
     exit 1
   fi
 
@@ -5215,7 +5215,7 @@ servers:
     route: /${OAUTH_SERVER_NAME}/mcp
     publicPathPrefix: ${OAUTH_SERVER_NAME}
     port: 8090
-    namespace: mcp-servers
+    namespace: mcp-servers-org
     resources:
       requests:
         cpu: 1m
@@ -5264,8 +5264,8 @@ EOF
 
   echo "[oauth] deploying OAuth-protected MCP server"
   run_logged_stage "deploy OAuth MCP server manifests" bash -lc "MCP_RUNTIME_CONFIG_DIR=\"${E2E_PIPELINE_CONFIG_DIR}\" ./bin/mcp-runtime server generate --metadata-file \"${OAUTH_METADATA_FILE}\" --output \"${OAUTH_MANIFEST_DIR}\" && ./bin/mcp-runtime server --use-kube apply --file \"${OAUTH_MANIFEST_DIR}/${OAUTH_SERVER_NAME}.yaml\""
-  wait_for_deployment_exists mcp-servers "${OAUTH_SERVER_NAME}"
-  if ! restart_deployment_pods mcp-servers "${OAUTH_SERVER_NAME}" 180s; then
+  wait_for_deployment_exists mcp-servers-org "${OAUTH_SERVER_NAME}"
+  if ! restart_deployment_pods mcp-servers-org "${OAUTH_SERVER_NAME}" 180s; then
     exit 1
   fi
   wait_for_named_server_ready "${OAUTH_SERVER_NAME}"
@@ -5284,7 +5284,7 @@ servers:
     route: ${GO_EXAMPLE_STANDALONE_ROUTE}
     publicPathPrefix: ${GO_EXAMPLE_STANDALONE_NAME}
     port: 8088
-    namespace: mcp-servers
+    namespace: mcp-servers-org
     tools:
       - name: whoami
         description: Return verified token identity.
@@ -5314,12 +5314,12 @@ EOF
   run_logged_stage "apply Go server OAuth manifest" \
     ./bin/mcp-runtime server --use-kube apply \
       --file "${GO_OAUTH_MANIFEST_DIR}/${GO_EXAMPLE_STANDALONE_NAME}.yaml"
-  if ! restart_deployment_pods mcp-servers "${GO_EXAMPLE_STANDALONE_NAME}" 180s; then
+  if ! restart_deployment_pods mcp-servers-org "${GO_EXAMPLE_STANDALONE_NAME}" 180s; then
     exit 1
   fi
   wait_for_named_server_ready "${GO_EXAMPLE_STANDALONE_NAME}"
 
-  port_forward_bg mcp-servers "${GO_EXAMPLE_STANDALONE_NAME}" "${GO_OAUTH_SERVER_PORT}" 80 "${WORKDIR}/go-oauth-port-forward.log"
+  port_forward_bg mcp-servers-org "${GO_EXAMPLE_STANDALONE_NAME}" "${GO_OAUTH_SERVER_PORT}" 80 "${WORKDIR}/go-oauth-port-forward.log"
   wait_port "${GO_OAUTH_SERVER_PORT}"
   GO_OAUTH_VALID_TOKEN="$(tr -d '\n' <"${OAUTH_FIXTURE_DIR}/valid-go-token.txt")"
   GO_OAUTH_INVALID_TOKEN="$(tr -d '\n' <"${OAUTH_FIXTURE_DIR}/invalid-go-token.txt")"
@@ -5377,7 +5377,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: ${OAUTH_SERVER_NAME}-grant
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${OAUTH_SERVER_NAME}
@@ -5403,12 +5403,12 @@ EOF
     OAUTH_PROXY_UPSTREAM_ORIGIN="https://127.0.0.1:${TRAEFIK_TLS_PORT}"
     OAUTH_HEADER_PROXY_ARGS+=(--insecure-upstream)
   elif oauth_proxy_paths_selected; then
-    port_forward_bg mcp-servers "${OAUTH_SERVER_NAME}" "${OAUTH_PROXY_PORT}" 80 "${WORKDIR}/oauth-proxy-port-forward.log"
+    port_forward_bg mcp-servers-org "${OAUTH_SERVER_NAME}" "${OAUTH_PROXY_PORT}" 80 "${WORKDIR}/oauth-proxy-port-forward.log"
     wait_port "${OAUTH_PROXY_PORT}"
     OAUTH_PROXY_UPSTREAM_ORIGIN="http://127.0.0.1:${OAUTH_PROXY_PORT}"
   fi
   if scenario_selected "observability"; then
-    port_forward_resource_bg mcp-servers "deployment/${OAUTH_SERVER_NAME}" "${OAUTH_UPSTREAM_PORT}" 8090 "${WORKDIR}/oauth-upstream-port-forward.log"
+    port_forward_resource_bg mcp-servers-org "deployment/${OAUTH_SERVER_NAME}" "${OAUTH_UPSTREAM_PORT}" 8090 "${WORKDIR}/oauth-upstream-port-forward.log"
     wait_port "${OAUTH_UPSTREAM_PORT}"
   fi
 
@@ -5498,11 +5498,11 @@ PY
   wait_for_mcp_initialize_result "${MCP_OAUTH_ANON_URL}" 401 "missing_bearer_token" "www-authenticate" "resource_metadata="
   if ! wait_for_mcp_initialize_result "${MCP_OAUTH_INVALID_URL}" 401 "invalid_token" "www-authenticate" 'error="invalid_token"'; then
     echo "[debug] OAuth provider diagnostics after invalid-token failure" >&2
-    kubectl get svc,endpoints,pods,networkpolicy -n mcp-servers -o wide >&2 || true
-    kubectl get networkpolicy -n mcp-servers -o yaml >&2 || true
-    kubectl describe deployment "${OAUTH_ISSUER_NAME}" -n mcp-servers >&2 || true
-    kubectl logs -n mcp-servers -l "app=${OAUTH_ISSUER_NAME}" --tail=100 >&2 || true
-    kubectl logs -n mcp-servers -l "app=${OAUTH_SERVER_NAME}" -c mcp-gateway --tail=200 >&2 || true
+    kubectl get svc,endpoints,pods,networkpolicy -n mcp-servers-org -o wide >&2 || true
+    kubectl get networkpolicy -n mcp-servers-org -o yaml >&2 || true
+    kubectl describe deployment "${OAUTH_ISSUER_NAME}" -n mcp-servers-org >&2 || true
+    kubectl logs -n mcp-servers-org -l "app=${OAUTH_ISSUER_NAME}" --tail=100 >&2 || true
+    kubectl logs -n mcp-servers-org -l "app=${OAUTH_SERVER_NAME}" -c mcp-gateway --tail=200 >&2 || true
     exit 1
   fi
   wait_for_http_result \
@@ -5607,7 +5607,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: ${ADAPTER_CERT_GRANT}
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${OAUTH_SERVER_NAME}
@@ -5638,7 +5638,7 @@ EOF
       ./bin/mcp-runtime adapter enroll \
         --platform-url "http://127.0.0.1:${PLATFORM_PORT}" \
         --server "${OAUTH_SERVER_NAME}" \
-        --namespace mcp-servers \
+        --namespace mcp-servers-org \
         --agent "${ADAPTER_CERT_AGENT_ID}")"
     echo "${ADAPTER_CERT_ENROLL_OUTPUT}"
     ADAPTER_CERT_PATH="$(parse_adapter_enroll_credential_dir "${ADAPTER_CERT_ENROLL_OUTPUT}")" || exit 1
@@ -5662,13 +5662,13 @@ EOF
       "${OAUTH_AUDIENCE%/${OAUTH_SERVER_NAME}/mcp}/${WRONG_SERVER_NAME}/mcp" adapter-wrong-token.txt
     ADAPTER_OAUTH_TOKEN="$(tr -d '\n' <"${OAUTH_FIXTURE_DIR}/adapter-token.txt")"
     ADAPTER_WRONG_OAUTH_TOKEN="$(tr -d '\n' <"${OAUTH_FIXTURE_DIR}/adapter-wrong-token.txt")"
-    if ! qa_platform_cli access session get "${ADAPTER_CERT_SESSION}" --namespace mcp-servers >/dev/null; then
-      echo "expected platform session ${ADAPTER_CERT_SESSION} in mcp-servers after adapter enrollment" >&2
+    if ! qa_platform_cli access session get "${ADAPTER_CERT_SESSION}" --namespace mcp-servers-org >/dev/null; then
+      echo "expected platform session ${ADAPTER_CERT_SESSION} in mcp-servers-org after adapter enrollment" >&2
       exit 1
     fi
     # Read the authoritative platform binding; the certificate probe below
     # waits for the gateway's session sync to observe it.
-    qa_platform_cli access session get "${ADAPTER_CERT_SESSION}" --namespace mcp-servers >/dev/null
+    qa_platform_cli access session get "${ADAPTER_CERT_SESSION}" --namespace mcp-servers-org >/dev/null
 
     ensure_traefik_tls_port_forward
     ADAPTER_CERT_URL="https://127.0.0.1:${TRAEFIK_TLS_PORT}${OAUTH_INGRESS_PATH}"
@@ -5724,7 +5724,7 @@ EOF
       -H "Host: ${OAUTH_SERVER_HOST}" -H 'content-type: application/json' \
       -H 'accept: application/json, text/event-stream' -H "Mcp-Protocol-Version: ${MCP_PROTOCOL_VERSION}" \
       -H "Authorization: Bearer ${OAUTH_VALID_TOKEN}" \
-      -H 'X-MCP-Verified-SPIFFE-ID: spiffe://cluster.local/ns/mcp-servers/session/forged-session' \
+      -H 'X-MCP-Verified-SPIFFE-ID: spiffe://cluster.local/ns/mcp-servers-org/session/forged-session' \
       --data '{"jsonrpc":"2.0","id":3,"method":"initialize","params":{}}' \
       "${ADAPTER_CERT_URL}")"
     FORGED_MCP_SESSION="$(awk 'tolower($1)=="mcp-session-id:" {gsub("\r", "", $2); print $2}' "${FORGED_HEADER_HEADERS}")"
@@ -5735,13 +5735,13 @@ EOF
     curl -ksS -o /dev/null -H "Host: ${OAUTH_SERVER_HOST}" -H 'content-type: application/json' \
       -H 'accept: application/json, text/event-stream' -H "Mcp-Protocol-Version: ${MCP_PROTOCOL_VERSION}" \
       -H "Authorization: Bearer ${OAUTH_VALID_TOKEN}" -H "Mcp-Session-Id: ${FORGED_MCP_SESSION}" \
-      -H 'X-MCP-Verified-SPIFFE-ID: spiffe://cluster.local/ns/mcp-servers/session/forged-session' \
+      -H 'X-MCP-Verified-SPIFFE-ID: spiffe://cluster.local/ns/mcp-servers-org/session/forged-session' \
       --data '{"jsonrpc":"2.0","method":"notifications/initialized"}' "${ADAPTER_CERT_URL}"
     FORGED_CALL_STATUS="$(curl -ksS -o "${WORKDIR}/adapter-forged-header-call.json" -w '%{http_code}' \
       -H "Host: ${OAUTH_SERVER_HOST}" -H 'content-type: application/json' \
       -H 'accept: application/json, text/event-stream' -H "Mcp-Protocol-Version: ${MCP_PROTOCOL_VERSION}" \
       -H "Authorization: Bearer ${OAUTH_VALID_TOKEN}" -H "Mcp-Session-Id: ${FORGED_MCP_SESSION}" \
-      -H 'X-MCP-Verified-SPIFFE-ID: spiffe://cluster.local/ns/mcp-servers/session/forged-session' \
+      -H 'X-MCP-Verified-SPIFFE-ID: spiffe://cluster.local/ns/mcp-servers-org/session/forged-session' \
       --data '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"add","arguments":{"a":7,"b":5}}}' \
       "${ADAPTER_CERT_URL}")"
     if [[ "${FORGED_CALL_STATUS}" != "200" ]] || ! grep -q '12' "${WORKDIR}/adapter-forged-header-call.json"; then
@@ -5759,28 +5759,28 @@ EOF
       "${WORKDIR}/adapter-wrong-server-headers.txt" "${WORKDIR}/adapter-wrong-server.json" true \
       "${ADAPTER_WRONG_OAUTH_TOKEN}"; then
       echo "[debug] wrong-server adapter certificate route did not converge to the expected denial" >&2
-      kubectl get certificates,secrets,ingressroutes,serverstransports -n mcp-servers -o wide >&2 || true
+      kubectl get certificates,secrets,ingressroutes,serverstransports -n mcp-servers-org -o wide >&2 || true
       kubectl logs -n traefik -l app=traefik --tail=100 >&2 || true
-      kubectl logs -n mcp-servers -l "app=${WRONG_SERVER_NAME}" -c mcp-gateway --tail=100 >&2 || true
+      kubectl logs -n mcp-servers-org -l "app=${WRONG_SERVER_NAME}" -c mcp-gateway --tail=100 >&2 || true
       exit 1
     fi
 
     log_line oauth "a revoked session must stop a live adapter certificate"
-    SESSION_POLICY_REVISION="$(kubectl get configmap "${OAUTH_SERVER_NAME}-gateway-policy" -n mcp-servers -o jsonpath='{.metadata.resourceVersion}')"
-    qa_platform_cli access session revoke "${ADAPTER_CERT_SESSION}" --namespace mcp-servers
+    SESSION_POLICY_REVISION="$(kubectl get configmap "${OAUTH_SERVER_NAME}-gateway-policy" -n mcp-servers-org -o jsonpath='{.metadata.resourceVersion}')"
+    qa_platform_cli access session revoke "${ADAPTER_CERT_SESSION}" --namespace mcp-servers-org
     # Measure from the completed management write, polling more frequently than
     # the ordinary readiness helper so a two-second retry cannot hide the bound.
     SESSION_CHECK_URL="${ADAPTER_CERT_URL}" SESSION_CHECK_CERT="${ADAPTER_CERT_PATH}" \
       SESSION_CHECK_TOKEN="${ADAPTER_OAUTH_TOKEN}" SESSION_CHECK_HOST="${OAUTH_SERVER_HOST}" \
       SESSION_CHECK_PROTOCOL="${MCP_PROTOCOL_VERSION}" python3 "${PROJECT_ROOT}/test/e2e/session_revocation.py"
-    if [[ "$(kubectl get configmap "${OAUTH_SERVER_NAME}-gateway-policy" -n mcp-servers -o jsonpath='{.metadata.resourceVersion}')" != "${SESSION_POLICY_REVISION}" ]]; then
+    if [[ "$(kubectl get configmap "${OAUTH_SERVER_NAME}-gateway-policy" -n mcp-servers-org -o jsonpath='{.metadata.resourceVersion}')" != "${SESSION_POLICY_REVISION}" ]]; then
       echo "session revocation changed the static policy ConfigMap" >&2
       exit 1
     fi
-    qa_platform_cli access session unrevoke "${ADAPTER_CERT_SESSION}" --namespace mcp-servers
+    qa_platform_cli access session unrevoke "${ADAPTER_CERT_SESSION}" --namespace mcp-servers-org
 
     log_line oauth "direct gateway access with an adapter certificate must be rejected as untrusted_proxy"
-    port_forward_bg mcp-servers "${OAUTH_SERVER_NAME}" "${ADAPTER_CERT_DIRECT_PORT}" 80 "${WORKDIR}/adapter-cert-direct-port-forward.log"
+    port_forward_bg mcp-servers-org "${OAUTH_SERVER_NAME}" "${ADAPTER_CERT_DIRECT_PORT}" 80 "${WORKDIR}/adapter-cert-direct-port-forward.log"
     wait_port "${ADAPTER_CERT_DIRECT_PORT}"
     DIRECT_CERT_STATUS="$(curl -ksS --cert "${ADAPTER_CERT_PATH}/client.crt" --key "${ADAPTER_CERT_PATH}/client.key" \
       -o "${WORKDIR}/adapter-direct-gateway.json" -w '%{http_code}' \
@@ -5802,7 +5802,7 @@ EOF
       MCP_PLATFORM_API_URL="http://127.0.0.1:${PLATFORM_PORT}"
       MCP_PLATFORM_API_TOKEN="${ADAPTER_PLATFORM_TOKEN}"
     )
-    env "${RETIRE_PLATFORM_ENV[@]}" ./bin/mcp-runtime server delete "${OAUTH_SERVER_NAME}" --namespace mcp-servers
+    env "${RETIRE_PLATFORM_ENV[@]}" ./bin/mcp-runtime server delete "${OAUTH_SERVER_NAME}" --namespace mcp-servers-org
     # Required cleanup must complete through the platform operation, without
     # using a Kubernetes mutation to hide a retirement regression.
     kubectl get mcpaccessgrants -A -o json | python3 -c '
@@ -5811,7 +5811,7 @@ name = sys.argv[1]
 for item in json.load(sys.stdin)["items"]:
     ref = item.get("spec", {}).get("serverRef", {})
     namespace = ref.get("namespace") or item["metadata"]["namespace"]
-    if namespace == "mcp-servers" and ref.get("name") == name:
+    if namespace == "mcp-servers-org" and ref.get("name") == name:
         raise SystemExit("retirement left authorization: " + item["metadata"]["name"])
 ' "${OAUTH_SERVER_NAME}"
     curl -fsS -H "Authorization: Bearer ${ADAPTER_PLATFORM_TOKEN}" \
@@ -5820,19 +5820,19 @@ import json,sys
 name = sys.argv[1]
 for item in json.load(sys.stdin).get("sessions", []):
     ref = item.get("serverRef", {})
-    if (ref.get("namespace") or item["namespace"]) == "mcp-servers" and ref.get("name") == name:
+    if (ref.get("namespace") or item["namespace"]) == "mcp-servers-org" and ref.get("name") == name:
         raise SystemExit("retirement left platform session: " + item["name"])
 ' "${OAUTH_SERVER_NAME}"
-    kubectl wait --for=delete "mcpserver/${OAUTH_SERVER_NAME}" -n mcp-servers --timeout=120s
-    kubectl wait --for=delete "deployment/${OAUTH_SERVER_NAME}" -n mcp-servers --timeout=120s
+    kubectl wait --for=delete "mcpserver/${OAUTH_SERVER_NAME}" -n mcp-servers-org --timeout=120s
+    kubectl wait --for=delete "deployment/${OAUTH_SERVER_NAME}" -n mcp-servers-org --timeout=120s
     # Repeating the supported operation must also complete orphan recovery.
-    env "${RETIRE_PLATFORM_ENV[@]}" ./bin/mcp-runtime server delete "${OAUTH_SERVER_NAME}" --namespace mcp-servers
+    env "${RETIRE_PLATFORM_ENV[@]}" ./bin/mcp-runtime server delete "${OAUTH_SERVER_NAME}" --namespace mcp-servers-org
     env "${RETIRE_PLATFORM_ENV[@]}" ./bin/mcp-runtime server deploy "${OAUTH_SERVER_NAME}" \
-      --namespace mcp-servers --metadata-file "${OAUTH_METADATA_FILE}"
+      --namespace mcp-servers-org --metadata-file "${OAUTH_METADATA_FILE}"
     wait_for_named_server_ready "${OAUTH_SERVER_NAME}"
     wait_for_adapter_certificate_initialize "${ADAPTER_CERT_URL}" 401 session_not_found \
       "${WORKDIR}/adapter-after-retire-headers.txt" "${WORKDIR}/adapter-after-retire.json" true
-    cleanup_mcp_server_and_wait "${WRONG_SERVER_NAME}" mcp-servers 120s
+    cleanup_mcp_server_and_wait "${WRONG_SERVER_NAME}" mcp-servers-org 120s
     source "${PROJECT_ROOT}/test/e2e/scenarios/cross-team.sh"
     run_e2e_cross_team_scenario
   fi
@@ -5855,7 +5855,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: ${SERVER_NAME}-adapter-grant
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: ${SERVER_NAME}
@@ -5876,7 +5876,7 @@ EOF
   log_line policy "logging in team member for adapter-session test"
 
   log_line policy "adapter-session endpoint should issue a session for the team agent grant"
-  ADAPTER_SESSION_BODY="$(printf '{"serverName":"%s","namespace":"mcp-servers","agentID":"%s"}' "${SERVER_NAME}" "${ADAPTER_AGENT_ID}")"
+  ADAPTER_SESSION_BODY="$(printf '{"serverName":"%s","namespace":"mcp-servers-org","agentID":"%s"}' "${SERVER_NAME}" "${ADAPTER_AGENT_ID}")"
   ADAPTER_SESSION_RESP="$(curl -fsS -X POST \
     -H "Authorization: Bearer ${ADAPTER_CALLER_TOKEN}" \
     -H "content-type: application/json" \
@@ -5885,7 +5885,7 @@ EOF
   echo "${ADAPTER_SESSION_RESP}" | ADAPTER_AGENT_ID="${ADAPTER_AGENT_ID}" python3 -c "
 import json, os, sys
 resp = json.load(sys.stdin)
-assert resp['namespace'] == 'mcp-servers', resp
+assert resp['namespace'] == 'mcp-servers-org', resp
 assert resp['serverName'] == '${SERVER_NAME}', resp
 assert resp['agentID'] == os.environ['ADAPTER_AGENT_ID'], resp
 assert resp['name'].startswith('adapter-'), resp
@@ -5895,11 +5895,11 @@ assert resp['expiresAt'], resp
 print('adapter-session issued:', resp['name'], 'reused=', resp['reused'])
 "
   ADAPTER_SESSION_NAME="$(echo "${ADAPTER_SESSION_RESP}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["name"])')"
-  if ! qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers >/dev/null; then
-    echo "expected platform session ${ADAPTER_SESSION_NAME} in mcp-servers" >&2
+  if ! qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org >/dev/null; then
+    echo "expected platform session ${ADAPTER_SESSION_NAME} in mcp-servers-org" >&2
     exit 1
   fi
-  qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers >/dev/null
+  qa_platform_cli access session get "${ADAPTER_SESSION_NAME}" --namespace mcp-servers-org >/dev/null
 
   # The second call must hit the platform's reuse path: same body within the
   # same run, no Kubernetes round-trip, reused=true. This is independent of
@@ -5922,7 +5922,7 @@ print('adapter-session reused:', resp['name'])
   ADAPTER_SESSION_REJECT_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
     -H "Authorization: Bearer ${ADAPTER_CALLER_TOKEN}" \
     -H "content-type: application/json" \
-    --data "{\"serverName\":\"definitely-missing\",\"namespace\":\"mcp-servers\",\"agentID\":\"${ADAPTER_AGENT_ID}\"}" \
+    --data "{\"serverName\":\"definitely-missing\",\"namespace\":\"mcp-servers-org\",\"agentID\":\"${ADAPTER_AGENT_ID}\"}" \
     "http://127.0.0.1:${PLATFORM_PORT}/api/v1/runtime/adapter/sessions")"
   if [[ "${ADAPTER_SESSION_REJECT_STATUS}" != "403" ]]; then
     echo "expected 403 when no grant matches, got ${ADAPTER_SESSION_REJECT_STATUS}" >&2
@@ -5959,16 +5959,16 @@ print(json.dumps({"email": os.environ["PLATFORM_ADMIN_EMAIL"], "password": os.en
     --password-stdin \
     --role member >/dev/null
   env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime team user list "${DEEP_CLI_TEAM_SLUG}" >/dev/null
-  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server list --namespace mcp-servers >/dev/null
-  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server get "${SERVER_NAME}" --namespace mcp-servers >/dev/null
+  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server list --namespace mcp-servers-org >/dev/null
+  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server get "${SERVER_NAME}" --namespace mcp-servers-org >/dev/null
   env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime catalog tools \
-    --namespace mcp-servers \
+    --namespace mcp-servers-org \
     --risk low >"${WORKDIR}/catalog-tools.txt"
   grep -q "${SERVER_NAME}" "${WORKDIR}/catalog-tools.txt"
   grep -q "aaa-ping" "${WORKDIR}/catalog-tools.txt"
   env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime catalog tool aaa-ping \
     --server "${SERVER_NAME}" \
-    --namespace mcp-servers \
+    --namespace mcp-servers-org \
     --output json >"${WORKDIR}/catalog-tool.json"
   python3 - "${WORKDIR}/catalog-tool.json" <<'PY'
 import json
@@ -5989,7 +5989,7 @@ if not config.get("mcpServers"):
     raise SystemExit("catalog tool output did not include connect_config.mcpServers")
 PY
   env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime server connect-config "${SERVER_NAME}" \
-    --namespace mcp-servers \
+    --namespace mcp-servers-org \
     --client claude \
     --output json >"${WORKDIR}/server-connect-config.json"
   python3 - "${WORKDIR}/server-connect-config.json" "${SERVER_NAME}" <<'PY'
@@ -6007,10 +6007,10 @@ if server.get("type") != "http":
 if not server.get("url"):
     raise SystemExit("connect config missing url")
 PY
-  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access grant list --namespace mcp-servers >/dev/null
-  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access grant get "${SERVER_NAME}-grant" --namespace mcp-servers >/dev/null
-  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access session list --namespace mcp-servers >/dev/null
-  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access session get "${SESSION_ID}" --namespace mcp-servers >/dev/null
+  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access grant list --namespace mcp-servers-org >/dev/null
+  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access grant get "${SERVER_NAME}-grant" --namespace mcp-servers-org >/dev/null
+  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access session list --namespace mcp-servers-org >/dev/null
+  env "${DEEP_PLATFORM_ENV[@]}" ./bin/mcp-runtime access session get "${SESSION_ID}" --namespace mcp-servers-org >/dev/null
 fi
 
 run_selected_http_flow_scenarios
@@ -7021,7 +7021,7 @@ end_ns = int(time.time() * 1e9)
 start_ns = end_ns - int(10 * 60 * 1e9)
 params = urllib.parse.urlencode(
     {
-        "query": '{namespace=~"mcp-servers|mcp-platform|mcp-observability"}',
+        "query": '{namespace=~"mcp-servers-org|mcp-platform|mcp-observability"}',
         "limit": "20",
         "start": str(start_ns),
         "end": str(end_ns),
@@ -7050,7 +7050,7 @@ grafana_streams = grafana_loki.get("data", {}).get("result", [])
 # fallback streams reached Loki).
 server_params = urllib.parse.urlencode(
     {
-        "query": f'{{namespace="mcp-servers", app="{server_name}"}}',
+        "query": f'{{namespace="mcp-servers-org", app="{server_name}"}}',
         "limit": "20",
         "start": str(start_ns),
         "end": str(end_ns),
@@ -7061,21 +7061,21 @@ server_logs = wait_for_json(
     lambda doc: bool(doc.get("data", {}).get("result", [])),
     retries=60,
     delay=2,
-    description="loki mcp-servers log streams with workload labels",
+    description="loki mcp-servers-org log streams with workload labels",
 )
 for stream in server_logs.get("data", {}).get("result", []):
     stream_labels = stream.get("stream", {})
     missing = [key for key in ("namespace", "pod", "container", "node", "app") if not stream_labels.get(key)]
     if missing:
-        fail(f"loki mcp-servers stream missing labels {missing}: {stream_labels}")
+        fail(f"loki mcp-servers-org stream missing labels {missing}: {stream_labels}")
     # Promtail labels every file target with its path; it must be the CRI log
     # file of the pod and container the Kubernetes labels name.
     filename = stream_labels.get("filename", "")
     expected_prefix = f"/var/log/pods/{stream_labels['namespace']}_{stream_labels['pod']}_"
     expected_container = f"/{stream_labels['container']}/"
     if filename and (not filename.startswith(expected_prefix) or expected_container not in filename):
-        fail(f"loki mcp-servers stream labels do not match its log file: {stream_labels}")
-ok("loki mcp-servers streams carry namespace/pod/container/node/app labels")
+        fail(f"loki mcp-servers-org stream labels do not match its log file: {stream_labels}")
+ok("loki mcp-servers-org streams carry namespace/pod/container/node/app labels")
 
 rows = [
     ("audit.events_total", str(stats.get("events_total", "n/a"))),
@@ -7163,8 +7163,8 @@ rollout_status_with_logs mcp-platform deploy mcp-platform-api 180s
 
 echo "[cli] deleting deployed MCP servers"
 if scenario_selected "oauth"; then
-  cleanup_mcp_server_and_wait "${OAUTH_SERVER_NAME}" mcp-servers 120s
+  cleanup_mcp_server_and_wait "${OAUTH_SERVER_NAME}" mcp-servers-org 120s
 fi
-cleanup_mcp_server_and_wait "${SERVER_NAME}" mcp-servers 120s
+cleanup_mcp_server_and_wait "${SERVER_NAME}" mcp-servers-org 120s
 
 echo "[done] E2E completed successfully"

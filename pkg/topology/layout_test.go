@@ -78,3 +78,16 @@ func TestServiceHostUsesOwnerPlacement(t *testing.T) {
 		t.Fatal("image-only component returned a service host")
 	}
 }
+
+// There is no base server namespace: omitted namespaces resolve to the org
+// catalog, and no platform component may live in a server namespace.
+func TestDefaultServerNamespaceIsTheOrgCatalog(t *testing.T) {
+	if DefaultServerNamespace != DefaultOrgCatalogNamespace {
+		t.Fatalf("DefaultServerNamespace = %q, want %q", DefaultServerNamespace, DefaultOrgCatalogNamespace)
+	}
+	for owner, namespace := range OwnerNamespaces() {
+		if namespace == DefaultServerNamespace || namespace == DefaultPublicCatalogNamespace {
+			t.Fatalf("owner %q placed in server namespace %q", owner, namespace)
+		}
+	}
+}

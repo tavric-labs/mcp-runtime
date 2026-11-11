@@ -22,7 +22,7 @@ func TestExplainAccessJSONIncludesDecisionAttribution(t *testing.T) {
 	var out bytes.Buffer
 	err := mgr.ExplainAccess(explainOptions{
 		Server:     "workspace-assistant",
-		Namespace:  "mcp-servers",
+		Namespace:  "mcp-servers-org",
 		HumanID:    "alice",
 		Tool:       "write-file",
 		RPCMethod:  "tools/call",
@@ -56,7 +56,7 @@ func TestExplainAccessDenyReturnsExitErrorAfterPrinting(t *testing.T) {
 	var out bytes.Buffer
 	err := mgr.ExplainAccess(explainOptions{
 		Server:     "workspace-assistant",
-		Namespace:  "mcp-servers",
+		Namespace:  "mcp-servers-org",
 		HumanID:    "alice",
 		Tool:       "write-file",
 		RPCMethod:  "tools/call",
@@ -65,7 +65,7 @@ func TestExplainAccessDenyReturnsExitErrorAfterPrinting(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "policy denied: tool_denied") {
 		t.Fatalf("ExplainAccess() error = %v, want policy denial", err)
 	}
-	for _, want := range []string{"decision: deny (403)", "reason: tool_denied", "matched grant: mcp-servers/developer", "matched rule: write-file -> deny"} {
+	for _, want := range []string{"decision: deny (403)", "reason: tool_denied", "matched grant: mcp-servers-org/developer", "matched rule: write-file -> deny"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("human output missing %q:\n%s", want, out.String())
 		}
@@ -75,12 +75,12 @@ func TestExplainAccessDenyReturnsExitErrorAfterPrinting(t *testing.T) {
 func TestExplainAccessRequiresIdentityAndTool(t *testing.T) {
 	mgr := NewAccessManager(core.NewTestKubectlClient(&core.MockExecutor{}), zap.NewNop())
 
-	err := mgr.ExplainAccess(explainOptions{Server: "workspace-assistant", Namespace: "mcp-servers", RPCMethod: "tools/call"}, &bytes.Buffer{})
+	err := mgr.ExplainAccess(explainOptions{Server: "workspace-assistant", Namespace: "mcp-servers-org", RPCMethod: "tools/call"}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "one of --human, --agent, or --team is required for tools/call") {
 		t.Fatalf("identity validation error = %v", err)
 	}
 
-	err = mgr.ExplainAccess(explainOptions{Server: "workspace-assistant", Namespace: "mcp-servers", HumanID: "alice", RPCMethod: "tools/call"}, &bytes.Buffer{})
+	err = mgr.ExplainAccess(explainOptions{Server: "workspace-assistant", Namespace: "mcp-servers-org", HumanID: "alice", RPCMethod: "tools/call"}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "--tool is required") {
 		t.Fatalf("tool validation error = %v", err)
 	}
@@ -89,12 +89,12 @@ func TestExplainAccessRequiresIdentityAndTool(t *testing.T) {
 func explainTestPolicy(t *testing.T, ruleDecision string) *policy.Document {
 	t.Helper()
 	doc := &policy.Document{
-		Server: policy.Server{Name: "workspace-assistant", Namespace: "mcp-servers"},
+		Server: policy.Server{Name: "workspace-assistant", Namespace: "mcp-servers-org"},
 		Policy: &policy.Config{Mode: "allow-list", DefaultDecision: "deny", PolicyVersion: "v1"},
 		Tools:  []policy.Tool{{Name: "write-file", RequiredTrust: "low", SideEffect: "read"}},
 		Grants: []policy.Grant{{
 			Name:               "developer",
-			Namespace:          "mcp-servers",
+			Namespace:          "mcp-servers-org",
 			HumanID:            "alice",
 			MaxTrust:           "high",
 			AllowedSideEffects: []string{"read"},

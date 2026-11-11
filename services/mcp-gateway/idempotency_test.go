@@ -29,7 +29,7 @@ type idemHarness struct {
 
 func idemPolicy(issuerURL string) *policypkg.Document {
 	doc := oauthPolicy(issuerURL)
-	doc.Server = policypkg.Server{Name: "pilot", Namespace: "mcp-servers", UID: "uid-1"}
+	doc.Server = policypkg.Server{Name: "pilot", Namespace: "mcp-servers-org", UID: "uid-1"}
 	doc.Sessions = append(doc.Sessions, policypkg.Binding{
 		Name: "session-2", HumanID: "human-1", AgentID: "client-1", ConsentedTrust: "high",
 	})

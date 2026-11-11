@@ -824,10 +824,10 @@ func TestOperatorEnvOverrides(t *testing.T) {
 	})
 
 	t.Run("passes through platform ingress TLS namespace", func(t *testing.T) {
-		t.Setenv("MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE", "mcp-servers")
+		t.Setenv("MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE", "mcp-platform")
 		core.DefaultCLIConfig = &core.CLIConfig{}
 		got := operatorEnvOverrides("", "")
-		requireOperatorEnvVar(t, got, "MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE", "mcp-servers")
+		requireOperatorEnvVar(t, got, "MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE", "mcp-platform")
 	})
 }
 

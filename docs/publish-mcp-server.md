@@ -177,7 +177,7 @@ If fields are omitted, the loader applies defaults:
 - route is normalized with a leading `/`
 - port defaults to `8088`
 - replicas default to `1`
-- namespace defaults to `mcp-servers`
+- namespace defaults to `mcp-servers-org`
 - `server init` omits platform-managed gateway wiring and auth/session header
   details; add those fields only when you intentionally need to override the
   platform/operator defaults
@@ -371,7 +371,7 @@ mcp-runtime status
 ```
 
 Tenant deploys land in the team namespace, `mcp-team-<team-slug>`, not
-`mcp-servers`. Pass `--namespace mcp-team-acme` to `server get`,
+`mcp-servers-org`. Pass `--namespace mcp-team-acme` to `server get`,
 `server status`, `server policy inspect`, and the `access` commands when the
 server is not in your default namespace.
 
@@ -456,7 +456,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPServer
 metadata:
   name: payments
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   description: Payments MCP server for invoice lookup and refund workflows.
   image: registry.example.com/payments
@@ -467,7 +467,7 @@ spec:
     enabled: true
 ```
 
-`namespace: mcp-servers` suits a single-team install. For a tenant deployment,
+`namespace: mcp-servers-org` publishes to the organization catalog. For a tenant deployment,
 use the team namespace (`mcp-team-<team-slug>`) and set `spec.teamID`: the
 platform API fills both when you publish with `server deploy --scope tenant`,
 but hand-written YAML must state them explicitly.
@@ -477,7 +477,7 @@ but hand-written YAML must state them explicitly.
 - `metadata.name`
   The server name inside the platform. This is also the default public route prefix when you do not override it.
 - `metadata.namespace`
-  Usually `mcp-servers` for a single-team setup. In a multi-team deployment,
+  Usually `mcp-servers-org` for a single-team setup. In a multi-team deployment,
   use the team's namespace, for example `mcp-team-acme`; see
   [Multi-team isolation](teams-and-access.md).
 - `spec.teamID`

@@ -55,7 +55,6 @@ type doctorCheckSpec struct {
 }
 
 const (
-	doctorMCPServersNamespace = topology.MCPServersNamespace
 	doctorTraefikNamespace    = "traefik"
 	doctorK3sTraefikNamespace = "kube-system"
 	doctorTraefikServiceName  = "traefik"
@@ -257,27 +256,35 @@ func runDoctorChecksWithSpecs(kubectl core.KubectlRunner, distro Distribution, p
 	}
 }
 
+// doctorServerNamespace is the namespace the doctor runs its server-namespace
+// checks and temporary smoke pods in: the organization catalog namespace.
+// Team namespaces are covered by the managed-team checks. There is no base
+// namespace to probe.
+func doctorServerNamespace() string {
+	return topology.ModeOrg.DefaultCatalogNamespace()
+}
+
 func doctorCheckSpecs(kubectl core.KubectlRunner, distro Distribution) []doctorCheckSpec {
 	return []doctorCheckSpec{
 		{
-			Name:   fmt.Sprintf("namespace %s", doctorMCPServersNamespace),
+			Name:   fmt.Sprintf("namespace %s", doctorServerNamespace()),
 			Detail: "reading namespace metadata from the Kubernetes API",
-			Run:    func() DoctorCheck { return checkNamespaceExists(kubectl, doctorMCPServersNamespace) },
+			Run:    func() DoctorCheck { return checkNamespaceExists(kubectl, doctorServerNamespace()) },
 		},
 		{
-			Name:   fmt.Sprintf("namespace %s default serviceaccount", doctorMCPServersNamespace),
+			Name:   fmt.Sprintf("namespace %s default serviceaccount", doctorServerNamespace()),
 			Detail: "confirming pods in the runtime namespace have a default service account",
-			Run:    func() DoctorCheck { return checkNamespaceDefaultServiceAccount(kubectl, doctorMCPServersNamespace) },
+			Run:    func() DoctorCheck { return checkNamespaceDefaultServiceAccount(kubectl, doctorServerNamespace()) },
 		},
 		{
-			Name:   fmt.Sprintf("namespace %s quota/limitrange", doctorMCPServersNamespace),
+			Name:   fmt.Sprintf("namespace %s quota/limitrange", doctorServerNamespace()),
 			Detail: "listing ResourceQuota and LimitRange objects that can block smoke pods",
-			Run:    func() DoctorCheck { return checkNamespacePolicyGuardrails(kubectl, doctorMCPServersNamespace) },
+			Run:    func() DoctorCheck { return checkNamespacePolicyGuardrails(kubectl, doctorServerNamespace()) },
 		},
 		{
-			Name:   fmt.Sprintf("namespace %s pod admission", doctorMCPServersNamespace),
+			Name:   fmt.Sprintf("namespace %s pod admission", doctorServerNamespace()),
 			Detail: "submitting a server-side dry-run pod to exercise admission webhooks and quota",
-			Run:    func() DoctorCheck { return checkNamespacePodAdmission(kubectl, doctorMCPServersNamespace) },
+			Run:    func() DoctorCheck { return checkNamespacePodAdmission(kubectl, doctorServerNamespace()) },
 		},
 		{Name: "MCPServer CRD", Detail: "checking that the MCPServer API type is installed", Run: func() DoctorCheck { return checkMCPServerCRD(kubectl) }},
 		{Name: "operator readiness", Detail: "reading ready and desired replicas for the operator deployment", Run: func() DoctorCheck { return checkOperatorReady(kubectl) }},
@@ -292,11 +299,11 @@ func doctorCheckSpecs(kubectl core.KubectlRunner, distro Distribution) []doctorC
 		{Name: "traefik service exposure", Detail: "checking LoadBalancer or NodePort exposure for the web entrypoint", Run: func() DoctorCheck { return checkTraefikServiceExposure(kubectl, distro) }},
 		{Name: "ingress LoadBalancer status", Detail: "checking host-based MCP Runtime ingresses for published LoadBalancer status", Run: func() DoctorCheck { return checkIngressLoadBalancerStatus(kubectl) }},
 		{Name: "platform API live inventory ingress", Detail: "checking team namespace NetworkPolicies allow platform API probes to MCPServer Services", Run: func() DoctorCheck { return checkPlatformAPILiveInventoryNetworkPolicy(kubectl) }},
-		{Name: "mcp-servers DNS/network", Detail: "launching a temporary curl pod in mcp-servers to reach the registry service", Run: func() DoctorCheck { return checkMCPServersDNSAndNetwork(kubectl) }},
+		{Name: "server namespace DNS/network", Detail: "launching a temporary curl pod in the organization catalog namespace to reach the registry service", Run: func() DoctorCheck { return checkMCPServersDNSAndNetwork(kubectl) }},
 		{
 			Name:   "ingress route probe",
 			Detail: "reading the first MCP ingress and launching a temporary curl pod against Traefik",
-			Run:    func() DoctorCheck { return checkIngressRouteProbe(kubectl, doctorMCPServersNamespace, distro) },
+			Run:    func() DoctorCheck { return checkIngressRouteProbe(kubectl, doctorServerNamespace(), distro) },
 		},
 		{Name: "registry Service", Detail: "checking the bundled registry Service and NodePort", Run: func() DoctorCheck { return checkRegistryService(kubectl) }},
 		{Name: registryIngressHostsCheckName, Detail: "checking registry Ingress rule hosts match its TLS hosts and the platform registry host", Run: func() DoctorCheck { return checkRegistryIngressHosts(kubectl) }},
@@ -306,14 +313,14 @@ func doctorCheckSpecs(kubectl core.KubectlRunner, distro Distribution) []doctorC
 		{Name: "team registry pull secrets", Detail: "checking managed team namespaces for the canonical dockerconfig pull Secret", Run: func() DoctorCheck { return checkManagedTeamRegistryPullSecrets(kubectl) }},
 		{Name: "team workload serviceaccounts", Detail: "checking managed team workload serviceaccounts wire the canonical registry pull Secret", Run: func() DoctorCheck { return checkManagedTeamWorkloadServiceAccounts(kubectl) }},
 		{
-			Name:   "mcp-servers imagePullSecrets",
+			Name:   "server namespace imagePullSecrets",
 			Detail: "reading default service account pull secrets and verifying referenced Secret objects",
-			Run:    func() DoctorCheck { return checkMCPServersImagePullSecrets(kubectl, doctorMCPServersNamespace) },
+			Run:    func() DoctorCheck { return checkMCPServersImagePullSecrets(kubectl, doctorServerNamespace()) },
 		},
 		{
-			Name:   "mcp-servers image pull smoke",
+			Name:   "server namespace image pull smoke",
 			Detail: "creating a temporary pod and waiting up to 90s for kubelet image pull readiness",
-			Run:    func() DoctorCheck { return checkMCPServersImagePullSmoke(kubectl, doctorMCPServersNamespace) },
+			Run:    func() DoctorCheck { return checkMCPServersImagePullSmoke(kubectl, doctorServerNamespace()) },
 		},
 		{Name: "registry HTTP pull mismatch", Detail: "listing pods and inspecting image-pull failures for HTTP-vs-HTTPS registry errors", Run: func() DoctorCheck { return checkRegistryHTTPPullMismatch(kubectl) }},
 		{Name: "registry image pull diagnostics", Detail: "inspecting image-pull failures for registry TLS, auth, DNS, or corrupt-manifest errors", Run: func() DoctorCheck { return checkRegistryImagePullDiagnostics(kubectl) }},
@@ -353,7 +360,7 @@ func doctorCheckSpecs(kubectl core.KubectlRunner, distro Distribution) []doctorC
 		{
 			Name:   "MCPServer reconcile smoke",
 			Detail: "applying a temporary MCPServer and waiting up to 150s for deployment/service/ingress resources",
-			Run:    func() DoctorCheck { return checkMCPServerReconcileSmoke(kubectl, doctorMCPServersNamespace) },
+			Run:    func() DoctorCheck { return checkMCPServerReconcileSmoke(kubectl, doctorServerNamespace()) },
 		},
 		{Name: platformPullSecretsCheckName, Detail: "checking platform deployments that pull from the platform registry carry an image pull secret", Run: func() DoctorCheck { return checkPlatformPullSecrets(kubectl) }},
 		{Name: grafanaAdminCredentialCheckName, Detail: "probing Grafana login inside its pod to detect a persisted admin account that drifted from mcp-grafana-credentials", Run: func() DoctorCheck { return checkPlatformGrafanaAdminCredentials(kubectl) }},

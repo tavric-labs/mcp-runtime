@@ -61,7 +61,7 @@ func newOperatorError(msg string, context map[string]any) error {
 //   - error.category: "Operator"
 //   - error.message: "Failed to reconcile Deployment"
 //   - error.context.mcpServer: "my-server"
-//   - error.context.namespace: "mcp-servers"
+//   - error.context.namespace: "mcp-servers-org"
 //   - error.context.resource: "deployment"
 //
 // If the error is not an errx.Error, it falls back to standard error logging.

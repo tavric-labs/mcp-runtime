@@ -16,8 +16,8 @@ const (
 	// NamespaceRegistry is the namespace for the container registry.
 	NamespaceRegistry = "registry"
 
-	// NamespaceMCPServers is the default namespace for MCP server deployments.
-	NamespaceMCPServers = topology.MCPServersNamespace
+	// DefaultServerNamespace is the namespace used when a server command omits one.
+	DefaultServerNamespace = topology.DefaultServerNamespace
 
 	// PlatformNamespace holds control-plane services.
 	PlatformNamespace = topology.PlatformNamespace

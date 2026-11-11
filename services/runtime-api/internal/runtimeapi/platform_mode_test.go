@@ -32,30 +32,30 @@ func TestPlatformModeUsesStrictValues(t *testing.T) {
 	}
 }
 
-func TestCatalogNamespaceEntriesIncludeSharedCatalogInTenantMode(t *testing.T) {
+func TestCatalogNamespaceEntriesListOnlyModeCatalogsInOrgMode(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
 
 	got := appendCatalogNamespaceEntries(nil)
-	if len(got) != 2 {
-		t.Fatalf("catalog namespaces = %#v, want shared and org catalog entries", got)
+	if len(got) != 1 {
+		t.Fatalf("catalog namespaces = %#v, want only the org catalog entry", got)
 	}
-	if got[0]["namespace"] != sharedCatalogNamespace {
-		t.Fatalf("namespace = %#v, want %q", got[0]["namespace"], sharedCatalogNamespace)
+	if got[0]["namespace"] != defaultOrgCatalogNamespace {
+		t.Fatalf("namespace = %#v, want %q", got[0]["namespace"], defaultOrgCatalogNamespace)
 	}
-	if got[0]["scope"] != "shared" {
-		t.Fatalf("scope = %#v, want shared", got[0]["scope"])
+	if got[0]["scope"] != "org" {
+		t.Fatalf("scope = %#v, want org", got[0]["scope"])
 	}
-	if got[0]["is_shared"] != true {
-		t.Fatalf("is_shared = %#v, want true", got[0]["is_shared"])
+	if _, present := got[0]["is_shared"]; present {
+		t.Fatalf("catalog entries must not carry the retired is_shared flag: %#v", got[0])
 	}
 }
 
-func TestSharedCatalogEntryStaysSharedInPublicMode(t *testing.T) {
+func TestOrgCatalogEntryStaysOrgInPublicMode(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 
-	got := catalogNamespaceEntry(sharedCatalogNamespace)
-	if got["scope"] != "shared" {
-		t.Fatalf("scope = %#v, want shared", got["scope"])
+	got := catalogNamespaceEntry(defaultOrgCatalogNamespace)
+	if got["scope"] != "org" {
+		t.Fatalf("scope = %#v, want org", got["scope"])
 	}
 	if got["is_public"] != false {
 		t.Fatalf("is_public = %#v, want false", got["is_public"])

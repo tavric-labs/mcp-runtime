@@ -3,7 +3,7 @@ package registryauth
 import "testing"
 
 func TestSharedPullRepositoriesCoverGatewayAndDoctorSmoke(t *testing.T) {
-	scope := PullScope{Namespace: "mcp-servers", Repositories: SharedPullRepositories()}
+	scope := PullScope{Namespace: "mcp-servers-org", Repositories: SharedPullRepositories()}
 	for _, repo := range []string{"mcp-gateway", "mcp-runtime-doctor-smoke"} {
 		if !scope.Allows(repo) {
 			t.Fatalf("shared pull scope must allow %s", repo)

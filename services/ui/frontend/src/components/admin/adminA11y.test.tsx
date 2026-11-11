@@ -24,7 +24,7 @@ const PAYLOADS: Record<string, unknown> = {
     grants: [
       {
         name: "acme-readonly",
-        namespace: "mcp-servers",
+        namespace: "mcp-servers-org",
         serverRef: { name: "workspace-assistant" },
         subject: { humanID: "alice@example.com" },
         maxTrust: "low",
@@ -37,7 +37,7 @@ const PAYLOADS: Record<string, unknown> = {
     sessions: [
       {
         name: "sess-1",
-        namespace: "mcp-servers",
+        namespace: "mcp-servers-org",
         serverRef: { name: "workspace-assistant" },
         subject: { humanID: "alice@example.com" },
         consentedTrust: "low",

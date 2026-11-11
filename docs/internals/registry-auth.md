@@ -95,7 +95,7 @@ publication helpers (in `registry` or `mcp-platform`), and the cluster doctor
 reachability probe (`app.kubernetes.io/name: registry-probe`, `registry`
 namespace only) to the backend port. The probe accepts a `401` Bearer token
 challenge as proof that native authentication is enforced.
-Tenant namespaces (`mcp-servers*`, platform-managed team namespaces), the
+Tenant namespaces (`mcp-servers-*`, platform-managed team namespaces), the
 operator namespace, and ordinary platform service pods cannot reach it.
 Kubelet pulls come from the node and authenticate with the namespace pull
 Secret.

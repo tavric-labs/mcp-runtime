@@ -24,15 +24,15 @@ run_certmanager_issuance_acceptance() {
   fi
   ./bin/mcp-runtime cluster cert apply
   jq -n --arg name "${probe}" --arg issuer "${issuer}" \
-    '{apiVersion:"cert-manager.io/v1",kind:"Certificate",metadata:{name:$name,namespace:"mcp-servers"},spec:{secretName:$name,duration:"1h",renewBefore:"10m",dnsNames:["qa-issuance.invalid"],issuerRef:{name:$issuer,kind:"ClusterIssuer"},privateKey:{algorithm:"ECDSA",size:256,rotationPolicy:"Always"},usages:["digital signature","server auth"]}}' >"${manifest}"
+    '{apiVersion:"cert-manager.io/v1",kind:"Certificate",metadata:{name:$name,namespace:"mcp-servers-org"},spec:{secretName:$name,duration:"1h",renewBefore:"10m",dnsNames:["qa-issuance.invalid"],issuerRef:{name:$issuer,kind:"ClusterIssuer"},privateKey:{algorithm:"ECDSA",size:256,rotationPolicy:"Always"},usages:["digital signature","server auth"]}}' >"${manifest}"
   # This is an isolated acceptance fixture, not a platform provisioning path.
   kubectl apply -f "${manifest}" >/dev/null
-  if ! kubectl wait --for=condition=Ready "certificate/${probe}" -n mcp-servers --timeout=180s; then
-    kubectl delete certificate "${probe}" -n mcp-servers --ignore-not-found >/dev/null
-    kubectl delete secret "${probe}" -n mcp-servers --ignore-not-found >/dev/null
+  if ! kubectl wait --for=condition=Ready "certificate/${probe}" -n mcp-servers-org --timeout=180s; then
+    kubectl delete certificate "${probe}" -n mcp-servers-org --ignore-not-found >/dev/null
+    kubectl delete secret "${probe}" -n mcp-servers-org --ignore-not-found >/dev/null
     return 1
   fi
-  kubectl get secret "${probe}" -n mcp-servers -o 'jsonpath={.data.tls\.crt}' \
+  kubectl get secret "${probe}" -n mcp-servers-org -o 'jsonpath={.data.tls\.crt}' \
     | decode_base64 >"${WORKDIR}/certmanager-probe-public.crt"
   openssl x509 -in "${WORKDIR}/certmanager-probe-public.crt" -noout -checkend 120
   kubectl get secret "${ca_secret}" -n cert-manager -o 'jsonpath={.data.tls\.crt}' \
@@ -43,7 +43,7 @@ run_certmanager_issuance_acceptance() {
   [[ "${ca_before}" == "${ca_after}" && "${public_before}" == "${public_after}" ]] || {
     echo '[cert-manager] CA or platform TLS fingerprint changed during acceptance' >&2; return 1;
   }
-  kubectl delete certificate "${probe}" -n mcp-servers --ignore-not-found >/dev/null
-  kubectl delete secret "${probe}" -n mcp-servers --ignore-not-found >/dev/null
+  kubectl delete certificate "${probe}" -n mcp-servers-org --ignore-not-found >/dev/null
+  kubectl delete secret "${probe}" -n mcp-servers-org --ignore-not-found >/dev/null
   echo '[cert-manager] fresh issuance verified; workload CA and public TLS fingerprints preserved'
 }

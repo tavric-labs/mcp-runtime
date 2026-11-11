@@ -43,16 +43,16 @@ func obj(name, uid string, owners []any) map[string]any {
 func newFakeCluster(t *testing.T) *fakeCluster {
 	t.Helper()
 	fc := &fakeCluster{
-		t: t, username: "system:serviceaccount:mcp-servers:mcp-workload", authenticated: true,
+		t: t, username: "system:serviceaccount:mcp-servers-org:mcp-workload", authenticated: true,
 		audiences: []string{"mcp-ingest"}, podName: "srv-abc-1", podUID: "pod-uid",
 	}
 	pod := obj("srv-abc-1", "pod-uid", owner("ReplicaSet", "apps/v1", "srv-abc", "rs-uid"))
 	pod["spec"] = map[string]any{"serviceAccountName": "mcp-workload"}
 	fc.objects = map[string]map[string]any{
-		"/api/v1/namespaces/mcp-servers/pods/srv-abc-1":                       pod,
-		"/apis/apps/v1/namespaces/mcp-servers/replicasets/srv-abc":            obj("srv-abc", "rs-uid", owner("Deployment", "apps/v1", "srv", "dep-uid")),
-		"/apis/apps/v1/namespaces/mcp-servers/deployments/srv":                obj("srv", "dep-uid", owner("MCPServer", "mcpruntime.org/v1alpha1", "srv", "srv-uid")),
-		"/apis/mcpruntime.org/v1alpha1/namespaces/mcp-servers/mcpservers/srv": obj("srv", "srv-uid", nil),
+		"/api/v1/namespaces/mcp-servers-org/pods/srv-abc-1":                       pod,
+		"/apis/apps/v1/namespaces/mcp-servers-org/replicasets/srv-abc":            obj("srv-abc", "rs-uid", owner("Deployment", "apps/v1", "srv", "dep-uid")),
+		"/apis/apps/v1/namespaces/mcp-servers-org/deployments/srv":                obj("srv", "dep-uid", owner("MCPServer", "mcpruntime.org/v1alpha1", "srv", "srv-uid")),
+		"/apis/mcpruntime.org/v1alpha1/namespaces/mcp-servers-org/mcpservers/srv": obj("srv", "srv-uid", nil),
 	}
 	fc.api = httptest.NewTLSServer(http.HandlerFunc(fc.serve))
 	t.Cleanup(fc.api.Close)
@@ -111,7 +111,7 @@ func TestAuthenticateResolvesVerifiedWorkloadIdentity(t *testing.T) {
 	if !ok {
 		t.Fatal("expected authenticated")
 	}
-	if want := (workloadIdentity{Namespace: "mcp-servers", Server: "srv", UID: "srv-uid"}); id != want {
+	if want := (workloadIdentity{Namespace: "mcp-servers-org", Server: "srv", UID: "srv-uid"}); id != want {
 		t.Fatalf("identity = %+v, want %+v", id, want)
 	}
 }
@@ -121,22 +121,22 @@ func TestAuthenticateRejectsUnverifiableBinding(t *testing.T) {
 	tests := map[string]func(fc *fakeCluster){
 		"missing Pod binding": func(fc *fakeCluster) { fc.podName, fc.podUID = "", "" },
 		"Pod UID differs":     func(fc *fakeCluster) { fc.podUID = "other-pod" },
-		"Pod gone":            func(fc *fakeCluster) { delete(fc.objects, "/api/v1/namespaces/mcp-servers/pods/srv-abc-1") },
+		"Pod gone":            func(fc *fakeCluster) { delete(fc.objects, "/api/v1/namespaces/mcp-servers-org/pods/srv-abc-1") },
 		"ReplicaSet UID differs": func(fc *fakeCluster) {
-			fc.objects["/apis/apps/v1/namespaces/mcp-servers/replicasets/srv-abc"]["metadata"].(map[string]any)["uid"] = "x"
+			fc.objects["/apis/apps/v1/namespaces/mcp-servers-org/replicasets/srv-abc"]["metadata"].(map[string]any)["uid"] = "x"
 		},
 		"Deployment UID differs": func(fc *fakeCluster) {
-			fc.objects["/apis/apps/v1/namespaces/mcp-servers/deployments/srv"]["metadata"].(map[string]any)["uid"] = "x"
+			fc.objects["/apis/apps/v1/namespaces/mcp-servers-org/deployments/srv"]["metadata"].(map[string]any)["uid"] = "x"
 		},
 		"MCPServer replaced (stale)": func(fc *fakeCluster) {
-			fc.objects["/apis/mcpruntime.org/v1alpha1/namespaces/mcp-servers/mcpservers/srv"]["metadata"].(map[string]any)["uid"] = "new-uid"
+			fc.objects["/apis/mcpruntime.org/v1alpha1/namespaces/mcp-servers-org/mcpservers/srv"]["metadata"].(map[string]any)["uid"] = "new-uid"
 		},
 		"no MCPServer controller": func(fc *fakeCluster) {
-			delete(fc.objects["/apis/apps/v1/namespaces/mcp-servers/deployments/srv"]["metadata"].(map[string]any), "ownerReferences")
+			delete(fc.objects["/apis/apps/v1/namespaces/mcp-servers-org/deployments/srv"]["metadata"].(map[string]any), "ownerReferences")
 		},
 		"deployment name unrelated to server": func(fc *fakeCluster) {
-			fc.objects["/apis/apps/v1/namespaces/mcp-servers/deployments/srv"]["metadata"].(map[string]any)["ownerReferences"] = owner("MCPServer", "mcpruntime.org/v1alpha1", "other", "srv-uid")
-			fc.objects["/apis/mcpruntime.org/v1alpha1/namespaces/mcp-servers/mcpservers/other"] = obj("other", "srv-uid", nil)
+			fc.objects["/apis/apps/v1/namespaces/mcp-servers-org/deployments/srv"]["metadata"].(map[string]any)["ownerReferences"] = owner("MCPServer", "mcpruntime.org/v1alpha1", "other", "srv-uid")
+			fc.objects["/apis/mcpruntime.org/v1alpha1/namespaces/mcp-servers-org/mcpservers/other"] = obj("other", "srv-uid", nil)
 		},
 	}
 	for name, mutate := range tests {
@@ -198,12 +198,12 @@ func TestIngestBindsAttributionToVerifiedWorkload(t *testing.T) {
 		payload    string
 		wantStatus int
 	}{
-		{"matching attribution", `{"server":"srv","namespace":"mcp-servers","server_uid":"srv-uid","status":200}`, http.StatusAccepted},
+		{"matching attribution", `{"server":"srv","namespace":"mcp-servers-org","server_uid":"srv-uid","status":200}`, http.StatusAccepted},
 		{"absent attribution is filled in", `{"status":200}`, http.StatusAccepted},
-		{"spoofed server name", `{"server":"victim","namespace":"mcp-servers","server_uid":"srv-uid"}`, http.StatusForbidden},
+		{"spoofed server name", `{"server":"victim","namespace":"mcp-servers-org","server_uid":"srv-uid"}`, http.StatusForbidden},
 		{"spoofed namespace", `{"server":"srv","namespace":"team-victim","server_uid":"srv-uid"}`, http.StatusForbidden},
-		{"spoofed UID", `{"server":"srv","namespace":"mcp-servers","server_uid":"victim-uid"}`, http.StatusForbidden},
-		{"stale UID of earlier generation", `{"server":"srv","namespace":"mcp-servers","server_uid":"old-uid"}`, http.StatusForbidden},
+		{"spoofed UID", `{"server":"srv","namespace":"mcp-servers-org","server_uid":"victim-uid"}`, http.StatusForbidden},
+		{"stale UID of earlier generation", `{"server":"srv","namespace":"mcp-servers-org","server_uid":"old-uid"}`, http.StatusForbidden},
 		{"non-object payload", `[1,2]`, http.StatusBadRequest},
 	}
 	for _, tc := range tests {
@@ -225,7 +225,7 @@ func TestIngestBindsAttributionToVerifiedWorkload(t *testing.T) {
 				return
 			}
 			p := storedPayload(t, w)
-			if p["server"] != "srv" || p["namespace"] != "mcp-servers" || p["server_uid"] != "srv-uid" {
+			if p["server"] != "srv" || p["namespace"] != "mcp-servers-org" || p["server_uid"] != "srv-uid" {
 				t.Fatalf("stored attribution = %v", p)
 			}
 		})
@@ -238,7 +238,7 @@ func TestIngestRejectsUnboundTokenAtHTTP(t *testing.T) {
 	fc.podName, fc.podUID = "", ""
 	w := &captureWriter{}
 	s := &ingestServer{writer: w, saAuth: fc.authenticator()}
-	resp, _ := postEvent(t, s, map[string]string{"Authorization": "Bearer tok"}, `{"server":"srv","namespace":"mcp-servers","server_uid":"srv-uid"}`)
+	resp, _ := postEvent(t, s, map[string]string{"Authorization": "Bearer tok"}, `{"server":"srv","namespace":"mcp-servers-org","server_uid":"srv-uid"}`)
 	if resp.StatusCode != http.StatusUnauthorized || len(w.msgs) != 0 {
 		t.Fatalf("status = %d, written = %d; want 401 and none", resp.StatusCode, len(w.msgs))
 	}

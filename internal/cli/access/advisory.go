@@ -102,7 +102,7 @@ func humanIDWarnings(docIndex int, meta accessManifestMeta) []string {
 func namespaceOrDefault(namespace string) string {
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" {
-		return topology.MCPServersNamespace
+		return topology.DefaultServerNamespace
 	}
 	return namespace
 }

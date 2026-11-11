@@ -113,7 +113,7 @@ namespace_placement_verify() {
     # in kube-system has no --providers.*.namespaces flag and watches all
     # namespaces, so there is no list to check.
     if [[ "${args}" == *".namespaces="* ]]; then
-      for name in mcp-platform mcp-observability mcp-servers; do
+      for name in mcp-platform mcp-observability mcp-servers-org; do
         if [[ "${args}" != *"${name}"* ]]; then
           namespace_placement_fail "Traefik watch list is missing ${name}: ${args}"
           failed=1

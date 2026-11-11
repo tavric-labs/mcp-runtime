@@ -168,7 +168,7 @@ call '{"name":"add","arguments":{"a":2,"b":3}}'      # want allow
 Toggle the grant off → expect deny within a few seconds (sidecar reload):
 
 ```bash
-mcp-runtime access grant disable workspace-assistant-local --namespace mcp-servers
+mcp-runtime access grant disable workspace-assistant-local --namespace mcp-servers-org
 
 sleep 8
 init
@@ -180,7 +180,7 @@ echo "$RESP" | grep -qiE 'tool_not_granted|denied|forbidden|policy' \
 Re-enable to leave the cluster in a working state for downstream skills:
 
 ```bash
-mcp-runtime access grant enable workspace-assistant-local --namespace mcp-servers
+mcp-runtime access grant enable workspace-assistant-local --namespace mcp-servers-org
 mcp-runtime access session apply --file /tmp/workspace-assistant-access.yaml
 sleep 8
 ```
@@ -188,13 +188,13 @@ sleep 8
 Revoke the session → expect deny:
 
 ```bash
-mcp-runtime access session revoke local-session --namespace mcp-servers
+mcp-runtime access session revoke local-session --namespace mcp-servers-org
 # Allow the server-scoped session sync to receive the revocation, then probe.
 sleep 2
 init
 call '{"name":"add","arguments":{"a":2,"b":3}}' | grep -qiE 'session_revoked|session_not_found|denied' \
   || echo "FAIL: revoked session still allowed"
-mcp-runtime access session unrevoke local-session --namespace mcp-servers
+mcp-runtime access session unrevoke local-session --namespace mcp-servers-org
 sleep 2
 ```
 
@@ -238,7 +238,7 @@ Use the current session's exact human, managed agent and team IDs for
 preserve the reviewed original session input for restoration.
 
 ```bash
-mcp-runtime access session init local-session --namespace mcp-servers \
+mcp-runtime access session init local-session --namespace mcp-servers-org \
   --server oauth-example-go-2025-11-25-gateway --agent-id "$AGENT_ID" \
   --human-id "$HUMAN_ID" --team-id "$TEAM_ID" --trust low \
   --expires-in 1h --output /tmp/local-session-low.yaml --force
@@ -357,7 +357,7 @@ kubectl logs -n traefik deploy/traefik --tail=120 \
 Regressions where tokens leak into logs are common after refactors.
 
 ```bash
-for ns in mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers traefik registry; do
+for ns in mcp-runtime mcp-platform mcp-observability mcp-log-collector mcp-servers-org traefik registry; do
   for d in $(kubectl get pods -n "$ns" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'); do
     kubectl logs -n "$ns" "$d" --all-containers --since=10m 2>/dev/null \
       | grep -aE 'Bearer [A-Za-z0-9._-]{20,}|sk-[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9._-]{20,}|x-api-key:\s*[A-Za-z0-9_-]{12,}'

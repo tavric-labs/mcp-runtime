@@ -53,7 +53,7 @@ kubectl get mcpservers -A \
 
 Rules to verify:
 
-- Single-team/example MCPs in this guide live in `mcp-servers`.
+- Single-team/example MCPs in this guide live in `mcp-servers-org`.
 - Org-mode and public-mode catalogs live in `mcp-servers-org` and
   `mcp-servers-public`; tenant MCPs live in `mcp-team-<slug>` namespaces with
   matching ownership.
@@ -189,9 +189,9 @@ Use the platform API path first:
 
 ```bash
 ./bin/mcp-runtime auth login --api-url http://localhost:18080
-./bin/mcp-runtime access grant list --namespace mcp-servers
-./bin/mcp-runtime access session list --namespace mcp-servers
-./bin/mcp-runtime server policy inspect <server-name> --namespace mcp-servers
+./bin/mcp-runtime access grant list --namespace mcp-servers-org
+./bin/mcp-runtime access session list --namespace mcp-servers-org
+./bin/mcp-runtime server policy inspect <server-name> --namespace mcp-servers-org
 ```
 
 Allow a few seconds after apply; the gateway sidecar reloads rendered policy on

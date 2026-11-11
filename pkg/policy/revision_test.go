@@ -4,7 +4,7 @@ import "testing"
 
 func validStampedDocument() *Document {
 	return &Document{
-		Server: Server{Name: "demo", Namespace: "mcp-servers"},
+		Server: Server{Name: "demo", Namespace: "mcp-servers-org"},
 		Policy: &Config{Mode: "allow-list", DefaultDecision: "deny", PolicyVersion: "v1"},
 		Tools:  []Tool{{Name: "echo", RequiredTrust: "low", SideEffect: "read"}},
 	}

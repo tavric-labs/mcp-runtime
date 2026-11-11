@@ -43,7 +43,7 @@ data:
       - url: http://loki.mcp-observability.svc:3100/loki/api/v1/push
     # -config.expand-env is on: write literal dollar signs as $$.
     scrape_configs:
-      # Kubernetes metadata for every namespace (mcp-servers and dynamic team
+      # Kubernetes metadata for every namespace (mcp-servers-org and dynamic team
       # namespaces included). Promtail only tails files on its own node, so
       # discovery is limited to local pods.
       #
