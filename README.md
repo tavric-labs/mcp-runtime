@@ -38,7 +38,7 @@ A public preview runs at [platform.mcpruntime.org](https://platform.mcpruntime.o
 - The `mcp-gateway` sidecar applies deny-by-default tool rules, trust ceilings, side-effect limits, session expiry, and revocation on every `tools/call`.
 - Every allow and deny decision is recorded with the identity, tool, reason, and policy version, and is queryable through the platform API and dashboards.
 - `adapter proxy` gives IDEs, agent frameworks, and scripts a local Streamable HTTP endpoint that adds a session-bound client certificate with automatic refresh and forwards OAuth when the target requires it.
-- Team namespaces, RBAC, and `teamID` subject matching let several teams publish and govern servers on one cluster, with private, org-wide, or public catalogs.
+- Team namespaces, RBAC, and `teamID` subject matching let several teams publish and govern servers on one cluster, with private team and org-wide catalogs.
 - Setup, registry and image-pull wiring, ingress, rollout readiness, `cluster doctor`, `cluster diagnostics`, and status commands are included.
 - Documented install paths cover Kind, k3s, self-managed clusters, and managed Kubernetes with external registries.
 
@@ -57,8 +57,8 @@ A public preview runs at [platform.mcpruntime.org](https://platform.mcpruntime.o
 - Bundled platform stack for ingest, processing, API, UI, and observability.
   Control-plane services run in `mcp-platform`. The event pipeline and
   telemetry stack run in `mcp-observability`. Promtail runs in
-  `mcp-log-collector`. MCP servers stay in `mcp-servers-org`,
-  `mcp-servers-public`, or `mcp-team-{slug}`. See [Namespaces](docs/namespaces.md).
+  `mcp-log-collector`. MCP servers stay in `mcp-servers-org`
+  or `mcp-team-{slug}`. See [Namespaces](docs/namespaces.md).
 
 ## Requirements
 

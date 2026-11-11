@@ -19,8 +19,8 @@ user-facing commands and scripts over private shortcuts.
 - User path: `docs/hosted-quickstart.md` (published CLI install, hosted platform login,
   server publish, grant, adapter, and analytics UI)
 - Hosted platform mode: `public`; modes are `org` and `public`, while publish
-  scopes are `tenant` (a team), `org`, and `public`. Public mode supports all
-  three scopes. Anonymous catalog reads must exclude org/team namespaces.
+  scopes are `tenant` (a team) and `org`. Both modes support both scopes;
+  there is no public scope and no anonymous catalog.
 - CLI release workflow: `.github/workflows/release.yaml`
 
 ## Current production VM

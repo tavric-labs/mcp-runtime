@@ -303,7 +303,6 @@ mcp-runtime server push \
 
 # Other scopes
 mcp-runtime server push --image ... --scope org      # org-wide catalog
-mcp-runtime server push --image ... --scope public   # anonymous catalog
 ```
 
 `server push` requires platform credentials. Use an `https://` API base URL.
@@ -365,7 +364,7 @@ mcp-runtime server policy inspect workspace-demo --namespace mcp-team-acme
 ### Inspect and manage
 
 `server list` requires no filter. It lists servers visible to the signed-in user:
-public and organization catalogs where enabled, the personal namespace, and
+the organization catalog, the personal namespace, and
 the user's teams. Admins see all servers. The output includes each server's
 namespace to distinguish servers with the same name.
 
@@ -832,7 +831,7 @@ mcp-runtime setup --test-mode --test-multi-replica             # normal replica 
 | `--registry-mode` | `auto` | Uses a provisioned registry config when present, otherwise the bundled registry |
 | `--registry-type` | `docker` | Harbor is not available yet |
 | `--registry-storage` | `20Gi` | Bundled registry PVC request, set before first creation. Must be positive. Reruns reject shrinking an existing claim before applying registry resources |
-| `--platform-mode` | `org` | Modes: `org` or `public`. Org supports org/team publishing; public additionally supports public publishing and anonymous public-catalog reads |
+| `--platform-mode` | `org` | Modes: `org` or `public`. Org supports org/team publishing; public is the hosted, internet-facing profile with the same catalogs and scopes, and requires browser login configuration on TLS installs |
 | `--pod-egress-cidrs` | empty | Comma-separated destinations team servers may reach on TCP 443. Empty adds no rule. `0.0.0.0/0` is rejected |
 | `--pod-egress-except-cidrs` | empty | Pod and service CIDRs kept out of `--pod-egress-cidrs`. Required for a private destination |
 | `--storage-mode` | `dynamic` | Use `hostpath` for single-node k3s/minikube/kind with no provisioner |
@@ -1043,7 +1042,7 @@ platform-api and UI. Missing mode-dependent manifest entries become config-only
 entries, preserving their images. Namespace selection comes from the target
 cluster's shared configuration, never the workstation environment. Existing
 namespaces must already be managed catalogs with the requested scope; update
-refuses to expose an organization/team namespace as public. Catalog namespaces
+refuses to adopt an existing namespace that is not a managed org catalog. The former `mcp-servers-public` namespace is no longer managed and can be deleted by the operator. Catalog namespaces
 are additive and retained on rollback or a later mode change. `--only` skips
 ConfigMaps and catalog preparation and cannot be combined with `--platform-mode`.
 
@@ -1173,7 +1172,7 @@ mcp-runtime cluster cert apply
 mcp-runtime cluster cert wait --timeout 10m
 
 mcp-runtime cluster doctor                                   # pre-setup readiness
-mcp-runtime cluster identity status --server mcp-servers-public/example-server # workload issuer/route mTLS health
+mcp-runtime cluster identity status --server mcp-servers-org/example-server # workload issuer/route mTLS health
 KUBECONFIG=~/.kube/config mcp-runtime cluster diagnostics    # post-setup diagnostic
 
 # Repair operator RBAC from this release after an image-only update.

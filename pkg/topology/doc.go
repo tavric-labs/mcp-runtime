@@ -4,9 +4,9 @@
 //
 //   - Components and placement: the component catalog, owners, namespaces, ports,
 //     credential Secret placement and service hosts.
-//   - Mode and scopes: the org and public platform modes, the tenant, org and
-//     public publish scopes, and the catalog namespaces they imply. Anonymous
-//     reads stay limited to public namespaces.
+//   - Mode and scopes: the org and public platform modes, the tenant and org
+//     publish scopes, and the catalog namespaces they imply. There is no
+//     anonymous catalog.
 //   - Public routes: validation of customer-facing paths and the default MCP
 //     route.
 //   - Hosts and registry: resolution of the registry, MCP and platform hostnames

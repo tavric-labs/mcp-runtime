@@ -92,7 +92,7 @@ For pushing MCP server images, use 'server push'.`,
 	initCmd.Flags().StringVar(&initMetadataDir, "metadata-dir", ".mcp", "Directory where servers.yaml will be written")
 	initCmd.Flags().StringVar(&initImage, "image", "", "Container image repository (default: server name)")
 	initCmd.Flags().StringVar(&initTag, "tag", "latest", "Container image tag")
-	initCmd.Flags().StringVar(&initScope, "scope", "tenant", "Publish scope: tenant, org, or public")
+	initCmd.Flags().StringVar(&initScope, "scope", "tenant", "Publish scope: tenant or org")
 	initCmd.Flags().StringVar(&initPolicyMode, "policy-mode", string(blueprint.PolicyModeAllowList), "Policy mode: allow-list or observe")
 	initCmd.Flags().StringVar(&initDefaultDecision, "default-decision", string(blueprint.PolicyDecisionDeny), "Default policy decision: allow or deny")
 	initCmd.Flags().BoolVar(&initSessionRequired, "session-required", true, "Require adapter-issued agent sessions")
@@ -108,8 +108,8 @@ For pushing MCP server images, use 'server push'.`,
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List MCP servers",
-		Long: `List MCP servers visible to the signed-in user: public and organization
-catalogs where enabled, the personal namespace, and the user's teams.
+		Long: `List MCP servers visible to the signed-in user: the organization
+catalog, the personal namespace, and the user's teams.
 Admins see all servers. No filter is required.
 
 Use --team <slug> to list one authorized team (for example, acme, not
@@ -192,7 +192,7 @@ mcp-servers-org); --team is unavailable.`,
 	}
 	deployCmd.Flags().StringVar(&deployNamespace, "namespace", "", "Target namespace (optional when --team is provided)")
 	deployCmd.Flags().StringVar(&deployTeam, "team", "", "Team slug to resolve target namespace")
-	deployCmd.Flags().StringVar(&deployScope, "scope", "", "Publish scope: tenant, org, or public")
+	deployCmd.Flags().StringVar(&deployScope, "scope", "", "Publish scope: tenant or org")
 	deployCmd.Flags().StringVar(&deployImage, "image", "", "Container image repository (optional when .mcp metadata provides image)")
 	deployCmd.Flags().StringVar(&deployTag, "tag", "latest", "Container image tag")
 	deployCmd.Flags().Int32Var(&deployReplicas, "replicas", 1, "Replica count")
@@ -333,7 +333,7 @@ mcp-servers-org); --team is unavailable.`,
 	pushCmd := &cobra.Command{
 		Use:   "push",
 		Short: "Push a server image through the platform API",
-		Long:  "Save a local Docker image and publish it through the authenticated platform registry API. Supports tenant, org, and public scopes.",
+		Long:  "Save a local Docker image and publish it through the authenticated platform registry API. Supports tenant and org scopes.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			executor := mgr.exec
 			if executor == nil {
@@ -345,7 +345,7 @@ mcp-servers-org); --team is unavailable.`,
 	}
 	pushCmd.Flags().StringVar(&pushImage, "image", "", "Local image to push (required)")
 	pushCmd.Flags().StringVar(&pushName, "name", "", "Override target repository/name")
-	pushCmd.Flags().StringVar(&pushScope, "scope", "", "Publish scope: tenant, org, or public")
+	pushCmd.Flags().StringVar(&pushScope, "scope", "", "Publish scope: tenant or org")
 
 	cmd.AddCommand(initCmd, listCmd, getCmd, createCmd, applyCmd, deployCmd, generateCmd, exportCmd, patchCmd, deleteCmd, logsCmd, statusCmd, connectCmd, policyCmd, buildCmd, pushCmd, newValidateCmd())
 	return cmd

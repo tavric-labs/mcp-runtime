@@ -63,22 +63,14 @@ func TestRegistryPushAuthContextTenantStillRequiresScopedRepo(t *testing.T) {
 	}
 }
 
-func TestRegistryPushAuthContextPublicRequiresCatalogWrite(t *testing.T) {
-	t.Setenv("PLATFORM_MODE", "org")
-	p := principal{Role: roleUser}
-	if _, _, err := registryPushAuthContext("registry.example.com/public/demo:v1", topology.ScopePublic, p); err == nil {
-		t.Fatal("expected public catalog write rejection in org mode")
-	}
-}
-
-func TestRegistryPushAuthContextPublicAllowsWhenCatalogWritable(t *testing.T) {
+func TestRegistryPushAuthContextOrgAllowsWhenCatalogWritable(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
-	p := principal{Role: roleUser, AllowedNamespaces: []string{defaultPublicCatalogNamespace}}
-	namespace, teamSlug, err := registryPushAuthContext("registry.example.com/public/demo:v1", topology.ScopePublic, p)
+	p := principal{Role: roleUser, AllowedNamespaces: []string{defaultOrgCatalogNamespace}}
+	namespace, teamSlug, err := registryPushAuthContext("registry.example.com/org/demo:v1", topology.ScopeOrg, p)
 	if err != nil {
 		t.Fatalf("registryPushAuthContext() error = %v", err)
 	}
-	if namespace != defaultPublicCatalogNamespace || teamSlug != "" {
+	if namespace != defaultOrgCatalogNamespace || teamSlug != "" {
 		t.Fatalf("namespace=%q teamSlug=%q", namespace, teamSlug)
 	}
 }

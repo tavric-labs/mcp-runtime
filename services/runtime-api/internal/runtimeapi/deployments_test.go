@@ -297,10 +297,10 @@ func TestEnsureDefaultDenyNetworkPolicyDoesNotAllowBroadHTTPEgress(t *testing.T)
 
 func TestEnsureDefaultDenyNetworkPolicyAllowsConfiguredIngressNamespace(t *testing.T) {
 	client := kubernetesfake.NewSimpleClientset()
-	if err := k8sprovision.EnsureDefaultDenyNetworkPolicy(context.Background(), client, "mcp-servers-public", "kube-system"); err != nil {
+	if err := k8sprovision.EnsureDefaultDenyNetworkPolicy(context.Background(), client, "mcp-servers-org", "kube-system"); err != nil {
 		t.Fatalf("k8sprovision.EnsureDefaultDenyNetworkPolicy() error = %v", err)
 	}
-	policy, err := client.NetworkingV1().NetworkPolicies("mcp-servers-public").Get(context.Background(), "platform-generic-workload-ingress", metav1.GetOptions{})
+	policy, err := client.NetworkingV1().NetworkPolicies("mcp-servers-org").Get(context.Background(), "platform-generic-workload-ingress", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get networkpolicy: %v", err)
 	}
@@ -432,16 +432,16 @@ func TestResolveDeployImageReference(t *testing.T) {
 		want      string
 	}{
 		{
-			name:      "public short image",
+			name:      "org short image",
 			image:     "go-example",
-			namespace: defaultPublicCatalogNamespace,
-			want:      "10.96.223.152:5000/public/go-example",
+			namespace: defaultOrgCatalogNamespace,
+			want:      "10.96.223.152:5000/org/go-example",
 		},
 		{
-			name:      "public scoped repository",
-			image:     "public/go-example",
-			namespace: defaultPublicCatalogNamespace,
-			want:      "10.96.223.152:5000/public/go-example",
+			name:      "org scoped repository",
+			image:     "org/go-example",
+			namespace: defaultOrgCatalogNamespace,
+			want:      "10.96.223.152:5000/org/go-example",
 		},
 		{
 			name:      "team short image",
@@ -452,15 +452,15 @@ func TestResolveDeployImageReference(t *testing.T) {
 		},
 		{
 			name:      "external explicit registry",
-			image:     "registry.example.com/public/go-example:v0.1.0",
-			namespace: defaultPublicCatalogNamespace,
-			want:      "registry.example.com/public/go-example:v0.1.0",
+			image:     "registry.example.com/org/go-example:v0.1.0",
+			namespace: defaultOrgCatalogNamespace,
+			want:      "registry.example.com/org/go-example:v0.1.0",
 		},
 		{
 			name:      "platform explicit public registry rewrites to internal endpoint",
-			image:     "registry.mcpruntime.org/public/go-example:v0.1.0",
-			namespace: defaultPublicCatalogNamespace,
-			want:      "10.96.223.152:5000/public/go-example:v0.1.0",
+			image:     "registry.mcpruntime.org/org/go-example:v0.1.0",
+			namespace: defaultOrgCatalogNamespace,
+			want:      "10.96.223.152:5000/org/go-example:v0.1.0",
 		},
 	}
 
@@ -878,20 +878,20 @@ func TestEnsureCatalogNamespaceAutoTraefikWatchSkipsExternalIngress(t *testing.T
 	server := &RuntimeServer{
 		k8sClients: &k8sclient.Clients{Clientset: client},
 	}
-	if err := server.Deployments().EnsureCatalogNamespace(context.Background(), defaultPublicCatalogNamespace); err != nil {
+	if err := server.Deployments().EnsureCatalogNamespace(context.Background(), defaultOrgCatalogNamespace); err != nil {
 		t.Fatalf("EnsureCatalogNamespace() error = %v", err)
 	}
-	ns, err := client.CoreV1().Namespaces().Get(context.Background(), defaultPublicCatalogNamespace, metav1.GetOptions{})
+	ns, err := client.CoreV1().Namespaces().Get(context.Background(), defaultOrgCatalogNamespace, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("catalog namespace missing: %v", err)
 	}
-	if ns.Labels[platformManagedLabel] != "true" || ns.Labels[platformScopeLabel] != "public" {
+	if ns.Labels[platformManagedLabel] != "true" || ns.Labels[platformScopeLabel] != "org" {
 		t.Fatalf("catalog namespace labels = %#v", ns.Labels)
 	}
-	if _, err := client.RbacV1().Roles(defaultPublicCatalogNamespace).Get(context.Background(), traefikWatchRoleName, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+	if _, err := client.RbacV1().Roles(defaultOrgCatalogNamespace).Get(context.Background(), traefikWatchRoleName, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
 		t.Fatalf("traefik watch role error = %v, want not found", err)
 	}
-	if _, err := client.RbacV1().RoleBindings(defaultPublicCatalogNamespace).Get(context.Background(), traefikWatchRoleName, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+	if _, err := client.RbacV1().RoleBindings(defaultOrgCatalogNamespace).Get(context.Background(), traefikWatchRoleName, metav1.GetOptions{}); !apierrors.IsNotFound(err) {
 		t.Fatalf("traefik watch rolebinding error = %v, want not found", err)
 	}
 }

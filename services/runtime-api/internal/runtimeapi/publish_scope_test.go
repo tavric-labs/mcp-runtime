@@ -16,8 +16,8 @@ func TestPublishScopeConsistentAcrossPushAndDeploy(t *testing.T) {
 		enabled bool
 	}{
 		{mode: "org", scope: topology.ScopeOrg, enabled: true},
-		{mode: "org", scope: topology.ScopePublic, enabled: false},
-		{mode: "public", scope: topology.ScopePublic, enabled: true},
+		{mode: "org", scope: topology.Scope("public"), enabled: false},
+		{mode: "public", scope: topology.Scope("public"), enabled: false},
 		{mode: "public", scope: topology.ScopeOrg, enabled: true},
 		{mode: "org", scope: topology.ScopeTenant, enabled: true},
 		{mode: "public", scope: topology.ScopeTenant, enabled: true},
@@ -45,12 +45,12 @@ func TestPublishScopeConsistentAcrossPushAndDeploy(t *testing.T) {
 
 func TestPublishScopeEnabledErrorIsActionable(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
-	err := publishScopeEnabledError(topology.ScopePublic)
+	err := publishScopeEnabledError(topology.Scope("public"))
 	if err == nil {
 		t.Fatal("expected public scope to be disabled in org mode")
 	}
 	msg := err.Error()
-	for _, want := range []string{"public scope is not enabled on this platform", `platform mode "org"`, "enabled scopes: tenant, org", "--scope tenant", "omit --scope"} {
+	for _, want := range []string{"public scope is not enabled on this platform", `platform mode "org"`, "enabled scopes: tenant, org", "scope tenant or org", "omit --scope"} {
 		if !strings.Contains(msg, want) {
 			t.Fatalf("error %q does not mention %q", msg, want)
 		}

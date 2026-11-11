@@ -315,25 +315,23 @@ when present, or the sole team ID when there is only one.
 
 The platform API blocks changes outside a user's allowed team namespaces.
 When you install MCP Runtime, `--platform-mode` chooses which catalog users see
-by default. In `public` mode, visitors can browse that catalog without signing
-in. This is a setting for your own platform; the public reference deployment
-at `platform.mcpruntime.org` is a separate installation.
+by default. Both modes require sign-in. This is a setting for your own
+platform; the public reference deployment at `platform.mcpruntime.org` is a
+separate installation.
 
 | Mode | Default namespace behavior | Non-admin behavior |
 |---|---|---|
 | `org` (default) | `mcp-servers-org` | Authenticated users publish and browse the org catalog together with their authorized team namespaces. |
-| `public` | `mcp-servers-public` | Anonymous users read the public catalog; signed-in users also publish and browse org and authorized team namespaces. |
+| `public` | `mcp-servers-org` | Hosted profile with the same behavior as `org`; setup additionally requires browser login configuration on TLS installs. |
 
-- In `org` mode, anonymous callers cannot read the MCP server
-  catalog.
+- Anonymous callers cannot read the MCP server catalog in any mode.
 - In `org` and `public` modes, non-admin listings cover the active catalog
-  namespace (`mcp-servers-org` or `mcp-servers-public` by default, plus any
+  namespace (`mcp-servers-org` by default, plus any
   `PLATFORM_CATALOG_NAMESPACES` entries) **and** the team namespaces authorized
-  on the caller's principal. Anonymous public-mode reads are limited to the
-  public catalog namespaces only; org and team namespaces remain authenticated.
-- Server publish requests may pass `scope: tenant`, `scope: org`, or
-  `scope: public` in place of an explicit catalog namespace. The API
-  accepts `org` and `tenant` in both modes and `public` only in public mode;
+  on the caller's principal.
+- Server publish requests may pass `scope: tenant` or `scope: org` in place of
+  an explicit catalog namespace. The API accepts both in both modes and
+  rejects any other scope, including the removed `public`;
   `tenant` resolves to the caller's team namespace unless an authorized team
   namespace is provided.
 - Non-admin callers can only read or write resources in namespaces listed on
@@ -362,8 +360,7 @@ only grants and sessions whose `serverRef` points at the target server. Missing
 ## Ingress controller watch scope
 
 The bundled Traefik manifests watch only `registry`, `mcp-platform`,
-`mcp-observability`, `mcp-log-collector`, `mcp-servers-org`, and
-`mcp-servers-public` by default so Traefik does not need broad namespace access.
+`mcp-observability`, `mcp-log-collector`, and `mcp-servers-org` by default so Traefik does not need broad namespace access.
 If MCP servers live in team namespaces,
 update the ingress controller watch list, bind the Traefik watch role in each
 team namespace, and allow ingress-controller traffic through the namespace
@@ -374,7 +371,7 @@ the repo-managed `traefik/traefik` Deployment when
 For the bundled Traefik overlay, extend the argument:
 
 ```text
---providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-log-collector,mcp-servers-org,mcp-servers-public,mcp-team-acme,mcp-team-globex
+--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-log-collector,mcp-servers-org,mcp-team-acme,mcp-team-globex
 ```
 
 External ingress controllers need equivalent namespace watch, RBAC, and
@@ -442,7 +439,7 @@ server owner's team without joining through namespace names.
   the guardrail for direct writers.
 - Cross-team server sharing is a privileged pattern. Prefer a shared namespace
   and explicit admin-owned grants when a server is intentionally shared.
-- The bundled setup manifests create the org/public catalog namespaces; per-team tenant namespaces are an explicit
+- The bundled setup manifests create the org catalog namespace; per-team tenant namespaces are an explicit
   operational step. Personal user namespaces are not created for tenant
   publishing.
 

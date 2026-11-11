@@ -10,13 +10,10 @@ type Scope string
 const (
 	ScopeTenant Scope = "tenant"
 	ScopeOrg    Scope = "org"
-	ScopePublic Scope = "public"
 
-	DefaultOrgCatalogNamespace    = "mcp-servers-org"
-	DefaultPublicCatalogNamespace = "mcp-servers-public"
+	DefaultOrgCatalogNamespace = "mcp-servers-org"
 
-	OrgRegistryAlias    = "org"
-	PublicRegistryAlias = "public"
+	OrgRegistryAlias = "org"
 )
 
 func NormalizeScope(raw string) (Scope, error) {
@@ -24,31 +21,23 @@ func NormalizeScope(raw string) (Scope, error) {
 	switch value {
 	case "":
 		return "", nil
-	case ScopeTenant, ScopeOrg, ScopePublic:
+	case ScopeTenant, ScopeOrg:
 		return value, nil
 	default:
-		return "", fmt.Errorf("scope %q is invalid (use tenant, org, or public)", raw)
+		return "", fmt.Errorf("scope %q is invalid (use tenant or org)", raw)
 	}
 }
 
 func ScopeCatalogNamespace(scope Scope) (string, bool) {
-	switch scope {
-	case ScopeOrg:
+	if scope == ScopeOrg {
 		return DefaultOrgCatalogNamespace, true
-	case ScopePublic:
-		return DefaultPublicCatalogNamespace, true
-	default:
-		return "", false
 	}
+	return "", false
 }
 
 func ScopeRegistryAlias(scope Scope) (string, bool) {
-	switch scope {
-	case ScopeOrg:
+	if scope == ScopeOrg {
 		return OrgRegistryAlias, true
-	case ScopePublic:
-		return PublicRegistryAlias, true
-	default:
-		return "", false
 	}
+	return "", false
 }

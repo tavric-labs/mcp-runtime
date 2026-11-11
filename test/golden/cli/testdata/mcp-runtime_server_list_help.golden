@@ -1,5 +1,5 @@
-List MCP servers visible to the signed-in user: public and organization
-catalogs where enabled, the personal namespace, and the user's teams.
+List MCP servers visible to the signed-in user: the organization
+catalog, the personal namespace, and the user's teams.
 Admins see all servers. No filter is required.
 
 Use --team <slug> to list one authorized team (for example, acme, not

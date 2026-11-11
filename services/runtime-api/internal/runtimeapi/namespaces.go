@@ -118,20 +118,13 @@ func (s *RuntimeServer) HandleRuntimeNamespaceItem(w http.ResponseWriter, r *htt
 
 func catalogNamespaceEntry(namespace string) map[string]any {
 	scope := "shared"
-	isPublic := false
 	scopeName := "Shared catalog"
-	switch catalogScope, _ := catalogScopeForNamespace(namespace); catalogScope {
-	case "public":
-		scope = "public"
-		isPublic = true
-		scopeName = "Public preview"
-	case "org":
+	if catalogScope, _ := catalogScopeForNamespace(namespace); catalogScope == "org" {
 		scope = "org"
 		scopeName = "Organization"
 	}
 	return map[string]any{
 		"namespace":  namespace,
-		"is_public":  isPublic,
 		"scope":      scope,
 		"scope_name": scopeName,
 	}

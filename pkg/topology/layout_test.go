@@ -86,7 +86,7 @@ func TestDefaultServerNamespaceIsTheOrgCatalog(t *testing.T) {
 		t.Fatalf("DefaultServerNamespace = %q, want %q", DefaultServerNamespace, DefaultOrgCatalogNamespace)
 	}
 	for owner, namespace := range OwnerNamespaces() {
-		if namespace == DefaultServerNamespace || namespace == DefaultPublicCatalogNamespace {
+		if namespace == DefaultServerNamespace {
 			t.Fatalf("owner %q placed in server namespace %q", owner, namespace)
 		}
 	}

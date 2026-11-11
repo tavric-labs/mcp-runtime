@@ -405,8 +405,10 @@ No wrapper authorizes data reset as part of an ordinary update.
 The v0.9.0 Runtime configuration supports `org` and `public` platform modes;
 `tenant` remains a team publish scope. Before upgrading an older profile that
 uses `MCP_SETUP_PLATFORM_MODE=tenant`, explicitly choose `org` or `public`.
-The hosted reference platform uses `public`, with public previews/listings,
-signed-in organization publishing, and team publishing all available.
+The hosted reference platform uses `public`, with signed-in organization
+publishing and team publishing available. The `public` publish scope and the
+anonymous catalog were removed; the `mcp-servers-public` namespace is no longer
+managed by setup or update, and the operator can delete it once it is empty.
 
 Take the protected setup snapshot described in
 [Backups and recovery](#backups-and-recovery) and build the CLI from the exact
@@ -442,8 +444,7 @@ recover the previous three images and prior ConfigMap mode through a reviewed
 rollback update manifest; restore only those changed fields.
 
 Verify signed-in login, CLI image publishing in all enabled scopes, server
-deployment, anonymous public-catalog visibility, and anonymous denial for org
-and team catalogs. Run hosted certificate/grant acceptance for allowed and
+deployment, and anonymous denial for the org and team catalogs. Run hosted certificate/grant acceptance for allowed and
 denied calls as well. The
 [`test-mcpsnoop` example](https://github.com/mcp-runtime/mcp-runtime/tree/main/examples/test-mcpsnoop)
 provides a separate unauthenticated two-tool server for payload inspection.

@@ -143,10 +143,9 @@ servers:
 - `imageTag`
   The image tag.
 - `scope`
-  Optional publish destination: `tenant`, `org`, or `public`. `server init`
+  Optional publish destination: `tenant` or `org`. `server init`
   writes `scope: tenant` by default so new metadata starts in the private team
-  publish path. `org` resolves to the org catalog namespace, and `public`
-  resolves to the public catalog namespace. `tenant` selects one of the
+  publish path. `org` resolves to the org catalog namespace. `tenant` selects one of the
   authenticated user's team namespaces when you publish through the platform
   API; when generating Kubernetes YAML directly, set `namespace` explicitly for
   team deployments.
@@ -168,11 +167,9 @@ servers:
 If fields are omitted, the loader applies defaults:
 
 - image defaults toward the platform registry path
-- `server init` writes `scope: tenant` unless you pass `--scope org` or
-  `--scope public`
-- `scope: org` / `scope: public` prefix default image repositories with
-  `org/` or `public/` and default the generated namespace to
-  `mcp-servers-org` or `mcp-servers-public`
+- `server init` writes `scope: tenant` unless you pass `--scope org`
+- `scope: org` prefixes default image repositories with `org/` and defaults the
+  generated namespace to `mcp-servers-org`
 - tag defaults to `latest`
 - route is normalized with a leading `/`
 - port defaults to `8088`
@@ -235,7 +232,7 @@ unauthenticated pushes are
 rejected before Docker or the in-cluster helper starts. `<exact-image-ref-from-build>`
 may be a resolved public registry host such as `registry.example.com/org/payments:v1.0.0`,
 or a registry Service address when no public registry Ingress is configured.
-Use `--scope public` for public catalog images. Use `--scope tenant` for team
+Use `--scope org` for org catalog images. Use `--scope tenant` for team
 images; if the image name has no repository prefix, the CLI prefixes it with
 the authenticated user's sole team slug. For users in multiple teams, initialize
 the metadata with a team-scoped repository, for example
@@ -244,10 +241,9 @@ then run `server build image`, push
 the printed image ref and deploy to that team. Explicit tenant repository
 prefixes must match one of the user's teams; ambiguous unscoped tenant
 repositories are rejected before Docker runs.
-`--scope org` works in both platform modes; `--scope public` requires
-`PLATFORM_MODE=public`. Public mode accepts all three scopes; `server push` and
-`server deploy` reject a disabled scope the same way and list the enabled
-scopes. `--scope tenant` publishes to an authorized team in either mode. Uploads may take up
+`--scope org` works in both platform modes. The `public` scope was removed:
+`server push` and `server deploy` reject it and list the enabled scopes
+(`tenant`, `org`). `--scope tenant` publishes to an authorized team in either mode. Uploads may take up
 to `MCP_REGISTRY_PUSH_UPLOAD_TIMEOUT` (default `20m`) on `mcp-runtime-api`;
 archives over 512 MiB are rejected with `413`. The saved API URL must be
 `https://` when the front door redirects HTTP to HTTPS, or the upload POST
@@ -270,17 +266,16 @@ the `MCPServer` for you:
 ```bash
 docker build -t payments:v1.0.0 .
 mcp-runtime auth login --api-url https://platform.example.com
-mcp-runtime server push --scope public --image payments:v1.0.0
-mcp-runtime server deploy payments --scope public --image payments --tag v1.0.0
+mcp-runtime server push --scope org --image payments:v1.0.0
+mcp-runtime server deploy payments --scope org --image payments --tag v1.0.0
 ```
 
 Short names like `payments:v1.0.0` are valid for `server push` when that
 exact local image tag exists. For `server deploy`, the platform API accepts
 short names such as `payments` and resolves them to the configured registry and
-scope prefix, for example `<registry>/public/payments` in public mode or
-`<registry>/<team-slug>/payments` with tenant scope in either mode.
-`server deploy --scope public` resolves the platform public catalog namespace;
-`--scope org` resolves the org catalog namespace; `--scope tenant` uses the
+scope prefix, for example `<registry>/org/payments` with org scope or
+`<registry>/<team-slug>/payments` with tenant scope.
+`server deploy --scope org` resolves the org catalog namespace; `--scope tenant` uses the
 authenticated user's team namespace unless `--team` or `--namespace` selects one
 explicitly. `server deploy` uses the default public route `/<name>/mcp`, and
 the operator sets `MCP_PATH` to the path the server receives so the bundled Go,

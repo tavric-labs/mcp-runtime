@@ -1,7 +1,5 @@
 package passport
 
-import "net/http"
-
 // AudienceConfig configures a backend service that platform-api fronts.
 type AudienceConfig struct {
 	Audience       string
@@ -10,7 +8,6 @@ type AudienceConfig struct {
 	InternalToken  string
 	ServiceAPIKeys map[string]struct{}
 	AdminAPIKeys   map[string]struct{}
-	PublicFallback func(*http.Request) (Principal, bool)
 }
 
 // NewAudienceAuthenticator builds the Authenticator for a service other than
@@ -29,6 +26,5 @@ func NewAudienceAuthenticator(cfg AudienceConfig) Authenticator {
 			BaseURL: cfg.PlatformAPIURL,
 			Token:   cfg.InternalToken,
 		},
-		PublicFallback: cfg.PublicFallback,
 	}
 }

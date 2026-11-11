@@ -32,7 +32,7 @@ func TestModeCommandPreparesCatalogsWithoutImageChanges(t *testing.T) {
 	m := manifest(t, "v0.8.1")
 	d := testDeps(cs, m, nil)
 	out, err := execute(t, d, "--release-manifest", "candidate.json", "--platform-mode", "public", "--dry-run", "--output", "json")
-	if err != nil || !strings.Contains(out, `"catalogNamespaces"`) || !strings.Contains(out, `"mcp-servers-public"`) {
+	if err != nil || !strings.Contains(out, `"catalogNamespaces"`) || !strings.Contains(out, `"mcp-servers-org"`) || strings.Contains(out, `"mcp-servers-public"`) {
 		t.Fatalf("dry run: %v\n%s", err, out)
 	}
 	for _, action := range cs.Actions() {
@@ -43,11 +43,14 @@ func TestModeCommandPreparesCatalogsWithoutImageChanges(t *testing.T) {
 	if _, err = execute(t, d, "--release-manifest", "candidate.json", "--platform-mode", "public", "--yes"); err != nil {
 		t.Fatal(err)
 	}
-	for name, scope := range map[string]string{"mcp-servers-public": "public", "mcp-servers-org": "org"} {
+	for name, scope := range map[string]string{"mcp-servers-org": "org"} {
 		ns, err := cs.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
 		if err != nil || ns.Labels["mcpruntime.org/scope"] != scope || ns.Labels["pod-security.kubernetes.io/enforce"] != "restricted" {
 			t.Fatalf("catalog %s: %+v %v", name, ns, err)
 		}
+	}
+	if _, err := cs.CoreV1().Namespaces().Get(ctx, "mcp-servers-public", metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("mcp-servers-public must no longer be managed: %v", err)
 	}
 	for _, ns := range []string{"mcp-platform", "mcp-observability"} {
 		cm, _ := cs.CoreV1().ConfigMaps(ns).Get(ctx, "mcp-shared-config", metav1.GetOptions{})
@@ -88,7 +91,7 @@ func TestModeCommandFailureRestoresConfigRetainsCatalogs(t *testing.T) {
 			t.Fatalf("failed rollout must restore previous configuration: %v", cm.Data)
 		}
 	}
-	if _, err := cs.CoreV1().Namespaces().Get(context.Background(), "mcp-servers-public", metav1.GetOptions{}); err != nil {
+	if _, err := cs.CoreV1().Namespaces().Get(context.Background(), "mcp-servers-org", metav1.GetOptions{}); err != nil {
 		t.Fatal("additive namespaces must survive rollback", err)
 	}
 }
@@ -135,15 +138,15 @@ func TestModeCommandRejectsUnsafeOptionsBeforeClusterAccess(t *testing.T) {
 }
 
 func TestModeCommandRefusesExistingNamespaceScopeChange(t *testing.T) {
-	for _, scope := range []string{"tenant", "org", ""} {
+	for _, scope := range []string{"tenant", "public", ""} {
 		cs := modeInstall()
-		_, _ = cs.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers-public", Labels: map[string]string{
+		_, _ = cs.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers-org", Labels: map[string]string{
 			"mcpruntime.org/scope": scope, "platform.mcpruntime.org/managed": "true",
 		}}}, metav1.CreateOptions{})
 		cs.ClearActions()
 		_, err := execute(t, testDeps(cs, manifest(t, "v0.8.1"), nil), "--release-manifest", "candidate.json", "--platform-mode", "public", "--yes")
 		if err == nil || !strings.Contains(err.Error(), "refusing to adopt") {
-			t.Fatalf("existing %q namespace must not become anonymous: %v", scope, err)
+			t.Fatalf("existing %q namespace must not become the org catalog: %v", scope, err)
 		}
 		for _, action := range cs.Actions() {
 			if action.GetVerb() != "get" && action.GetVerb() != "list" {
@@ -160,17 +163,17 @@ func TestCatalogTargetsUseClusterConfiguration(t *testing.T) {
 		want map[string]string
 	}{
 		{map[string]string{"PLATFORM_MODE": "org"}, map[string]string{"mcp-servers-org": "org"}},
-		{map[string]string{"PLATFORM_MODE": "public"}, map[string]string{"mcp-servers-org": "org", "mcp-servers-public": "public"}},
-		{map[string]string{"PLATFORM_MODE": "public", "PLATFORM_ORG_NAMESPACE": "company", "PLATFORM_PUBLIC_NAMESPACE": "preview", "PLATFORM_CATALOG_NAMESPACES": "other-preview"}, map[string]string{"company": "org", "preview": "public", "other-preview": "public"}},
+		{map[string]string{"PLATFORM_MODE": "public"}, map[string]string{"mcp-servers-org": "org"}},
+		{map[string]string{"PLATFORM_MODE": "public", "PLATFORM_ORG_NAMESPACE": "company", "PLATFORM_PUBLIC_NAMESPACE": "ignored", "PLATFORM_CATALOG_NAMESPACES": "other"}, map[string]string{"company": "org", "other": "org"}},
 	} {
 		got, err := catalogTargets(tc.data)
 		if err != nil || !reflect.DeepEqual(got, tc.want) {
 			t.Fatalf("catalogs %v: got %v %v, want %v", tc.data, got, err, tc.want)
 		}
 	}
-	for _, value := range []string{"mcp-servers-org", "mcp-platform", "registry", "traefik", "default", "kube-system", "bad/name"} {
+	for _, value := range []string{"mcp-platform", "registry", "traefik", "default", "kube-system", "bad/name"} {
 		if _, err := catalogTargets(map[string]string{"PLATFORM_MODE": "public", "PLATFORM_CATALOG_NAMESPACE": value}); err == nil {
-			t.Fatalf("unsafe public catalog accepted: %s", value)
+			t.Fatalf("unsafe catalog accepted: %s", value)
 		}
 	}
 }
@@ -180,7 +183,7 @@ func TestModeManifestRepairsMissingCatalogWithoutChangingMode(t *testing.T) {
 	m := manifest(t, "v0.8.1")
 	m.ConfigMaps = []platformrelease.ManifestConfigMap{{Namespace: "mcp-platform", Name: "mcp-shared-config", Data: map[string]string{"PLATFORM_MODE": "public"}}}
 	plan, err := BuildPlan(context.Background(), cs, m, Selection{})
-	if err != nil || len(plan.namespacesToWrite) != 2 {
+	if err != nil || len(plan.namespacesToWrite) != 1 {
 		t.Fatalf("release-declared mode must also prepare catalogs: %+v %v", plan, err)
 	}
 	scoped, err := BuildPlan(context.Background(), cs, m, Selection{Only: []string{"ui"}})
