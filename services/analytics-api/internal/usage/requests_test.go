@@ -61,24 +61,24 @@ func TestTenantUsageScopeDoesNotBecomeActorTeamScope(t *testing.T) {
 	}
 }
 
-func TestPublicScopeDoesNotIncludeOrganizationCatalog(t *testing.T) {
-	_, args := WhereClause(QueryScope{Scope: "public"})
+func TestOrgScopeFiltersOrganizationCatalog(t *testing.T) {
+	_, args := WhereClause(QueryScope{Scope: "org"})
 	found := false
 	for _, v := range args {
-		if v == "mcp-servers-org" {
-			t.Fatal("org catalog became public")
-		}
 		if v == "mcp-servers-public" {
+			t.Fatal("removed public catalog namespace leaked into the org scope")
+		}
+		if v == "mcp-servers-org" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("public catalog filter missing")
+		t.Fatal("org catalog filter missing")
 	}
 }
 
 func TestUsageRejectsInvalidFiltersBeforeDatabaseRead(t *testing.T) {
-	for _, query := range []string{"scope=administrator", "http_status=500%20OR%201=1", "window_hours=0", "window_hours=90000", "window_hours=abc"} {
+	for _, query := range []string{"scope=administrator", "scope=public", "http_status=500%20OR%201=1", "window_hours=0", "window_hours=90000", "window_hours=abc"} {
 		response := httptest.NewRecorder()
 		(&Service{}).HandleAdminUsage(response, httptest.NewRequest(http.MethodGet, "/analytics/usage?"+query, nil))
 		if response.Code != http.StatusBadRequest {

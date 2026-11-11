@@ -52,10 +52,6 @@ class AudienceIsolationTests(unittest.TestCase):
                 return 200, {}, b'{}'
             if path.startswith('/api/ui/'):
                 return (403 if method == 'POST' else 200), {}, b'{}'
-            # The public catalog deliberately allows reads even when the bearer
-            # does not authenticate. It cannot prove an audience was accepted.
-            if host == 'runtime' and mode == 'public' and path == '/api/v1/runtime/servers':
-                return 200, {}, b'{"servers":[]}'
             audience = 'runtime-api' if '/runtime/' in path else 'analytics-api'
             expected = 'platform-api' if host == 'gateway' else host + '-api'
             status = 200 if authorization == 'Bearer ' + token(expected) and (host == 'gateway' or expected == audience) else 401

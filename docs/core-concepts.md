@@ -368,18 +368,16 @@ Your MCP client → adapter proxy (localhost:8099) → gateway → MCP server
 
 ## Platform mode
 
-Platform mode controls which namespace servers are published into and who can
-browse the catalog without logging in.
+Platform mode selects the deployment profile. Every catalog read requires a
+signed-in user; there is no anonymous catalog.
 
 | Mode | Who sees servers | Catalog namespace |
 |---|---|---|
 | `org` (default) | Signed-in users browse the org catalog and their authorized teams | `mcp-servers-org` |
-| `public` | Anyone browses the public catalog; signed-in users also browse org and their authorized teams | `mcp-servers-public` and `mcp-servers-org` |
+| `public` | Same catalogs and scopes as `org`; the hosted, internet-facing profile that requires browser login configuration on TLS installs | `mcp-servers-org` |
 
-There are two platform modes and three publish scopes. `tenant` is a team
-publish scope, not a platform mode. Org mode accepts `tenant` and `org`;
-public mode accepts `tenant`, `org`, and `public`. Organization and team
-namespaces remain unavailable to anonymous catalog readers in public mode.
+There are two platform modes and two publish scopes. `tenant` is a team
+publish scope, not a platform mode. Both modes accept `tenant` and `org`.
 
 Set with `--platform-mode` on `setup` or `MCP_SETUP_PLATFORM_MODE` in your env file.
 
@@ -392,12 +390,9 @@ When publishing a server image (`server push`) or deploying a server
 |---|---|---|
 | `tenant` | `mcp-team-<slug>` | Members of that team |
 | `org` | `mcp-servers-org` | All signed-in users in the org |
-| `public` | `mcp-servers-public` | Anyone |
 
 These scopes control catalog visibility. Calling a tool still follows the
-server's authentication and gateway policy; public catalog visibility does not
-disable tool authentication. Public scope supports live previews and MCP
-servers a company wants to list for public use on this platform.
+server's authentication and gateway policy.
 
 ## What's in a `.mcp/servers.yaml`
 

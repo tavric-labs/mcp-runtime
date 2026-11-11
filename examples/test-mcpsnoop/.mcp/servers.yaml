@@ -2,7 +2,7 @@ version: v1
 servers:
     - name: test-mcpsnoop
       description: Unauthenticated read-only echo and date tools for MCPSnoop inspection.
-      image: registry.mcpruntime.org/public/test-mcpsnoop
+      image: registry.mcpruntime.org/org/test-mcpsnoop
       imageTag: latest
       route: /test-mcpsnoop/mcp
       publicPathPrefix: test-mcpsnoop
@@ -14,7 +14,7 @@ servers:
         requests:
             cpu: 25m
             memory: 64Mi
-      scope: public
+      scope: org
       tools:
         - name: echo
           description: Return the supplied message unchanged.

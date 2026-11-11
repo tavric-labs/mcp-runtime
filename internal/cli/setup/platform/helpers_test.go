@@ -970,16 +970,16 @@ func TestConfigureProvisionedRegistryEnv(t *testing.T) {
 		if err := configureProvisionedRegistryEnvWithKubectl(kubectl, ext, ""); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(mock.Commands) != 7 {
-			t.Fatalf("expected 7 kubectl calls, got %d", len(mock.Commands))
+		if len(mock.Commands) != 5 {
+			t.Fatalf("expected 5 kubectl calls, got %d", len(mock.Commands))
 		}
 		foundDockerConfig := false
 		var namespaceLabels map[string]string
 		for _, input := range applyInputs {
-			if labels, ok := namespaceLabelsFromManifest(t, input, setupplan.DefaultPublicCatalogNamespace); ok {
+			if labels, ok := namespaceLabelsFromManifest(t, input, setupplan.DefaultOrgCatalogNamespace); ok {
 				namespaceLabels = labels
 			}
-			if strings.Contains(input, "kubernetes.io/dockerconfigjson") && strings.Contains(input, "namespace: mcp-servers-public") {
+			if strings.Contains(input, "kubernetes.io/dockerconfigjson") && strings.Contains(input, "namespace: mcp-servers-org") {
 				foundDockerConfig = true
 			}
 		}
@@ -988,7 +988,7 @@ func TestConfigureProvisionedRegistryEnv(t *testing.T) {
 		}
 		wantLabels := map[string]string{
 			"platform.mcpruntime.org/managed":    "true",
-			"mcpruntime.org/scope":               setupplan.PlatformModePublic,
+			"mcpruntime.org/scope":               setupplan.PlatformModeOrg,
 			"pod-security.kubernetes.io/enforce": "restricted",
 			"pod-security.kubernetes.io/audit":   "restricted",
 			"pod-security.kubernetes.io/warn":    "restricted",
@@ -1000,7 +1000,7 @@ func TestConfigureProvisionedRegistryEnv(t *testing.T) {
 			}
 		}
 		if !foundDockerConfig {
-			t.Fatalf("expected dockerconfigjson secret manifest in public catalog apply inputs")
+			t.Fatalf("expected dockerconfigjson secret manifest in org catalog apply inputs")
 		}
 	})
 }

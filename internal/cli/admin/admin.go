@@ -42,7 +42,7 @@ func NewWithManager(mgr *registry.RegistryManager) *cobra.Command {
 	}
 	pushCmd.Flags().StringVar(&image, "image", "", "Local image to push (required)")
 	pushCmd.Flags().StringVar(&name, "name", "", "Override target repo/name (default: source name without registry)")
-	pushCmd.Flags().StringVar(&scope, "scope", "", "Publish scope: tenant, org, or public")
+	pushCmd.Flags().StringVar(&scope, "scope", "", "Publish scope: tenant or org")
 	pushCmd.Flags().StringVar(&mode, "mode", "in-cluster", "Push mode: in-cluster (skopeo helper) or direct (docker push)")
 	pushCmd.Flags().StringVar(&helperNamespace, "namespace", core.NamespaceRegistry, "Namespace to run the in-cluster helper pod")
 

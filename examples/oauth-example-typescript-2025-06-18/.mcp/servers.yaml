@@ -7,7 +7,7 @@ servers:
       route: /oauth-example-typescript-2025-06-18-standalone/mcp
       publicPathPrefix: oauth-example-typescript-2025-06-18-standalone
       port: 8081
-      scope: public
+      scope: org
       tools:
         - name: whoami
           description: Return the subject and scopes from the verified access token.

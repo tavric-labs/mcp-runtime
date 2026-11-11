@@ -6,7 +6,6 @@ import {
   clearCSRFToken,
   fetchJSON,
   fetchUIJSON,
-	 fetchPublicJSON,
   setCSRFToken,
   withQuery,
 } from "./client";
@@ -34,9 +33,6 @@ it("keeps prefixed session calls on the UI origin with CSRF and without caller c
   expect(options.headers.has("X-API-Key")).toBe(false);
   expect(apiURL("/runtime/servers")).toBe("/platform/api/ui/v1/runtime/servers");
   expect(apiURL("/runtime/teams", "/api/v1", "POST")).toBe("/platform/api/ui/v1/runtime/teams");
-  await fetchPublicJSON("/runtime/servers");
-  expect(fetchMock.mock.calls[1][0]).toBe("/platform/api/public/v1/runtime/servers");
-  expect(fetchMock.mock.calls[1][1]).toEqual({ credentials: "omit" });
 });
 
 describe("apiURL", () => {

@@ -10,16 +10,15 @@ import (
 func TestNewAuthzConfigFromEnv(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	t.Setenv("MCP_PLATFORM_MODE", "org")
-	t.Setenv("PLATFORM_CATALOG_NAMESPACES", "mcp-servers-public,preview-extra")
+	t.Setenv("PLATFORM_CATALOG_NAMESPACES", "preview-extra")
 	t.Setenv("MCP_PLATFORM_CATALOG_NAMESPACES", "ignored-extra")
-	t.Setenv("PLATFORM_PUBLIC_NAMESPACE", "mcp-servers-public")
 	t.Setenv("PLATFORM_ORG_NAMESPACE", "mcp-servers-org")
 
 	cfg := NewAuthzConfigFromEnv()
 	if cfg.mode != "public" {
 		t.Fatalf("mode = %q, want public", cfg.mode)
 	}
-	for _, namespace := range []string{"mcp-servers-public", "mcp-servers-org", "preview-extra"} {
+	for _, namespace := range []string{"mcp-servers-org", "preview-extra"} {
 		if _, ok := cfg.catalogNamespaces[namespace]; !ok {
 			t.Errorf("catalog namespace %q missing from config", namespace)
 		}

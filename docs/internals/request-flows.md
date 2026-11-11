@@ -326,7 +326,7 @@ sequenceDiagram
     API->>Platform: create membership
     Platform->>DB: persist membership
     User->>API: GET /api/v1/runtime/namespaces
-    API-->>User: user, team, org, public, and shared catalog namespaces
+    API-->>User: user, team, org, and shared catalog namespaces
     User->>API: GET /api/v1/runtime/servers?namespace=<allowed>
     API->>K8s: list namespace-scoped MCPServer resources
 ```
@@ -380,7 +380,7 @@ Primary request paths:
 | Log in to platform from CLI | `mcp-runtime auth login` | CLI, API, Postgres, authfile | JWT/API token, platform URL | `cli-platform`, `api-platform` |
 | Browser login/logout | UI `/auth/*` | browser, UI, API key/session store | `mcp_ui_session`, admin check | `ui-auth` |
 | Authenticated dashboard reads via UI session | UI allowlisted `GET /api/ui/v1/*` | browser, UI BFF, runtime-api/analytics-api | session cookie translated to bearer or API key | `ui-auth` |
-| List visible servers | CLI/API `GET /api/v1/runtime/servers` | API, Postgres principal, K8s MCPServer list | namespace scoping, public/org/team/user catalogs | `api-platform`, `multitenancy` |
+| List visible servers | CLI/API `GET /api/v1/runtime/servers` | API, Postgres principal, K8s MCPServer list | namespace scoping, org/team/user catalogs | `api-platform`, `multitenancy` |
 | Publish MCP server | `server deploy`, `POST /api/v1/runtime/servers` | CLI/API, registry, K8s, operator | MCPServer spec, image scope, ingress path | `cli-platform`, `api-platform`, `all` |
 | Admin direct kube changes | `--use-kube` CLI | CLI, kubeconfig, Kubernetes API, operator | CRDs and RBAC, no platform auth boundary | targeted local/admin tests |
 | Reconcile server workload | MCPServer change | K8s API, operator, Deployment, Service, Ingress, status | CRD defaults, service target port, gateway sidecar | `smoke-auth`, `all` |

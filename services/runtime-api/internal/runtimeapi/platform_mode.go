@@ -3,7 +3,6 @@ package runtimeapi
 import (
 	"fmt"
 	"mcp-runtime/pkg/topology"
-	"net/http"
 	"strings"
 )
 
@@ -11,8 +10,7 @@ const (
 	platformModeOrg    = "org"
 	platformModePublic = "public"
 
-	defaultOrgCatalogNamespace    = topology.DefaultOrgCatalogNamespace
-	defaultPublicCatalogNamespace = topology.DefaultPublicCatalogNamespace
+	defaultOrgCatalogNamespace = topology.DefaultOrgCatalogNamespace
 )
 
 // PlatformMode returns org or public, defaulting invalid or empty values to org.
@@ -21,7 +19,7 @@ func PlatformMode() string {
 }
 
 // enabledPublishScopes lists the publish scopes the configured platform mode
-// accepts. Org mode supports tenant/org; public mode supports all three scopes.
+// accepts. Every mode supports tenant and org.
 func enabledPublishScopes() []topology.Scope {
 	return topology.ModeFromEnv().EnabledPublishScopes()
 }
@@ -41,13 +39,8 @@ func publishScopeEnabledError(scope topology.Scope) error {
 		}
 		names = append(names, string(candidate))
 	}
-	return fmt.Errorf("%s scope is not enabled on this platform (platform mode %q; enabled scopes: %s); pass --scope tenant, or omit --scope and set scope: tenant in .mcp metadata to publish to your team namespace",
+	return fmt.Errorf("%s scope is not enabled on this platform (platform mode %q; enabled scopes: %s); use scope tenant or org (or omit --scope and set scope: tenant in .mcp metadata to publish to your team namespace)",
 		scope, PlatformMode(), strings.Join(names, ", "))
-}
-
-// PublicCatalogEnabled reports whether the runtime should expose public catalog behavior.
-func PublicCatalogEnabled() bool {
-	return PlatformMode() == platformModePublic
 }
 
 func sharedCatalogWritableForUsers() bool {
@@ -104,9 +97,6 @@ func isModeCatalogNamespace(namespace string) bool {
 }
 
 func principalCanReadNamespace(p principal, namespace string) bool {
-	if p.AuthType == "public_catalog" {
-		return stringInSlice(strings.TrimSpace(namespace), catalogNamespacesForScope(topology.ScopePublic))
-	}
 	if sharedCatalogWritableForUsers() && isModeCatalogNamespace(namespace) {
 		return true
 	}
@@ -136,9 +126,6 @@ func principalOwnsNamespace(p principal, namespace string) bool {
 }
 
 func principalCanPublishNamespace(p principal, namespace string) bool {
-	if p.AuthType == "public_catalog" {
-		return false
-	}
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" {
 		return false
@@ -150,9 +137,6 @@ func principalCanPublishNamespace(p principal, namespace string) bool {
 }
 
 func publishNamespacesForPrincipal(p principal) []string {
-	if p.AuthType == "public_catalog" {
-		return catalogNamespacesForScope(topology.ScopePublic)
-	}
 	namespaces := make([]string, 0, len(p.AllowedNamespaces)+len(p.Teams)+3)
 	if sharedCatalogWritableForUsers() {
 		namespaces = append(namespaces, modeCatalogNamespaces()...)
@@ -172,34 +156,4 @@ func publishNamespacesForPrincipal(p principal) []string {
 		}
 	}
 	return dedupeNonEmptyStrings(namespaces)
-}
-
-// PublicCatalogPrincipal returns the synthetic principal used for unauthenticated public catalog reads.
-func PublicCatalogPrincipal() Principal {
-	namespaces := catalogNamespacesForScope(topology.ScopePublic)
-	return Principal{
-		Role:              roleUser,
-		Subject:           "public",
-		Namespace:         defaultCatalogNamespaceForScope(topology.ScopePublic),
-		AllowedNamespaces: namespaces,
-		AuthType:          "public_catalog",
-	}
-}
-
-// PublicCatalogFallback authenticates anonymous public-mode reads of the catalog collections.
-func PublicCatalogFallback(r *http.Request) (Principal, bool) {
-	if !PublicCatalogEnabled() || r == nil || r.Method != http.MethodGet {
-		return Principal{}, false
-	}
-	switch strings.TrimRight(r.URL.Path, "/") {
-	case "/api/v1/runtime/servers", "/api/v1/runtime/tools":
-	default:
-		return Principal{}, false
-	}
-	query := r.URL.Query()
-	if strings.TrimSpace(query.Get("namespace")) == "" {
-		query.Set("namespace", defaultCatalogNamespaceForScope(topology.ScopePublic))
-		r.URL.RawQuery = query.Encode()
-	}
-	return PublicCatalogPrincipal(), true
 }

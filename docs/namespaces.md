@@ -16,7 +16,7 @@ because its permissions refer to both namespaces.
 | `mcp-observability` | analytics-api, ingest, processor, Kafka, ClickHouse, Prometheus, Grafana, the OTel collector, Loki, and Tempo. |
 | `mcp-log-collector` | Promtail. This namespace is the privileged Pod Security exception for node log collection. |
 | `registry`, `traefik`, `cert-manager` | Unchanged infrastructure. A k3s Traefik install stays in `kube-system`. |
-| `mcp-servers`, `mcp-servers-org`, `mcp-servers-public`, `mcp-team-{slug}` | MCP server workloads. They do not run in the platform or observability namespaces. Direct apply with no team uses `mcp-servers`. |
+| `mcp-servers`, `mcp-servers-org`, `mcp-team-{slug}` | MCP server workloads. They do not run in the platform or observability namespaces. Direct apply with no team uses `mcp-servers`. |
 
 An Ingress is applied in the same namespace as the Service it targets. Dev
 routes for Grafana, ingest, and analytics-api live in `mcp-observability`. UI,
@@ -50,8 +50,8 @@ Each key lives on the Secret that owns it, in that owner's namespace.
 | `mcp-runtime-ingest-credentials` | `mcp-platform` | Ingest key copy read by runtime-api |
 
 The bundled Traefik allowlist is `registry`, `mcp-platform`,
-`mcp-observability`, `mcp-log-collector`, `mcp-servers`, `mcp-servers-org`, and
-`mcp-servers-public`. Team create appends `mcp-team-{slug}` only when the
+`mcp-observability`, `mcp-log-collector`, `mcp-servers`, and
+`mcp-servers-org`. Team create appends `mcp-team-{slug}` only when the
 Traefik Deployment already has `--providers.kubernetesingress.namespaces`.
 k3s Traefik in `kube-system` watches every namespace and is left unchanged.
 

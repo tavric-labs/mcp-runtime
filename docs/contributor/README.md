@@ -90,12 +90,12 @@ The contributor Kind flow installs a full local stack:
 - Traefik ingress on the local gateway path
 - A bundled registry for runtime images
 - `mcp-servers` as the legacy single-team/example MCP namespace
-- `mcp-servers-org` in default org mode; public mode also creates `mcp-servers-public`
+- `mcp-servers-org` in both platform modes
 - Optional `mcp-team-<slug>` namespaces for tenant isolation
 
 The default org-mode catalog is authenticated. Logged-in users see the org
-catalog plus their authorized team namespaces. Use `--platform-mode public`
-to add an anonymous public preview catalog; org and team catalogs stay private.
+catalog plus their authorized team namespaces. `--platform-mode public` is the
+hosted profile with the same catalogs; there is no anonymous catalog.
 
 ## Before Opening a PR
 

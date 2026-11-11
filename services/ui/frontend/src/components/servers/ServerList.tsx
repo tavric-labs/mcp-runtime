@@ -28,8 +28,7 @@ type ServerListProps = {
   onClearFilters: () => void;
   filtered: boolean;
   // Retiring is offered to any authenticated principal: the runtime API checks
-  // publish permission on the namespace, not the admin role. Omitted entirely
-  // for the anonymous public catalog, where there is no session to retire with.
+  // publish permission on the namespace, not the admin role.
   onRetire?: (server: ServerSummary) => void;
   retiringKey?: string;
   retireError?: string;

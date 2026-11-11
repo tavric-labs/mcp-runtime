@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Removed
+
+- Breaking: the `public` publish scope and the anonymous catalog are removed; publish scopes are now `tenant` and `org`. `--scope public` (and `scope: public` in `.mcp` metadata or the API) is rejected with an error listing `tenant` and `org`. The `public` registry alias, the anonymous `/api/public/v1` UI proxy, the signed-out catalog preview in the console, the `public` filter in the Requests view and the `PLATFORM_PUBLIC_NAMESPACE(S)` settings are gone. Setup and update no longer create or manage `mcp-servers-public`, and the bundled Traefik manifests no longer watch it. An existing `mcp-servers-public` namespace is left in place, unmanaged: once it holds no servers, the operator can delete it. The `--platform-mode public` profile is kept as the hosted, internet-facing profile with the same catalogs and scopes as `org`. No fresh setup or data reset is required; this applies to the hosted reference platform through `mcp-runtime update`, and a server deployed to the public catalog must be redeployed with `--scope org` first.
+
 ### Changed
 
 - The bundled MCP Auth default image now lives in one file, `config/release/mcp-auth/Dockerfile`, which Dependabot bumps. The default moves from 0.9.0 to 0.9.1 (the release production runs: it fixes the client metadata document fetch for hosts that publish IPv6, and caches fetched documents); the flags are unchanged and it is never `latest`; the setup help, docs and deployment profile no longer repeat the version ([maintainer guide](docs/contributor/mcp-auth-pin.md)). No fresh setup is required.

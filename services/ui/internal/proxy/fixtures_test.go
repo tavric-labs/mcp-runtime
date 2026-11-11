@@ -18,9 +18,6 @@ func newUISessionStore(now func() time.Time) *session.Store { return session.New
 func newSessionProxyWithUpstreams(platform, runtime, analytics *url.URL, store *session.Store) *SessionProxy {
 	return NewSessionProxy(platform, runtime, analytics, store, NewHTTPClient())
 }
-func newPublicCatalogProxy(runtime *url.URL, enabled bool) http.Handler {
-	return NewPublicCatalogProxy(runtime, enabled, NewHTTPClient())
-}
 func grafanaSessionProxy(platform, runtime *url.URL, store *session.Store, prefix string) http.Handler {
 	return NewGrafanaProxy(platform, runtime, store, prefix, NewHTTPClient())
 }

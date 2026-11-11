@@ -107,7 +107,6 @@ Namespace selector:
 - team namespace
 - shared/org namespace
 - admin namespace list
-- public preview namespace in public mode, if configured
 
 Catalog data and filters:
 
@@ -358,13 +357,13 @@ Record accessibility snapshot evidence for each major tab.
 ## Platform Mode And Extensibility
 
 For broad UI audits, cover org mode against current Kind plus public mode
-through local UI-server config passes when practical. In public mode verify
-anonymous readers cannot reach org or team namespaces.
+through local UI-server config passes when practical. In every mode verify
+anonymous readers cannot reach any catalog.
 
 Extensibility cases:
 
 - duplicate or empty namespace list
-- user, team, shared/org, and public preview namespaces
+- user, team, and shared/org namespaces
 - string vs object tools/prompts/resources/tasks
 - server labels and inventory labels
 - unknown status values

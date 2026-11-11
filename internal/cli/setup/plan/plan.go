@@ -26,10 +26,9 @@ const (
 )
 
 const (
-	DefaultOrgCatalogNamespace    = "mcp-servers-org"
-	DefaultPublicCatalogNamespace = "mcp-servers-public"
-	DefaultTestMTLSClusterIssuer  = "mcp-runtime-ca"
-	DefaultMCPAuthTLSSecret       = "mcp-auth-server-tls" // #nosec G101 -- Kubernetes Secret name, not a credential.
+	DefaultOrgCatalogNamespace   = "mcp-servers-org"
+	DefaultTestMTLSClusterIssuer = "mcp-runtime-ca"
+	DefaultMCPAuthTLSSecret      = "mcp-auth-server-tls" // #nosec G101 -- Kubernetes Secret name, not a credential.
 )
 
 // Input captures the raw CLI inputs for setup.
@@ -142,12 +141,8 @@ func NormalizeRegistryMode(mode string) (string, bool) {
 }
 
 func CatalogNamespaceForPlatformMode(mode string) string {
-	normalized, ok := NormalizePlatformMode(mode)
-	if !ok {
+	if _, ok := NormalizePlatformMode(mode); !ok {
 		return ""
-	}
-	if normalized == PlatformModePublic {
-		return DefaultPublicCatalogNamespace
 	}
 	return DefaultOrgCatalogNamespace
 }
@@ -157,9 +152,6 @@ func CatalogNamespacesForPlatformMode(mode string) []string {
 	primary := CatalogNamespaceForPlatformMode(mode)
 	if primary == "" {
 		return nil
-	}
-	if primary == DefaultPublicCatalogNamespace {
-		return []string{primary, DefaultOrgCatalogNamespace}
 	}
 	return []string{primary}
 }

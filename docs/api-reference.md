@@ -418,7 +418,7 @@ facets, and top request groups. Each request group includes its server,
 namespace/team, MCP JSON-RPC method, tool, policy decision/version, HTTP
 failures, p95 latency, last-seen time, and latest trace ID when available.
 Query: `limit` (1-50, default 10), `window_days` (1-365, default 30), or
-`window_hours` (1-8760, which overrides days), `scope` (`public`, `org`, or
+`window_hours` (1-8760, which overrides days), `scope` (`org` or
 `tenant`), `namespace`, `team_id`, `server`, `rpc_method` (for example
 `tools/call` or `tools/list`), `tool_name`, `decision`, `policy_version`, and
 `http_status` (`2xx`, `4xx`, or `5xx`). Scope, namespace and team filters are
@@ -442,17 +442,14 @@ owns that namespace or belongs to that team.
 
 Manage access grants, sessions, and view runtime state. All `/api/v1/runtime/*`
 routes require an authenticated platform bearer token or `x-api-key`; requests
-without authentication receive `401`, with one exception: in public platform
-mode (`--platform-mode public`), anonymous `GET /api/v1/runtime/servers` and
-`GET /api/v1/runtime/tools` are served as the synthetic `public_catalog`
-principal, which can read only the public catalog namespace. `POST` requests create the Kubernetes CRs
+without authentication receive `401` in every platform mode. `POST` requests create the Kubernetes CRs
 that the operator renders into the gateway policy ConfigMap. Server redeploys
 must opt in with `update: true`; grants and sessions remain create-or-update.
 
 For `POST /api/v1/runtime/grants` and admin-only direct `POST /api/v1/runtime/sessions`, the API resolves `serverRef` to an `MCPServer` in the cluster. If that server does not exist, the call returns `400` with an `unknown serverRef` message. The server lookup is **not** in the same transaction as the grant/session write, so a concurrent delete can leave a stale reference (same as `kubectl apply`). Kubernetes apply errors are surfaced with the status the API server would use, when available. Non-admin grant mutations and session item mutations require the caller to be the server owner or a team owner for the server namespace; normal adapter flows use `POST /api/v1/runtime/adapter/sessions`.
 
 ```text
-GET  /api/v1/runtime/servers              # List MCP catalog entries (anonymous: public catalog only, public mode)
+GET  /api/v1/runtime/servers              # List MCP catalog entries
 GET  /api/v1/runtime/tools                # Tool inventory rows across visible servers
 GET  /api/v1/runtime/servers/{namespace}/{name} # Get one MCPServer catalog entry
 POST /api/v1/runtime/servers              # Create MCPServer; set update=true to redeploy an existing one
@@ -511,33 +508,25 @@ CLI/UI and APIs, including their directory and ownership checks. A missing
 platform session backend fails rather than falling back to Kubernetes.
 
 For non-admin users, runtime scope depends on `PLATFORM_MODE` / setup
-`--platform-mode` (`org` or `public`). In the default `org` mode,
+`--platform-mode` (`org` or `public`). In both modes,
 signed-in users can use the org catalog namespace and their team namespaces.
-In `public` mode, anonymous users can list the `mcp-servers-public` catalog,
-while signed-in users can publish to the public and org catalogs and their team
-namespaces. Admin callers can inspect any
+Admin callers can inspect any
 namespace. Passing `namespace=<name>` narrows the list to an authorized
 namespace for the active mode. `POST /api/v1/runtime/servers` also accepts
-`scope: "tenant" | "org" | "public"` in the JSON body. `scope: "public"`
-requires public platform mode and resolves the active public catalog namespace;
+`scope: "tenant" | "org"` in the JSON body; any other value, including the
+removed `"public"`, is rejected with an error listing `tenant` and `org`.
 `scope: "org"` works in both modes and resolves the active org catalog namespace;
 `scope: "tenant"` uses the caller's team namespace unless the request passes an
 authorized team `namespace`. If an `MCPServer` with the same name already
 exists in the target namespace, the API returns `409` unless the request body
 sets `update: true`.
 
-Anonymous `GET /api/v1/runtime/servers` in public mode has no login, defaults
-`namespace` to the public catalog namespace, and returns `403 forbidden
-namespace` for any other namespace; it never lists organization, team or
-other namespaces and cannot publish or modify. Each entry uses the same
-summary shape as authenticated callers: `name`, `namespace`, `uid`, `image`,
+Each server entry in the list has this summary shape: `name`, `namespace`, `uid`, `image`,
 `imageTag`, `description`, `ready`, `status`, `message`, `conditions`,
 `labels`, `endpoint`, `authMode`, `authHeaders` (names only), `gatewayEnabled`,
 `servicePort`, `generation`, declared `tools`, `prompts`, `resources` and
 `tasks`, `runtimeStatus`, `liveInventory`, and `access_json` (a ready-to-paste
-client connect snippet). Treat those fields as public in public mode: do not
-put anything in server labels, descriptions or images that should stay
-private. Authenticated callers instead see the namespaces they own or belong to
+client connect snippet). Authenticated callers see the namespaces they own or belong to
 plus the shared catalog namespaces for the active mode, and admins see all
 namespaces. The response also carries `publish_policy`.
 
@@ -647,10 +636,9 @@ Bearer token) keep global registry access. Normal user API keys and platform
 Bearer tokens are accepted only for repository paths scoped to the caller's
 team slug or team namespace, such as `/v2/acme/demo/...` or
 `/v2/mcp-team-acme/demo/...`.
-In `public` mode, signed-in users may also write `/v2/public/...` (or the
-configured public catalog namespace). In `org` mode, signed-in users may write
-`/v2/org/...` (or the configured org catalog namespace). Anonymous requests and
-catalog requests for inactive modes are rejected.
+In both modes, signed-in users may write `/v2/org/...` (or the configured org
+catalog namespace). Anonymous requests and the removed `/v2/public/...` alias
+are rejected.
 
 Deployment apply body:
 

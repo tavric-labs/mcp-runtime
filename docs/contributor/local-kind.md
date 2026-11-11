@@ -380,8 +380,8 @@ curl -sS -b /tmp/mcp-test-user-cookie.txt \
 ```
 
 In default org mode, signed-in users see `mcp-servers-org` and their authorized
-team namespaces. `--platform-mode public` adds the public preview catalog in
-`mcp-servers-public`, while anonymous users cannot read org or team catalogs.
+team namespaces. `--platform-mode public` is the hosted profile with the same
+catalogs; anonymous users cannot read any catalog.
 
 For a reproducible tenant-isolation exercise, follow
 [Module 3: Multi-team setup](../learn/03-multi-team-access.md), which creates its

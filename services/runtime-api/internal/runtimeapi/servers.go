@@ -505,7 +505,7 @@ func (s *RuntimeServer) scopedNamespaceForServerApply(ctx context.Context, reque
 		return "", err
 	}
 	switch scope {
-	case topology.ScopePublic, topology.ScopeOrg:
+	case topology.ScopeOrg:
 		return scopedModeCatalogNamespaceForApply(p, requested, scope)
 	case topology.ScopeTenant:
 		return scopedTenantNamespaceForApply(p, requested)

@@ -39,9 +39,9 @@ source for issuer, resource, audience, route, and gateway mode:
 
 ```bash
 IMAGE_REF="registry.mcpruntime.org/oauth-example-typescript-2025-06-18:${MCP_AUTH_TAG}"
-./bin/mcp-runtime server push --scope public --image "$IMAGE_REF"
+./bin/mcp-runtime server push --scope org --image "$IMAGE_REF"
 ./bin/mcp-runtime server deploy oauth-example-typescript-2025-06-18-standalone \
-  --scope public \
+  --scope org \
   --metadata-file examples/oauth-example-typescript-2025-06-18/.mcp/servers.yaml
 ```
 

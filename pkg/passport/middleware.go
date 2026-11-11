@@ -42,7 +42,6 @@ type Authenticator struct {
 	UserKeyResolver UserKeyResolver
 	OIDC            OIDCVerifier
 	Principals      PrincipalResolver
-	PublicFallback  func(*http.Request) (Principal, bool)
 }
 
 func (a Authenticator) Middleware(next http.Handler) http.Handler {
@@ -52,9 +51,6 @@ func (a Authenticator) Middleware(next http.Handler) http.Handler {
 			log.Printf("auth error: %v", err)
 			apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeAuthFailed, "authentication failed")
 			return
-		}
-		if !ok && a.PublicFallback != nil {
-			p, ok = a.PublicFallback(r)
 		}
 		if !ok {
 			apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "authentication required")

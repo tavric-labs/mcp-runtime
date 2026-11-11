@@ -12,7 +12,7 @@ import (
 
 func TestServerScopeLoadsNormalizedFromYAML(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "servers.yaml")
-	doc := "version: v1\nservers:\n  - name: demo\n    image: demo\n    imageTag: v1\n    scope: \" Public \"\n"
+	doc := "version: v1\nservers:\n  - name: demo\n    image: demo\n    imageTag: v1\n    scope: \" Org \"\n"
 	if err := os.WriteFile(path, []byte(doc), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -20,8 +20,8 @@ func TestServerScopeLoadsNormalizedFromYAML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFromFile() error = %v", err)
 	}
-	if got := string(registry.Servers[0].Scope); got != "public" {
-		t.Fatalf("Scope = %q, want public", got)
+	if got := string(registry.Servers[0].Scope); got != "org" {
+		t.Fatalf("Scope = %q, want org", got)
 	}
 }
 
@@ -33,6 +33,18 @@ func TestServerScopeRejectsUnknownValue(t *testing.T) {
 	}
 	if _, err := LoadFromFile(path); err == nil || !strings.Contains(err.Error(), "scope") {
 		t.Fatalf("LoadFromFile() error = %v, want an invalid scope error", err)
+	}
+}
+
+func TestServerScopeRejectsPublic(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "servers.yaml")
+	doc := "version: v1\nservers:\n  - name: demo\n    image: demo\n    imageTag: v1\n    scope: public\n"
+	if err := os.WriteFile(path, []byte(doc), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadFromFile(path)
+	if err == nil || !strings.Contains(err.Error(), "use tenant or org") {
+		t.Fatalf("LoadFromFile() error = %v, want an invalid scope error listing tenant and org", err)
 	}
 }
 

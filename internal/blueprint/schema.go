@@ -100,7 +100,7 @@ type ServerMetadata struct {
 	// Namespace is the Kubernetes namespace (defaults to "mcp-servers").
 	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 
-	// Scope selects a publish destination: tenant, org, or public.
+	// Scope selects a publish destination: tenant or org.
 	Scope topology.Scope `yaml:"scope,omitempty" json:"scope,omitempty"`
 
 	// TeamID is the stable platform team identifier that owns the server.
