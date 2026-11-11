@@ -720,8 +720,22 @@ func (s *RuntimeServer) handleRuntimeServerDelete(w http.ResponseWriter, r *http
 	image := ""
 	if current != nil {
 		image = current.Spec.Image
-		patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"uid": current.UID, "resourceVersion": current.ResourceVersion, "annotations": map[string]string{mcpaccess.ServerRetiringAnnotation: "true"}}})
-		if _, err := s.k8sClients.Dynamic.Resource(controlplane.MCPServerGVR).Namespace(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		// The operator rewrites a settling server's status, which can invalidate
+		// the resourceVersion precondition between the read and the patch.
+		// Re-read and retry a bounded number of times before giving up.
+		for attempt := 1; ; attempt++ {
+			patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"uid": current.UID, "resourceVersion": current.ResourceVersion, "annotations": map[string]string{mcpaccess.ServerRetiringAnnotation: "true"}}})
+			_, err = s.k8sClients.Dynamic.Resource(controlplane.MCPServerGVR).Namespace(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
+			if err == nil {
+				break
+			}
+			if apierrors.IsConflict(err) && attempt < 5 {
+				if latest, getErr := control.GetServer(ctx, namespace, name); getErr == nil && latest != nil {
+					current = latest
+					continue
+				}
+			}
+			log.Printf("runtime servers: mark retirement for %s/%s failed: %v", namespace, name, err)
 			s.writeAudit(r.Context(), serverPublishAuditEvent(r, p, "server_retire", "error", name, namespace, image, err.Error()))
 			writeAPIError(w, http.StatusInternalServerError, "failed to mark server retirement; retry retirement")
 			return

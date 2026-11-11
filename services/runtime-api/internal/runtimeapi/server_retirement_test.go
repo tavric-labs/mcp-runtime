@@ -315,3 +315,28 @@ func TestRetiringServerIssuanceHandlersRejectConflict(t *testing.T) {
 		t.Fatalf("adapter issuance accepted retiring target: %v", err)
 	}
 }
+
+// The operator rewrites a freshly created server's status while it settles, so
+// the retirement marker's resourceVersion precondition can lose that race. The
+// handler must re-read and retry instead of failing the delete.
+func TestRetirementRetriesMarkerConflict(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = mcpv1alpha1.AddToScheme(scheme)
+	dynamic := dynamicfake.NewSimpleDynamicClient(scheme, ownedTestMCPServer("demo", "team-a", "owner"))
+	conflicts := 0
+	dynamic.PrependReactor("patch", "mcpservers", func(clienttesting.Action) (bool, runtime.Object, error) {
+		if conflicts < 2 {
+			conflicts++
+			return true, nil, apierrors.NewConflict(schema.GroupResource{Group: "mcpruntime.org", Resource: "mcpservers"}, "demo", errors.New("the object has been modified"))
+		}
+		return false, nil, nil
+	})
+	api := &RuntimeServer{k8sClients: &k8sclient.Clients{Dynamic: dynamic, Clientset: kubernetesfake.NewSimpleClientset()}, accessMgr: k8sstore.NewManager(dynamic, nil).WithSessionBackend(newMemorySessionBackend())}
+	r := httptest.NewRequest(http.MethodDelete, "/api/runtime/servers/team-a/demo", nil)
+	r = r.WithContext(withPrincipal(r.Context(), principal{Role: roleAdmin, Subject: "owner", Namespace: "team-a"}))
+	w := httptest.NewRecorder()
+	api.HandleRuntimeServerItem(w, r)
+	if w.Code != http.StatusOK || conflicts != 2 {
+		t.Fatalf("status %d after %d conflicts: %s", w.Code, conflicts, w.Body.String())
+	}
+}
