@@ -7,6 +7,28 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-12
+
+Breaking `0.x` release: the `public` publish scope and the `mcp-servers-public`
+namespace are removed (`--platform-mode public` stays as the hosted profile),
+and the legacy `mcp-servers` base namespace is retired. Servers now default to
+`mcp-servers-org`, the operator trust bundle `mcp-adapter-client-ca` lives in
+`mcp-platform` (set `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-platform`),
+the doctor checks are renamed, and the namespace and principal APIs no longer
+return `is_shared` or `sharedCatalogNamespace` (principals' `allowedNamespaces`
+no longer includes the legacy namespace).
+
+Existing installs, including the live preview, deploy with `mcp-runtime update`
+and then follow the trust bundle migration in the
+[base namespace retirement note](hack/deploy/reference/base-namespace-retirement.md):
+create the new bundle in `mcp-platform`, verify, then clean up. No fresh setup,
+backup-and-restore or data reset is required. Once the migration is verified, the
+operator can delete the empty `mcp-servers-public` and `mcp-servers` namespaces.
+Redeploy any server in the public catalog with `--scope org` first. For a rebuilt
+platform, the existing backup, fresh setup and restore procedure applies. Verify
+sign-in, server deployment, an allowed and a denied tool call, and audit after
+updating.
+
 ### Removed
 
 - Breaking: the `public` publish scope and the anonymous catalog are removed; publish scopes are now `tenant` and `org`. `--scope public` (and `scope: public` in `.mcp` metadata or the API) is rejected with an error listing `tenant` and `org`. The `public` registry alias, the anonymous `/api/public/v1` UI proxy, the signed-out catalog preview in the console, the `public` filter in the Requests view and the `PLATFORM_PUBLIC_NAMESPACE(S)` settings are gone. Setup and update no longer create or manage `mcp-servers-public`, and the bundled Traefik manifests no longer watch it. An existing `mcp-servers-public` namespace is left in place, unmanaged: once it holds no servers, the operator can delete it. The `--platform-mode public` profile is kept as the hosted, internet-facing profile with the same catalogs and scopes as `org`. No fresh setup or data reset is required; this applies to the hosted reference platform through `mcp-runtime update`, and a server deployed to the public catalog must be redeployed with `--scope org` first.
@@ -826,7 +848,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...v0.16.0
