@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1360" width="1600" height="1360" font-family="-apple-system, 'SF Pro Text', Helvetica, Arial, sans-serif" fill="#111">
+  <defs><marker id="a" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto"><path d="M1.5,1.5 L10.5,6 L1.5,10.5" fill="none" stroke="#555" stroke-width="1.6"/></marker></defs>
+  <rect width="1600" height="1360" fill="#fcfcfc"/>
+  <rect x="30" y="30" width="1540" height="1300" rx="40" fill="#fcfcfc" stroke="#dcdfe4" stroke-width="2"/>
+
+  <!-- CONTROL PLANE -->
+  <text x="800" y="104" text-anchor="middle" font-size="36" font-weight="600">Control Plane — Platform API</text>
+  <text x="800" y="148" text-anchor="middle" font-size="25" fill="#666">Store policies, grants, revisions and assignments</text>
+  <g font-size="22">
+    <rect x="90" y="178" width="450" height="200" rx="18" fill="#fff" stroke="#dcdfe4" stroke-width="2"/>
+    <text x="315" y="216" text-anchor="middle" font-size="26" font-weight="600">platform-api · intent</text>
+    <text x="315" y="256" text-anchor="middle" fill="#666">Postgres: grants, sessions,</text>
+    <text x="315" y="286" text-anchor="middle" fill="#666">agent directory, audit authority</text>
+    <text x="315" y="326" text-anchor="middle" fill="#666">desiredRevisionId</text>
+    <rect x="575" y="178" width="450" height="200" rx="18" fill="#fff" stroke="#dcdfe4" stroke-width="2"/>
+    <text x="800" y="216" text-anchor="middle" font-size="26" font-weight="600">runtime · projection</text>
+    <text x="800" y="256" text-anchor="middle" fill="#666">Applies MCPServer and</text>
+    <text x="800" y="286" text-anchor="middle" fill="#666">MCPAccessGrant, namespaces</text>
+    <text x="800" y="326" text-anchor="middle" fill="#666">appliedRevisionId (#873)</text>
+    <rect x="1060" y="178" width="450" height="200" rx="18" fill="#fff" stroke="#dcdfe4" stroke-width="2"/>
+    <text x="1285" y="216" text-anchor="middle" font-size="26" font-weight="600">MCP operator · realization</text>
+    <text x="1285" y="256" text-anchor="middle" fill="#666">Renders policy ConfigMap,</text>
+    <text x="1285" y="286" text-anchor="middle" fill="#666">workloads, routes, CR status</text>
+    <text x="1285" y="326" text-anchor="middle" fill="#666">observedRevisionId</text>
+  </g>
+  <g stroke="#555" stroke-width="2" fill="none" marker-end="url(#a)">
+    <line x1="540" y1="278" x2="570" y2="278"/><line x1="1025" y1="278" x2="1055" y2="278"/>
+  </g>
+
+  <!-- publish arrows -->
+  <g font-size="21" fill="#666">
+    <line x1="110" y1="392" x2="110" y2="470" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+    <text x="130" y="422">Sessions · snapshot + change log</text>
+    <text x="130" y="450">:8085 · 500ms · deny when stale</text>
+    <line x1="600" y1="392" x2="600" y2="470" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+    <text x="620" y="422">Versioned policy snapshots</text>
+    <text x="620" y="450">ConfigMap · 5–7s reload · sha256</text>
+    <line x1="1080" y1="392" x2="1080" y2="470" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+    <text x="1100" y="422">Credentials · pulled per call</text>
+    <text x="1100" y="450">projected token · no cache</text>
+  </g>
+
+  <!-- DATA PLANE -->
+  <rect x="60" y="482" width="1480" height="690" rx="30" fill="#fcfcfc" stroke="#dcdfe4" stroke-width="2"/>
+  <text x="800" y="538" text-anchor="middle" font-size="36" font-weight="500">Data Plane — MCP Gateway</text>
+  <text x="800" y="574" text-anchor="middle" font-size="22" fill="#666">N replicas · every tools/call authorized in-process · decisions never cached</text>
+
+  <g font-size="22">
+    <rect x="110" y="604" width="660" height="170" rx="18" fill="#fff" stroke="#dcdfe4" stroke-width="2"/>
+    <text x="440" y="648" text-anchor="middle" font-size="28" font-weight="500">Identity verifier</text>
+    <text x="440" y="690" text-anchor="middle" fill="#666">Client certificate (SPIFFE) or OAuth bearer</text>
+    <text x="440" y="720" text-anchor="middle" fill="#666">Session lookup · revoked / expired / not found</text>
+    <text x="440" y="750" text-anchor="middle" fill="#666">Missing identity fails closed</text>
+
+    <rect x="830" y="604" width="660" height="170" rx="18" fill="#fff" stroke="#dcdfe4" stroke-width="2"/>
+    <text x="1160" y="648" text-anchor="middle" font-size="28" font-weight="500">Grant evaluator</text>
+    <text x="1160" y="690" text-anchor="middle" fill="#666">Server UID, subject, team, expiry</text>
+    <text x="1160" y="720" text-anchor="middle" fill="#666">Enforce or monitor mode (would_deny audit)</text>
+    <text x="1160" y="750" text-anchor="middle" fill="#666">No matching grant → deny</text>
+
+    <rect x="110" y="800" width="660" height="170" rx="18" fill="#fff" stroke="#dcdfe4" stroke-width="2"/>
+    <text x="440" y="844" text-anchor="middle" font-size="28" font-weight="500">Policy evaluator</text>
+    <text x="440" y="886" text-anchor="middle" fill="#666">Tool allow-list, side effect: read / write / destructive</text>
+    <text x="440" y="916" text-anchor="middle" fill="#666">Trust level: admin vs consented, risk level</text>
+    <text x="440" y="946" text-anchor="middle" fill="#666">Needs max age on grant snapshot (#942)</text>
+
+    <rect x="830" y="800" width="660" height="170" rx="18" fill="#fff" stroke="#b9bec7" stroke-width="2" stroke-dasharray="10 8"/>
+    <text x="1160" y="844" text-anchor="middle" font-size="28" font-weight="500">Rate limiter</text>
+    <text x="1160" y="886" text-anchor="middle" fill="#666">Today: per-gateway caps only (128 RPC, 32 streams)</text>
+    <text x="1160" y="916" text-anchor="middle" fill="#666">Proposed: per session, agent and tool → 429</text>
+    <text x="1160" y="946" text-anchor="middle" fill="#666">Distinct audit reason (#942)</text>
+  </g>
+
+  <rect x="110" y="996" width="1380" height="64" rx="16" fill="#fff" stroke="#b9bec7" stroke-width="2" stroke-dasharray="10 8"/>
+  <text x="800" y="1036" text-anchor="middle" font-size="22" fill="#666">Reports back: audit events and metrics today · enforced revision per replica (proposed, #943)</text>
+
+  <rect x="85" y="1086" width="1430" height="68" rx="18" fill="#eef5ee"/>
+  <text x="800" y="1130" text-anchor="middle" font-size="28" font-weight="500">Authorized MCP tool invocation</text>
+
+  <!-- to MCP server -->
+  <line x1="800" y1="1180" x2="800" y2="1226" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <text x="826" y="1210" font-size="22" fill="#666">Circuit breaker · 30s deadline · 128-RPC admission</text>
+  <text x="800" y="1272" text-anchor="middle" font-size="34" font-weight="600">MCP Server</text>
+  <text x="800" y="1306" text-anchor="middle" font-size="22" fill="#666">Executes the tool · validates the same issuer and audience</text>
+</svg>
