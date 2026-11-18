@@ -142,7 +142,6 @@ func ensureOperatorSecretAccessBindingsClientGo() error {
 		return fmt.Errorf("list managed namespaces for Secret RBAC migration: %w", err)
 	}
 	namespaceSet := make(map[string]struct{}, len(servers.Items)+1)
-	namespaceSet[core.NamespaceMCPServers] = struct{}{}
 	for i := range servers.Items {
 		if namespace := strings.TrimSpace(servers.Items[i].GetNamespace()); namespace != "" {
 			if isProtectedOperatorSecretNamespace(namespace) {
@@ -274,12 +273,9 @@ func deployOperatorManifests(logger *zap.Logger, operatorImage, gatewayProxyImag
 // config/rbac/kustomization.yaml must be listed here, or a namespace-local
 // binding can reference a role that setup never created.
 var operatorRBACManifests = []string{
-	"config/rbac/managed_server_namespace.yaml",
 	"config/rbac/service_account.yaml",
 	"config/rbac/operator_secret_access.yaml",
-	"config/rbac/operator_secret_access_binding.yaml",
 	"config/rbac/operator_workload_access.yaml",
-	"config/rbac/operator_workload_access_binding.yaml",
 	"config/rbac/role_binding.yaml",
 }
 

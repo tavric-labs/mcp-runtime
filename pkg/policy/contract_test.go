@@ -13,7 +13,7 @@ func TestPolicyDocumentRoundTrip(t *testing.T) {
 	original := &Document{
 		Server: Server{
 			Name:      "test-server",
-			Namespace: "mcp-servers",
+			Namespace: "mcp-servers-org",
 			TeamID:    "team-acme",
 			Cluster:   "test-cluster",
 		},

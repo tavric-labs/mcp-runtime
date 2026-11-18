@@ -19,12 +19,12 @@ function renderApp() {
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
 const CATALOG = {
-  "/api/ui/v1/runtime/namespaces": { namespaces: [{ namespace: "mcp-servers" }] },
+  "/api/ui/v1/runtime/namespaces": { namespaces: [{ namespace: "mcp-servers-org" }] },
   "/api/ui/v1/runtime/servers": {
     servers: [
       {
         name: "workspace-assistant",
-        namespace: "mcp-servers",
+        namespace: "mcp-servers-org",
         ready: "1/1",
         status: "Running",
         description: "Workspace helper",
@@ -37,7 +37,7 @@ const CATALOG = {
         tool_name: "add",
         description: "Add two numeric values",
         server_name: "workspace-assistant",
-        namespace: "mcp-servers",
+        namespace: "mcp-servers-org",
         declared: true,
         live: true,
         drift_status: "declared",

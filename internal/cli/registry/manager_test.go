@@ -253,10 +253,10 @@ func TestBuildRegistryPushTargetInClusterAutoResolvesInternalRegistry(t *testing
 }
 
 func TestScopedRegistryRepositoryHelpers(t *testing.T) {
-	if got := prefixRepositoryScope("demo", "public"); got != "public/demo" {
-		t.Fatalf("prefixRepositoryScope = %q, want public/demo", got)
+	if got := prefixRepositoryScope("demo", "org"); got != "org/demo" {
+		t.Fatalf("prefixRepositoryScope = %q, want org/demo", got)
 	}
-	if got := prefixRepositoryScope("public/demo", "public"); got != "public/demo" {
+	if got := prefixRepositoryScope("org/demo", "org"); got != "org/demo" {
 		t.Fatalf("prefixRepositoryScope double-prefixed: %q", got)
 	}
 	principal := platformapi.Principal{

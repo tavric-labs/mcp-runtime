@@ -51,6 +51,10 @@ The preview-only [session CRD removal note](session-crd-removal.md) covers
 retiring the obsolete Kubernetes definition after platform-session acceptance.
 It adds no import or compatibility path to the product.
 
+The preview-only [base namespace retirement note](base-namespace-retirement.md)
+covers moving the operator trust bundle to `mcp-platform` and removing the
+legacy base namespace, in create-then-verify-then-delete order.
+
 The preview-only [platform token keys note](platform-token-keys.md) covers the
 ES256 signing key pair that replaced the shared `JWT_SECRET`, including rotation.
 

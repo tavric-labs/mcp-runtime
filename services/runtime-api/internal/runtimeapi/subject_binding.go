@@ -78,9 +78,6 @@ func (s *AccessService) scopedAccessWriteNamespaceForPrincipal(ctx context.Conte
 		return "", err
 	}
 	p, ok := principalFromContext(ctx)
-	if ok && p.Role != roleAdmin && namespace == sharedCatalogNamespace {
-		return "", errors.New("shared catalog namespace is read-only for access resources")
-	}
 	if ok && p.Role != roleAdmin {
 		team, member := p.TeamForNamespace(namespace)
 		if !member || strings.TrimSpace(team.Role) != teamRoleOwner {

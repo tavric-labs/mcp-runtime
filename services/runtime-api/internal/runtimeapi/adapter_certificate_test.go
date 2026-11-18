@@ -51,7 +51,7 @@ func TestIssueSessionCertificateSubmitsPEMRequest(t *testing.T) {
 
 	svc := &AccessService{k8sClients: &k8sclient.Clients{Dynamic: dyn}}
 
-	const trust, ns, sess = "cluster.local", "mcp-servers", "sess-1"
+	const trust, ns, sess = "cluster.local", "mcp-servers-org", "sess-1"
 	_, csrPEM, spiffeID, err := identity.BuildSessionCSR(trust, ns, sess)
 	if err != nil {
 		t.Fatalf("BuildSessionCSR: %v", err)

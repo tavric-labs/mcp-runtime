@@ -34,7 +34,7 @@ func TestApplyGrantCreatesAndUpdates(t *testing.T) {
 	created, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "grant-a",
-			Namespace:   "mcp-servers",
+			Namespace:   "mcp-servers-org",
 			Labels:      map[string]string{"operator": "owned"},
 			Annotations: map[string]string{"note": "keep"},
 			Finalizers:  []string{"mcpruntime.org/finalizer"},
@@ -57,7 +57,7 @@ func TestApplyGrantCreatesAndUpdates(t *testing.T) {
 	}
 
 	updated, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
-		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers-org"},
 		Spec: access.MCPAccessGrantSpec{
 			ServerRef: access.ServerReference{Name: "demo"},
 			Subject:   access.SubjectRef{HumanID: "user-1", AgentID: "agent-1"},
@@ -96,16 +96,16 @@ func TestAssertMCPServerRef(t *testing.T) {
 	}
 	srv := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "payments", Namespace: "mcp-servers",
+			Name: "payments", Namespace: "mcp-servers-org",
 		},
 	}
 	manager := NewManager(dynamicfake.NewSimpleDynamicClient(scheme, srv), nil)
 
-	if err := manager.AssertMCPServerRef(ctx, access.ServerReference{Name: "payments", Namespace: "mcp-servers"}); err != nil {
+	if err := manager.AssertMCPServerRef(ctx, access.ServerReference{Name: "payments", Namespace: "mcp-servers-org"}); err != nil {
 		t.Fatalf("valid ref: %v", err)
 	}
 
-	err := manager.AssertMCPServerRef(ctx, access.ServerReference{Name: "missing", Namespace: "mcp-servers"})
+	err := manager.AssertMCPServerRef(ctx, access.ServerReference{Name: "missing", Namespace: "mcp-servers-org"})
 	if err == nil {
 		t.Fatal("expected error for missing server")
 	}
@@ -126,7 +126,7 @@ func TestApplyGrantRetriesOnConflict(t *testing.T) {
 	manager := NewManager(fake, nil)
 
 	if _, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
-		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers-org"},
 		Spec: access.MCPAccessGrantSpec{
 			ServerRef: access.ServerReference{Name: "demo"},
 			Subject:   access.SubjectRef{HumanID: "user-1"},
@@ -150,7 +150,7 @@ func TestApplyGrantRetriesOnConflict(t *testing.T) {
 	})
 
 	updated, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
-		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers-org"},
 		Spec: access.MCPAccessGrantSpec{
 			ServerRef: access.ServerReference{Name: "demo"},
 			Subject:   access.SubjectRef{HumanID: "user-1"},
@@ -174,7 +174,7 @@ func TestApplyGrantGivesUpAfterMaxConflicts(t *testing.T) {
 	manager := NewManager(fake, nil)
 
 	if _, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
-		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers-org"},
 		Spec: access.MCPAccessGrantSpec{
 			ServerRef: access.ServerReference{Name: "demo"},
 			Subject:   access.SubjectRef{HumanID: "user-1"},
@@ -193,7 +193,7 @@ func TestApplyGrantGivesUpAfterMaxConflicts(t *testing.T) {
 	})
 
 	_, err := manager.ApplyGrant(ctx, &MCPAccessGrant{
-		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "grant-a", Namespace: "mcp-servers-org"},
 		Spec: access.MCPAccessGrantSpec{
 			ServerRef: access.ServerReference{Name: "demo"},
 			Subject:   access.SubjectRef{HumanID: "user-1"},

@@ -92,9 +92,9 @@ There is no session CRD or Kubernetes session fallback. Session YAML is only
 an admin platform-apply input; use CLI/UI for session management. See
 `docs/contributor/gateway-session-sync.md` for the dedicated port, workload
 identity, revocation and database-restore contract.
-Platform modes are `org` (default) and `public`; publish scopes are `tenant`
-(a team), `org`, and `public`. Public mode accepts all three scopes, but
-anonymous catalog reads must remain limited to public namespaces. Shared mode
+Platform modes are `org` (default) and `public` (the hosted profile, with the
+same catalogs and scopes); publish scopes are `tenant` (a team) and `org`.
+There is no public publish scope and no anonymous catalog. Shared mode
 and catalog-namespace rules live in `pkg/topology`.
 Public paths are validated by `pkg/topology`; see `docs/self-hosting.md` and
 `config/deployments/single-host.env.example`. Preserve platform API, registry,

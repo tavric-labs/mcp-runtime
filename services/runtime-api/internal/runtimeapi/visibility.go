@@ -36,7 +36,7 @@ func principalCanAdministerServerLabels(p principal, namespace string, serverLab
 	if _, ok := p.TeamForNamespace(namespace); ok {
 		return false
 	}
-	if namespace == sharedCatalogNamespace || isModeCatalogNamespace(namespace) {
+	if isModeCatalogNamespace(namespace) {
 		return false
 	}
 	return strings.TrimSpace(p.Namespace) == namespace

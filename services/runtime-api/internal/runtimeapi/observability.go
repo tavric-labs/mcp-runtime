@@ -668,7 +668,7 @@ func serverInfoObservableByPrincipal(info controlplane.ServerInfo, p principal) 
 
 func principalOwnsObservabilityNamespace(p principal, namespace string) bool {
 	namespace = strings.TrimSpace(namespace)
-	if namespace == "" || namespace == sharedCatalogNamespace || isModeCatalogNamespace(namespace) {
+	if namespace == "" || isModeCatalogNamespace(namespace) {
 		return false
 	}
 	if strings.TrimSpace(p.Namespace) == namespace {

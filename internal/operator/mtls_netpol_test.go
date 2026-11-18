@@ -27,7 +27,7 @@ func TestReconcileMTLSNetworkPolicy(t *testing.T) {
 
 	newServer := func() *mcpv1alpha1.MCPServer {
 		return &mcpv1alpha1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{Name: "secure-server", Namespace: "mcp-servers", UID: "server-uid"},
+			ObjectMeta: metav1.ObjectMeta{Name: "secure-server", Namespace: "mcp-servers-org", UID: "server-uid"},
 			Spec: mcpv1alpha1.MCPServerSpec{
 				Image:   "example.com/secure-server",
 				Gateway: &mcpv1alpha1.GatewayConfig{Enabled: mcpv1alpha1.BoolPtr(true), Port: 8091},
@@ -35,7 +35,7 @@ func TestReconcileMTLSNetworkPolicy(t *testing.T) {
 			},
 		}
 	}
-	key := types.NamespacedName{Name: "secure-server-mtls-gateway", Namespace: "mcp-servers"}
+	key := types.NamespacedName{Name: "secure-server-mtls-gateway", Namespace: "mcp-servers-org"}
 
 	t.Run("created and locks the gateway port to traefik for mtls", func(t *testing.T) {
 		server := newServer()

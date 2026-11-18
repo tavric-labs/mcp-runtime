@@ -19,14 +19,14 @@ func traefikEgressDoctorKubectl(output string, err error) core.KubectlRunner {
 func TestCheckMCPServerTraefikEgress(t *testing.T) {
 	t.Run("fails when a server reports TraefikEgressReady=False", func(t *testing.T) {
 		servers := `{"items":[
-			{"metadata":{"namespace":"mcp-servers","name":"ok"},"status":{"conditions":[{"type":"TraefikEgressReady","status":"True","reason":"PolicyApplied"}]}},
-			{"metadata":{"namespace":"mcp-servers","name":"bad"},"status":{"conditions":[{"type":"TraefikEgressReady","status":"False","reason":"TraefikPodsNotFound","message":"no Traefik pods match app=traefik in namespace traefik"}]}}
+			{"metadata":{"namespace":"mcp-servers-org","name":"ok"},"status":{"conditions":[{"type":"TraefikEgressReady","status":"True","reason":"PolicyApplied"}]}},
+			{"metadata":{"namespace":"mcp-servers-org","name":"bad"},"status":{"conditions":[{"type":"TraefikEgressReady","status":"False","reason":"TraefikPodsNotFound","message":"no Traefik pods match app=traefik in namespace traefik"}]}}
 		]}`
 		check := checkMCPServerTraefikEgress(traefikEgressDoctorKubectl(servers, nil))
 		if check.OK {
 			t.Fatal("expected failure for TraefikEgressReady=False")
 		}
-		if !strings.Contains(check.Detail, "mcp-servers/bad TraefikPodsNotFound") || strings.Contains(check.Detail, "mcp-servers/ok") {
+		if !strings.Contains(check.Detail, "mcp-servers-org/bad TraefikPodsNotFound") || strings.Contains(check.Detail, "mcp-servers-org/ok") {
 			t.Fatalf("detail = %q", check.Detail)
 		}
 		if !strings.Contains(check.Remedy, "PLATFORM_TRAEFIK_NAMESPACE") {
@@ -35,7 +35,7 @@ func TestCheckMCPServerTraefikEgress(t *testing.T) {
 	})
 
 	t.Run("passes when no server reports a failure", func(t *testing.T) {
-		servers := `{"items":[{"metadata":{"namespace":"mcp-servers","name":"ok"},"status":{"conditions":[{"type":"TraefikEgressReady","status":"True","reason":"EgressUnrestricted"}]}}]}`
+		servers := `{"items":[{"metadata":{"namespace":"mcp-servers-org","name":"ok"},"status":{"conditions":[{"type":"TraefikEgressReady","status":"True","reason":"EgressUnrestricted"}]}}]}`
 		if check := checkMCPServerTraefikEgress(traefikEgressDoctorKubectl(servers, nil)); !check.OK {
 			t.Fatalf("expected ok, got detail=%q", check.Detail)
 		}

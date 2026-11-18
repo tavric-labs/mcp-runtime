@@ -28,8 +28,8 @@ func checkOperatorEffectivePermissions(kubectl core.KubectlRunner) DoctorCheck {
 		namespace string
 	}{
 		{rbacassets.OperatorRole, ""},
-		{rbacassets.ManagedSecrets, doctorMCPServersNamespace},
-		{rbacassets.ManagedWorkloads, doctorMCPServersNamespace},
+		{rbacassets.ManagedSecrets, doctorServerNamespace()},
+		{rbacassets.ManagedWorkloads, doctorServerNamespace()},
 	}
 	// Optional issuer permissions are required only when its Deployment exists.
 	auth, err := readKubectlOutput(kubectl, []string{"get", "deployment", "mcp-auth-server", "-n", "mcp-platform", "--ignore-not-found", "-o", "name"})

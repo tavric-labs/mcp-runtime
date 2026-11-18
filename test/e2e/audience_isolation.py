@@ -57,8 +57,7 @@ def main():
     check(source_claims["aud"] == ["platform-api"], "login token has only platform audience")
     authorization = {"Authorization": "Bearer " + source}
     targets = {
-        # Catalog collection reads permit anonymous public-mode fallback. Use
-        # a private read in both modes to prove that replay is rejected.
+        # Use a private read to prove that replay is rejected.
         "runtime": (runtime, "/api/v1/runtime/workspace/teams", "runtime-api"),
         "analytics": (analytics, "/api/v1/events?limit=1", "analytics-api"),
     }

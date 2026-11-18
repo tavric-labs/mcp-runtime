@@ -464,7 +464,7 @@ WHERE u.id = $1 AND u.deleted_at IS NULL`, userID).
 			break
 		}
 	}
-	p.AllowedNamespaces = dedupeNamespaces(append(collectAllowedNamespaces(teams), SharedCatalogNamespace))
+	p.AllowedNamespaces = dedupeNamespaces(collectAllowedNamespaces(teams))
 	return p, nil
 }
 

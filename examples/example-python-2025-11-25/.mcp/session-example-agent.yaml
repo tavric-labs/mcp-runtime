@@ -2,13 +2,13 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAgentSession
 metadata:
     name: example-python-agent-session
-    namespace: mcp-servers
+    namespace: mcp-servers-org
 spec:
     consentedTrust: low
     policyVersion: v1
     serverRef:
         name: example-python-2025-11-25-gateway
-        namespace: mcp-servers
+        namespace: mcp-servers-org
     subject:
         agentID: example-agent
         humanID: example-human

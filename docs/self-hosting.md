@@ -364,15 +364,15 @@ configured install.
 wiring, the operator, and the bundled platform stack for gateway policy,
 analytics, audit, and observability.
 
-`--platform-mode` chooses who can browse and publish servers on your
-installation. In `public` mode, visitors can browse its public catalog without
-signing in. This setting applies to your installation; it does not connect it
-to `platform.mcpruntime.org`.
+`--platform-mode` chooses the deployment profile of your installation. Both
+modes require sign-in and offer the same catalogs and publish scopes. This
+setting applies to your installation; it does not connect it to
+`platform.mcpruntime.org`.
 
 | Mode | Default namespace behavior | Behavior |
 |---|---|---|
 | `org` (default) | `mcp-servers-org` | Signed-in users publish and browse the org-wide catalog and their authorized team namespaces. |
-| `public` | `mcp-servers-public` | Anonymous users browse public previews or public MCP listings; signed-in users also publish to org and team scopes. |
+| `public` | `mcp-servers-org` | Hosted, internet-facing profile: the same org and team publishing as `org`, with browser login configuration required on TLS installs. |
 
 For browser Google sign-in, provide the OAuth client ID before setup. Non-test
 public TLS installs (`--platform-mode public --with-tls`) fail fast unless
@@ -403,7 +403,7 @@ Common variants:
 
 ```bash
 mcp-runtime setup --with-tls            # cert-manager TLS for the registry
-mcp-runtime setup --platform-mode public # public preview catalog namespace
+mcp-runtime setup --platform-mode public # hosted profile (login configuration required with TLS)
 mcp-runtime setup --without-platform-stack    # skip the request-path stack
 mcp-runtime setup --test-mode           # local Kind/dev build+push path
 mcp-runtime setup --test-mode --test-multi-replica # opt in to the normal replica layout
@@ -521,9 +521,9 @@ API sees it. Configure a suitable body limit (for example Nginx
 enough for the largest supported image. Apply the same policy to the registry
 `/v2/` routes; this does not change API authorization.
 
-Org mode supports `--scope org` and `--scope tenant`; `--scope public` requires
-public mode. Public mode supports all three scopes, with separate org and
-public namespaces. `tenant` is a publish scope, not a platform mode.
+Both platform modes support `--scope org` and `--scope tenant`. The former
+`public` publish scope was removed; `--scope public` is rejected.
+`tenant` is a publish scope, not a platform mode.
 Tenant publish also needs a team membership. An admin API key can create a
 team and still be unable to push, because that key has no team. Create the
 team, add a user as a member, and push with that user's token. For example:

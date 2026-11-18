@@ -11,7 +11,7 @@ Flags:
   -h, --help                      help for init
       --human-id string           Human subject ID
       --mode string               Grant policy mode: enforce or monitor (default "enforce")
-      --namespace string          Manifest namespace (default "mcp-servers")
+      --namespace string          Manifest namespace (default "mcp-servers-org")
       --output string             Output manifest path (default "grant.yaml")
       --policy-version string     Policy version (default "v1")
       --server string             Target MCPServer name

@@ -157,9 +157,9 @@ func TestRetirementRepairsMissingNamespaceCredentialBinding(t *testing.T) {
 		name, namespace            string
 		missing, denied, protected bool
 	}{
-		{name: "existing credential", namespace: "mcp-servers"},
-		{name: "absent credential", namespace: "mcp-servers", missing: true},
-		{name: "persistent denial", namespace: "mcp-servers", denied: true},
+		{name: "existing credential", namespace: "mcp-servers-org"},
+		{name: "absent credential", namespace: "mcp-servers-org", missing: true},
+		{name: "persistent denial", namespace: "mcp-servers-org", denied: true},
 		{name: "protected namespace", namespace: "mcp-platform", protected: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -313,5 +313,30 @@ func TestRetiringServerIssuanceHandlersRejectConflict(t *testing.T) {
 	}
 	if _, _, err := api.Access().selectAdapterGrant(context.Background(), "team-a", "demo", "owner", "", nil, "", true); !apierrors.IsConflict(err) {
 		t.Fatalf("adapter issuance accepted retiring target: %v", err)
+	}
+}
+
+// The operator rewrites a freshly created server's status while it settles, so
+// the retirement marker's resourceVersion precondition can lose that race. The
+// handler must re-read and retry instead of failing the delete.
+func TestRetirementRetriesMarkerConflict(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = mcpv1alpha1.AddToScheme(scheme)
+	dynamic := dynamicfake.NewSimpleDynamicClient(scheme, ownedTestMCPServer("demo", "team-a", "owner"))
+	conflicts := 0
+	dynamic.PrependReactor("patch", "mcpservers", func(clienttesting.Action) (bool, runtime.Object, error) {
+		if conflicts < 2 {
+			conflicts++
+			return true, nil, apierrors.NewConflict(schema.GroupResource{Group: "mcpruntime.org", Resource: "mcpservers"}, "demo", errors.New("the object has been modified"))
+		}
+		return false, nil, nil
+	})
+	api := &RuntimeServer{k8sClients: &k8sclient.Clients{Dynamic: dynamic, Clientset: kubernetesfake.NewSimpleClientset()}, accessMgr: k8sstore.NewManager(dynamic, nil).WithSessionBackend(newMemorySessionBackend())}
+	r := httptest.NewRequest(http.MethodDelete, "/api/runtime/servers/team-a/demo", nil)
+	r = r.WithContext(withPrincipal(r.Context(), principal{Role: roleAdmin, Subject: "owner", Namespace: "team-a"}))
+	w := httptest.NewRecorder()
+	api.HandleRuntimeServerItem(w, r)
+	if w.Code != http.StatusOK || conflicts != 2 {
+		t.Fatalf("status %d after %d conflicts: %s", w.Code, conflicts, w.Body.String())
 	}
 }

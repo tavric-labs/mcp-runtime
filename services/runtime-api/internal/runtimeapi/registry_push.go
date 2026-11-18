@@ -422,11 +422,6 @@ func registryPushAuthContext(target string, scope topology.Scope, p principal) (
 		return "", "", err
 	}
 	switch scope {
-	case topology.ScopePublic:
-		if p.Role != roleAdmin && !sharedCatalogWritableForUsers() {
-			return "", "", fmt.Errorf("public catalog writes are restricted to admins")
-		}
-		return defaultCatalogNamespaceForScope(topology.ScopePublic), "", nil
 	case topology.ScopeOrg:
 		if p.Role != roleAdmin && !sharedCatalogWritableForUsers() {
 			return "", "", fmt.Errorf("org catalog writes are restricted to admins")

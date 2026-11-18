@@ -221,7 +221,7 @@ run_matrix() {
   check "T7 session certs cannot use a non-session URI"         Denied  "$(cr t7 $RA mcp-runtime-ca "$SESSION_USAGES" "$TRAEFIK" '')"
   check "T8 session certs cannot use another trust domain"      Denied  "$(cr t8 $RA mcp-runtime-ca "$SESSION_USAGES" 'spiffe://evil.example/ns/x/session/y' '')"
   check "T9 cert-manager gets the Traefik client identity"      Ready   "$(cr t9 $CM mcp-runtime-ca '["digital signature","key encipherment","client auth"]' "$TRAEFIK" '')"
-  check "T10 cert-manager gets a gateway server certificate"    Ready   "$(cr t10 $CM mcp-runtime-ca "$SERVER_USAGES" '' 'cully,cully.mcp-servers,cully.mcp-servers.svc,cully.mcp-servers.svc.cluster.local,mcp.mcpruntime.org')"
+  check "T10 cert-manager gets a gateway server certificate"    Ready   "$(cr t10 $CM mcp-runtime-ca "$SERVER_USAGES" '' 'cully,cully.mcp-servers-org,cully.mcp-servers-org.svc,cully.mcp-servers-org.svc.cluster.local,mcp.mcpruntime.org')"
   check "T11 cert-manager gets the registry-internal cert"      Ready   "$(cr t11 $CM mcp-runtime-ca "$SERVER_USAGES" '' 'registry.local,registry.registry.svc,registry.registry.svc.cluster.local,registry.mcpruntime.org')"
   check "T12 cert-manager gets public platform certificates"    Ready   "$(cr t12 $CM letsencrypt-prod "$SERVER_USAGES" '' 'platform.mcpruntime.org')"
   check "T13 cert-manager gets the apex and www certificate"    Ready   "$(cr t13 $CM letsencrypt-prod "$SERVER_USAGES" '' 'mcpruntime.org,www.mcpruntime.org')"
@@ -233,7 +233,7 @@ run_matrix() {
   check "T25 a tenant cannot impersonate Traefik"                 Pending "$(cr t25 $IN mcp-runtime-ca '["digital signature","client auth"]' "$TRAEFIK" '')"
 
   step "Certificate resources, as the operator creates them"
-  check "T17 gateway server certificate is issued"              Ready    "$(cert gw mcp-runtime-ca 'cully, cully.mcp-servers, cully.mcp-servers.svc, mcp.mcpruntime.org' '' '[digital signature, key encipherment, server auth]')"
+  check "T17 gateway server certificate is issued"              Ready    "$(cert gw mcp-runtime-ca 'cully, cully.mcp-servers-org, cully.mcp-servers-org.svc, mcp.mcpruntime.org' '' '[digital signature, key encipherment, server auth]')"
   check "T18 Traefik client identity is issued"                 Ready    "$(cert tc mcp-runtime-ca '' "$TRAEFIK" '[digital signature, key encipherment, client auth]')"
   check "T19 a forged session identity is NOT issued"           NotReady "$(cert forged mcp-runtime-ca '' "$SESS" '[digital signature, client auth]')"
   check "T20 a public host is issued"                           Ready    "$(cert pub letsencrypt-prod 'docs.mcpruntime.org' '' '[digital signature, key encipherment]')"

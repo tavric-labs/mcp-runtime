@@ -10,7 +10,6 @@ import (
 
 	"mcp-platform-api/internal/apiauth"
 	"mcp-platform-api/internal/httperrors"
-	"mcp-platform-api/internal/platformstore"
 	"mcp-runtime/pkg/httpx"
 )
 
@@ -147,9 +146,6 @@ func PrincipalCanAccessRegistryScope(p apiauth.Principal, scope string, cfg *Aut
 		if cfg.catalogScopeWritable(scope) {
 			return true
 		}
-		if scope == platformstore.SharedCatalogNamespace && !cfg.sharedCatalogWritableForUsers() {
-			return false
-		}
 	}
 	for _, team := range p.Teams {
 		if strings.TrimSpace(team.Slug) == scope || strings.TrimSpace(team.Namespace) == scope {
@@ -183,11 +179,7 @@ func (cfg *AuthzConfig) catalogScopeWritable(scope string) bool {
 	}
 	scope = strings.TrimSpace(scope)
 	switch cfg.mode {
-	case string(topology.ScopePublic):
-		if scope == topology.PublicRegistryAlias || scope == topology.OrgRegistryAlias {
-			return true
-		}
-	case string(topology.ScopeOrg):
+	case string(topology.ModePublic), string(topology.ModeOrg):
 		if scope == topology.OrgRegistryAlias {
 			return true
 		}
@@ -196,18 +188,6 @@ func (cfg *AuthzConfig) catalogScopeWritable(scope string) bool {
 	}
 	_, ok := cfg.catalogNamespaces[scope]
 	return ok
-}
-
-func (cfg *AuthzConfig) sharedCatalogWritableForUsers() bool {
-	if cfg == nil {
-		return false
-	}
-	switch cfg.mode {
-	case string(topology.ScopePublic), string(topology.ScopeOrg):
-		return true
-	default:
-		return false
-	}
 }
 
 // RegistryMountSource preserves the source repository query for cross-repository

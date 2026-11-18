@@ -53,8 +53,7 @@ For every `MCPServer`, the operator reconciles:
 - Hostless path-based routing is supported through `spec.publicPathPrefix`; otherwise provide `spec.ingressHost` or configure the operator default host.
 - Container port defaults to `8088`, service port to `80`.
 - Gateway listens on `8091`.
-- `setup` provisions `mcp-runtime` and `mcp-servers-org` in default `org` mode;
-  public mode also provisions `mcp-servers-public`.
+- `setup` provisions `mcp-runtime` and `mcp-servers-org` in both platform modes.
 - `tenant` publish scope uses team namespaces for the principal's team
   memberships in either mode. Place runtime CRDs in per-team namespaces and rely on Kubernetes
   RBAC and ingress watch configuration for isolation.

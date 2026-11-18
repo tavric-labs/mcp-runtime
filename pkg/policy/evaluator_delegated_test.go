@@ -7,7 +7,7 @@ import (
 
 func delegatedDoc(rules ...DelegatedToolRule) *Document {
 	doc := &Document{
-		Server: Server{Name: "pilot", Namespace: "mcp-servers"},
+		Server: Server{Name: "pilot", Namespace: "mcp-servers-org"},
 		Auth: &Auth{
 			Mode:               "header",
 			Headers:            []string{"X-Example-Credential", "Private-Token"},

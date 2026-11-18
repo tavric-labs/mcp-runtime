@@ -97,10 +97,10 @@ type ServerMetadata struct {
 	// SecretEnvVars are secret-backed environment variables to pass to the container.
 	SecretEnvVars []SecretEnvVar `yaml:"secretEnvVars,omitempty" json:"secretEnvVars,omitempty"`
 
-	// Namespace is the Kubernetes namespace (defaults to "mcp-servers").
+	// Namespace is the Kubernetes namespace (defaults to "mcp-servers-org").
 	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 
-	// Scope selects a publish destination: tenant, org, or public.
+	// Scope selects a publish destination: tenant or org.
 	Scope topology.Scope `yaml:"scope,omitempty" json:"scope,omitempty"`
 
 	// TeamID is the stable platform team identifier that owns the server.

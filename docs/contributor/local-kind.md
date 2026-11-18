@@ -380,8 +380,8 @@ curl -sS -b /tmp/mcp-test-user-cookie.txt \
 ```
 
 In default org mode, signed-in users see `mcp-servers-org` and their authorized
-team namespaces. `--platform-mode public` adds the public preview catalog in
-`mcp-servers-public`, while anonymous users cannot read org or team catalogs.
+team namespaces. `--platform-mode public` is the hosted profile with the same
+catalogs; anonymous users cannot read any catalog.
 
 For a reproducible tenant-isolation exercise, follow
 [Module 3: Multi-team setup](../learn/03-multi-team-access.md), which creates its
@@ -416,8 +416,9 @@ not delete shared analytics or registry credentials as part of server cleanup.
 ## Optional: bundled mcp-auth integration fixture
 
 The bundled authorization server is opt-in and separate from MCP application
-deployment. Setup pulls `princekrroshan01/mcp-auth-server:0.9.0` from Docker
-Hub by default. Production deployments additionally require HTTPS
+deployment. Setup pulls the MCP Auth image pinned in
+`config/release/mcp-auth/Dockerfile` from Docker Hub by default. Production
+deployments additionally require HTTPS
 issuer/resource URLs, a provider connector, signing-key Secret, and TLS
 Secret; test mode may use the local issuer:
 

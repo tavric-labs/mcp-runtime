@@ -78,7 +78,7 @@ def fingerprint(directory):
     comparable["client_certificate"] = bool(os.environ.get("PERF_CLIENT_CERT"))
     server = None
     if os.environ.get("PERF_SERVER_NAME"):
-        obj = kubernetes("get", "mcpserver", os.environ["PERF_SERVER_NAME"], "-n", os.environ.get("PERF_SERVER_NAMESPACE", "mcp-servers"))
+        obj = kubernetes("get", "mcpserver", os.environ["PERF_SERVER_NAME"], "-n", os.environ.get("PERF_SERVER_NAMESPACE", "mcp-servers-org"))
         server = {key: obj["metadata"][key] for key in ("name", "namespace", "uid")}
         comparable["upstream_image"] = obj["spec"].get("image")
         comparable["server_policy"] = obj["spec"].get("policy")

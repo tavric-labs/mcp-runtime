@@ -5,7 +5,7 @@ Usage:
 
 Flags:
   -h, --help               help for status
-      --namespace string   Namespace to inspect (default "mcp-servers")
+      --namespace string   Namespace to inspect (default "mcp-servers-org")
 
 Global Flags:
       --debug      Enable debug mode with structured error logging

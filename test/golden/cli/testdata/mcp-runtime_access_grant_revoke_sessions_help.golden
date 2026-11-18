@@ -5,7 +5,7 @@ Usage:
 
 Flags:
   -h, --help               help for revoke-sessions
-      --namespace string   Grant namespace (default "mcp-servers")
+      --namespace string   Grant namespace (default "mcp-servers-org")
 
 Global Flags:
       --debug      Enable debug mode with structured error logging

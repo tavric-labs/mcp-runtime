@@ -6,7 +6,7 @@ Usage:
 Flags:
       --file string        Write the manifest to a file instead of stdout
   -h, --help               help for export
-      --namespace string   Namespace (default "mcp-servers")
+      --namespace string   Namespace (default "mcp-servers-org")
 
 Global Flags:
       --debug      Enable debug mode with structured error logging

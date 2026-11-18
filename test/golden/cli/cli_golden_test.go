@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sync"
 	"testing"
@@ -129,7 +130,7 @@ func TestCLIHelpGoldens(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			got := runCLI(t, tc.args...)
+			got := normalizePinnedMCPAuth(runCLI(t, tc.args...))
 			goldenPath := filepath.Join(testdataDir(t), tc.golden)
 
 			if *update {
@@ -148,6 +149,14 @@ func TestCLIHelpGoldens(t *testing.T) {
 			}
 		})
 	}
+}
+
+// pinnedMCPAuth matches the default MCP Auth image tag, which Dependabot bumps in
+// config/release/mcp-auth/Dockerfile; goldens must not change with it.
+var pinnedMCPAuth = regexp.MustCompile(`mcp-auth-server:\d+\.\d+\.\d+`)
+
+func normalizePinnedMCPAuth(out []byte) []byte {
+	return pinnedMCPAuth.ReplaceAll(out, []byte("mcp-auth-server:<pinned>"))
 }
 
 func runCLI(t *testing.T, args ...string) []byte {

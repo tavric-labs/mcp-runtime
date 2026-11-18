@@ -25,11 +25,9 @@ import { FilterBar, FilterSummary, type FilterChip } from "../../ui/FilterBar";
 import { MetricGrid } from "../../ui/MetricCard";
 import { PageHeader } from "../../ui/PageHeader";
 import { ErrorState, LoadingState } from "../../ui/States";
-import { PublicServersPreview } from "./PublicServersPreview";
 import { Icon } from "../../ui/Icon";
 import { useCatalog } from "../../hooks/useCatalog";
 import { retireServer } from "../../api/catalog";
-import { readRuntimeConfig } from "../../api/config";
 import {
   formatPublishQuota,
   isServerReady,
@@ -154,11 +152,6 @@ export function ServersWorkspace({
   }, [setParams]);
 
   if (!authenticated) {
-    // A public-mode deployment shows its anonymous catalog instead of a
-    // sign-in wall (services/ui/public_catalog_proxy.go).
-    if (readRuntimeConfig().platformMode === "public") {
-      return <PublicServersPreview onSignIn={onSignIn} />;
-    }
     return <SignedOutServers onSignIn={onSignIn} />;
   }
 

@@ -20,7 +20,7 @@ const GRANTS = {
   grants: [
     {
       name: "acme-readonly",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       serverRef: { name: "workspace-assistant" },
       subject: { humanID: "alice@example.com", teamID: "acme" },
       maxTrust: "low",
@@ -29,7 +29,7 @@ const GRANTS = {
     },
     {
       name: "acme-retired",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       serverRef: { name: "workspace-assistant" },
       subject: { humanID: "bob@example.com" },
       maxTrust: "high",
@@ -43,7 +43,7 @@ const SESSIONS = {
   sessions: [
     {
       name: "sess-1",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       serverRef: { name: "workspace-assistant" },
       subject: { humanID: "alice@example.com", agentID: "agent-7" },
       consentedTrust: "low",
@@ -97,7 +97,7 @@ const OPERATIONS = {
     {
       action: "server_publish",
       resource: "workspace-assistant",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       status: "success",
       created_at: "2026-09-15T10:00:00Z",
     },
@@ -116,10 +116,10 @@ const EVENTS = {
   events: [
     {
       timestamp: new Date().toISOString(),
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       tool_name: "add",
       decision: "allow",
-      payload: { matched_grant: "acme-readonly", matched_grant_namespace: "mcp-servers" },
+      payload: { matched_grant: "acme-readonly", matched_grant_namespace: "mcp-servers-org" },
     },
   ],
 };

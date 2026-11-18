@@ -4,7 +4,6 @@
 export type NamespaceEntry = {
   namespace: string;
   is_shared?: boolean;
-  is_public?: boolean;
   scope?: string;
   scope_name?: string;
   team_id?: string;

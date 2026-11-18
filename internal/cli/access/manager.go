@@ -59,7 +59,7 @@ func (m *AccessManager) accessListQueryNamespace(namespace string, allNamespaces
 	case allNamespaces:
 		return ""
 	default:
-		return core.NamespaceMCPServers
+		return core.DefaultServerNamespace
 	}
 }
 
