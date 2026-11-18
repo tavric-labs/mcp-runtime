@@ -7,6 +7,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- Generated per-server gateway and ingress-client TLS Secrets now carry a non-controller owner reference to their MCPServer, so retirement removes their private keys even when cert-manager retains Secrets after Certificate deletion. The operator repairs ownership on existing issued credentials during reconciliation without reissuing certificates or changing certificate data; user-provided and differently owned credentials are preserved. Already orphaned credentials still require an explicit ownership-verified cleanup.
+
 ## [0.18.0] - 2026-11-12
 
 Breaking `0.x` release: the `public` publish scope and the `mcp-servers-public`
@@ -41,6 +45,7 @@ updating.
 ### Fixed
 
 - Retiring a server (`DELETE /api/v1/runtime/servers/{namespace}/{name}`) re-reads and retries when the operator updates the server while the retirement marker is written, instead of returning `500 failed to mark server retirement`; other marker failures are now logged.
+
 
 ## [0.17.0] - 2026-11-10
 

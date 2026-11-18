@@ -212,7 +212,10 @@ func (r *MCPServerReconciler) reconcileGatewayCertificate(ctx context.Context, m
 	})
 	certificate.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(mcpServer, mcpv1alpha1.GroupVersion.WithKind("MCPServer"))})
 
-	return r.applyUnstructured(ctx, certificate)
+	if err := r.applyUnstructured(ctx, certificate); err != nil {
+		return err
+	}
+	return r.reconcileIssuedTLSSecretOwner(ctx, mcpServer, certificate.GetName())
 }
 
 // applyUnstructured idempotently reconciles an unstructured object (cert-manager
@@ -288,7 +291,46 @@ func (r *MCPServerReconciler) reconcileTraefikClientCertificate(ctx context.Cont
 		"mcpruntime.org/server":        mcpServer.Name,
 	})
 	cert.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(mcpServer, mcpv1alpha1.GroupVersion.WithKind("MCPServer"))})
-	return r.applyUnstructured(ctx, cert)
+	if err := r.applyUnstructured(ctx, cert); err != nil {
+		return err
+	}
+	return r.reconcileIssuedTLSSecretOwner(ctx, mcpServer, cert.GetName())
+}
+
+// cert-manager retains issued Secrets by default when their Certificate is
+// deleted. Link only this server's issued credentials to its lifecycle without
+// changing certificate material or the cluster-wide cert-manager policy.
+func (r *MCPServerReconciler) reconcileIssuedTLSSecretOwner(ctx context.Context, server *mcpv1alpha1.MCPServer, certificateName string) error {
+	var secret corev1.Secret
+	if err := r.Get(ctx, types.NamespacedName{Namespace: server.Namespace, Name: certificateName}, &secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil // Certificate issuance is asynchronous; readiness requeues.
+		}
+		return err
+	}
+	// A deterministic name alone is not ownership evidence. Do not adopt a
+	// user-provided Secret or a credential from another issuer/Certificate.
+	if secret.Type != corev1.SecretTypeTLS ||
+		secret.Annotations["cert-manager.io/certificate-name"] != certificateName ||
+		secret.Annotations["cert-manager.io/issuer-kind"] != "ClusterIssuer" ||
+		secret.Annotations["cert-manager.io/issuer-name"] != strings.TrimSpace(r.MTLSClusterIssuer) {
+		return nil
+	}
+	for _, owner := range secret.OwnerReferences {
+		if owner.Kind != "MCPServer" || owner.APIVersion != mcpv1alpha1.GroupVersion.String() {
+			continue
+		}
+		if owner.UID == server.UID && owner.Name == server.Name {
+			return nil
+		}
+		return fmt.Errorf("issued TLS Secret %s/%s belongs to another MCPServer", server.Namespace, secret.Name)
+	}
+	// A non-controller owner preserves cert-manager's own controller reference
+	// when its owner-ref setting is enabled. ResourceVersion fences replacement.
+	if err := controllerutil.SetOwnerReference(server, &secret, r.Scheme); err != nil {
+		return err
+	}
+	return r.Update(ctx, &secret)
 }
 
 // reconcileMTLSTrustBundle materializes the identity CA bundle as a Secret in
