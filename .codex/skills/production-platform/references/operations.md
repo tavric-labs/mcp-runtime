@@ -62,7 +62,7 @@ KUBECONFIG="$PROD_KUBECONFIG" ./bin/mcp-runtime cluster doctor
   `/root/.mcpruntime/backups/releases/<tag>-<run>-<attempt>/`; it is not a live
   database export or an encrypted off-host recovery backup. Verification-only
   runs do not snapshot or roll platform components; hosted acceptance still
-  creates temporary fixtures and may publish the verified-version badge.
+  creates temporary prod-audit records/access and may publish the verified-version badge.
 
 - For production debugging, inspect Prometheus metrics, Loki logs, and Tempo
   traces at `https://platform.mcpruntime.org/grafana` for the same incident
@@ -144,14 +144,15 @@ KUBECONFIG="$PROD_KUBECONFIG" ./bin/mcp-runtime cluster doctor
   request certificate issuance when the user explicitly asks for a TLS change
   or inspection shows issuance is necessary, and explain that consequence
   before proceeding.
-- After rollout, verify the candidate through the documented customer journey:
-  use the built CLI against `https://platform.mcpruntime.org` to log in,
-  publish a uniquely named temporary `qa-audit-*` MCP server, grant an agent,
-  call a tool through the adapter, and confirm the event in **Analytics →
-  Tools** in the platform UI. Run browser checks for signed-out and signed-in
-  UI surfaces when credentials are available. Clean up every temporary resource
-  and report any skipped authenticated/browser flow as blocked; do not treat
-  `cluster doctor` alone as release acceptance.
+- After rollout, use the development auditor (`hack/prod-audit/cmd/postdeploy`) with an explicit
+  kubeconfig/context, expected cluster UID and reviewed release manifest.
+  `hack/prod-audit/internal/audit` owns the checks; shell/workflow wrappers supply
+  configuration only. Read `docs/prod-audit.md` and the `prod-audit` skill.
+  Only the persistent prod-audit MCP receives synthetic calls. Temporary
+  records/access are cleaned up; never publish another production test MCP or
+  use LinkedIn/Cully for tests. Check **Analytics → Tools** and signed-out and
+  signed-in UI surfaces with browser evidence separately. Report skipped
+  flows as unverified; `cluster doctor` alone is not release acceptance.
 - The Staging E2E suite (`test/e2e/staging-vm.sh`, see
   [Staging E2E](#staging-e2e-disposable-vm)) resets and provision the
   disposable VM. Never point them at the `mcpruntime.org` production cluster;
@@ -244,7 +245,8 @@ restore. Destructive cleanup needs a verified same-cluster full recovery bundle
 and explicit cluster UID confirmation. Rehearse database recovery first.
 
 Hosted acceptance requires a managed agent, bounded grant, certificate session,
-allowed tool call, ungranted tool denial and anonymous denial. Never mark a
+allowed tool call, ungranted tool denial, anonymous denial and session revocation
+against prod-audit only. Reuse the Runtime auditor instead of ad hoc checks. Never mark a
 release accepted if enrollment succeeds but tool identity/policy fails. The
 workflow updates the live badge only after acceptance and successful cleanup.
 See `hack/README.md` and `hack/deploy/reference/README.md` for helper scope.

@@ -74,6 +74,27 @@ jobs:
           echo "The $RELEASE_TAG platform manifest was not published" >&2
           exit 1
 
+      # Acceptance comes from the immutable workflow revision, while deployment
+      # continues to use the selected release. No verification code is fetched
+      # from a moving main branch and no external auditor repo is required.
+      - name: Build development audit tools from the workflow revision
+        env:
+          PROD_AUDIT_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$PROD_AUDIT_WORKFLOW_SHA" =~ ^[a-f0-9]{40}$ ]]
+          git fetch origin "$PROD_AUDIT_WORKFLOW_SHA"
+          git worktree add --detach "$RUNNER_TEMP/audit-source" "$PROD_AUDIT_WORKFLOW_SHA"
+          (
+            cd "$RUNNER_TEMP/audit-source"
+            go build -trimpath -ldflags "-X main.commit=$PROD_AUDIT_WORKFLOW_SHA" \
+              -o "$RUNNER_TEMP/mcp-runtime-audit-cli" ./cmd/mcp-runtime
+            go build -trimpath -o "$RUNNER_TEMP/prod-audit-postdeploy" ./hack/prod-audit/cmd/postdeploy
+          )
+          "$RUNNER_TEMP/mcp-runtime-audit-cli" adapter proxy --help | grep -q -- --requested-trust
+          "$RUNNER_TEMP/prod-audit-postdeploy" --help >/dev/null
+
       - name: Deploy and verify Runtime from a disposable runner
         env:
           SSHPASS: ${{ secrets.MCP_PROD_BOOTSTRAP_PASSWORD }}
@@ -202,23 +223,20 @@ jobs:
               --release-manifest "$RUNNER_TEMP/auth-manifest.json" --only mcp-auth \
               --kubeconfig "$kubeconfig" --context default --yes
           fi
-          ./bin/mcp-runtime cluster doctor
-          auth_metadata_ready=false
-          for _attempt in $(seq 1 12); do
-            if curl -fsS https://auth.mcpruntime.org/.well-known/oauth-authorization-server/mcp-auth \
-              | jq -e '.issuer == "https://auth.mcpruntime.org/mcp-auth" and (["tools:read", "tools:write"] - .scopes_supported | length == 0)' >/dev/null; then
-              auth_metadata_ready=true
-              break
-            fi
-            sleep 5
-          done
-          test "$auth_metadata_ready" = true
-          gh api "repos/$GITHUB_REPOSITORY/contents/hack/deploy/acceptance/post-deploy-check.sh?ref=main" \
-            --jq .content | base64 -d > "$RUNNER_TEMP/post-deploy-check.sh"
-          mkdir -p hack/deploy/acceptance
-          gh api "repos/$GITHUB_REPOSITORY/contents/hack/deploy/acceptance/check-calls.py?ref=main" \
-            --jq .content | base64 -d > hack/deploy/acceptance/check-calls.py
-          bash "$RUNNER_TEMP/post-deploy-check.sh"
+          export PROD_AUDIT_BIN="$RUNNER_TEMP/prod-audit-postdeploy"
+          export PROD_AUDIT_RUNTIME_CLI="$RUNNER_TEMP/mcp-runtime-audit-cli"
+          export PROD_AUDIT_CONTEXT=default
+          export PROD_AUDIT_MANIFEST="$RUNNER_TEMP/release/platform-manifest.json"
+          bash "$RUNNER_TEMP/audit-source/hack/deploy/acceptance/post-deploy-check.sh"
+
+      - name: Save post-deployment audit evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: post-deploy-audit
+          path: ${{ runner.temp }}/post-deploy-audit.json
+          if-no-files-found: warn
+          retention-days: 14
 
   publish-live-version:
     needs: deploy

@@ -68,6 +68,7 @@
 - Local Kind: https://docs.mcpruntime.org/contributor/local-kind/ — Contributor cluster setup and test mode.
 - Service iteration: https://docs.mcpruntime.org/contributor/service-iteration/ — Iterate on services without rebuilding the full platform.
 - Runtime MCP testing: https://docs.mcpruntime.org/contributor/runtime-mcp-testing/ — Test deployment, catalog, and gateway behavior locally.
+- Production audit fixture: https://docs.mcpruntime.org/prod-audit/ — Use the dedicated bounded MCP fixture and shared development auditor for hosted acceptance.
 - Staging E2E: https://docs.mcpruntime.org/contributor/staging-e2e/ — Run and inspect the disposable VM test suite.
 - Bundled MCP Auth pin: https://docs.mcpruntime.org/contributor/mcp-auth-pin/ — Where the default MCP Auth image is pinned and how Dependabot bumps it.
 - Release gate: https://docs.mcpruntime.org/contributor/release-gate/ — Required release combinations, completion criteria and exact-commit publication checks.

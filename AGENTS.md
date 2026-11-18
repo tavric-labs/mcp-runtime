@@ -34,7 +34,7 @@ Tests and scripts that fall back to the current kube context have written to a p
 | Browser / platform UI QA | `dashboard-browser-qa` skill | Role gating, browser errors and real user workflows |
 | Cluster failure diagnosis | `cluster-ops` skill, mode `troubleshoot` | Structured diagnosis before ad-hoc commands |
 | Reference update / setup / recovery | `mcp-runtime update` / `setup`; recovery scripts in `hack/deploy/reference/` | `production-platform` skill, `docs/reference-deployment.md` |
-| Hosted acceptance | `hack/deploy/acceptance/` | Real agent/grant/certificate session; allowed and denied calls |
+| Hosted acceptance | `hack/deploy/acceptance/` | Development post-deployment helper; only prod-audit receives synthetic MCP calls |
 | Go documentation hosting | `hack/deploy/pkgsite/` | Deployment workflow and offline rollback tests |
 | Protocol spec changes | `mcp-protocol-compliance` skill | Full conformance audit only for protocol work |
 | Security / API design review | `security-audit` and focused surface skill | `.codex/skills/_shared/design-principles.md` |
@@ -181,7 +181,12 @@ cluster for focused E2E; pass its explicit kubeconfig. Staging E2E is the
 strict-production-shaped suite on the disposable VM and runs from Pre-release
 Regression or manual dispatch. Never target production or enable guard escapes.
 Hosted acceptance must test allowed and denied calls through a real
-agent/grant/certificate session before updating the live-version badge.
+agent/grant/certificate session before updating the live-version badge. Use
+the development auditor (`hack/prod-audit/cmd/postdeploy`) against the persistent
+`prod-audit` fixture only. Do not create temporary production MCP servers or test
+LinkedIn/Cully. Keep workflow/shell wrappers limited to configuration; share Go
+checks and their tests instead of copying assertions into Bash/Python. Isolated
+Kind/staging retain new-server publishing coverage. See `docs/prod-audit.md`.
 
 ## Change conventions and documentation
 
