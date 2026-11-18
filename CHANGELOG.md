@@ -7,18 +7,45 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-11-18
+
+Patch release for explicit adapter session trust and retirement of issued server
+TLS credentials, with shared production-audit tooling and Go dependency updates.
+
+Deploy existing installs with `mcp-runtime update`. No fresh setup, data reset,
+or backup-and-restore is required. Restart adapters with an explicit
+`--requested-trust medium` or `--requested-trust high` when their tools require
+it; grant ceilings still apply. The operator adds lifecycle ownership to existing
+issued per-server TLS Secrets during reconciliation. Credentials already orphaned
+before this release require separately reviewed ownership-verified cleanup.
+Verify login, server deployment, adapter enrollment, an allowed and a denied tool
+call, and audit after updating. Production deployment remains a separate operation.
+
 ### Added
 
-- The development auditor (`hack/prod-audit/cmd/postdeploy`) verifies a deployed release through the dedicated prod-audit MCP, including image pins, rollout completion, auth metadata, governed tool results, temporary writes, policy denial, session revocation and cleanup. The fixture checker exercises the same bounded MCP locally or through an adapter. The fixture, shared Go checks and audit skill ship in this repository.
+- Shared development audit tooling and a bounded prod-audit MCP fixture verify
+  deployed release images, rollouts, auth metadata, governed tool results,
+  synthetic writes, policy denial, session revocation and cleanup ([#938](https://github.com/tavric-labs/mcp-runtime/pull/938)).
 
 ### Changed
 
-- Hosted post-deployment acceptance reuses the Runtime auditor from the immutable workflow revision and uploads its JSON report. It no longer publishes disposable production MCP servers or fetches duplicate verification logic from a moving `main`. LinkedIn and Cully remain real services; only prod-audit receives synthetic MCP calls. Isolated Kind/staging retain publishing coverage. Write tests require the CLI's explicit session-trust support.
+- Hosted post-deployment acceptance uses audit code pinned to the workflow
+  revision, reuses prod-audit, and publishes a structured report. LinkedIn and
+  Cully remain real services and receive no synthetic audit calls ([#938](https://github.com/tavric-labs/mcp-runtime/pull/938)).
+- Update ClickHouse, OpenAPI, AWS SDK and Go support dependencies across the root
+  and service modules; synchronize service module graphs so builds remain
+  reproducible after root dependency updates ([#948](https://github.com/tavric-labs/mcp-runtime/pull/948), [#949](https://github.com/tavric-labs/mcp-runtime/pull/949), [#950](https://github.com/tavric-labs/mcp-runtime/pull/950), [#951](https://github.com/tavric-labs/mcp-runtime/pull/951)).
 
 ### Fixed
 
-- Generated per-server gateway and ingress-client TLS Secrets now carry a non-controller owner reference to their MCPServer, so retirement removes their private keys even when cert-manager retains Secrets after Certificate deletion. The operator repairs ownership on existing issued credentials during reconciliation without reissuing certificates or changing certificate data; user-provided and differently owned credentials are preserved. Already orphaned credentials still require an explicit ownership-verified cleanup.
-- `adapter enroll` and automatic `adapter proxy` enrollment now accept `--requested-trust low|medium|high` (or `MCP_RUNTIME_ADAPTER_REQUESTED_TRUST`) and send that explicit consent request to the session API. Previously they always omitted it, leaving sessions at low trust and denying medium/high-trust tools even with a suitable grant. Low remains the default, grant ceilings remain enforced, and automatic renewal preserves the request. Existing adapters can restart with the explicit level; no platform rollout is needed for the CLI fix.
+- `adapter enroll` and enrolling `adapter proxy` commands forward explicit
+  `--requested-trust low|medium|high` consent, including the environment default
+  and renewal. Sessions retain a low default and platform-enforced grant ceilings
+  ([#933](https://github.com/tavric-labs/mcp-runtime/pull/933)).
+- Generated gateway and ingress-client TLS Secrets follow their MCPServer's
+  lifecycle, removing issued private keys during retirement. Reconciliation
+  preserves certificate material, cert-manager ownership, user-provided
+  credentials and credentials belonging to another server ([#932](https://github.com/tavric-labs/mcp-runtime/pull/932)).
 
 ## [0.18.0] - 2026-11-12
 
@@ -54,7 +81,6 @@ updating.
 ### Fixed
 
 - Retiring a server (`DELETE /api/v1/runtime/servers/{namespace}/{name}`) re-reads and retries when the operator updates the server while the retirement marker is written, instead of returning `500 failed to mark server retirement`; other marker failures are now logged.
-
 
 ## [0.17.0] - 2026-11-10
 
@@ -862,7 +888,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.1...HEAD
+[0.18.1]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...v0.16.1
