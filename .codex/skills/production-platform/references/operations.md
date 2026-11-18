@@ -19,8 +19,8 @@ user-facing commands and scripts over private shortcuts.
 - User path: `docs/hosted-quickstart.md` (published CLI install, hosted platform login,
   server publish, grant, adapter, and analytics UI)
 - Hosted platform mode: `public`; modes are `org` and `public`, while publish
-  scopes are `tenant` (a team), `org`, and `public`. Public mode supports all
-  three scopes. Anonymous catalog reads must exclude org/team namespaces.
+  scopes are `tenant` (a team) and `org`. Both modes support both scopes;
+  there is no public scope and no anonymous catalog.
 - CLI release workflow: `.github/workflows/release.yaml`
 
 ## Current production VM
@@ -352,7 +352,7 @@ Gotchas seen on real runs:
   issued, so the previous snapshot was kept on purpose.
 - `adapter-enrollment` needs the opt-in adapter-certificate platform feature:
   the runner exports `MCP_ADAPTER_CERTIFICATES=true`, `MCP_TRUST_DOMAIN`, and
-  `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-servers` before setup and the
+  `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-platform` before setup and the
   stage enrolls on a gateway-enabled MCPServer. OAuth is optional and is
   enabled only when `spec.auth` is present; adapter PKI is platform-wide. On failure, open the
   stage's `adapter-enrollment/` evidence directory first.

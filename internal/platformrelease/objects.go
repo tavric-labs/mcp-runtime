@@ -246,7 +246,7 @@ func validatePlatformObjects(objs []PlatformObject) error {
 			errs = append(errs, fmt.Errorf("%s must not set a namespace", key))
 		case clusterScoped && !strings.HasPrefix(o.Name, "mcp-"):
 			errs = append(errs, fmt.Errorf("%s: cluster-scoped names must start with \"mcp-\"", key))
-		case !clusterScoped && !namespaces[o.Namespace] && !managedOperatorBinding(o):
+		case !clusterScoped && !namespaces[o.Namespace]:
 			errs = append(errs, fmt.Errorf("%s: namespace %q is not a platform namespace", key, o.Namespace))
 		}
 		switch o.Kind {
@@ -308,24 +308,6 @@ func validateRules(key string, obj map[string]any) []error {
 		}
 	}
 	return errs
-}
-
-// managedOperatorBinding is the only release object allowed in the managed
-// server namespace: it grants a bundled, narrowly scoped role to the operator.
-func managedOperatorBinding(o PlatformObject) bool {
-	if o.Kind != "RoleBinding" || o.Namespace != "mcp-servers" {
-		return false
-	}
-	ref, _ := o.Object["roleRef"].(map[string]any)
-	subjects, _ := o.Object["subjects"].([]any)
-	if ref["kind"] != "ClusterRole" || ref["name"] != o.Name || len(subjects) != 1 {
-		return false
-	}
-	if o.Name != "mcp-runtime-operator-managed-secrets" && o.Name != "mcp-runtime-operator-managed-workloads" {
-		return false
-	}
-	subject, _ := subjects[0].(map[string]any)
-	return subject["kind"] == "ServiceAccount" && subject["namespace"] == "mcp-runtime" && subject["name"] == "mcp-runtime-operator-controller-manager"
 }
 
 func validateBinding(key string, o PlatformObject, defined, namespaces map[string]bool) []error {

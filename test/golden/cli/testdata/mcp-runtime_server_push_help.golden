@@ -1,4 +1,4 @@
-Save a local Docker image and publish it through the authenticated platform registry API. Supports tenant, org, and public scopes.
+Save a local Docker image and publish it through the authenticated platform registry API. Supports tenant and org scopes.
 
 Usage:
   mcp-runtime server push [flags]
@@ -7,7 +7,7 @@ Flags:
   -h, --help           help for push
       --image string   Local image to push (required)
       --name string    Override target repository/name
-      --scope string   Publish scope: tenant, org, or public
+      --scope string   Publish scope: tenant or org
 
 Global Flags:
       --debug      Enable debug mode with structured error logging

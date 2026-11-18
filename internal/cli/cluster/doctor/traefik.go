@@ -352,7 +352,7 @@ func parseIngressLoadBalancerStatuses(value string) []doctorIngressStatus {
 }
 
 func isMCPRuntimeIngress(status doctorIngressStatus) bool {
-	if status.Namespace == "registry" || status.Namespace == componentNamespace("platform-api") || status.Namespace == doctorMCPServersNamespace {
+	if status.Namespace == "registry" || status.Namespace == componentNamespace("platform-api") || status.Namespace == doctorServerNamespace() {
 		return true
 	}
 	if strings.HasPrefix(status.Namespace, "mcp-team-") || strings.HasPrefix(status.Namespace, "mcp-servers-") {
@@ -672,11 +672,11 @@ func checkMCPServersDNSAndNetwork(kubectl core.KubectlRunner) DoctorCheck {
 		registryURL,
 	}
 	defer func() {
-		_ = kubectl.Run([]string{"delete", "pod", podName, "-n", doctorMCPServersNamespace, "--ignore-not-found"})
+		_ = kubectl.Run([]string{"delete", "pod", podName, "-n", doctorServerNamespace(), "--ignore-not-found"})
 	}()
 	args := []string{
 		"run", podName,
-		"-n", doctorMCPServersNamespace,
+		"-n", doctorServerNamespace(),
 		"--restart=Never",
 		"--image=" + image,
 		"--overrides=" + restrictedRunOverrides(podName, image, "curl", curlArgs...),
@@ -684,7 +684,7 @@ func checkMCPServersDNSAndNetwork(kubectl core.KubectlRunner) DoctorCheck {
 	cmd, err := kubectl.CommandArgs(args)
 	if err != nil {
 		return DoctorCheck{
-			Name:   "mcp-servers DNS/network",
+			Name:   "server namespace DNS/network",
 			OK:     false,
 			Detail: fmt.Sprintf("kubectl error: %v", err),
 			Remedy: "check kubeconfig and namespace access",
@@ -693,21 +693,21 @@ func checkMCPServersDNSAndNetwork(kubectl core.KubectlRunner) DoctorCheck {
 	createOut, runErr := cmd.CombinedOutput()
 	if runErr != nil {
 		return DoctorCheck{
-			Name:   "mcp-servers DNS/network",
+			Name:   "server namespace DNS/network",
 			OK:     false,
 			Detail: strings.TrimSpace(string(createOut)),
-			Remedy: "check CoreDNS and network policies for namespace mcp-servers",
+			Remedy: "check CoreDNS and network policies for namespace " + doctorServerNamespace(),
 		}
 	}
-	if err := waitForDoctorPodSucceeded(kubectl, podName, doctorMCPServersNamespace, 90*time.Second); err != nil {
-		logs, _ := readKubectlOutput(kubectl, []string{"logs", podName, "-n", doctorMCPServersNamespace, "--tail=50"})
+	if err := waitForDoctorPodSucceeded(kubectl, podName, doctorServerNamespace(), 90*time.Second); err != nil {
+		logs, _ := readKubectlOutput(kubectl, []string{"logs", podName, "-n", doctorServerNamespace(), "--tail=50"})
 		if registryDeniedByPolicy(logs) {
 			// Tenant namespaces are intentionally denied registry access; image
 			// pulls go through the kubelet, so DNS resolving is what must work.
 			return DoctorCheck{
-				Name:   "mcp-servers DNS/network",
+				Name:   "server namespace DNS/network",
 				OK:     true,
-				Detail: "registry Service name resolves from mcp-servers; direct pod access is blocked by NetworkPolicy (expected)",
+				Detail: "registry Service name resolves from " + doctorServerNamespace() + "; direct pod access is blocked by NetworkPolicy (expected)",
 			}
 		}
 		detail := fmt.Sprintf("helper pod did not succeed: %v", err)
@@ -715,33 +715,33 @@ func checkMCPServersDNSAndNetwork(kubectl core.KubectlRunner) DoctorCheck {
 			detail += ": " + strings.TrimSpace(logs)
 		}
 		return DoctorCheck{
-			Name:   "mcp-servers DNS/network",
+			Name:   "server namespace DNS/network",
 			OK:     false,
 			Detail: detail,
-			Remedy: "check CoreDNS and network policies for namespace mcp-servers",
+			Remedy: "check CoreDNS and network policies for namespace " + doctorServerNamespace(),
 		}
 	}
-	out, logsErr := readKubectlOutput(kubectl, []string{"logs", podName, "-n", doctorMCPServersNamespace})
+	out, logsErr := readKubectlOutput(kubectl, []string{"logs", podName, "-n", doctorServerNamespace()})
 	if logsErr != nil {
 		return DoctorCheck{
-			Name:   "mcp-servers DNS/network",
+			Name:   "server namespace DNS/network",
 			OK:     false,
 			Detail: fmt.Sprintf("failed reading helper pod logs: %v", logsErr),
-			Remedy: "inspect pod events: `kubectl -n mcp-servers describe pod " + podName + "`",
+			Remedy: "inspect pod events: `kubectl -n " + doctorServerNamespace() + " describe pod " + podName + "`",
 		}
 	}
 	if !hasHTTP200Status(out) {
 		return DoctorCheck{
-			Name:   "mcp-servers DNS/network",
+			Name:   "server namespace DNS/network",
 			OK:     false,
 			Detail: fmt.Sprintf("unexpected response: %q", strings.TrimSpace(out)),
-			Remedy: "check CoreDNS and service routing from namespace mcp-servers",
+			Remedy: "check CoreDNS and service routing from namespace " + doctorServerNamespace(),
 		}
 	}
 	return DoctorCheck{
-		Name:   "mcp-servers DNS/network",
+		Name:   "server namespace DNS/network",
 		OK:     true,
-		Detail: fmt.Sprintf("can resolve and reach registry service from mcp-servers namespace via %s", doctorRegistryServiceScheme(registryURL)),
+		Detail: fmt.Sprintf("can resolve and reach registry service from %s namespace via %s", doctorServerNamespace(), doctorRegistryServiceScheme(registryURL)),
 	}
 }
 
@@ -751,14 +751,14 @@ func checkIngressRouteProbe(kubectl core.KubectlRunner, namespace string, distro
 		return DoctorCheck{
 			Name:   "ingress route probe",
 			OK:     true,
-			Detail: "no ingress resources found in mcp-servers; skipping live route probe",
+			Detail: "no ingress resources found in " + namespace + "; skipping live route probe",
 		}
 	}
 	if route.Name == "" {
 		return DoctorCheck{
 			Name:   "ingress route probe",
 			OK:     true,
-			Detail: "no ingress resources found in mcp-servers; skipping live route probe",
+			Detail: "no ingress resources found in " + namespace + "; skipping live route probe",
 		}
 	}
 	host := strings.TrimSpace(route.Host)

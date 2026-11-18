@@ -161,7 +161,7 @@ export function UsageAnalyticsPanel({ onSignIn, embedded = false }: Props & { em
       <FilterBar label="Analytics filters">
         <div className="analytics-primary-filters">
           <SelectField label="Time range" value={filters.window_hours || "24"} options={WINDOW_OPTIONS} onChange={e => change("window_hours", e.target.value)} data-testid="analytics-window" />
-          <SelectField label="Scope" value={filters.scope || ""} options={[{ value: "", label: "All scopes" }, { value: "public", label: "Public" }, { value: "org", label: "Organization" }, { value: "tenant", label: "Teams" }]} onChange={e => { setFilters(current => ({ ...current, scope: e.target.value, team_id: "", server: "", rpc_method: "", tool_name: "" })); setTeamSearch(""); }} data-testid="analytics-scope" />
+          <SelectField label="Scope" value={filters.scope || ""} options={[{ value: "", label: "All scopes" }, { value: "org", label: "Organization" }, { value: "tenant", label: "Teams" }]} onChange={e => { setFilters(current => ({ ...current, scope: e.target.value, team_id: "", server: "", rpc_method: "", tool_name: "" })); setTeamSearch(""); }} data-testid="analytics-scope" />
           <SelectField label="Server" value={filters.server || ""} options={options(facets?.servers || [], "All servers", filters.server)} onChange={e => change("server", e.target.value)} data-testid="analytics-server" />
           <SelectField label="Policy decision" value={filters.decision || ""} options={[{ value: "", label: "All decisions" }, { value: "allow", label: "Allowed" }, { value: "deny", label: "Denied" }]} onChange={e => change("decision", e.target.value)} data-testid="analytics-decision" />
         </div>

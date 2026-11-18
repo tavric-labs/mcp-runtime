@@ -36,18 +36,18 @@ func TestLatestServerSessionFromEvents(t *testing.T) {
 
 func TestLatestServerSessionExcludesPreviousServerInstance(t *testing.T) {
 	rows := []clickhouse.EventRow{
-		{Server: "same-name", Namespace: "mcp-servers", SessionID: "previous-owner-private-session", ToolName: "private-tool", Payload: json.RawMessage(`{"server_uid":"deleted-uid"}`)},
-		{Server: "same-name", Namespace: "mcp-servers", SessionID: "unlabelled-private-session", ToolName: "old-tool", Payload: json.RawMessage(`{}`)},
-		{Server: "same-name", Namespace: "mcp-servers", SessionID: "new-session", ToolName: "lookup", Payload: json.RawMessage(`{"server_uid":"replacement-uid"}`)},
+		{Server: "same-name", Namespace: "mcp-servers-org", SessionID: "previous-owner-private-session", ToolName: "private-tool", Payload: json.RawMessage(`{"server_uid":"deleted-uid"}`)},
+		{Server: "same-name", Namespace: "mcp-servers-org", SessionID: "unlabelled-private-session", ToolName: "old-tool", Payload: json.RawMessage(`{}`)},
+		{Server: "same-name", Namespace: "mcp-servers-org", SessionID: "new-session", ToolName: "lookup", Payload: json.RawMessage(`{"server_uid":"replacement-uid"}`)},
 	}
-	latest, state := latestServerSessionFromEvents("mcp-servers", "replacement-uid", rows)
+	latest, state := latestServerSessionFromEvents("mcp-servers-org", "replacement-uid", rows)
 	if state != "observed" || latest == nil || latest.ID != "new-session" || latest.ToolName != "lookup" {
 		t.Fatalf("replacement exposed predecessor metadata: %#v %s", latest, state)
 	}
-	if latest, state := latestServerSessionFromEvents("mcp-servers", "replacement-uid", rows[:2]); latest != nil || state != "none" {
+	if latest, state := latestServerSessionFromEvents("mcp-servers-org", "replacement-uid", rows[:2]); latest != nil || state != "none" {
 		t.Fatalf("historical rows supplied new instance metadata: %#v %s", latest, state)
 	}
-	if latest, state := latestServerSessionFromEvents("mcp-servers", "", rows); latest != nil || state != "unavailable" {
+	if latest, state := latestServerSessionFromEvents("mcp-servers-org", "", rows); latest != nil || state != "unavailable" {
 		t.Fatalf("missing UID fell back to names: %#v %s", latest, state)
 	}
 }

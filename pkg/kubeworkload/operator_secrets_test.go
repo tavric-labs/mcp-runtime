@@ -122,3 +122,27 @@ func TestTrustBundleBootstrapAndProtectedIssuers(t *testing.T) {
 		t.Fatal("accepted conflicting trust RoleBinding")
 	}
 }
+
+// The trust bundle belongs with the platform TLS material: mcp-platform is
+// watched by Traefik and is never a tenant namespace, so the bundle, its named
+// Role and the operator binding can live there with no workload namespace
+// involved and no tenant Secret grant.
+func TestTrustBundleLivesInThePlatformNamespace(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+	if err := EnsureOperatorTrustBundleAccess(ctx, client, "mcp-platform"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.CoreV1().Secrets("mcp-platform").Get(ctx, OperatorTrustBundleName, metav1.GetOptions{}); err != nil {
+		t.Fatalf("trust bundle not bootstrapped in mcp-platform: %v", err)
+	}
+	binding, err := client.RbacV1().RoleBindings("mcp-platform").Get(ctx, "mcp-runtime-operator-trust-bundle", metav1.GetOptions{})
+	if err != nil || len(binding.Subjects) != 1 || binding.Subjects[0].Name != OperatorServiceAccountName {
+		t.Fatalf("operator is not bound to the named trust Role: %+v %v", binding, err)
+	}
+	for _, name := range []string{OperatorSecretAccessName, OperatorWorkloadAccessName} {
+		if _, err := client.RbacV1().RoleBindings("mcp-platform").Get(ctx, name, metav1.GetOptions{}); err == nil {
+			t.Fatalf("the platform namespace must not receive the tenant binding %s", name)
+		}
+	}
+}

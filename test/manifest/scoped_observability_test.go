@@ -46,7 +46,7 @@ func TestScopedTelemetryRejectsTenantAndIngressBypasses(t *testing.T) {
 		port int32
 	}{{"grafana", 3000}, {"prometheus", 9090}, {"loki", 3100}, {"tempo", 3200}} {
 		for _, source := range []struct{ namespace, app string }{
-			{"mcp-team-foreign", "server"}, {"mcp-servers", "demo"}, {"mcp-servers-public", "demo"},
+			{"mcp-team-foreign", "server"}, {"mcp-servers-org", "demo"}, {"mcp-servers-public", "demo"},
 			{"mcp-team-foreign", "mcp-runtime-api"}, // app-label spoof alone is insufficient
 			{"traefik", "traefik"}, {"kube-system", "traefik"}, {"mcp-platform", "mcp-ui"},
 		} {

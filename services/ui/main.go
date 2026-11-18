@@ -188,7 +188,6 @@ func newMux(apiBase, apiUpstream, apiKey, apiKeys, adminAPIKeys string) (*http.S
 		return nil, err
 	}
 	mux.Handle(uiproxy.SessionAPIPrefix+"/", uiproxy.NewSessionProxy(platformBase, runtimeBase, analyticsBase, sessions, sessionProxyHTTPClient))
-	mux.Handle(uiproxy.PublicCatalogAPIPrefix+"/", uiproxy.NewPublicCatalogProxy(runtimeBase, platformMode == "public", sessionProxyHTTPClient))
 
 	mux.Handle("/", assets.Handler{Files: staticFS, RewriteHTML: func(data []byte) []byte { return prefixAssetHTML(data, routes.PlatformPrefix()) }})
 	return mountPublicUI(mux, routes, platformBase), nil
@@ -200,10 +199,6 @@ func normalizedPlatformMode() string {
 
 func catalogNamespacesForMode(mode string) []string {
 	normalized, _ := topology.NormalizeMode(mode)
-	if normalized == topology.ModePublic {
-		// This list powers anonymous proxy reads, so exclude org catalogs.
-		return normalized.CatalogNamespacesForScope(topology.ScopePublic)
-	}
 	return normalized.CatalogNamespaces()
 }
 

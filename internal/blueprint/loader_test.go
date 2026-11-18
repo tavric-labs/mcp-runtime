@@ -34,7 +34,7 @@ func TestLoadFromFile(t *testing.T) {
 						Route:     "/test-server/mcp",
 						Port:      8088,
 						Replicas:  int32Ptr(1),
-						Namespace: "mcp-servers",
+						Namespace: "mcp-servers-org",
 					},
 					{
 						Name:        "custom-server",
@@ -217,7 +217,7 @@ func TestSetDefaults(t *testing.T) {
 				Route:     "/test-server/mcp",
 				Port:      8088,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers",
+				Namespace: "mcp-servers-org",
 			},
 		},
 		{
@@ -229,7 +229,7 @@ func TestSetDefaults(t *testing.T) {
 				Route:     "/test-server/mcp",
 				Port:      8088,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers",
+				Namespace: "mcp-servers-org",
 			},
 			want: &ServerMetadata{
 				Name:      "test-server",
@@ -238,7 +238,7 @@ func TestSetDefaults(t *testing.T) {
 				Route:     "/test-server/mcp",
 				Port:      8088,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers",
+				Namespace: "mcp-servers-org",
 			},
 		},
 		{
@@ -278,7 +278,7 @@ func TestSetDefaults(t *testing.T) {
 				Route:     "/gateway-server/mcp",
 				Port:      9090,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers",
+				Namespace: "mcp-servers-org",
 				Gateway: &GatewayConfig{
 					Enabled:     boolPtr(true),
 					Port:        8091,
@@ -322,20 +322,20 @@ func TestSetDefaults(t *testing.T) {
 			},
 		},
 		{
-			name: "applies-public-scope-defaults",
+			name: "applies-org-scope-defaults",
 			server: &ServerMetadata{
-				Name:  "public-server",
-				Scope: topology.Scope("Public"),
+				Name:  "org-server",
+				Scope: topology.Scope("Org"),
 			},
 			want: &ServerMetadata{
-				Name:      "public-server",
-				Scope:     topology.ScopePublic,
-				Image:     "registry.local/public/public-server",
+				Name:      "org-server",
+				Scope:     topology.ScopeOrg,
+				Image:     "registry.local/org/org-server",
 				ImageTag:  "latest",
-				Route:     "/public-server/mcp",
+				Route:     "/org-server/mcp",
 				Port:      8088,
 				Replicas:  int32Ptr(1),
-				Namespace: "mcp-servers-public",
+				Namespace: "mcp-servers-org",
 			},
 		},
 	}

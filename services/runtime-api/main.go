@@ -80,7 +80,6 @@ func main() {
 			InternalToken:  internalToken,
 			ServiceAPIKeys: apiKeys,
 			AdminAPIKeys:   svcboot.APIKeysFromEnv("ADMIN_API_KEYS"),
-			PublicFallback: runtimeapi.PublicCatalogFallback,
 		}),
 	}
 	if !runtimeServer.KubernetesAvailable() {

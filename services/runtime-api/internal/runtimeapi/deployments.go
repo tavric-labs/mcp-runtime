@@ -102,7 +102,7 @@ func (s *DeploymentService) HandleDeploymentItem(w http.ResponseWriter, r *http.
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if p.Role != roleAdmin && (!p.HasNamespace(ns) || ns == sharedCatalogNamespace) {
+	if p.Role != roleAdmin && !p.HasNamespace(ns) {
 		s.writeAudit(r.Context(), deploymentAuditEvent(r, p, "deployment_delete", "denied", name, ns, "", "forbidden"))
 		writeAPIError(w, http.StatusForbidden, "forbidden")
 		return
@@ -152,7 +152,7 @@ func (s *DeploymentService) handleDeploymentList(w http.ResponseWriter, r *http.
 			writeAPIError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		if !p.HasNamespace(namespace) || namespace == sharedCatalogNamespace {
+		if !p.HasNamespace(namespace) {
 			writeAPIError(w, http.StatusForbidden, "forbidden")
 			return
 		}
@@ -259,7 +259,7 @@ func (s *DeploymentService) handleDeploymentApply(w http.ResponseWriter, r *http
 		writeAPIError(w, http.StatusBadRequest, "namespace required")
 		return
 	}
-	if p.Role != roleAdmin && (!p.HasNamespace(namespace) || namespace == sharedCatalogNamespace) {
+	if p.Role != roleAdmin && !p.HasNamespace(namespace) {
 		s.writeAudit(r.Context(), deploymentAuditEvent(r, p, "deployment_apply", "denied", req.Name, namespace, req.Image, "forbidden"))
 		writeAPIError(w, http.StatusForbidden, "forbidden")
 		return
@@ -440,19 +440,10 @@ func (s *DeploymentService) ensureAdminPublishNamespace(ctx context.Context, nam
 		podSecurityAuditLabel:   "restricted",
 		podSecurityWarnLabel:    "restricted",
 	}
-	if namespace == sharedCatalogNamespace {
-		labels[platformScopeLabel] = PlatformMode()
-	}
 	opts := managedNamespaceOptions{
 		ingressFromNamespaces: teamIngressAllowNamespaces(cfg),
 	}
-	if err := s.ensureManagedNamespace(ctx, namespace, labels, opts); err != nil {
-		return err
-	}
-	if namespace != sharedCatalogNamespace || cfg.mode == "disabled" {
-		return nil
-	}
-	return s.ensureTeamTraefikWatch(ctx, namespace, cfg)
+	return s.ensureManagedNamespace(ctx, namespace, labels, opts)
 }
 
 const registryPullSecretName = "mcp-runtime-registry-pull" // #nosec G101 -- Kubernetes Secret object name, not credential material.

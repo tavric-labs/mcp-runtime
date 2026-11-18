@@ -370,7 +370,7 @@ func TestRenderGatewayPolicyObserveWhenPolicyOmitted(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = mcpv1alpha1.AddToScheme(scheme)
 	server := &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "mcp-servers-org"},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Gateway: &mcpv1alpha1.GatewayConfig{Enabled: mcpv1alpha1.BoolPtr(true)},
 		},
@@ -390,7 +390,7 @@ func TestRenderGatewayPolicyHeaderModeEnforcesWithoutIdentity(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = mcpv1alpha1.AddToScheme(scheme)
 	server := &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "pilot", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "pilot", Namespace: "mcp-servers-org"},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Auth: &mcpv1alpha1.AuthConfig{Mode: "header", Headers: []string{"X-Example-Credential", "Private-Token"}},
 			Policy: &mcpv1alpha1.PolicyConfig{

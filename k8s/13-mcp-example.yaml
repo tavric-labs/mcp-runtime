@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: oauth-example-go-2025-11-25-standalone
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   selector:
     app: oauth-example-go-2025-11-25-standalone
@@ -15,7 +15,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: oauth-example-go-2025-11-25-standalone
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   replicas: 1
   selector:

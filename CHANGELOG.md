@@ -13,9 +13,42 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
+- Hosted post-deployment acceptance reuses the Runtime auditor from the immutable workflow revision and uploads its JSON report. It no longer publishes disposable production MCP servers or fetches duplicate verification logic from a moving `main`. LinkedIn and Cully remain real services; only prod-audit receives synthetic MCP calls. Isolated Kind/staging retain publishing coverage. Write tests require the CLI's explicit session-trust support.
+
+## [0.18.0] - 2026-11-12
+
+Breaking `0.x` release: the `public` publish scope and the `mcp-servers-public`
+namespace are removed (`--platform-mode public` stays as the hosted profile),
+and the legacy `mcp-servers` base namespace is retired. Servers now default to
+`mcp-servers-org`, the operator trust bundle `mcp-adapter-client-ca` lives in
+`mcp-platform` (set `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-platform`),
+the doctor checks are renamed, and the namespace and principal APIs no longer
+return `is_shared` or `sharedCatalogNamespace` (principals' `allowedNamespaces`
+no longer includes the legacy namespace).
+
+Existing installs, including the live preview, deploy with `mcp-runtime update`
+and then follow the trust bundle migration in the
+[base namespace retirement note](hack/deploy/reference/base-namespace-retirement.md):
+create the new bundle in `mcp-platform`, verify, then clean up. No fresh setup,
+backup-and-restore or data reset is required. Once the migration is verified, the
+operator can delete the empty `mcp-servers-public` and `mcp-servers` namespaces.
+Redeploy any server in the public catalog with `--scope org` first. For a rebuilt
+platform, the existing backup, fresh setup and restore procedure applies. Verify
+sign-in, server deployment, an allowed and a denied tool call, and audit after
+updating.
+
+### Removed
+
+- Breaking: the `public` publish scope and the anonymous catalog are removed; publish scopes are now `tenant` and `org`. `--scope public` (and `scope: public` in `.mcp` metadata or the API) is rejected with an error listing `tenant` and `org`. The `public` registry alias, the anonymous `/api/public/v1` UI proxy, the signed-out catalog preview in the console, the `public` filter in the Requests view and the `PLATFORM_PUBLIC_NAMESPACE(S)` settings are gone. Setup and update no longer create or manage `mcp-servers-public`, and the bundled Traefik manifests no longer watch it. An existing `mcp-servers-public` namespace is left in place, unmanaged: once it holds no servers, the operator can delete it. The `--platform-mode public` profile is kept as the hosted, internet-facing profile with the same catalogs and scopes as `org`. No fresh setup or data reset is required; this applies to the hosted reference platform through `mcp-runtime update`, and a server deployed to the public catalog must be redeployed with `--scope org` first.
+
+### Changed
+
+- The legacy `mcp-servers` base namespace is retired and the platform no longer creates, defaults to or depends on it. Observable changes: omitted namespaces (`server`/`access` CLI `--namespace` defaults and their help text, blueprint and access-resource defaults) now resolve to `mcp-servers-org`; the doctor checks the organization catalog namespace and launches its smoke pods there, so the checks `mcp-servers DNS/network`, `mcp-servers imagePullSecrets` and `mcp-servers image pull smoke` are now `server namespace DNS/network`, `server namespace imagePullSecrets` and `server namespace image pull smoke`; setup, `cluster init` and the Traefik manifests no longer create `mcp-servers`, its operator RoleBindings or its `traefik-watch` Role, and Traefik no longer watches it; the release wiring no longer declares the two `mcp-servers` RoleBindings; the namespace and principal APIs no longer return `is_shared` or `sharedCatalogNamespace` and principals no longer get the legacy namespace in `allowedNamespaces`; the org catalog namespace name is now reserved for team namespaces. The operator trust bundle `mcp-adapter-client-ca` belongs in `mcp-platform`: set `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-platform` (docs, Kind QA and staging defaults now do). The live preview follows the [base namespace retirement note](hack/deploy/reference/base-namespace-retirement.md): create the new bundle, verify, then delete the old namespace.
 - The bundled MCP Auth default image now lives in one file, `config/release/mcp-auth/Dockerfile`, which Dependabot bumps. The default moves from 0.9.0 to 0.9.1 (the release production runs: it fixes the client metadata document fetch for hosts that publish IPv6, and caches fetched documents); the flags are unchanged and it is never `latest`; the setup help, docs and deployment profile no longer repeat the version ([maintainer guide](docs/contributor/mcp-auth-pin.md)). No fresh setup is required.
 
-- Hosted post-deployment acceptance reuses the Runtime auditor from the immutable workflow revision and uploads its JSON report. It no longer publishes disposable production MCP servers or fetches duplicate verification logic from a moving `main`. LinkedIn and Cully remain real services; only prod-audit receives synthetic MCP calls. Isolated Kind/staging retain publishing coverage. Write tests require the CLI's explicit session-trust support.
+### Fixed
+
+- Retiring a server (`DELETE /api/v1/runtime/servers/{namespace}/{name}`) re-reads and retries when the operator updates the server while the retirement marker is written, instead of returning `500 failed to mark server retirement`; other marker failures are now logged.
 
 ## [0.17.0] - 2026-11-10
 
@@ -823,7 +856,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...v0.16.0

@@ -21,22 +21,22 @@ func TestRuntimeObservabilityLogsExcludePreviousOwnerAfterNameReuse(t *testing.T
 			t.Errorf("query omitted the current server identity: %s", r.URL.Query().Get("query"))
 		}
 		start, _ := strconv.ParseInt(r.URL.Query().Get("start"), 10, 64)
-		if start <= old && r.URL.Query().Get("query") == `{namespace="mcp-servers",app="demo"}` {
-			fmt.Fprintf(w, `{"status":"success","data":{"result":[{"stream":{"namespace":"mcp-servers","app":"demo"},"values":[["%d","previous-owner-private-log"]]}]}}`, old)
+		if start <= old && r.URL.Query().Get("query") == `{namespace="mcp-servers-org",app="demo"}` {
+			fmt.Fprintf(w, `{"status":"success","data":{"result":[{"stream":{"namespace":"mcp-servers-org","app":"demo"},"values":[["%d","previous-owner-private-log"]]}]}}`, old)
 			return
 		}
 		fmt.Fprint(w, `{"status":"success","data":{"result":[]}}`)
 	}))
 	defer loki.Close()
 	t.Setenv(envLokiAPIURL, loki.URL)
-	target := ownedTestMCPServer("demo", "mcp-servers", "new-owner")
+	target := ownedTestMCPServer("demo", "mcp-servers-org", "new-owner")
 	target.UID = types.UID("new-instance")
 	target.CreationTimestamp = metav1.NewTime(created)
 	server := newRuntimeServerWithMCPServers(t, target)
-	request := httptest.NewRequest(http.MethodGet, "/api/runtime/observability/logs/query?namespace=mcp-servers&server=demo", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/runtime/observability/logs/query?namespace=mcp-servers-org&server=demo", nil)
 	request = request.WithContext(withPrincipal(request.Context(), principal{
 		Role: roleUser, Subject: "new-owner", Namespace: "new-owner",
-		AllowedNamespaces: []string{"new-owner", "mcp-servers"},
+		AllowedNamespaces: []string{"new-owner", "mcp-servers-org"},
 	}))
 	recorder := httptest.NewRecorder()
 	server.HandleRuntimeObservabilityLogs(recorder, request)

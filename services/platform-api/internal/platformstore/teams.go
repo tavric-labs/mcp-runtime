@@ -82,7 +82,6 @@ LIMIT 1`, namespace).Scan(&id, &userID, &email, &teamID, &teamSlug, &teamName, &
 		"scope":      scope,
 		"namespace":  namespace,
 		"created_at": createdAt,
-		"is_shared":  namespace == SharedCatalogNamespace,
 		"is_managed": strings.HasPrefix(namespace, TeamNamespacePrefix),
 	}, true, nil
 }
@@ -434,7 +433,6 @@ func scanNamespaceRow(rows *sql.Rows) (map[string]any, error) {
 		"scope":      scope,
 		"namespace":  namespace,
 		"created_at": createdAt,
-		"is_shared":  namespace == SharedCatalogNamespace,
 		"is_managed": strings.HasPrefix(namespace, TeamNamespacePrefix),
 	}, nil
 }
@@ -465,9 +463,6 @@ func ValidateTeamNamespace(namespace string) error {
 	if namespace == "" {
 		return errors.New("namespace required")
 	}
-	if strings.TrimSpace(namespace) == SharedCatalogNamespace {
-		return errors.New("shared catalog namespace is reserved")
-	}
 	reserved := []string{
 		"default", "kube-system", "kube-public", "kube-node-lease",
 		topology.OperatorNamespace,
@@ -475,6 +470,7 @@ func ValidateTeamNamespace(namespace string) error {
 		topology.ObservabilityNamespace,
 		topology.LogCollectorNamespace,
 		"registry", "traefik",
+		topology.DefaultOrgCatalogNamespace,
 	}
 	for _, disallowed := range reserved {
 		if namespace == disallowed {

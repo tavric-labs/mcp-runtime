@@ -84,7 +84,7 @@ func checkNamespacePolicyGuardrails(kubectl core.KubectlRunner, namespace string
 			Name:   fmt.Sprintf("namespace %s quota/limitrange", namespace),
 			OK:     false,
 			Detail: strings.TrimSpace(string(out)),
-			Remedy: "inspect namespace policies: `kubectl get resourcequota,limitrange -n mcp-servers`",
+			Remedy: "inspect namespace policies: `kubectl get resourcequota,limitrange -n " + namespace + "`",
 		}
 	}
 	listing := strings.TrimSpace(string(out))

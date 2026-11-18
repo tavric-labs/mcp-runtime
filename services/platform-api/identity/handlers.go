@@ -60,8 +60,7 @@ func HandleAuthMe(w http.ResponseWriter, r *http.Request, deps Dependencies) {
 		Teams             []platformstore.PrincipalTeam `json:"teams,omitempty"`
 	}
 	deps.WriteJSON(w, http.StatusOK, map[string]any{
-		"authenticated":          true,
-		"sharedCatalogNamespace": platformstore.SharedCatalogNamespace,
+		"authenticated": true,
 		"principal": authPrincipal{
 			Role:              p.Role,
 			Subject:           p.Subject,

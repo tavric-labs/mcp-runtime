@@ -10,7 +10,7 @@ Flags:
       --force                          Replace output file if it already exists
   -h, --help                           help for init
       --human-id string                Human subject ID
-      --namespace string               Manifest namespace (default "mcp-servers")
+      --namespace string               Manifest namespace (default "mcp-servers-org")
       --output string                  Output manifest path (default "session.yaml")
       --policy-version string          Policy version (default "v1")
       --revoked                        Initialize the session as revoked

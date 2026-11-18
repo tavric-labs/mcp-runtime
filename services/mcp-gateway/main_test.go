@@ -584,7 +584,7 @@ func TestAuditPayloadDoesNotPersistRawQueryString(t *testing.T) {
 
 	proxy := &gatewayServer{
 		serverName:           "example-server",
-		serverNamespace:      "mcp-servers",
+		serverNamespace:      "mcp-servers-org",
 		clusterName:          "kind",
 		defaultPolicyVersion: "test-policy",
 	}
@@ -616,7 +616,7 @@ func TestAuditPayloadIncludesLatencyMetadata(t *testing.T) {
 
 	proxy := &gatewayServer{
 		serverName:           "example-server",
-		serverNamespace:      "mcp-servers",
+		serverNamespace:      "mcp-servers-org",
 		clusterName:          "kind",
 		defaultPolicyVersion: "test-policy",
 	}
@@ -725,7 +725,7 @@ func TestGatewayMetricsAvailableOnMetricsPort(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	metrics := newGatewayMetrics(registry)
 	metrics.recordRequest(
-		gatewayMetricScope{Namespace: "mcp-servers", Server: "demo", Cluster: "kind", TeamID: "team-acme"},
+		gatewayMetricScope{Namespace: "mcp-servers-org", Server: "demo", Cluster: "kind", TeamID: "team-acme"},
 		httptest.NewRequest(http.MethodPost, "http://proxy.example.com/mcp", nil),
 		"tools/call",
 		policypkg.Decision{Allowed: true, Status: http.StatusOK, Reason: "allowed", PolicyVersion: "test-policy"},
@@ -789,7 +789,7 @@ func TestGatewayMetricsRecordPolicyReloadResults(t *testing.T) {
 		metrics:               newGatewayMetrics(registry),
 		policyFile:            policyFile,
 		serverName:            "demo",
-		serverNamespace:       "mcp-servers",
+		serverNamespace:       "mcp-servers-org",
 		clusterName:           "kind",
 		defaultPolicyMode:     defaultPolicyMode,
 		defaultPolicyDecision: defaultPolicyDecision,
@@ -799,10 +799,10 @@ func TestGatewayMetricsRecordPolicyReloadResults(t *testing.T) {
 	if err := proxy.reloadPolicy(); err != nil {
 		t.Fatalf("reloadPolicy() error = %v", err)
 	}
-	if got := testutil.ToFloat64(proxy.metrics.policyReloadsTotal.WithLabelValues("mcp-servers", "demo", "kind", "team-acme", "success")); got != 1 {
+	if got := testutil.ToFloat64(proxy.metrics.policyReloadsTotal.WithLabelValues("mcp-servers-org", "demo", "kind", "team-acme", "success")); got != 1 {
 		t.Fatalf("successful policy reloads = %v, want 1", got)
 	}
-	if got := testutil.ToFloat64(proxy.metrics.policyLastReload.WithLabelValues("mcp-servers", "demo", "kind", "team-acme")); got == 0 {
+	if got := testutil.ToFloat64(proxy.metrics.policyLastReload.WithLabelValues("mcp-servers-org", "demo", "kind", "team-acme")); got == 0 {
 		t.Fatal("policy last reload timestamp = 0, want non-zero")
 	}
 
@@ -812,7 +812,7 @@ func TestGatewayMetricsRecordPolicyReloadResults(t *testing.T) {
 	if err := proxy.reloadPolicy(); err == nil {
 		t.Fatal("reloadPolicy() error = nil, want malformed policy error")
 	}
-	if got := testutil.ToFloat64(proxy.metrics.policyReloadsTotal.WithLabelValues("mcp-servers", "demo", "kind", "team-acme", "error")); got != 1 {
+	if got := testutil.ToFloat64(proxy.metrics.policyReloadsTotal.WithLabelValues("mcp-servers-org", "demo", "kind", "team-acme", "error")); got != 1 {
 		t.Fatalf("failed policy reloads = %v, want 1", got)
 	}
 }
@@ -836,7 +836,7 @@ func TestAuditPayloadIncludesToolRiskLevel(t *testing.T) {
 
 	proxy := &gatewayServer{
 		serverName:           "example-server",
-		serverNamespace:      "mcp-servers",
+		serverNamespace:      "mcp-servers-org",
 		defaultPolicyVersion: "test-policy",
 	}
 	req := httptest.NewRequest(http.MethodPost, "http://proxy.example.com/mcp", strings.NewReader(`{"jsonrpc":"2.0"}`))

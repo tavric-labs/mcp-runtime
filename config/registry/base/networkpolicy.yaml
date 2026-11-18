@@ -22,7 +22,7 @@ spec:
     - Ingress
   ingress:
     # Only Traefik (the authenticated public route) and labeled publication
-    # helpers may reach the backend. Tenant namespaces (mcp-servers*,
+    # helpers may reach the backend. Tenant namespaces (mcp-servers-*,
     # platform-managed team namespaces), the operator namespace, and ordinary
     # platform service pods are intentionally absent (#531). Production-shaped
     # setups also enable Distribution token authentication on this port.

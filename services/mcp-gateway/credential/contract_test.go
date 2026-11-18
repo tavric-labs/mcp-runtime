@@ -17,7 +17,7 @@ import (
 // entry the CLI produces must load here and keep the names mcp-auth is wired to.
 func TestServicesDerivedByTheCLILoadHere(t *testing.T) {
 	derived, err := authgateway.ServiceFor(authgateway.ServerInput{
-		Name: "gitlab", Namespace: "mcp-servers", IngressHost: "mcp.example.com", IngressPath: "/gitlab/mcp",
+		Name: "gitlab", Namespace: "mcp-servers-org", IngressHost: "mcp.example.com", IngressPath: "/gitlab/mcp",
 		Headers: []string{"X-GitLab-Username", "X-GitLab-PAT-Token"}, ValidationPath: "/auth/check",
 	}, "auth.example.com", "mcp.example.com")
 	if err != nil {

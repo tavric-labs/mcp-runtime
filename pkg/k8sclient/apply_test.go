@@ -24,7 +24,7 @@ metadata:
   name: demo
 data:
   key: value
-`), "mcp-servers")
+`), "mcp-servers-org")
 	if err != nil {
 		t.Fatalf("ApplyManifestYAML() error = %v", err)
 	}
@@ -36,13 +36,13 @@ data:
 	}
 
 	got, err := clients.Dynamic.Resource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}).
-		Namespace("mcp-servers").
+		Namespace("mcp-servers-org").
 		Get(context.Background(), "demo", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Get(ConfigMap) error = %v", err)
 	}
-	if got.GetNamespace() != "mcp-servers" {
-		t.Fatalf("namespace = %q, want mcp-servers", got.GetNamespace())
+	if got.GetNamespace() != "mcp-servers-org" {
+		t.Fatalf("namespace = %q, want mcp-servers-org", got.GetNamespace())
 	}
 	if value, _, _ := unstructured.NestedString(got.Object, "data", "key"); value != "value" {
 		t.Fatalf("data.key = %q, want value", value)
@@ -54,7 +54,7 @@ func TestApplyManifestYAMLUpdatesAndPreservesExistingLabels(t *testing.T) {
 		"apiVersion": "v1",
 		"kind":       "Namespace",
 		"metadata": map[string]any{
-			"name":            "mcp-servers",
+			"name":            "mcp-servers-org",
 			"resourceVersion": "1",
 			"labels": map[string]any{
 				"keep":      "true",
@@ -67,7 +67,7 @@ func TestApplyManifestYAMLUpdatesAndPreservesExistingLabels(t *testing.T) {
 	results, err := ApplyManifestYAML(context.Background(), clients, []byte(`apiVersion: v1
 kind: Namespace
 metadata:
-  name: mcp-servers
+  name: mcp-servers-org
   labels:
     overwrite: new
 `), "")
@@ -79,7 +79,7 @@ metadata:
 	}
 
 	got, err := clients.Dynamic.Resource(schema.GroupVersionResource{Version: "v1", Resource: "namespaces"}).
-		Get(context.Background(), "mcp-servers", metav1.GetOptions{})
+		Get(context.Background(), "mcp-servers-org", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Get(Namespace) error = %v", err)
 	}
@@ -97,7 +97,7 @@ func TestApplyManifestYAMLRetriesUpdateConflict(t *testing.T) {
 		"apiVersion": "v1",
 		"kind":       "Namespace",
 		"metadata": map[string]any{
-			"name":            "mcp-servers",
+			"name":            "mcp-servers-org",
 			"resourceVersion": "1",
 		},
 	}}
@@ -107,7 +107,7 @@ func TestApplyManifestYAMLRetriesUpdateConflict(t *testing.T) {
 	dynamicClient.PrependReactor("update", "namespaces", func(action clienttesting.Action) (bool, runtime.Object, error) {
 		if conflicts == 0 {
 			conflicts++
-			return true, nil, apierrors.NewConflict(schema.GroupResource{Resource: "namespaces"}, "mcp-servers", nil)
+			return true, nil, apierrors.NewConflict(schema.GroupResource{Resource: "namespaces"}, "mcp-servers-org", nil)
 		}
 		return false, nil, nil
 	})
@@ -115,7 +115,7 @@ func TestApplyManifestYAMLRetriesUpdateConflict(t *testing.T) {
 	results, err := ApplyManifestYAML(context.Background(), clients, []byte(`apiVersion: v1
 kind: Namespace
 metadata:
-  name: mcp-servers
+  name: mcp-servers-org
   labels:
     retry: ok
 `), "")

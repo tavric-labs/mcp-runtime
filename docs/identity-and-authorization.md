@@ -40,7 +40,7 @@ The API uses this principal to authorize control-plane actions.
 
 | Actor | Allowed actions | Why |
 |---|---|---|
-| Anonymous caller | Health, login, OIDC exchange, and explicitly public catalog reads | These routes are public by design |
+| Anonymous caller | Health, login, and OIDC exchange | These routes are public by design |
 | Authenticated user | Read visible teams, namespaces, servers, and deployments, plus team-scoped analytics on `GET /api/v1/user/analytics/usage` | Visibility is scoped by the principal's namespaces and teams |
 | Server owner | Change their server and administer its grants and sessions | The server carries the owner's platform user label |
 | Team owner | Manage team members and administer servers and access resources in the team's namespace | Team-owner membership grants administrative authority within that team |

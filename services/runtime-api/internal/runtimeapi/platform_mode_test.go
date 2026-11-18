@@ -1,8 +1,6 @@
 package runtimeapi
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
@@ -32,37 +30,37 @@ func TestPlatformModeUsesStrictValues(t *testing.T) {
 	}
 }
 
-func TestCatalogNamespaceEntriesIncludeSharedCatalogInTenantMode(t *testing.T) {
+func TestCatalogNamespaceEntriesListOnlyModeCatalogsInOrgMode(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
 
 	got := appendCatalogNamespaceEntries(nil)
-	if len(got) != 2 {
-		t.Fatalf("catalog namespaces = %#v, want shared and org catalog entries", got)
+	if len(got) != 1 {
+		t.Fatalf("catalog namespaces = %#v, want only the org catalog entry", got)
 	}
-	if got[0]["namespace"] != sharedCatalogNamespace {
-		t.Fatalf("namespace = %#v, want %q", got[0]["namespace"], sharedCatalogNamespace)
+	if got[0]["namespace"] != defaultOrgCatalogNamespace {
+		t.Fatalf("namespace = %#v, want %q", got[0]["namespace"], defaultOrgCatalogNamespace)
 	}
-	if got[0]["scope"] != "shared" {
-		t.Fatalf("scope = %#v, want shared", got[0]["scope"])
+	if got[0]["scope"] != "org" {
+		t.Fatalf("scope = %#v, want org", got[0]["scope"])
 	}
-	if got[0]["is_shared"] != true {
-		t.Fatalf("is_shared = %#v, want true", got[0]["is_shared"])
+	if _, present := got[0]["is_shared"]; present {
+		t.Fatalf("catalog entries must not carry the retired is_shared flag: %#v", got[0])
 	}
 }
 
-func TestSharedCatalogEntryStaysSharedInPublicMode(t *testing.T) {
+func TestOrgCatalogEntryStaysOrgInPublicMode(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 
-	got := catalogNamespaceEntry(sharedCatalogNamespace)
-	if got["scope"] != "shared" {
-		t.Fatalf("scope = %#v, want shared", got["scope"])
+	got := catalogNamespaceEntry(defaultOrgCatalogNamespace)
+	if got["scope"] != "org" {
+		t.Fatalf("scope = %#v, want org", got["scope"])
 	}
-	if got["is_public"] != false {
-		t.Fatalf("is_public = %#v, want false", got["is_public"])
+	if _, ok := got["is_public"]; ok {
+		t.Fatalf("is_public must no longer be reported: %#v", got)
 	}
 }
 
-func TestPublicModePrincipalCanReadCatalogAndOwnedNamespaces(t *testing.T) {
+func TestPublicModePrincipalCanReadOrgCatalogAndOwnedNamespaces(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "public")
 	p := principal{
 		Role:      roleUser,
@@ -72,51 +70,16 @@ func TestPublicModePrincipalCanReadCatalogAndOwnedNamespaces(t *testing.T) {
 			"user-1",
 		},
 	}
-	if !principalCanReadNamespace(p, defaultPublicCatalogNamespace) {
-		t.Fatalf("expected user to read public catalog namespace %q", defaultPublicCatalogNamespace)
+	if !principalCanReadNamespace(p, defaultOrgCatalogNamespace) {
+		t.Fatalf("expected user to read org catalog namespace %q", defaultOrgCatalogNamespace)
+	}
+	if principalCanReadNamespace(p, "mcp-servers-public") {
+		t.Fatal("mcp-servers-public is no longer a catalog namespace")
 	}
 	if !principalCanReadNamespace(p, "user-1") {
 		t.Fatal("expected user to read owned namespace in public mode")
 	}
 	if principalCanReadNamespace(p, "other-user") {
 		t.Fatal("did not expect user to read unrelated namespace")
-	}
-}
-
-func TestPublicCatalogFallbackAllowsCatalogGETAndInjectsNamespace(t *testing.T) {
-	t.Setenv("PLATFORM_MODE", "public")
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/runtime/servers", nil)
-	p, ok := PublicCatalogFallback(req)
-	if !ok {
-		t.Fatal("expected public catalog fallback")
-	}
-	if p.AuthType != "public_catalog" {
-		t.Fatalf("auth type = %q, want public_catalog", p.AuthType)
-	}
-	if got := req.URL.Query().Get("namespace"); got != defaultPublicCatalogNamespace {
-		t.Fatalf("namespace query = %q, want %q", got, defaultPublicCatalogNamespace)
-	}
-}
-
-func TestPublicCatalogFallbackRejectsNonCatalogOrMutatingRequests(t *testing.T) {
-	t.Setenv("PLATFORM_MODE", "public")
-
-	for _, req := range []*http.Request{
-		httptest.NewRequest(http.MethodPost, "/api/v1/runtime/servers", nil),
-		httptest.NewRequest(http.MethodGet, "/api/v1/runtime/server-events", nil),
-	} {
-		if _, ok := PublicCatalogFallback(req); ok {
-			t.Fatalf("unexpected public catalog fallback for %s %s", req.Method, req.URL.Path)
-		}
-	}
-}
-
-func TestPublicCatalogFallbackDisabledOutsidePublicMode(t *testing.T) {
-	t.Setenv("PLATFORM_MODE", "org")
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/runtime/servers", nil)
-	if _, ok := PublicCatalogFallback(req); ok {
-		t.Fatal("unexpected public catalog fallback in org mode")
 	}
 }

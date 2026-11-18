@@ -9,7 +9,7 @@ import (
 )
 
 // DefaultMCPResourceNamespace is used when a ServerReference or access resource omits a namespace.
-const DefaultMCPResourceNamespace = topology.MCPServersNamespace
+const DefaultMCPResourceNamespace = topology.DefaultServerNamespace
 
 // ServerRetiringAnnotation prevents issuing access or republishing a server
 // while a failed retirement is awaiting a retry.

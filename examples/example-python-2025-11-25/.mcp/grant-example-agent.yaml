@@ -2,7 +2,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
     name: example-python-agent-read
-    namespace: mcp-servers
+    namespace: mcp-servers-org
 spec:
     allowedSideEffects:
         - read
@@ -10,7 +10,7 @@ spec:
     policyVersion: v1
     serverRef:
         name: example-python-2025-11-25-gateway
-        namespace: mcp-servers
+        namespace: mcp-servers-org
     subject:
         agentID: example-agent
         humanID: example-human

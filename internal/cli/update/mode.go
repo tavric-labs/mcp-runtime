@@ -77,8 +77,7 @@ func setManifestPlatformMode(ctx context.Context, cs kubernetes.Interface, m *pl
 // catalogTargets resolves only the target cluster's configuration. The
 // workstation's PLATFORM_* environment must never affect production namespaces.
 func catalogTargets(data map[string]string) (map[string]string, error) {
-	mode, valid := topology.NormalizeMode(data["PLATFORM_MODE"])
-	if !valid || strings.TrimSpace(data["PLATFORM_MODE"]) == "" {
+	if _, valid := topology.NormalizeMode(data["PLATFORM_MODE"]); !valid || strings.TrimSpace(data["PLATFORM_MODE"]) == "" {
 		return nil, fmt.Errorf("PLATFORM_MODE must explicitly be org or public")
 	}
 	value := func(fallback string, keys ...string) string {
@@ -89,29 +88,13 @@ func catalogTargets(data map[string]string) (map[string]string, error) {
 		}
 		return fallback
 	}
-	org := value(topology.DefaultOrgCatalogNamespace, "PLATFORM_ORG_NAMESPACE")
-	primary := org
-	if mode == topology.ModePublic {
-		primary = value(topology.DefaultPublicCatalogNamespace, "PLATFORM_PUBLIC_NAMESPACE")
-	}
-	primary = value(primary, "PLATFORM_CATALOG_NAMESPACE", "MCP_PLATFORM_CATALOG_NAMESPACE")
+	primary := value(value(topology.DefaultOrgCatalogNamespace, "PLATFORM_ORG_NAMESPACE"), "PLATFORM_CATALOG_NAMESPACE", "MCP_PLATFORM_CATALOG_NAMESPACE")
 	extra := value("", "PLATFORM_CATALOG_NAMESPACES", "MCP_PLATFORM_CATALOG_NAMESPACES")
-	if extra == "" && mode == topology.ModePublic {
-		extra = value("", "PLATFORM_PUBLIC_NAMESPACES", "MCP_PLATFORM_PUBLIC_NAMESPACES")
-	}
 	targets := map[string]string{}
-	if mode == topology.ModePublic {
-		targets[org] = "org"
-	}
 	for _, name := range append([]string{primary}, strings.Split(extra, ",")...) {
-		name = strings.TrimSpace(name)
-		if name == "" {
-			continue
+		if name = strings.TrimSpace(name); name != "" {
+			targets[name] = string(topology.ScopeOrg)
 		}
-		if mode == topology.ModePublic && (name == org || name == topology.DefaultOrgCatalogNamespace) {
-			return nil, fmt.Errorf("organization catalog %q cannot be a public catalog", name)
-		}
-		targets[name] = string(mode)
 	}
 	for name := range targets {
 		if errors := validation.IsDNS1123Label(name); len(errors) > 0 {

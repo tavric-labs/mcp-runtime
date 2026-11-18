@@ -17,10 +17,10 @@ func TestServiceAccountAuthenticate(t *testing.T) {
 		audiences     []string
 		want          bool
 	}{
-		{"workload SA in any namespace", "system:serviceaccount:mcp-servers:mcp-workload", true, ok, true},
-		{"other SA name", "system:serviceaccount:mcp-servers:default", true, ok, false},
-		{"not authenticated", "system:serviceaccount:mcp-servers:mcp-workload", false, ok, false},
-		{"wrong audience", "system:serviceaccount:mcp-servers:mcp-workload", true, []string{"api"}, false},
+		{"workload SA in any namespace", "system:serviceaccount:mcp-servers-org:mcp-workload", true, ok, true},
+		{"other SA name", "system:serviceaccount:mcp-servers-org:default", true, ok, false},
+		{"not authenticated", "system:serviceaccount:mcp-servers-org:mcp-workload", false, ok, false},
+		{"wrong audience", "system:serviceaccount:mcp-servers-org:mcp-workload", true, []string{"api"}, false},
 		{"human user", "alice", true, ok, false},
 		{"malformed", "system:serviceaccount:mcp-workload", true, ok, false},
 	}

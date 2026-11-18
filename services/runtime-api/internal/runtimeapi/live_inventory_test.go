@@ -111,7 +111,7 @@ func TestMCPLiveInventoryProberFetchesLists(t *testing.T) {
 		},
 	}
 	got, err := prober.probe(context.Background(), controlplane.ServerInfo{
-		Name: "demo", Namespace: "mcp-servers",
+		Name: "demo", Namespace: "mcp-servers-org",
 	})
 	if err != nil {
 		t.Fatalf("probe: %v", err)
@@ -144,7 +144,7 @@ func TestRuntimeServersReturnsLiveInventoryAfterAsyncProbe(t *testing.T) {
 	srv := &mcpv1alpha1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "demo-one",
-			Namespace:  "mcp-servers",
+			Namespace:  "mcp-servers-org",
 			UID:        "server-uid-1",
 			Generation: 7,
 		},
@@ -259,7 +259,7 @@ func TestRuntimeServerGetReturnsSingleServerShape(t *testing.T) {
 		t.Fatalf("AddToScheme: %v", err)
 	}
 	srv := &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers-org"},
 		Spec:       mcpv1alpha1.MCPServerSpec{Image: "demo:latest", ServicePort: 80},
 		// Gateway defaults on; control-plane Status stays non-Ready until the
 		// operator phase is Ready (mTLS IngressRoute/Secrets included).
@@ -267,7 +267,7 @@ func TestRuntimeServerGetReturnsSingleServerShape(t *testing.T) {
 	}
 	replicas := int32(2)
 	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "demo-one", Namespace: "mcp-servers-org"},
 		Spec:       appsv1.DeploymentSpec{Replicas: &replicas},
 		Status:     appsv1.DeploymentStatus{ReadyReplicas: 2},
 	}
@@ -280,7 +280,7 @@ func TestRuntimeServerGetReturnsSingleServerShape(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/runtime/servers/mcp-servers/demo-one", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/runtime/servers/mcp-servers-org/demo-one", nil)
 	request = request.WithContext(withPrincipal(request.Context(), principal{Role: roleAdmin, Subject: "admin-1"}))
 	server.HandleRuntimeServerItem(recorder, request)
 	if recorder.Code != http.StatusOK {
@@ -292,7 +292,7 @@ func TestRuntimeServerGetReturnsSingleServerShape(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.Server.Name != "demo-one" || payload.Server.Namespace != "mcp-servers" {
+	if payload.Server.Name != "demo-one" || payload.Server.Namespace != "mcp-servers-org" {
 		t.Fatalf("server = %#v", payload.Server)
 	}
 	if payload.Server.Ready != "2/2" || payload.Server.Status != "Ready" {
@@ -323,14 +323,14 @@ func TestMCPLiveInventoryProberEndpointFallsBackForLocalhostEndpoint(t *testing.
 	prober := &mcpLiveInventoryProber{}
 	got, err := prober.endpoint(controlplane.ServerInfo{
 		Name:        "demo",
-		Namespace:   "mcp-servers",
+		Namespace:   "mcp-servers-org",
 		Endpoint:    "http://localhost:18080/demo/mcp",
 		ServicePort: 8080,
 	})
 	if err != nil {
 		t.Fatalf("endpoint: %v", err)
 	}
-	if got != "http://demo.mcp-servers.svc.cluster.local:8080/demo/mcp" {
+	if got != "http://demo.mcp-servers-org.svc.cluster.local:8080/demo/mcp" {
 		t.Fatalf("endpoint = %q, want service fallback", got)
 	}
 }
@@ -338,7 +338,7 @@ func TestMCPLiveInventoryProberEndpointFallsBackForLocalhostEndpoint(t *testing.
 func TestLiveInventoryCacheInvalidatesOnGenerationBump(t *testing.T) {
 	prober := &countingLiveInventoryProber{}
 	cache := newLiveInventoryCache(time.Minute, prober)
-	info := controlplane.ServerInfo{Name: "demo", Namespace: "mcp-servers", UID: "uid-1", Generation: 1}
+	info := controlplane.ServerInfo{Name: "demo", Namespace: "mcp-servers-org", UID: "uid-1", Generation: 1}
 	if inv, reason := cache.getOrStart(context.Background(), info); inv != nil || reason != "live inventory pending" {
 		t.Fatalf("first get = (%#v, %q), want pending miss", inv, reason)
 	}
@@ -359,7 +359,7 @@ func TestLiveInventoryCacheInvalidatesOnGenerationBump(t *testing.T) {
 func TestLiveInventoryCacheInvalidatesOnUIDChange(t *testing.T) {
 	prober := &countingLiveInventoryProber{}
 	cache := newLiveInventoryCache(time.Minute, prober)
-	info := controlplane.ServerInfo{Name: "demo", Namespace: "mcp-servers", UID: "uid-1", Generation: 1}
+	info := controlplane.ServerInfo{Name: "demo", Namespace: "mcp-servers-org", UID: "uid-1", Generation: 1}
 	if inv, reason := cache.getOrStart(context.Background(), info); inv != nil || reason != "live inventory pending" {
 		t.Fatalf("first get = (%#v, %q), want pending miss", inv, reason)
 	}
@@ -383,7 +383,7 @@ func TestLiveInventoryCacheBoundsEntries(t *testing.T) {
 	cache.maxEntries = 2
 	for i := 0; i < 3; i++ {
 		suffix := string(rune('a' + i))
-		info := controlplane.ServerInfo{Name: "demo-" + suffix, Namespace: "mcp-servers", UID: "uid-" + suffix, Generation: 1}
+		info := controlplane.ServerInfo{Name: "demo-" + suffix, Namespace: "mcp-servers-org", UID: "uid-" + suffix, Generation: 1}
 		if inv, reason := cache.getOrStart(context.Background(), info); inv != nil || reason != "live inventory pending" {
 			t.Fatalf("get %d = (%#v, %q), want pending miss", i, inv, reason)
 		}
@@ -452,7 +452,7 @@ func TestMCPLiveInventoryProberSkipsUnsupportedCapabilities(t *testing.T) {
 			return fakeMCP.URL
 		},
 	}
-	got, err := prober.probe(context.Background(), controlplane.ServerInfo{Name: "demo", Namespace: "mcp-servers"})
+	got, err := prober.probe(context.Background(), controlplane.ServerInfo{Name: "demo", Namespace: "mcp-servers-org"})
 	if err != nil {
 		t.Fatalf("probe: %v", err)
 	}
@@ -501,7 +501,7 @@ func requestRuntimeServers(t *testing.T, server *RuntimeServer) struct {
 } {
 	t.Helper()
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/runtime/servers?namespace=mcp-servers", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/runtime/servers?namespace=mcp-servers-org", nil)
 	request = request.WithContext(withPrincipal(request.Context(), principal{Role: roleAdmin, Subject: "admin-1"}))
 	server.HandleRuntimeServers(recorder, request)
 	if recorder.Code != http.StatusOK {

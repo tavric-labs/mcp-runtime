@@ -135,11 +135,7 @@ func configureProvisionedRegistryEnvWithClientGo(ext *config.ExternalRegistryCon
 		}
 		platformMode := os.Getenv("MCP_PLATFORM_MODE")
 		for _, catalogNamespace := range setupplan.CatalogNamespacesForPlatformMode(platformMode) {
-			scope := setupplan.PlatformModeOrg
-			if catalogNamespace == setupplan.DefaultPublicCatalogNamespace {
-				scope = setupplan.PlatformModePublic
-			}
-			if err := ensureNamespaceWithLabels(catalogNamespace, catalogNamespaceLabels(scope)); err != nil {
+			if err := ensureNamespaceWithLabels(catalogNamespace, catalogNamespaceLabels(setupplan.PlatformModeOrg)); err != nil {
 				return err
 			}
 			if err := ensureImagePullSecretWithClientGo(catalogNamespace, secretName, ext.URL, ext.Username, ext.Password); err != nil {
@@ -183,11 +179,7 @@ func configureProvisionedRegistryEnvWithKubectl(kubectl core.KubectlRunner, ext 
 		}
 		platformMode := os.Getenv("MCP_PLATFORM_MODE")
 		for _, catalogNamespace := range setupplan.CatalogNamespacesForPlatformMode(platformMode) {
-			scope := setupplan.PlatformModeOrg
-			if catalogNamespace == setupplan.DefaultPublicCatalogNamespace {
-				scope = setupplan.PlatformModePublic
-			}
-			if err := kube.EnsureNamespaceWithLabels(kubectl.CommandArgs, catalogNamespace, catalogNamespaceLabels(scope)); err != nil {
+			if err := kube.EnsureNamespaceWithLabels(kubectl.CommandArgs, catalogNamespace, catalogNamespaceLabels(setupplan.PlatformModeOrg)); err != nil {
 				return err
 			}
 			// Create imagePullSecret in the active catalog namespace for pod image pulls.

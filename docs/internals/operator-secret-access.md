@@ -7,19 +7,25 @@ namespaces. Secret reads bypass the controller-runtime cache; no Secret list or
 watch permission is needed. Keep the scoped role separate from generated RBAC.
 
 Supported setup backfills existing server namespaces and platform-managed empty
-namespaces before removing the old cluster-wide Secret rule. Runtime API
-provisioning grants access for new managed namespaces. Infrastructure namespaces,
-including the platform, observability, and collector namespaces, cannot receive
-this tenant binding. The direct installation bundle creates the default
-`mcp-servers` namespace and its binding; administrators installing tenant
-manifests directly must arrange the corresponding namespace-local binding.
+namespaces (the catalog namespaces and team namespaces carry the
+`platform.mcpruntime.org/managed=true` label) before removing the old
+cluster-wide Secret rule. Runtime API provisioning grants access for new managed
+namespaces. Infrastructure namespaces, including the platform, observability, and
+collector namespaces, cannot receive this tenant binding. There is no base
+server namespace and no static binding in the direct installation bundle:
+administrators installing tenant manifests directly must arrange the
+namespace-local binding for each server namespace themselves.
 
 If `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE` is configured, setup preserves or
 pre-creates `mcp-adapter-client-ca` there. This contains public trust material.
 The operator gets named get/update/patch through a separate Role and RoleBinding.
 The installer creates the object because Kubernetes cannot restrict Secret
 create by `resourceNames`. Cert-manager, operator and Kubernetes system
-namespaces cannot be configured for this trust bundle. Direct customized
+namespaces cannot be configured for this trust bundle. Use `mcp-platform`: it is
+already watched by Traefik (the `traefik-watch` Role grants Secret read there),
+it hosts the other platform TLS material, and it is never a tenant namespace.
+Do not put the bundle in a workload namespace: that would make platform trust
+material depend on tenant namespace lifecycle. Direct customized
 installations must pre-provision the bundle and equivalent named RoleBinding;
 removing the Secret requires rerunning setup before reconciliation can restore it.
 

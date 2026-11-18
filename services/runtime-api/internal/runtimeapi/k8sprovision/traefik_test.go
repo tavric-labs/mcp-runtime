@@ -23,14 +23,14 @@ func TestEnsureTraefikWatchRBACUsesNamespaceRole(t *testing.T) {
 		ServiceAccount: "traefik",
 	}
 	existingRole := &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{Name: TraefikWatchRoleName, Namespace: "mcp-servers-public"},
+		ObjectMeta: metav1.ObjectMeta{Name: TraefikWatchRoleName, Namespace: "mcp-servers-org"},
 		Rules: []rbacv1.PolicyRule{
 			{APIGroups: []string{""}, Resources: []string{"services", "endpoints"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"networking.k8s.io"}, Resources: []string{"ingresses"}, Verbs: []string{"get", "list", "watch"}},
 		},
 	}
 	existingBinding := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: TraefikWatchRoleName, Namespace: "mcp-servers-public"},
+		ObjectMeta: metav1.ObjectMeta{Name: TraefikWatchRoleName, Namespace: "mcp-servers-org"},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
@@ -42,17 +42,17 @@ func TestEnsureTraefikWatchRBACUsesNamespaceRole(t *testing.T) {
 	}
 	client := kubernetesfake.NewSimpleClientset(existingRole, existingBinding)
 
-	if err := ensureTraefikWatchRBAC(context.Background(), client, "mcp-servers-public", cfg); err != nil {
+	if err := ensureTraefikWatchRBAC(context.Background(), client, "mcp-servers-org", cfg); err != nil {
 		t.Fatalf("ensureTraefikWatchRBAC() error = %v", err)
 	}
-	binding, err := client.RbacV1().RoleBindings("mcp-servers-public").Get(context.Background(), TraefikWatchRoleName, metav1.GetOptions{})
+	binding, err := client.RbacV1().RoleBindings("mcp-servers-org").Get(context.Background(), TraefikWatchRoleName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("traefik watch rolebinding missing: %v", err)
 	}
 	if binding.RoleRef.Kind != "Role" || binding.RoleRef.Name != TraefikWatchRoleName {
 		t.Fatalf("traefik watch binding role ref = %#v, want Role/%s", binding.RoleRef, TraefikWatchRoleName)
 	}
-	role, err := client.RbacV1().Roles("mcp-servers-public").Get(context.Background(), TraefikWatchRoleName, metav1.GetOptions{})
+	role, err := client.RbacV1().Roles("mcp-servers-org").Get(context.Background(), TraefikWatchRoleName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("traefik watch role missing: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestEnsureTraefikDeploymentWatchesNamespaceRetriesConflict(t *testing.T) {
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "registry"}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-platform"}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-observability"}},
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers-org"}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-team-beta"}},
 		&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{Name: "traefik", Namespace: "traefik"},
@@ -105,7 +105,7 @@ func TestEnsureTraefikDeploymentWatchesNamespaceRetriesConflict(t *testing.T) {
 							Name: "traefik",
 							Args: []string{
 								"--providers.kubernetesingress=true",
-								"--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers",
+								"--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers-org",
 							},
 						}},
 					},
@@ -142,14 +142,14 @@ func TestEnsureTraefikDeploymentWatchesNamespaceRetriesConflict(t *testing.T) {
 		t.Fatalf("traefik deployment missing: %v", err)
 	}
 	args := strings.Join(deployment.Spec.Template.Spec.Containers[0].Args, "\n")
-	if !strings.Contains(args, "--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers,mcp-team-beta") {
+	if !strings.Contains(args, "--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-servers-org,mcp-team-beta") {
 		t.Fatalf("traefik namespace args = %q", args)
 	}
 }
 
 func TestRemoveTraefikDeploymentWatchesNamespace(t *testing.T) {
 	client := kubernetesfake.NewSimpleClientset(
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers-org"}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-team-beta"}},
 		&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{Name: "traefik", Namespace: "traefik"},
@@ -159,8 +159,8 @@ func TestRemoveTraefikDeploymentWatchesNamespace(t *testing.T) {
 						Containers: []corev1.Container{{
 							Name: "traefik",
 							Args: []string{
-								"--providers.kubernetesingress.namespaces=registry,mcp-servers,mcp-team-beta",
-								"--providers.kubernetescrd.namespaces=mcp-servers,mcp-team-beta",
+								"--providers.kubernetesingress.namespaces=registry,mcp-servers-org,mcp-team-beta",
+								"--providers.kubernetescrd.namespaces=mcp-servers-org,mcp-team-beta",
 							},
 						}},
 					},
@@ -180,17 +180,17 @@ func TestRemoveTraefikDeploymentWatchesNamespace(t *testing.T) {
 	if strings.Contains(args, "mcp-team-beta") {
 		t.Fatalf("expected team namespace removed, got %q", args)
 	}
-	if !strings.Contains(args, "--providers.kubernetesingress.namespaces=registry,mcp-servers") {
+	if !strings.Contains(args, "--providers.kubernetesingress.namespaces=registry,mcp-servers-org") {
 		t.Fatalf("ingress watch = %q", args)
 	}
-	if !strings.Contains(args, "--providers.kubernetescrd.namespaces=mcp-servers") {
+	if !strings.Contains(args, "--providers.kubernetescrd.namespaces=mcp-servers-org") {
 		t.Fatalf("crd watch = %q", args)
 	}
 }
 
 func TestEnsureTraefikDeploymentWatchesNamespacePrunesMissing(t *testing.T) {
 	client := kubernetesfake.NewSimpleClientset(
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-servers-org"}},
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-team-live"}},
 		&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{Name: "traefik", Namespace: "traefik"},
@@ -200,8 +200,8 @@ func TestEnsureTraefikDeploymentWatchesNamespacePrunesMissing(t *testing.T) {
 						Containers: []corev1.Container{{
 							Name: "traefik",
 							Args: []string{
-								"--providers.kubernetesingress.namespaces=mcp-servers,mcp-team-gone,mcp-team-live",
-								"--providers.kubernetescrd.namespaces=mcp-servers,mcp-team-gone,mcp-team-live",
+								"--providers.kubernetesingress.namespaces=mcp-servers-org,mcp-team-gone,mcp-team-live",
+								"--providers.kubernetescrd.namespaces=mcp-servers-org,mcp-team-gone,mcp-team-live",
 							},
 						}},
 					},
@@ -225,7 +225,7 @@ func TestEnsureTraefikDeploymentWatchesNamespacePrunesMissing(t *testing.T) {
 	if strings.Contains(args, "mcp-team-gone") {
 		t.Fatalf("expected missing namespace pruned, got %q", args)
 	}
-	if !strings.Contains(args, "mcp-team-live") || !strings.Contains(args, "mcp-servers") {
+	if !strings.Contains(args, "mcp-team-live") || !strings.Contains(args, "mcp-servers-org") {
 		t.Fatalf("expected live namespaces kept, got %q", args)
 	}
 }

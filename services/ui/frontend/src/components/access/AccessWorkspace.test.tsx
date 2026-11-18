@@ -32,7 +32,7 @@ const GRANTS = {
   grants: [
     {
       name: "acme-readonly",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       serverRef: { name: "workspace-assistant" },
       subject: { humanID: "alice@example.com", teamID: "acme" },
       maxTrust: "low",
@@ -41,7 +41,7 @@ const GRANTS = {
     },
     {
       name: "acme-retired",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       serverRef: { name: "workspace-assistant" },
       subject: { humanID: "bob@example.com" },
       maxTrust: "high",
@@ -55,7 +55,7 @@ const SESSIONS = {
   sessions: [
     {
       name: "sess-1",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       serverRef: { name: "workspace-assistant" },
       subject: { humanID: "alice@example.com", agentID: "agent-7" },
       consentedTrust: "low",
@@ -69,10 +69,10 @@ const EVENTS = {
   events: [
     {
       timestamp: new Date().toISOString(),
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       tool_name: "add",
       decision: "allow",
-      payload: { matched_grant: "acme-readonly", matched_grant_namespace: "mcp-servers" },
+      payload: { matched_grant: "acme-readonly", matched_grant_namespace: "mcp-servers-org" },
     },
   ],
 };
@@ -293,7 +293,7 @@ describe("AccessWorkspace mutations", () => {
     await user.click(screen.getByTestId("access-confirm-yes"));
     await waitFor(() => {
       const write = fetchMock.mock.calls.find((call) => (call[1] as RequestInit)?.method === "PATCH");
-      expect(write?.[0]).toContain("/runtime/grants/mcp-servers/acme-readonly");
+      expect(write?.[0]).toContain("/runtime/grants/mcp-servers-org/acme-readonly");
       expect(JSON.parse((write?.[1] as RequestInit).body as string)).toEqual({ mode: "monitor" });
     });
   });
@@ -360,7 +360,7 @@ describe("AccessWorkspace drill-down", () => {
     const detail = await screen.findByTestId("access-detail");
     expect(detail).toHaveTextContent("acme-readonly");
     expect(screen.getByTestId("access-detail-kicker")).toHaveTextContent(
-      "mcp-servers / MCPAccessGrant"
+      "mcp-servers-org / MCPAccessGrant"
     );
 
     await user.click(screen.getByTestId("access-detail-back"));
@@ -377,7 +377,7 @@ describe("AccessWorkspace drill-down", () => {
     await user.click(screen.getAllByTestId("session-drilldown")[0]);
 
     expect(await screen.findByTestId("access-detail-kicker")).toHaveTextContent(
-      "mcp-servers / MCPAgentSession"
+      "mcp-servers-org / MCPAgentSession"
     );
   });
 

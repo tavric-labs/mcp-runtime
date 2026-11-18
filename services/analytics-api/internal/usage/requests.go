@@ -48,9 +48,9 @@ func validateUsageFilters(r *http.Request) error {
 		}
 	}
 	switch q.Get("scope") {
-	case "", "public", "org", "tenant":
+	case "", "org", "tenant":
 	default:
-		return fmt.Errorf("scope must be public, org, or tenant")
+		return fmt.Errorf("scope must be org or tenant")
 	}
 	switch q.Get("http_status") {
 	case "", "2xx", "4xx", "5xx":
@@ -63,9 +63,6 @@ func validateUsageFilters(r *http.Request) error {
 func catalogScopeNamespaces(scope topology.Scope) []string {
 	names := topology.ModePublic.CatalogNamespacesForScope(scope)
 	names = append(names, topology.ModeFromEnv().CatalogNamespacesForScope(scope)...)
-	if scope == topology.ScopePublic {
-		names = append(names, topology.DefaultPublicCatalogNamespace)
-	}
 	if scope == topology.ScopeOrg {
 		names = append(names, topology.DefaultOrgCatalogNamespace)
 	}
@@ -97,12 +94,12 @@ func appendRequestFilters(scope QueryScope, conditions []string, args []any) ([]
 		}
 	}
 	switch scope.Scope {
-	case "public", "org":
+	case "org":
 		names := catalogScopeNamespaces(topology.Scope(scope.Scope))
 		conditions = append(conditions, "namespace IN "+sqlPlaceholders(len(names)))
 		args = appendStringArgs(args, names)
 	case "tenant":
-		names := dedupeStrings(append(catalogScopeNamespaces(topology.ScopePublic), catalogScopeNamespaces(topology.ScopeOrg)...))
+		names := dedupeStrings(catalogScopeNamespaces(topology.ScopeOrg))
 		conditions = append(conditions, "namespace NOT IN "+sqlPlaceholders(len(names)), "(team_id != '' OR startsWith(namespace, 'mcp-team-'))")
 		args = appendStringArgs(args, names)
 	}

@@ -10,7 +10,7 @@ set -euo pipefail
 
 TEST_KUBECONFIG="${TEST_KUBECONFIG:-${KUBECONFIG:-$HOME/.kube/test-mcp-runtime-config}}"
 export KUBECONFIG="$TEST_KUBECONFIG"
-NAMESPACES="${NAMESPACES:-mcp-runtime,mcp-platform,mcp-observability,mcp-log-collector,mcp-servers,registry,traefik}"
+NAMESPACES="${NAMESPACES:-mcp-runtime,mcp-platform,mcp-observability,mcp-log-collector,mcp-servers-org,registry,traefik}"
 
 pass=0
 fail=0
@@ -46,7 +46,7 @@ for ns in "${NS_LIST[@]}"; do
 
   # NetworkPolicy presence for tenant/workload namespaces
   case "$ns" in
-    mcp-platform|mcp-observability|mcp-log-collector|mcp-servers|registry)
+    mcp-platform|mcp-observability|mcp-log-collector|mcp-servers-org|registry)
       np_count="$(kubectl -n "$ns" get networkpolicy -o json 2>/dev/null | jq '.items | length')"
       if [[ "$np_count" -gt 0 ]]; then
         ok "${ns} has ${np_count} NetworkPolicy object(s)"

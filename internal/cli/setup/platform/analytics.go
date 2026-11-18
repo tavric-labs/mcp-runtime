@@ -776,12 +776,8 @@ func initializeKafkaTopicsWithKubectl(kubectl core.KubectlRunner, images Analyti
 
 func applyCatalogNamespaceForMode(platformMode string) error {
 	for _, namespace := range setupplan.CatalogNamespacesForPlatformMode(platformMode) {
-		scope := setupplan.PlatformModeOrg
-		if namespace == setupplan.DefaultPublicCatalogNamespace {
-			scope = setupplan.PlatformModePublic
-		}
 		core.Info(fmt.Sprintf("Applying platform catalog namespace %s", namespace))
-		if err := ensureNamespaceWithLabels(namespace, catalogNamespaceLabels(scope)); err != nil {
+		if err := ensureNamespaceWithLabels(namespace, catalogNamespaceLabels(setupplan.PlatformModeOrg)); err != nil {
 			return err
 		}
 	}

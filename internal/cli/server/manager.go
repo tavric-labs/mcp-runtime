@@ -346,7 +346,7 @@ func (m *ServerManager) ListServers(namespace, team string) error {
 		return nil
 	}
 	if namespace == "" {
-		namespace = core.NamespaceMCPServers
+		namespace = core.DefaultServerNamespace
 	}
 	namespace, err = validateManifestValue("namespace", namespace)
 	if err != nil {
@@ -644,7 +644,7 @@ func (m *ServerManager) DeployServer(name, namespace, team, scope, image, imageT
 			scope = string(selectedMetadata.Scope)
 		}
 		if namespace == "" && team == "" && (scope == "" || scope == string(topology.ScopeTenant)) {
-			if !(scope == string(topology.ScopeTenant) && strings.TrimSpace(selectedMetadata.Namespace) == core.NamespaceMCPServers) {
+			if !(scope == string(topology.ScopeTenant) && strings.TrimSpace(selectedMetadata.Namespace) == core.DefaultServerNamespace) {
 				namespace = selectedMetadata.Namespace
 			}
 		}
@@ -662,10 +662,10 @@ func (m *ServerManager) DeployServer(name, namespace, team, scope, image, imageT
 		return core.NewWithBase(nil, "use either --namespace or --team, not both")
 	}
 	if scope != "" && namespace != "" && scope != string(topology.ScopeTenant) {
-		return core.NewWithBase(nil, "--scope public/org resolves the platform catalog namespace; use --scope tenant when passing --namespace")
+		return core.NewWithBase(nil, "--scope org resolves the platform catalog namespace; use --scope tenant when passing --namespace")
 	}
 	if scope != "" && team != "" && scope != string(topology.ScopeTenant) {
-		return core.NewWithBase(nil, "--scope public/org cannot be combined with --team")
+		return core.NewWithBase(nil, "--scope org cannot be combined with --team")
 	}
 	plat, err := platformapi.NewPlatformClient()
 	if err != nil {
