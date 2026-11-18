@@ -7,6 +7,14 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Added
+
+- The development auditor (`hack/prod-audit/cmd/postdeploy`) verifies a deployed release through the dedicated prod-audit MCP, including image pins, rollout completion, auth metadata, governed tool results, temporary writes, policy denial, session revocation and cleanup. The fixture checker exercises the same bounded MCP locally or through an adapter. The fixture, shared Go checks and audit skill ship in this repository.
+
+### Changed
+
+- Hosted post-deployment acceptance reuses the Runtime auditor from the immutable workflow revision and uploads its JSON report. It no longer publishes disposable production MCP servers or fetches duplicate verification logic from a moving `main`. LinkedIn and Cully remain real services; only prod-audit receives synthetic MCP calls. Isolated Kind/staging retain publishing coverage. Write tests require the CLI's explicit session-trust support.
+
 ### Fixed
 
 - Generated per-server gateway and ingress-client TLS Secrets now carry a non-controller owner reference to their MCPServer, so retirement removes their private keys even when cert-manager retains Secrets after Certificate deletion. The operator repairs ownership on existing issued credentials during reconciliation without reissuing certificates or changing certificate data; user-provided and differently owned credentials are preserved. Already orphaned credentials still require an explicit ownership-verified cleanup.

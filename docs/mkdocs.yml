@@ -118,6 +118,7 @@ nav:
           - Staging End-to-End Tests: contributor/staging-e2e.md
           - Bundled MCP Auth Pin: contributor/mcp-auth-pin.md
           - Release Gate: contributor/release-gate.md
+          - Production Audit Fixture: prod-audit.md
           - Regression Coverage: contributor/regression-index.md
   - Implementation Details:
       - Overview: internals/README.md
