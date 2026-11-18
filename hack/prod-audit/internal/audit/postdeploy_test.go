@@ -100,3 +100,39 @@ func TestReleaseInventoryRequiresAllPinnedImages(t *testing.T) {
 		t.Fatal("wrong release manifest passed")
 	}
 }
+
+func TestPostDeployCommandDoesNotInterpretShellInput(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "audit cli; literal")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '%s' \"$1\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(dir, "must-not-exist")
+	argument := "$(touch " + marker + "); echo injected"
+	r := &postRunner{env: os.Environ()}
+	raw, err := r.command(context.Background(), script, argument)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != argument {
+		t.Fatalf("argument was interpreted: %q", raw)
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("shell input created a file: %v", err)
+	}
+}
+
+func TestPostDeployCommandFailureRedactsChildOutput(t *testing.T) {
+	script := filepath.Join(t.TempDir(), "audit-cli")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\necho synthetic-sensitive-output\necho synthetic-sensitive-error >&2\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	r := &postRunner{env: os.Environ()}
+	raw, err := r.command(context.Background(), script)
+	if err == nil || raw != nil {
+		t.Fatalf("expected a redacted command failure, got output %q and error %v", raw, err)
+	}
+	if strings.Contains(err.Error(), "synthetic-sensitive") {
+		t.Fatal("command failure exposed child output")
+	}
+}

@@ -87,6 +87,7 @@ func (r *postRunner) record(name string, fn func() error) error {
 }
 
 func (r *postRunner) command(ctx context.Context, program string, args ...string) ([]byte, error) {
+	// #nosec G204 -- internal callers select kubectl or the operator-configured CLI; structured arguments never pass through a shell.
 	command := exec.CommandContext(ctx, program, args...)
 	command.Env = r.env
 	var stderr bytes.Buffer

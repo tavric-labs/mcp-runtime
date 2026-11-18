@@ -39,7 +39,7 @@ func checkProductionInventory(raw []byte, manifestPath, tag, registry, authVersi
 			return fmt.Errorf("%s: %w", ns, err)
 		}
 	}
-	data, err := os.ReadFile(manifestPath)
+	data, err := os.ReadFile(manifestPath) // #nosec G304 -- local manifest path is explicitly supplied by the operator, never an MCP argument or response.
 	if err != nil {
 		return fmt.Errorf("release manifest unavailable")
 	}

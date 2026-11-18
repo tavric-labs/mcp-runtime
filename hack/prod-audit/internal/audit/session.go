@@ -120,6 +120,7 @@ func (r *postRunner) exercise(ctx context.Context, dir string) (err error) {
 	_ = listener.Close()
 	proxyCtx, cancel := context.WithCancel(ctx)
 	stopProxy = cancel
+	// #nosec G204 -- executable is the operator-configured CLI; fixed adapter flags and structured arguments never pass through a shell.
 	proxy := exec.CommandContext(proxyCtx, r.cfg.RuntimeCLI, "adapter", "proxy", "--server", "prod-audit", "--namespace", "mcp-servers-org", "--agent", agent, "--requested-trust", "high", "--runtime-url", r.cfg.PublicMCP, "--platform-url", r.cfg.PlatformURL, "--listen", address)
 	proxy.Env = r.env
 	proxy.Stdout = &proxyLog
