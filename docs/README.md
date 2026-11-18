@@ -51,6 +51,7 @@ a successful governed tool call also requires valid caller identity and policy.
 OAuth setup and identity-provider configuration: [MCP authorization](mcp-oauth.md).
 Operational details for MCP implementers: [MCP implementation
 reference](mcp-implementation/README.md).
+Hosted release acceptance: [Production audit fixture](prod-audit.md).
 
 ## How it works
 
