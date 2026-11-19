@@ -38,7 +38,7 @@ call, and audit after updating. Production deployment remains a separate operati
 
 ### Fixed
 
-- Staging E2E now derives its content-hash image-cache namespace from the workflow repository owner, matching Kind after the organization move. Manual runs default to `tavric-labs`, while explicit cache-prefix overrides and cache disablement remain supported. This repairs false cache misses against the former organization; cold builds still require module-source access from the disposable VM.
+- Staging E2E now derives its content-hash image-cache namespace from the workflow repository owner, matching Kind after the organization move. Manual runs default to `tavric-labs`, while explicit cache-prefix overrides and cache disablement remain supported. This repairs false cache misses against the former organization; cold builds still require module-source access from the disposable VM. ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954))
 - `adapter enroll` and enrolling `adapter proxy` commands forward explicit
   `--requested-trust low|medium|high` consent, including the environment default
   and renewal. Sessions retain a low default and platform-enforced grant ceilings
