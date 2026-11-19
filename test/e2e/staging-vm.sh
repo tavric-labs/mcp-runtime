@@ -126,7 +126,7 @@ export MCP_TLS_BACKUP_DIR="${BACKUP_DIR}/platform-runtime"
 # has no GHCR write credential, so publishing remains the QA runner's job.
 export E2E_IMAGE_CACHE="${E2E_IMAGE_CACHE:-1}"
 export E2E_GHCR_PUSH="${E2E_GHCR_PUSH:-0}"
-export E2E_IMAGE_CACHE_REGISTRY="${E2E_IMAGE_CACHE_REGISTRY:-ghcr.io/mcp-runtime/mcp-runtime}"
+export E2E_IMAGE_CACHE_REGISTRY="${E2E_IMAGE_CACHE_REGISTRY:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-tavric-labs}/mcp-runtime}"
 export BIN PLATFORM_URL MCP_URL REGISTRY_HOST AUTH_URL WORK_DIR RUN_ID ROOT_DIR
 
 # kubelet resolves names through the node's resolver, not CoreDNS, so it cannot

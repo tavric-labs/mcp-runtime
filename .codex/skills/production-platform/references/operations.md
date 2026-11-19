@@ -322,7 +322,11 @@ uploads `summary.md`, `summary.json`, `stages/NN-<stage>.log`, and
 The runner enables the content-hash GHCR image cache for setup, receives the
 workflow's package-read token over SSH stdin after the target guard, and
 removes its temporary Docker config during cleanup. A cache miss builds locally without publishing from
-Staging. Use `E2E_IMAGE_CACHE=0` when testing a full image rebuild.
+Staging. The workflow forwards `GITHUB_REPOSITORY_OWNER` so staging reads the
+same `ghcr.io/<owner>/mcp-runtime` cache as Kind; manual VM runs default to
+`tavric-labs`, and an explicit `E2E_IMAGE_CACHE_REGISTRY` is preserved.
+Use `E2E_IMAGE_CACHE=0` when testing a full image rebuild; it requires working
+module-source access from the VM.
 
 Safety rules:
 

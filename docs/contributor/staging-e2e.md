@@ -85,7 +85,12 @@ The runner authenticates to GHCR with the workflow's short-lived
 package-read token and reuses content-hash platform images when available.
 The workflow passes that token over SSH stdin after the disposable-target
 guard, and the runner removes its temporary Docker credentials during cleanup. Cache misses
-build locally; Staging does not publish to GHCR. Pull-request QA E2E does not
+build locally; Staging does not publish to GHCR. The workflow passes its
+repository owner to the VM so staging and Kind use the same
+`ghcr.io/<owner>/mcp-runtime` cache. Manual VM runs default to
+`ghcr.io/tavric-labs/mcp-runtime`; an explicit `E2E_IMAGE_CACHE_REGISTRY` stays
+authoritative. A cold build still requires access to Go module archives.
+Pull-request QA E2E does not
 use GHCR: it keeps one local `:latest` image per component on the VM and
 compares the next checkout to that image's content-hash label. Set
 `E2E_IMAGE_CACHE=0` for a Staging run that must rebuild every platform image.

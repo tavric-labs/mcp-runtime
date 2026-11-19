@@ -7,7 +7,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
-## [0.18.1] - 2026-11-18
+## [0.18.1] - 2026-11-19
 
 Patch release for explicit adapter session trust and retirement of issued server
 TLS credentials, with shared production-audit tooling and Go dependency updates.
@@ -38,6 +38,7 @@ call, and audit after updating. Production deployment remains a separate operati
 
 ### Fixed
 
+- Staging E2E now derives its content-hash image-cache namespace from the workflow repository owner, matching Kind after the organization move. Manual runs default to `tavric-labs`, while explicit cache-prefix overrides and cache disablement remain supported. This repairs false cache misses against the former organization; cold builds still require module-source access from the disposable VM.
 - `adapter enroll` and enrolling `adapter proxy` commands forward explicit
   `--requested-trust low|medium|high` consent, including the environment default
   and renewal. Sessions retain a low default and platform-enforced grant ceilings
