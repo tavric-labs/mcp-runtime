@@ -325,6 +325,14 @@ removes its temporary Docker config during cleanup. A cache miss builds locally 
 Staging. The workflow forwards `GITHUB_REPOSITORY_OWNER` so staging reads the
 same `ghcr.io/<owner>/mcp-runtime` cache as Kind; manual VM runs default to
 `tavric-labs`, and an explicit `E2E_IMAGE_CACHE_REGISTRY` is preserved.
+After the target guard, Actions transfers the matching Linux toolchain and
+checksum-verified public module archive cache using `hack/ci/staging-go-deps.sh`.
+The VM checks bundle integrity, paths and toolchain identity, then uses it only
+in the run work directory; teardown removes it. This supports Go dependency
+resolution for image hashing despite VM module ZIP download failures. It does
+not supply dependencies inside a cold Docker build or skip acceptance checks.
+Pre-release staging waits for the required Kind matrix to publish its image
+caches, so toolchain updates have matching images available before VM setup.
 Use `E2E_IMAGE_CACHE=0` when testing a full image rebuild; it requires working
 module-source access from the VM.
 

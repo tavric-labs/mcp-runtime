@@ -12,6 +12,7 @@ those workflows rather than duplicating cluster management.
 | Offline verification | `ci/smoke-ci.sh` | Script regressions, shell syntax and unit tests; missing prerequisites fail |
 | Static analysis | `ci/staticcheck.sh ./...` | Pre-commit helper; pinned installation guidance |
 | Isolated Go tests | `ci/go-test.sh <module> [args...]` | Replaces inherited kubeconfig with an empty file; refuses hosts with a system k3s kubeconfig |
+| Staging Go inputs | `ci/staging-go-deps.sh pack <archive>` / `unpack <archive> <directory>` | Requires Python 3.9+, tar and the pinned Linux Go toolchain for packing. Downloads/checksums public modules on the runner; unpack validates integrity, member paths and the VM toolchain in a fresh run directory after the disposable-target guard. Covered by `hack/tests/staging_go_deps_test.py`; no cluster operations. |
 | Contributor security/performance | `qa/` | Traffic/load tests require Kind node identity; posture inventory is read-only |
 | Service authorization matrix | `qa/validate-authz-matrix.sh` | Explicit loopback service URLs and a real non-admin credential; Kind only |
 | OpenAPI contract review | `ci/oasdiff-openapi.sh <base-ref>` | Explicit previous revision; missing tools/specs fail; breaking releases remain allowed |

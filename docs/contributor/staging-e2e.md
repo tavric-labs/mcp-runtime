@@ -89,7 +89,26 @@ build locally; Staging does not publish to GHCR. The workflow passes its
 repository owner to the VM so staging and Kind use the same
 `ghcr.io/<owner>/mcp-runtime` cache. Manual VM runs default to
 `ghcr.io/tavric-labs/mcp-runtime`; an explicit `E2E_IMAGE_CACHE_REGISTRY` stays
-authoritative. A cold build still requires access to Go module archives.
+authoritative.
+
+After verifying the disposable target, Actions packages the matching Linux Go
+toolchain and public module download cache using
+`hack/ci/staging-go-deps.sh`. Every first-party module runs `go mod download`
+and `go mod verify` against the official proxy/checksum database on the runner.
+The archive omits machine configuration, credentials, extracted module sources
+and build caches. It is transferred over the existing pinned-host-key SSH
+connection, checked against its SHA-256 digest, and validated for unsafe archive
+members and toolchain version/architecture before use. The VM uses the bundle
+only in that run's work directory, records the cache/toolchain for later stages,
+and removes the inputs during teardown. Manual runs without
+`E2E_GO_DEPS_ARCHIVE` retain normal toolchain discovery and module access.
+This permits dependency-aware image hashing when the VM cannot download module
+ZIPs. A cache miss that builds an image inside Docker still requires module
+source access from that container; warm image caches remain useful and all
+image-hash and acceptance checks still apply.
+Pre-release Regression waits for its required Kind matrix to build and publish
+those content-hash images before starting staging, including after a Go
+toolchain change.
 Pull-request QA E2E does not
 use GHCR: it keeps one local `:latest` image per component on the VM and
 compares the next checkout to that image's content-hash label. Set

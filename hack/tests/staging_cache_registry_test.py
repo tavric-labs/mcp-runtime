@@ -55,6 +55,7 @@ class StagingCacheRegistry(unittest.TestCase):
             subprocess.run(['bash', '-c', fragment], env=env, text=True, capture_output=True, check=True, timeout=20)
             arguments = json.loads(log.read_text())
             self.assertIn("GITHUB_REPOSITORY_OWNER='fixture-fork'", arguments[-1])
+            self.assertIn("E2E_GO_DEPS_ARCHIVE='/tmp/mcp-runtime-e2e-go-deps.tgz'", arguments[-1])
             self.assertNotIn('synthetic-fixture-token', json.dumps(arguments))
 
 

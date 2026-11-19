@@ -247,14 +247,32 @@ install_go_toolchain() {
   rm -f "${WORK_DIR}/go.tar.gz"
 }
 
+stage_go_dependencies() {
+  # Manual runs retain their normal dependency/toolchain discovery. Actions
+  # supplies verified public inputs after its disposable-target guard.
+  [[ -n "${E2E_GO_DEPS_ARCHIVE:-}" ]] || return 0
+  local inputs="${WORK_DIR}/go-inputs"
+  bash "${ROOT_DIR}/hack/ci/staging-go-deps.sh" unpack "${E2E_GO_DEPS_ARCHIVE}" "${inputs}" || return 1
+  export GOMODCACHE="${inputs}/modules" GOTOOLCHAIN=local
+  PATH="${inputs}/toolchain/bin:${PATH}"
+  export PATH
+  staging_state_set GOMODCACHE "${GOMODCACHE}"
+  staging_state_set GOTOOLCHAIN "${GOTOOLCHAIN}"
+}
+
 # Ubuntu ships an old distro Go on PATH while a current toolchain often sits
 # unused under /usr/local/go. go.mod pins a far newer release, and Go only
 # learned to fetch toolchains on demand in 1.21, so the distro binary rejects
 # the go directive outright. Put the newest usable toolchain first on PATH,
 # installing one if needed, then build the CLI.
 stage_go_toolchain() {
+  stage_go_dependencies || return 1
   local candidate version rank best="" best_rank=0 best_version=""
-  for candidate in /usr/local/go/bin/go /usr/lib/go-*/bin/go "$(command -v go 2>/dev/null || true)"; do
+  local candidates=(/usr/local/go/bin/go /usr/lib/go-*/bin/go "$(command -v go 2>/dev/null || true)")
+  if [[ -n "${E2E_GO_DEPS_ARCHIVE:-}" ]]; then
+    candidates=("${WORK_DIR}/go-inputs/toolchain/bin/go")
+  fi
+  for candidate in "${candidates[@]}"; do
     [[ -n "${candidate}" && -x "${candidate}" ]] || continue
     version="$(GOTOOLCHAIN=local "${candidate}" env GOVERSION 2>/dev/null || true)"
     [[ -n "${version}" ]] || continue
@@ -504,6 +522,7 @@ teardown_vm() {
   staging_clean_k3s_leftovers || log "stale k3s shims or mounts remain after uninstall; see diagnostics/vm-resources.txt"
   rm -rf /etc/rancher /var/lib/rancher /var/lib/kubelet /var/lib/cni /etc/cni /run/k3s /run/flannel "${WORK_DIR}"
   rm -rf /var/tmp/mcp-runtime-e2e-* /tmp/mcp-runtime-e2e.tgz
+  rm -f /tmp/mcp-runtime-e2e-go-deps.tgz /tmp/mcp-runtime-e2e-go-deps.tgz.sha256
   rm -f "${ROOT_DIR}"/mcp-img-*.tar
   # Setup builds a service image per component and nothing reclaimed them, so
   # successive runs filled the disk until the kubelet evicted pods under

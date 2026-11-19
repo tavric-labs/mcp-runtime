@@ -350,7 +350,9 @@ jobs:
 
   staging-e2e:
     name: Staging (${{ matrix.mode }}, ${{ matrix.auth }})
-    needs: [static, root-tests, service-tests]
+    # The VM reuses content-hash images published by the required Kind matrix.
+    # Wait for those builds when a new toolchain changes every image hash.
+    needs: [static, root-tests, service-tests, full-kind]
     strategy:
       fail-fast: false
       # One disposable VM; never enqueue competing matrix jobs on its lock.

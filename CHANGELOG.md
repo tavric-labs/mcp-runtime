@@ -38,6 +38,8 @@ call, and audit after updating. Production deployment remains a separate operati
 
 ### Fixed
 
+- Staging E2E transfers the matching Linux Go toolchain and verified public module archives from its GitHub runner, allowing dependency-aware image-cache lookup when the disposable VM cannot download module ZIPs. The bundle is validated before use, scoped to the run and removed during teardown. Cold Docker builds still require module access; all release acceptance checks remain required ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
+
 - Staging E2E now derives its content-hash image-cache namespace from the workflow repository owner, matching Kind after the organization move. Manual runs default to `tavric-labs`, while explicit cache-prefix overrides and cache disablement remain supported. This repairs false cache misses against the former organization; cold builds still require module-source access from the disposable VM. ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954))
 - `adapter enroll` and enrolling `adapter proxy` commands forward explicit
   `--requested-trust low|medium|high` consent, including the environment default
