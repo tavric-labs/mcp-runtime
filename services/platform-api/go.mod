@@ -1,6 +1,6 @@
 module mcp-platform-api
 
-go 1.26.10
+go 1.27.4
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.24.0

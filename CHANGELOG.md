@@ -48,6 +48,10 @@ call, and audit after updating. Production deployment remains a separate operati
   preserves certificate material, cert-manager ownership, user-provided
   credentials and credentials belonging to another server ([#932](https://github.com/tavric-labs/mcp-runtime/pull/932)).
 
+### Security
+
+- Build the CLI, platform components, developer tooling and Go examples with Go 1.27.4. This fixes CVE-2026-97054 (GO-2026-6859), a `net/http` race that can panic an HTTP/1 server using request-body limits with concurrent response-header writes. Module declarations, builder images, embedded plugin modules and CI tool builds use the same Go baseline. Deploy the rebuilt release images and CLI through the normal update path; no fresh setup or data reset is required. ([Go advisory](https://pkg.go.dev/vuln/GO-2026-6859), [#954](https://github.com/tavric-labs/mcp-runtime/pull/954))
+
 ## [0.18.0] - 2026-11-12
 
 Breaking `0.x` release: the `public` publish scope and the `mcp-servers-public`

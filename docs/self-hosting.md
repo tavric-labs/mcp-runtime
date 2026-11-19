@@ -144,7 +144,7 @@ Browse all binaries on the
 If macOS or Linux cannot find `mcp-runtime`, add `~/.local/bin` to your shell's
 `PATH`, for example with `export PATH="$HOME/.local/bin:$PATH"`.
 
-**Option B: build from source** (requires Go 1.26+):
+**Option B: build from source** (requires Go 1.27.4, matching `go.mod`):
 
 ```bash
 make deps
