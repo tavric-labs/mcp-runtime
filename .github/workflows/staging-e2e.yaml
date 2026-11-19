@@ -1,132 +1,33 @@
 name: Staging E2E (Disposable VM)
+run-name: Read-only staging module network diagnostics
 
-# Drives the full production install path (strict-prod setup, public TLS,
-# bundled HTTPS registry, platform API/UI, tenants) on the DISPOSABLE E2E VM.
-# test/e2e/staging-target.sh refuses to continue unless the target is provably
-# that VM; it never targets the live production cluster.
-
+# Temporary diagnostic branch only. Do not merge this workflow replacement.
 on:
-  # The disposable-VM customer journey is a pre-release gate, not a per-merge
-  # check: Pre-release Regression calls this workflow, and it can be run by
-  # hand. Pull requests never receive the long-lived disposable-VM credentials.
-  workflow_call:
-    inputs:
-      platform-mode:
-        description: Platform mode tested by this run.
-        type: string
-        default: org
-      mcp-auth-mode:
-        description: Explicit enabled/disabled for release matrices; inherit preserves manual VM settings.
-        type: string
-        default: inherit
-      with-mcp-auth:
-        description: Enable bundled mcp-auth for this run; false preserves the VM configuration.
-        required: false
-        default: false
-        type: boolean
-      run-multitenancy:
-        description: Run the destructive multi-team CLI/API scenario suite.
-        required: false
-        default: true
-        type: boolean
-      fresh-certificate:
-        description: Also issue a brand-new staging certificate for a unique run-<id> host.
-        required: false
-        default: false
-        type: boolean
-  workflow_dispatch:
-    inputs:
-      platform-mode:
-        description: Platform mode tested by this run.
-        type: string
-        default: org
-      mcp-auth-mode:
-        description: Explicit enabled/disabled for release matrices; inherit preserves manual VM settings.
-        type: string
-        default: inherit
-      with-mcp-auth:
-        description: Enable bundled mcp-auth for this run; false preserves the VM configuration.
-        required: false
-        default: false
-        type: boolean
-      run-multitenancy:
-        description: Run the destructive multi-team CLI/API scenario suite.
-        required: true
-        default: true
-        type: boolean
-      fresh-certificate:
-        description: Also issue a brand-new staging certificate for a unique run-<id> host (routine runs reuse the TLS snapshot).
-        required: false
-        default: false
-        type: boolean
-      bootstrap-disposable-marker:
-        description: One-time only, for a freshly provisioned disposable VM. Writes the DISPOSABLE marker after the DNS guard passes.
-        required: false
-        default: false
-        type: boolean
+  workflow_dispatch: {}
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
-  staging-e2e:
+  module-network-diagnostics:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    # One disposable VM: only one Staging E2E run may use it at a time. The lock
-    # is on the job so it also holds when Pre-release Regression calls this.
+    timeout-minutes: 10
     concurrency:
       group: staging-e2e-disposable-vm
       cancel-in-progress: false
-    env:
-      E2E_RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.platform-mode }}-${{ inputs.mcp-auth-mode }}
-      RUN_MULTITENANCY: ${{ inputs.run-multitenancy }}
-      FRESH_CERTIFICATE: ${{ inputs.fresh-certificate }}
-      WITH_MCP_AUTH: ${{ inputs.with-mcp-auth }}
-      MCP_AUTH_MODE: ${{ inputs.mcp-auth-mode }}
-      PLATFORM_MODE: ${{ inputs.platform-mode }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Build CLI for disposable VM
-        run: go build -o bin/mcp-runtime ./cmd/mcp-runtime
-
       - name: Install SSH client
         run: sudo apt-get update && sudo apt-get install -y sshpass
-
       - name: Configure pinned VM host key
         env:
           E2E_VM_KNOWN_HOSTS: ${{ secrets.E2E_VM_KNOWN_HOSTS }}
         run: |
-          test -n "${E2E_VM_KNOWN_HOSTS}"
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "${E2E_VM_KNOWN_HOSTS}" > ~/.ssh/mcp-runtime-e2e-known-hosts
-          chmod 600 ~/.ssh/mcp-runtime-e2e-known-hosts
-
-      - name: Bootstrap disposable marker (explicit, one-time)
-        if: ${{ inputs.bootstrap-disposable-marker }}
-        env:
-          E2E_VM_HOST: ${{ secrets.E2E_VM_HOST }}
-          E2E_VM_USER: ${{ secrets.E2E_VM_USER }}
-          SSHPASS: ${{ secrets.E2E_VM_PASSWORD }}
-          E2E_VM_KNOWN_HOSTS: /home/runner/.ssh/mcp-runtime-e2e-known-hosts
-        run: E2E_CONFIRM_DISPOSABLE_VM="${E2E_VM_HOST}" bash test/e2e/staging-target.sh bootstrap
-
-      # Nothing is copied to, or run on, the VM before this passes.
-      - name: Validate matrix inputs
-        run: |
-          case "$PLATFORM_MODE" in org|public) ;; *) exit 1 ;; esac
-          case "$MCP_AUTH_MODE" in inherit|enabled|disabled) ;; *) exit 1 ;; esac
-          if [[ "$MCP_AUTH_MODE" != inherit ]]; then
-            echo "WITH_MCP_AUTH=$MCP_AUTH_MODE" >> "$GITHUB_ENV"
-          fi
-
+          set -euo pipefail
+          test -n "$E2E_VM_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$E2E_VM_KNOWN_HOSTS" > "$HOME/.ssh/mcp-runtime-e2e-known-hosts"
+          chmod 600 "$HOME/.ssh/mcp-runtime-e2e-known-hosts"
       - name: Verify disposable target
         env:
           E2E_VM_HOST: ${{ secrets.E2E_VM_HOST }}
@@ -134,78 +35,24 @@ jobs:
           SSHPASS: ${{ secrets.E2E_VM_PASSWORD }}
           E2E_VM_KNOWN_HOSTS: /home/runner/.ssh/mcp-runtime-e2e-known-hosts
         run: bash test/e2e/staging-target.sh check
-
-      - name: Package repository
-        run: |
-          tar --exclude=.git --exclude='*/node_modules' \
-            -czf /tmp/mcp-runtime-e2e.tgz .
-
-      - name: Upload repository to disposable VM
+      - name: Probe public module archives without changing VM state
         env:
+          E2E_VM_HOST: ${{ secrets.E2E_VM_HOST }}
+          E2E_VM_USER: ${{ secrets.E2E_VM_USER }}
           SSHPASS: ${{ secrets.E2E_VM_PASSWORD }}
         run: |
-          sshpass -e scp \
-            -o UserKnownHostsFile="$HOME/.ssh/mcp-runtime-e2e-known-hosts" -o StrictHostKeyChecking=yes \
-            /tmp/mcp-runtime-e2e.tgz \
-            "${{ secrets.E2E_VM_USER }}@${{ secrets.E2E_VM_HOST }}:/tmp/mcp-runtime-e2e.tgz"
-
-      - name: Ensure E2E runtime configuration
-        env:
-          E2E_ACME_EMAIL: ${{ secrets.E2E_ACME_EMAIL }}
-          SSHPASS: ${{ secrets.E2E_VM_PASSWORD }}
-        run: |
-          test -n "${E2E_ACME_EMAIL}"
-          # shellcheck disable=SC2016 # Remote-shell variables must remain literal here.
-          printf 'E2E_ACME_EMAIL=%s\n' "${E2E_ACME_EMAIL}" | \
-            sshpass -e ssh \
-              -o UserKnownHostsFile="$HOME/.ssh/mcp-runtime-e2e-known-hosts" -o StrictHostKeyChecking=yes \
-              "${{ secrets.E2E_VM_USER }}@${{ secrets.E2E_VM_HOST }}" \
-              'set -eu; backup_dir=/var/lib/mcp-runtime-e2e-backup; env_file="$backup_dir/e2e.env"; install -d -m 700 "$backup_dir"; touch "$env_file"; chmod 600 "$env_file"; IFS= read -r line; tmp="${env_file}.tmp"; awk -F= -v replacement="$line" '\''$1 != "E2E_ACME_EMAIL" { print } END { print replacement }'\'' "$env_file" > "$tmp"; mv "$tmp" "$env_file"'
-
-      - name: Run staging E2E
-        env:
-          SSHPASS: ${{ secrets.E2E_VM_PASSWORD }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # The workflow ref can differ from the packaged checkout in callers.
-          # Record the exact public source identity used for browser evidence.
-          browser_candidate="$(git rev-parse HEAD)"
-          # Setup has multi-minute silent stretches while it builds images, and
-          # an idle SSH session that drops there fails the job with exit 255
-          # while the remote run keeps going -- a false negative that also
-          # leaves the VM dirty. Keep the connection alive across those gaps.
-          printf '%s\n' "${GHCR_TOKEN}" | sshpass -e ssh \
-            -o UserKnownHostsFile="$HOME/.ssh/mcp-runtime-e2e-known-hosts" -o StrictHostKeyChecking=yes \
-            -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes \
-            "${{ secrets.E2E_VM_USER }}@${{ secrets.E2E_VM_HOST }}" \
-            "set -eu; rm -rf /opt/mcp-runtime-e2e; mkdir -p /opt/mcp-runtime-e2e; tar -xzf /tmp/mcp-runtime-e2e.tgz -C /opt/mcp-runtime-e2e; E2E_GHCR_AUTH_STDIN=1 E2E_GHCR_USER='${{ github.actor }}' E2E_RUN_ID='${E2E_RUN_ID}' E2E_RUN_MULTITENANCY='${RUN_MULTITENANCY}' E2E_FRESH_CERTIFICATE='${FRESH_CERTIFICATE}' E2E_WITH_MCP_AUTH_OVERRIDE='${WITH_MCP_AUTH}' E2E_PLATFORM_MODE_OVERRIDE='${PLATFORM_MODE}' WORKSPACE_BROWSER_CANDIDATE='${browser_candidate}' GITHUB_ACTIONS=true GITHUB_REF_NAME='${GITHUB_REF_NAME}' GITHUB_SHA='${GITHUB_SHA}' bash /opt/mcp-runtime-e2e/test/e2e/staging-vm.sh"
-
-      - name: Collect E2E artifacts
-        if: always()
-        env:
-          SSHPASS: ${{ secrets.E2E_VM_PASSWORD }}
-        run: |
-          mkdir -p e2e-artifacts
-          # One compressed stream over one connection. scp -r paid a round trip
-          # per file and spent about two minutes on a few hundred small logs.
+          set -euo pipefail
           sshpass -e ssh \
-            -o UserKnownHostsFile="$HOME/.ssh/mcp-runtime-e2e-known-hosts" -o StrictHostKeyChecking=yes \
-            "${{ secrets.E2E_VM_USER }}@${{ secrets.E2E_VM_HOST }}" \
-            "tar -C /var/lib/mcp-runtime-e2e-backup/runs -czf - '${E2E_RUN_ID}'" \
-            | tar -C e2e-artifacts -xzf - || true
-          if [ -f "e2e-artifacts/${E2E_RUN_ID}/summary.md" ]; then
-            cat "e2e-artifacts/${E2E_RUN_ID}/summary.md" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Require complete release-cell evidence
-        if: ${{ success() && inputs.mcp-auth-mode != 'inherit' }}
-        run: |
-          python3 test/e2e/release_evidence.py "e2e-artifacts/${E2E_RUN_ID}/summary.json" \
-            --commit "$GITHUB_SHA" --mode "$PLATFORM_MODE" --auth "$MCP_AUTH_MODE"
-
-      - name: Upload E2E artifacts
-        if: always()
+            -o UserKnownHostsFile="$HOME/.ssh/mcp-runtime-e2e-known-hosts" \
+            -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+            "${E2E_VM_USER}@${E2E_VM_HOST}" \
+            'set -eu; if [ -f /var/lib/mcp-runtime-e2e-backup/e2e.env ]; then set -a; . /var/lib/mcp-runtime-e2e-backup/e2e.env; set +a; fi; python3 -' \
+            < hack/qa/staging_module_probe.py > module-network-report.json
+          python3 -m json.tool module-network-report.json
+      - name: Upload redacted network report
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: staging-e2e-${{ inputs.platform-mode }}-${{ inputs.mcp-auth-mode }}
-          path: e2e-artifacts
+          name: staging-module-network-diagnostics
+          path: module-network-report.json
+          if-no-files-found: error
