@@ -136,7 +136,12 @@ jobs:
         run: bash test/e2e/staging-target.sh check
 
       - name: Package verified public Go dependencies
-        run: bash hack/ci/staging-go-deps.sh pack /tmp/mcp-runtime-e2e-go-deps.tgz
+        run: |
+          STAGING_GO_DEPS_REAL_GO=1 python3 -m unittest discover -s hack/tests -p staging_go_deps_test.py
+          bash hack/ci/staging-go-deps.sh pack /tmp/mcp-runtime-e2e-go-deps.tgz
+          # Download commands may add go.sum entries; never package a modified
+          # source graph under the candidate's unchanged Git commit identity.
+          git diff --exit-code -- .
 
       - name: Package repository
         run: |

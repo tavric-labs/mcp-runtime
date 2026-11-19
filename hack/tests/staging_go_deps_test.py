@@ -40,13 +40,25 @@ if args[0]=='env':
  print({'GOVERSION':os.environ.get('FAKE_GOVERSION','go1.27.4'),'GOHOSTOS':'linux','GOHOSTARCH':'amd64','GOROOT':os.environ['FIXTURE_GOROOT']}[args[1]])
 elif args[0]=='mod':
  with open(os.environ['FIXTURE_LOG'],'a') as f:
-  f.write(json.dumps({'args':args,'cwd':os.getcwd(),'proxy':os.environ.get('GOPROXY'),'sumdb':os.environ.get('GOSUMDB'),'private':os.environ.get('GOPRIVATE'),'toolchain':os.environ.get('GOTOOLCHAIN')})+'\\n')
- if os.environ.get('FAIL_COMMAND')==args[1]: sys.exit(75)
+  f.write(json.dumps({'args':args,'cwd':os.getcwd(),'cache':os.environ.get('GOMODCACHE'),'proxy':os.environ.get('GOPROXY'),'sumdb':os.environ.get('GOSUMDB'),'private':os.environ.get('GOPRIVATE'),'toolchain':os.environ.get('GOTOOLCHAIN')})+'\\n')
+ if os.environ.get('FAIL_COMMAND')==args[1] or os.environ.get('FAIL_COMMAND')=='checksum': sys.exit(75)
  if args[1]=='download':
   cache=pathlib.Path(os.environ['GOMODCACHE'])/'cache/download/example.org/fixture/@v'
   cache.mkdir(parents=True,exist_ok=True)
   (cache/'v1.0.0.zip').write_text('public fixture ZIP')
   (pathlib.Path(os.environ['GOMODCACHE'])/'excluded-extracted-file').write_text('do not package')
+  if os.environ.get('READONLY_CACHE'):
+   readonly=pathlib.Path(os.environ['GOMODCACHE'])/'readonly'
+   readonly.mkdir(exist_ok=True)
+   (readonly/'source.go').write_text('read-only cache fixture')
+   readonly.chmod(0o555)
+elif args==['clean','-modcache']:
+ import shutil, stat
+ cache=pathlib.Path(os.environ['GOMODCACHE'])
+ if cache.exists():
+  for root, dirs, files in os.walk(cache):
+   pathlib.Path(root).chmod(0o700)
+  shutil.rmtree(cache)
 else: sys.exit(80)
 '''
         for go in [self.bin / 'go', self.goroot / 'bin/go']:
@@ -73,7 +85,7 @@ else: sys.exit(80)
     def test_pack_verifies_each_module_and_excludes_unrelated_files(self):
         self.pack()
         calls = [json.loads(s) for s in self.log.read_text().splitlines()]
-        self.assertEqual([(Path(c['cwd']).name, c['args'][1]) for c in calls], [('repo', 'download'), ('repo', 'verify'), ('fixture', 'download'), ('fixture', 'verify')])
+        self.assertEqual([(Path(c['cwd']).name, c['args'][1]) for c in calls], [('repo', 'download'), ('fixture', 'download')])
         for call in calls:
             self.assertEqual(call['proxy'], 'https://proxy.golang.org')
             self.assertEqual(call['sumdb'], 'sum.golang.org')
@@ -91,9 +103,49 @@ else: sys.exit(80)
         self.assertFalse(self.archive.exists())
 
     def test_failed_verification_does_not_publish_bundle(self):
-        self.env['FAIL_COMMAND'] = 'verify'
+        self.env['FAIL_COMMAND'] = 'checksum'
         self.assertNotEqual(self.run_script('pack').returncode, 0)
         self.assertFalse(self.archive.exists())
+
+    def test_readonly_private_module_cache_is_cleaned(self):
+        temporary = self.root / 'temporary'
+        temporary.mkdir()
+        self.env.update(TMPDIR=str(temporary), READONLY_CACHE='1')
+        self.pack()
+        self.assertEqual(list(temporary.iterdir()), [])
+        cache = Path(json.loads(self.log.read_text().splitlines()[0])['cache'])
+        self.assertFalse(cache.parent.exists())
+
+    @unittest.skipUnless(os.environ.get('STAGING_GO_DEPS_REAL_GO') == '1', 'opt-in real Go regression; offline automation needs only Python and ShellCheck')
+    def test_real_go_local_replacement_does_not_require_public_ziphash(self):
+        # Resolve the installed pinned compiler before changing GOMODCACHE.
+        goroot = subprocess.check_output(['go', 'env', 'GOROOT'], cwd=ROOT, text=True).strip()
+        compiler = Path(goroot) / 'bin/go'
+        (self.repo / 'go.mod').write_text('module mcp-runtime\n\ngo 1.27.4\n')
+        (self.repo / 'services/fixture/go.mod').write_text('module fixture-service\n\ngo 1.27.4\n\nrequire mcp-runtime v0.0.0\nreplace mcp-runtime => ../..\n')
+        metadata = self.bin / 'metadata-go'
+        shutil.copyfile(self.bin / 'go', metadata)
+        metadata.chmod(0o700)
+        # Run real download/cleanup commands, with synthetic host metadata and
+        # a tiny toolchain fixture so this regression stays offline and fast.
+        cache_path = self.root / 'private-cache-path'
+        (self.bin / 'go').write_text('''#!/usr/bin/env python3
+import os, pathlib, sys
+args=sys.argv[1:]
+if args[0]=='clean':
+ cache=pathlib.Path(os.environ['GOMODCACHE'])
+ readonly=cache/'readonly'
+ readonly.mkdir(parents=True,exist_ok=True)
+ (readonly/'source.go').write_text('real Go cleanup fixture')
+ readonly.chmod(0o555)
+ pathlib.Path(''' + repr(str(cache_path)) + ''').write_text(str(cache))
+program=''' + repr(str(compiler)) + ''' if args[0] in ('mod','clean') else ''' + repr(str(metadata)) + '''
+os.execv(program,[program]+args)
+''')
+        self.pack()
+        self.assertFalse(Path(cache_path.read_text()).parent.exists())
+        self.assertFalse((self.repo / 'go.sum').exists())
+        self.assertFalse((self.repo / 'services/fixture/go.sum').exists())
 
     def test_unpack_restores_matching_toolchain_and_download_cache(self):
         self.pack()

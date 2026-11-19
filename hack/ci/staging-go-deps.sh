@@ -19,11 +19,28 @@ case "${mode}" in
     [[ "$(go env GOVERSION)" == "go${want}" && "$(go env GOHOSTOS)" == linux ]] || exit 1
     [[ "$(go env GOHOSTARCH)" == amd64 || "$(go env GOHOSTARCH)" == arm64 ]] || exit 1
     scratch="$(mktemp -d)"
-    trap 'rm -rf "${scratch}"' EXIT
+    cleanup_pack() {
+      local status=$? cleanup_status=0
+      trap - EXIT
+      # Go makes extracted modules read-only. Its own cleanup command knows
+      # how to remove them and is confined to this private GOMODCACHE.
+      GOMODCACHE="${scratch}/modules" go clean -modcache || cleanup_status=$?
+      rm -rf "${scratch}" || cleanup_status=$?
+      if [[ "${status}" != 0 ]]; then
+        exit "${status}"
+      fi
+      exit "${cleanup_status}"
+    }
+    trap cleanup_pack EXIT
     export GOMODCACHE="${scratch}/modules"
+    mkdir -p "${GOMODCACHE}/cache/download"
     for module in "${ROOT}" "${ROOT}"/services/* "${ROOT}"/traefik-plugins/* "${ROOT}"/examples/*; do
       [[ -f "${module}/go.mod" ]] || continue
-      (cd "${module}" && go mod download && go mod verify) || exit 1
+      # Downloads authenticate module ZIPs against go.sum or the mandatory
+      # checksum database. We package those ZIPs, never extracted sources.
+      # go mod verify additionally checks extracted trees and fails on the
+      # services' local mcp-runtime replacement (which has no public ZIP).
+      (cd "${module}" && go mod download) || exit 1
     done
     cp -R "$(go env GOROOT)" "${scratch}/toolchain"
     # Only public download-cache inputs and the official toolchain belong in

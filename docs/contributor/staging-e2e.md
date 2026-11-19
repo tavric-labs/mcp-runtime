@@ -94,7 +94,13 @@ authoritative.
 After verifying the disposable target, Actions packages the matching Linux Go
 toolchain and public module download cache using
 `hack/ci/staging-go-deps.sh`. Every first-party module runs `go mod download`
-and `go mod verify` against the official proxy/checksum database on the runner.
+against the official proxy with the checksum database enabled. Go authenticates
+ZIPs against `go.sum` or the checksum database before caching them; see
+[Go module authentication](https://go.dev/ref/mod#authenticating). Local
+`replace` modules are repository source, rather than public archive inputs.
+The workflow rejects tracked source changes after download, and the packer uses
+`go clean -modcache` for its private, read-only module cache during cleanup.
+The packaging step also runs the real-Go local-replacement regression.
 The archive omits machine configuration, credentials, extracted module sources
 and build caches. It is transferred over the existing pinned-host-key SSH
 connection, checked against its SHA-256 digest, and validated for unsafe archive
