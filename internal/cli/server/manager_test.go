@@ -1564,3 +1564,47 @@ func TestSelectDeployMetadataNameMatching(t *testing.T) {
 		}
 	})
 }
+
+func TestApplyDeployMetadataDefaultsMergesEgress(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.Mkdir(filepath.Join(tmp, ".mcp"), 0o750); err != nil {
+		t.Fatalf("mkdir metadata: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, ".mcp", "servers.yaml"), []byte(`version: v1
+servers:
+  - name: youtube
+    egress:
+      hosts: [www.googleapis.com, oauth2.googleapis.com]
+      ports: [443]
+`), 0o600); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	spec := buildDeployServerSpec("youtube", "registry.example.com/acme/youtube", "v1.0.0", 1, 8088, 80)
+	if err := applyDeployMetadataDefaults(&spec, "youtube", "", filepath.Join(tmp, ".mcp")); err != nil {
+		t.Fatalf("applyDeployMetadataDefaults() error = %v", err)
+	}
+	if spec.Egress == nil || len(spec.Egress.Hosts) != 2 || spec.Egress.Hosts[0] != "www.googleapis.com" || len(spec.Egress.Ports) != 1 || spec.Egress.Ports[0] != 443 {
+		t.Fatalf("egress = %+v, want hosts and ports from metadata", spec.Egress)
+	}
+}
+
+func TestInitServerWithEgressWritesValidatedMetadata(t *testing.T) {
+	dir := t.TempDir()
+	mgr := NewServerManager(core.NewTestKubectlClient(&core.MockExecutor{}), zap.NewNop())
+	egress := &blueprint.EgressConfig{Hosts: []string{"WWW.GoogleAPIs.com"}, Ports: []int32{443}}
+	if err := mgr.InitServerWithEgress(egress, "youtube", dir, "", "v1", "tenant", "allow-list", "deny", false, 8088, nil, nil, "", false); err != nil {
+		t.Fatalf("InitServerWithEgress() error = %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "servers.yaml"))
+	if err != nil {
+		t.Fatalf("read metadata: %v", err)
+	}
+	if !strings.Contains(string(data), "egress:") || !strings.Contains(string(data), "www.googleapis.com") {
+		t.Fatalf("metadata is missing the normalised egress block:\n%s", data)
+	}
+
+	bad := &blueprint.EgressConfig{Hosts: []string{"*.googleapis.com"}}
+	if err := mgr.InitServerWithEgress(bad, "other", dir, "", "v1", "tenant", "allow-list", "deny", false, 8088, nil, nil, "", false); err == nil {
+		t.Fatal("InitServerWithEgress accepted a wildcard host")
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/topology"
 	"os"
 	"path/filepath"
@@ -88,6 +89,22 @@ func loadMetadataForRewrite(path string) (*blueprint.RegistryFile, error) {
 }
 
 func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, policyMode, defaultDecision string, sessionRequired bool, port int32, tools, toolSpecs []string, toolRisk string, force bool) error {
+	return m.InitServerWithEgress(nil, name, metadataDir, image, imageTag, scope, policyMode, defaultDecision, sessionRequired, port, tools, toolSpecs, toolRisk, force)
+}
+
+// InitServerWithEgress is InitServer with an optional external egress
+// declaration. The platform applies it only after an administrator approves it.
+func (m *ServerManager) InitServerWithEgress(egress *blueprint.EgressConfig, name, metadataDir, image, imageTag, scope, policyMode, defaultDecision string, sessionRequired bool, port int32, tools, toolSpecs []string, toolRisk string, force bool) error {
+	if egress != nil {
+		normalized := &blueprint.EgressConfig{Ports: egress.Ports}
+		for _, host := range egress.Hosts {
+			normalized.Hosts = append(normalized.Hosts, access.NormalizeEgressHost(host))
+		}
+		if err := access.ValidateServerEgress(normalized.Hosts, normalized.Ports); err != nil {
+			return core.NewWithBase(nil, err.Error())
+		}
+		egress = normalized
+	}
 	name, err := validateManifestValue("name", name)
 	if err != nil {
 		return err
@@ -176,6 +193,7 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 		Gateway: &blueprint.GatewayConfig{
 			Enabled: boolPtr(true),
 		},
+		Egress: egress,
 	}
 	toolMetadata, err := initToolMetadata(tools, toolSpecs, toolRisk)
 	if err != nil {
@@ -1130,6 +1148,12 @@ func mergeDeployMetadata(spec *mcpv1alpha1.MCPServerSpec, src *blueprint.ServerM
 			MaxLifetime:         src.Session.MaxLifetime,
 			IdleTimeout:         src.Session.IdleTimeout,
 			UpstreamTokenHeader: src.Session.UpstreamTokenHeader,
+		}
+	}
+	if src.Egress != nil {
+		spec.Egress = &mcpv1alpha1.EgressConfig{
+			Hosts: append([]string(nil), src.Egress.Hosts...),
+			Ports: append([]int32(nil), src.Egress.Ports...),
 		}
 	}
 	if src.Gateway != nil {

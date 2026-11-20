@@ -192,6 +192,14 @@ func (s *gatewayServer) recordGatewayOutcome(ex *Exchange) {
 	telemetry.RecordSpanFailure(ctx, "gateway.request", reason, status, nil)
 	telemetry.LogfCtx(ctx, "gateway request rejected method=%q status=%d reason=%q duration=%s",
 		method, status, reason, time.Since(ex.StartTime))
+	if denied && ex.Decision.Reason == "no_matching_grant" {
+		// Operator-facing only: name the identity the gateway matched against
+		// so the right humanID can be granted. Never sent to the client.
+		telemetry.LogfCtx(ctx, "event=gateway.no_matching_grant namespace=%q server=%q human_id=%q agent_id=%q subject_team_id=%q grants_considered=%d grant_names=%q",
+			s.metricScope(ex.Policy).Namespace, s.metricScope(ex.Policy).Server,
+			string(ex.Identity.HumanID), string(ex.Identity.AgentID), string(ex.Identity.TeamID),
+			ex.Decision.ConsideredGrantCount, ex.Decision.ConsideredGrantNames)
+	}
 }
 
 // emitAuditFromExchange is stage 6 of the pipeline. It emits a single audit

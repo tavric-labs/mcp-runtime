@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -802,4 +805,54 @@ func auditPayloadForTest(s *gatewayServer, r *http.Request, path, method, tool s
 	ex.Inspection = inspectedRPC(method, tool, RPCRequest)
 	ex.W.status, ex.W.bytes = status, bytesOut
 	return s.auditPayload(ex, time.Duration(latencyMS)*time.Millisecond)
+}
+
+func TestNoMatchingGrantLogsPresentedIdentityButNotInResponse(t *testing.T) {
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	issuer := newTestJWTIssuer(t)
+	policy := oauthPolicy(issuer.url)
+	policy.Session.Required = false
+	policy.Sessions = nil
+	server := newTestGatewayServer(t, policy, func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("denied request must not reach upstream")
+	})
+	token := issuer.sign(t, jwt.MapClaims{
+		"iss": issuer.url,
+		"aud": "http://proxy.example.com/mcp",
+		"sub": "res-youtube:123",
+		"azp": "client-x",
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"nbf": time.Now().Add(-time.Minute).Unix(),
+	})
+	req := httptest.NewRequest(http.MethodPost, "http://proxy.example.com/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	recorder := httptest.NewRecorder()
+
+	server.handleGateway(recorder, req)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403; body=%s", recorder.Code, recorder.Body.String())
+	}
+	if got, want := recorder.Body.String(), "{\"error\":\"no_matching_grant\"}\n"; got != want {
+		t.Fatalf("response body = %q, want %q (identity must not appear in the response)", got, want)
+	}
+	line := logs.String()
+	for _, want := range []string{
+		"event=gateway.no_matching_grant",
+		`human_id="res-youtube:123"`,
+		`agent_id="client-x"`,
+		"grants_considered=1",
+		`grant_names="grant-1"`,
+	} {
+		if !strings.Contains(line, want) {
+			t.Errorf("log %q missing %q", line, want)
+		}
+	}
+	if strings.Contains(line, token) {
+		t.Fatal("log leaked the bearer token")
+	}
 }

@@ -93,6 +93,7 @@ func newGrantInitCmd(mgr *AccessManager) *cobra.Command {
 		},
 	}
 	bindAccessInitCommonFlags(cmd, &opts)
+	cmd.Flags().StringVar(&opts.SubjectFromTokenFile, "subject-from-token-file", "", "File containing a JWT; its sub claim becomes the human subject (grant to the identity a client will present; cannot be combined with --human-id)")
 	cmd.Flags().StringVar(&opts.Mode, "mode", "enforce", "Grant policy mode: enforce or monitor")
 	cmd.Flags().StringArrayVar(&opts.SideEffects, "side-effect", []string{"read"}, "Allowed side effect class: read, write, or destructive; repeat for multiple")
 	cmd.Flags().StringArrayVar(&opts.Tools, "tool", nil, "Tool name to allow; repeat for multiple tools")

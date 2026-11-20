@@ -40,6 +40,16 @@ type ServerInfo struct {
 	Resources          []mcpv1alpha1.InventoryItem `json:"resources"`
 	Tasks              []mcpv1alpha1.InventoryItem `json:"tasks"`
 	RuntimeStatus      ServerRuntimeStatus         `json:"runtimeStatus"`
+	// Egress reports the declared external egress and whether an administrator
+	// approved it. Nil when the server declares none.
+	Egress *ServerEgressInfo `json:"egress,omitempty"`
+}
+
+// ServerEgressInfo summarizes spec.egress and its admin approval.
+type ServerEgressInfo struct {
+	Hosts    []string `json:"hosts"`
+	Ports    []int32  `json:"ports"`
+	Approved bool     `json:"approved"`
 }
 
 // ServerRuntimeStatus combines operator-owned rollout state with observations

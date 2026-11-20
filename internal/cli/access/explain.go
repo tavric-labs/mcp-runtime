@@ -28,6 +28,8 @@ type explainOptions struct {
 	Tool       string
 	RPCMethod  string
 	PolicyFile string
+	TokenFile  string
+	TokenEnv   string
 	JSON       bool
 }
 
@@ -58,6 +60,8 @@ type explainOutput struct {
 	AdminTrust              string       `json:"admin_trust,omitempty"`
 	ConsentedTrust          string       `json:"consented_trust,omitempty"`
 	EffectiveTrust          string       `json:"effective_trust,omitempty"`
+	IdentitySource          string       `json:"identity_source,omitempty"`
+	Note                    string       `json:"note"`
 }
 
 type explainRule struct {
@@ -73,7 +77,9 @@ func newExplainCmd(mgr *AccessManager) *cobra.Command {
 		Short: "Explain a hypothetical access decision",
 		Long: `Evaluate a hypothetical MCP request against the rendered gateway policy without sending traffic.
 
-The default policy source is the live rendered policy for --server. Use --policy-file to evaluate a local rendered policy document instead. A denied decision is printed and exits with status 1; an allowed decision exits with status 0.`,
+The default policy source is the live rendered policy for --server. Use --policy-file to evaluate a local rendered policy document instead. A denied decision is printed and exits with status 1; an allowed decision exits with status 0.
+
+Explain evaluates the identity you supply, while the gateway evaluates the sub claim of the token the client presents. Use --token-file or --token-env to take the human identity from a token's sub claim (the signature is not verified and nothing else from the token is printed).`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return mgr.ExplainAccess(opts, cmd.OutOrStdout())
@@ -87,6 +93,8 @@ The default policy source is the live rendered policy for --server. Use --policy
 	cmd.Flags().StringVar(&opts.SessionID, "session", "", "Agent session identity to evaluate")
 	cmd.Flags().StringVar(&opts.Tool, "tool", "", "MCP tool name to evaluate")
 	cmd.Flags().StringVar(&opts.RPCMethod, "rpc-method", opts.RPCMethod, "MCP JSON-RPC method to evaluate")
+	cmd.Flags().StringVar(&opts.TokenFile, "token-file", "", "File containing a JWT; its sub claim is used as the human identity")
+	cmd.Flags().StringVar(&opts.TokenEnv, "token-env", "", "Environment variable containing a JWT; its sub claim is used as the human identity")
 	cmd.Flags().StringVar(&opts.PolicyFile, "policy-file", "", "Local rendered policy JSON file (skips live policy lookup)")
 	cmd.Flags().BoolVar(&opts.JSON, "json", false, "Print a JSON decision for scripting")
 	_ = cmd.MarkFlagRequired("server")
@@ -101,8 +109,21 @@ func (m *AccessManager) ExplainAccess(opts explainOptions, out io.Writer) error 
 		return err
 	}
 
+	tokenSubject, err := resolveTokenSubject(opts.TokenFile, opts.TokenEnv)
+	if err != nil {
+		return err
+	}
+	humanID := strings.TrimSpace(opts.HumanID)
+	identitySource := ""
+	if tokenSubject != "" {
+		if humanID != "" {
+			return core.NewWithBase(nil, "--human cannot be combined with --token-file or --token-env; the token's sub is the human identity")
+		}
+		humanID = tokenSubject
+		identitySource = "token"
+	}
 	identity := policy.Identity{
-		HumanID:   policy.HumanID(strings.TrimSpace(opts.HumanID)),
+		HumanID:   policy.HumanID(humanID),
 		AgentID:   policy.AgentID(strings.TrimSpace(opts.AgentID)),
 		TeamID:    policy.TeamID(strings.TrimSpace(opts.TeamID)),
 		SessionID: policy.SessionID(strings.TrimSpace(opts.SessionID)),
@@ -159,6 +180,7 @@ func (m *AccessManager) ExplainAccess(opts explainOptions, out io.Writer) error 
 		Session:   binding,
 	}, time.Now())
 	result := newExplainOutput(doc, decision, server, namespace, rpcMethod, toolName, identity)
+	result.IdentitySource = identitySource
 	if err := writeExplainOutput(out, result, opts.JSON); err != nil {
 		return err
 	}
@@ -204,7 +226,7 @@ func (m *AccessManager) loadExplainPolicy(ctx context.Context, server, namespace
 		return nil, fmt.Errorf("decode policy JSON: %w", err)
 	}
 	if err := policy.Validate(&doc); err != nil {
-		return nil, fmt.Errorf("invalid rendered policy: %w", err)
+		return nil, wrapSchemaVersionError(fmt.Errorf("invalid rendered policy: %w", err))
 	}
 	return &doc, nil
 }
@@ -234,6 +256,7 @@ func newExplainOutput(doc *policy.Document, decision policy.Decision, server, na
 		AdminTrust:              decision.AdminTrust,
 		ConsentedTrust:          decision.ConsentedTrust,
 		EffectiveTrust:          decision.EffectiveTrust,
+		Note:                    explainIdentityNote,
 	}
 	if decision.Allowed {
 		result.Decision = "allow"
@@ -275,6 +298,11 @@ func writeExplainOutput(out io.Writer, result explainOutput, asJSON bool) error 
 	if err != nil {
 		return err
 	}
+	if result.IdentitySource == "token" {
+		if _, err := fmt.Fprintf(out, "human: %s (sub claim from token)\n", result.HumanID); err != nil {
+			return err
+		}
+	}
 	if result.ToolName != "" {
 		if _, err := fmt.Fprintf(out, "tool: %s\n", result.ToolName); err != nil {
 			return err
@@ -305,6 +333,9 @@ func writeExplainOutput(out io.Writer, result explainOutput, asJSON bool) error 
 			return err
 		}
 	}
-	_, err = fmt.Fprintf(out, "policy revision: %s\n", result.PolicyRevision)
+	if _, err = fmt.Fprintf(out, "policy revision: %s\n", result.PolicyRevision); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "note: %s\n", result.Note)
 	return err
 }

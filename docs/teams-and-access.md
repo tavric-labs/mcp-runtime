@@ -410,6 +410,33 @@ email-like strings, case-sensitive uppercase email identifiers, or values that
 appear to encode `mcp-team-*` namespace names. The warnings never block the
 apply.
 
+### Troubleshooting `no_matching_grant` for OAuth logins
+
+`humanID` must equal the `sub` claim of the token the MCP client presents. A
+platform login (the user ID in your `mcp-runtime auth login` token) and an
+mcp-auth OAuth login are different identities: the mcp-auth `sub` comes from
+the sign-in provider chosen on the consent page. A grant written for the
+platform user ID can therefore pass `access explain` and still return
+`{"error":"no_matching_grant"}` to a client signed in through mcp-auth. Being a
+platform admin lets you write grants; it does not make the gateway match an
+identity the grant does not name.
+
+To fix it, find the subject the client actually presents and set that value as
+`humanID`. The gateway logs a `gateway.no_matching_grant` line with the identity
+it matched and the grants it considered, and the mcp-auth `token_exchange` audit
+event records the subject. If you have the client's token in a file, `access
+grant init --subject-from-token-file <path>` writes the grant for it, and
+`access explain --token-file <path>` (or `--token-env <NAME>`) evaluates that
+subject. Only the `sub` claim is read and the token is never printed. Then
+confirm with `mcp-runtime access explain --server <name> --namespace <ns>
+--human <subject> --tool <tool>` before retrying the call.
+
+`access explain` reads the live rendered policy, so the CLI must understand the
+policy schema version the platform renders. An older CLI fails with
+`unsupported schema version "vN"` and tells you to install the matching CLI
+release. Do not use
+`mcp-runtime update` for this: it upgrades the platform, not the CLI.
+
 Grants default to enforcement. Add `--mode monitor` when initializing a grant,
 or choose **Monitor** in the dashboard, to observe tool, trust and side-effect
 denials before enforcing them. Audit events include `would_deny` and

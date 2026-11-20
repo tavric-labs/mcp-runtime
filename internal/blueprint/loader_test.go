@@ -663,3 +663,34 @@ func TestLoadFromFileCredentialGateway(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadFromFileEgress(t *testing.T) {
+	write := func(t *testing.T, egress string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "servers.yaml")
+		doc := "version: v1\nservers:\n  - name: youtube\n    image: example.com/youtube\n    port: 8088\n    route: /youtube/mcp\n    egress:\n" + egress
+		if err := os.WriteFile(path, []byte(doc), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	file, err := LoadFromFile(write(t, "      hosts: [www.googleapis.com, oauth2.googleapis.com]\n      ports: [443]\n"))
+	if err != nil {
+		t.Fatalf("a valid egress block was rejected: %v", err)
+	}
+	egress := file.Servers[0].Egress
+	if egress == nil || len(egress.Hosts) != 2 || egress.Hosts[0] != "www.googleapis.com" || len(egress.Ports) != 1 || egress.Ports[0] != 443 {
+		t.Fatalf("egress not loaded: %+v", egress)
+	}
+	for name, body := range map[string]string{
+		"no hosts":   "      ports: [443]\n",
+		"wildcard":   "      hosts: [\"*.googleapis.com\"]\n",
+		"ip literal": "      hosts: [169.254.169.254]\n",
+		"url":        "      hosts: [\"https://www.googleapis.com\"]\n",
+		"bad port":   "      hosts: [www.googleapis.com]\n      ports: [0]\n",
+	} {
+		if _, err := LoadFromFile(write(t, body)); err == nil {
+			t.Errorf("accepted: %s", name)
+		}
+	}
+}

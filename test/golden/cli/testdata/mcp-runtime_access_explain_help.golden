@@ -2,6 +2,8 @@ Evaluate a hypothetical MCP request against the rendered gateway policy without 
 
 The default policy source is the live rendered policy for --server. Use --policy-file to evaluate a local rendered policy document instead. A denied decision is printed and exits with status 1; an allowed decision exits with status 0.
 
+Explain evaluates the identity you supply, while the gateway evaluates the sub claim of the token the client presents. Use --token-file or --token-env to take the human identity from a token's sub claim (the signature is not verified and nothing else from the token is printed).
+
 Usage:
   mcp-runtime access explain [flags]
 
@@ -16,6 +18,8 @@ Flags:
       --server string        MCPServer name to evaluate
       --session string       Agent session identity to evaluate
       --team string          Team identity to evaluate
+      --token-env string     Environment variable containing a JWT; its sub claim is used as the human identity
+      --token-file string    File containing a JWT; its sub claim is used as the human identity
       --tool string          MCP tool name to evaluate
 
 Global Flags:

@@ -7,22 +7,55 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
-## [0.18.1] - 2026-11-19
+## [0.19.0] - 2026-11-20
 
-Patch release for explicit adapter session trust and retirement of issued server
-TLS credentials, with shared production-audit tooling and Go dependency updates.
+Feature release: MCP servers can now declare the external hosts they must reach,
+and a platform administrator approves that access. It also carries the changes
+prepared as 0.18.1, which was never tagged or released: explicit adapter session
+trust, retirement of issued server TLS credentials, shared production-audit
+tooling and the Go 1.27.4 security update.
 
-Deploy existing installs with `mcp-runtime update`. No fresh setup, data reset,
-or backup-and-restore is required. Restart adapters with an explicit
-`--requested-trust medium` or `--requested-trust high` when their tools require
-it; grant ceilings still apply. The operator adds lifecycle ownership to existing
-issued per-server TLS Secrets during reconciliation. Credentials already orphaned
-before this release require separately reviewed ownership-verified cleanup.
-Verify login, server deployment, adapter enrollment, an allowed and a denied tool
-call, and audit after updating. Production deployment remains a separate operation.
+Deploy existing installs with `mcp-runtime update`; it applies the new
+`MCPServer` `spec.egress` field in the CRD and rolls the operator and gateway
+images. No fresh setup, data reset or backup-and-restore is required. Servers
+that do not declare `spec.egress` behave exactly as before and stay under the
+default-deny egress policy. A server that needs an external API (for example
+`youtube` calling Google) must declare its hosts, and an administrator must
+approve them before the operator opens egress; see
+[external egress](docs/publish-mcp-server.md#external-egress-for-mcp-servers).
+Restart adapters with an explicit `--requested-trust medium` or
+`--requested-trust high` when their tools require it; grant ceilings still
+apply. The operator adds lifecycle ownership to existing issued per-server TLS
+Secrets during reconciliation. Credentials already orphaned before this release
+require separately reviewed ownership-verified cleanup. Verify login, server
+deployment, adapter enrollment, an allowed and a denied tool call, and audit
+after updating. Production deployment remains a separate operation.
 
 ### Added
 
+- Easier grants for OAuth logins ([#956](https://github.com/tavric-labs/mcp-runtime/issues/956)).
+  `access explain --token-file` and `--token-env` read only the `sub` claim of a
+  token to show which identity a client presents, and
+  `access grant init --subject-from-token-file` writes a grant for it. A
+  `no_matching_grant` denial now logs a `gateway.no_matching_grant` line with the
+  identity the gateway matched and the grants it considered. The HTTP response
+  is unchanged. An older CLI that cannot read the platform policy schema now says
+  to install the matching CLI release instead of failing with a bare schema error.
+- External egress for MCP servers. `MCPServer` gains `spec.egress` with `hosts`
+  (DNS names, no wildcards or IP literals) and `ports` (TCP, default `443`). The
+  operator applies it only after an administrator approves it with
+  `mcp-runtime server egress approve <name>` (the `mcpruntime.org/egress-approved`
+  annotation); `server egress revoke` removes the approval. Approved egress
+  becomes one owned `<server>-external-egress` NetworkPolicy that allows the
+  declared ports to public addresses only, excluding private, loopback,
+  link-local and cluster ranges. The `ExternalEgressReady` condition reports
+  `Applied`, `PendingApproval`, `InvalidEgress` or `NotRequested`. Declare hosts in
+  the `.mcp` metadata or with `server init --egress-host` and `--egress-port`;
+  `server get` shows the declared hosts and approval. Approval currently needs
+  `--use-kube`, and it is revoked when the declared hosts or ports change. Kubernetes NetworkPolicy
+  cannot match hostnames, so this release enforces ports and public destinations
+  and records the declared hosts for review; hostname enforcement is left for a
+  follow-up ([#957](https://github.com/tavric-labs/mcp-runtime/issues/957)).
 - Shared development audit tooling and a bounded prod-audit MCP fixture verify
   deployed release images, rollouts, auth metadata, governed tool results,
   synthetic writes, policy denial, session revocation and cleanup ([#938](https://github.com/tavric-labs/mcp-runtime/pull/938)).
@@ -35,12 +68,21 @@ call, and audit after updating. Production deployment remains a separate operati
 - Update ClickHouse, OpenAPI, AWS SDK and Go support dependencies across the root
   and service modules; synchronize service module graphs so builds remain
   reproducible after root dependency updates ([#948](https://github.com/tavric-labs/mcp-runtime/pull/948), [#949](https://github.com/tavric-labs/mcp-runtime/pull/949), [#950](https://github.com/tavric-labs/mcp-runtime/pull/950), [#951](https://github.com/tavric-labs/mcp-runtime/pull/951)).
+- Documentation: a new troubleshooting section in
+  [teams and access](docs/teams-and-access.md#troubleshooting-no_matching_grant-for-oauth-logins)
+  explains that a grant's `humanID` must equal the OAuth token's `sub`, why a
+  platform user ID can pass `access explain` and still return `no_matching_grant`
+  to an mcp-auth login, and that `access explain` needs a CLI that matches the
+  platform's policy schema ([#956](https://github.com/tavric-labs/mcp-runtime/issues/956)).
 
 ### Fixed
 
-- Staging E2E transfers the matching Linux Go toolchain and verified public module archives from its GitHub runner, allowing dependency-aware image-cache lookup when the disposable VM cannot download module ZIPs. The bundle is validated before use, scoped to the run and removed during teardown. Cold Docker builds still require module access; all release acceptance checks remain required ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
-
-- Staging E2E now derives its content-hash image-cache namespace from the workflow repository owner, matching Kind after the organization move. Manual runs default to `tavric-labs`, while explicit cache-prefix overrides and cache disablement remain supported. This repairs false cache misses against the former organization; cold builds still require module-source access from the disposable VM. ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954))
+- The production audit waits, within its existing 90 second bounded wait, when
+  the gateway reports `no_matching_grant` for a grant created moments earlier, as
+  it already did for `tool_not_granted` and `policy_unavailable`. A grant that
+  never appears, expired or revoked sessions, `trust_too_low` and `tool_denied`
+  still fail immediately. This removes a false failure of the hosted
+  post-deployment check ([#955](https://github.com/tavric-labs/mcp-runtime/pull/955)).
 - `adapter enroll` and enrolling `adapter proxy` commands forward explicit
   `--requested-trust low|medium|high` consent, including the environment default
   and renewal. Sessions retain a low default and platform-enforced grant ceilings
@@ -49,6 +91,25 @@ call, and audit after updating. Production deployment remains a separate operati
   lifecycle, removing issued private keys during retirement. Reconciliation
   preserves certificate material, cert-manager ownership, user-provided
   credentials and credentials belonging to another server ([#932](https://github.com/tavric-labs/mcp-runtime/pull/932)).
+- Staging E2E transfers the matching Linux Go toolchain and verified public
+  module archives from its GitHub runner, allowing dependency-aware image-cache
+  lookup when the disposable VM cannot download module ZIPs. The bundle is
+  validated before use, scoped to the run and removed during teardown. Cold
+  Docker builds still require module access; all release acceptance checks
+  remain required ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
+- Staging E2E derives its content-hash image-cache namespace from the workflow
+  repository owner, matching Kind after the organization move. Manual runs
+  default to `tavric-labs`, while explicit cache-prefix overrides and cache
+  disablement remain supported ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
+
+### Security
+
+- Build the CLI, platform components, developer tooling and Go examples with Go
+  1.27.4. This fixes CVE-2026-97054 (GO-2026-6859), a `net/http` race that can
+  panic an HTTP/1 server using request-body limits with concurrent
+  response-header writes. Module declarations, builder images, embedded plugin
+  modules and CI tool builds use the same Go baseline. Deploy the rebuilt
+  release images and CLI through the normal update path ([Go advisory](https://pkg.go.dev/vuln/GO-2026-6859), [#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
 
 ### Security
 
@@ -895,8 +956,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.1...HEAD
-[0.18.1]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.0...v0.18.1
+[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...v0.16.1

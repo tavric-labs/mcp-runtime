@@ -144,6 +144,13 @@ func GenerateCRD(server *blueprint.ServerMetadata, outputPath string) error {
 		}
 	}
 
+	if server.Egress != nil {
+		mcpServer.Spec.Egress = &mcpv1alpha1.EgressConfig{
+			Hosts: append([]string(nil), server.Egress.Hosts...),
+			Ports: append([]int32(nil), server.Egress.Ports...),
+		}
+	}
+
 	if server.Gateway != nil {
 		mcpServer.Spec.Gateway = &mcpv1alpha1.GatewayConfig{
 			Enabled:     server.Gateway.Enabled,
