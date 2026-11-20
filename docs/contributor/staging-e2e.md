@@ -108,10 +108,11 @@ members and toolchain version/architecture before use. The VM uses the bundle
 only in that run's work directory, records the cache/toolchain for later stages,
 and removes the inputs during teardown. Manual runs without
 `E2E_GO_DEPS_ARCHIVE` retain normal toolchain discovery and module access.
-This permits dependency-aware image hashing when the VM cannot download module
-ZIPs. A cache miss that builds an image inside Docker still requires module
-source access from that container; warm image caches remain useful and all
-image-hash and acceptance checks still apply.
+This permits dependency-aware image hashing and host-built tenant sample
+binaries (`multitenancy`) when the VM cannot download module ZIPs or pull
+`gcr.io/distroless`. A platform cache miss that builds an image inside Docker
+still requires module source access from that container; warm image caches
+remain useful and all image-hash and acceptance checks still apply.
 Pre-release Regression waits for its required Kind matrix to build and publish
 those content-hash images before starting staging, including after a Go
 toolchain change.
