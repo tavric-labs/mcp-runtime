@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -242,6 +243,51 @@ func TestNewHelperNameIncludesRandomSuffix(t *testing.T) {
 	}
 	if first == second {
 		t.Fatalf("expected unique helper names, got %q", first)
+	}
+}
+
+func TestHelperCommandRetriesSkopeoWithoutRefetchingOneTimeTar(t *testing.T) {
+	binDir := t.TempDir()
+	workDir := t.TempDir()
+	curlCountFile := workDir + "/curl.count"
+	skopeoCountFile := workDir + "/skopeo.count"
+	tarOut := workDir + "/image.tar"
+
+	writeExecutable := func(name, body string) {
+		t.Helper()
+		path := binDir + "/" + name
+		if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	writeExecutable("curl", "#!/bin/sh\nset -eu\ncount=0\nif [ -f \""+curlCountFile+"\" ]; then count=$(cat \""+curlCountFile+"\"); fi\ncount=$((count + 1))\necho \"$count\" > \""+curlCountFile+"\"\nif [ \"$count\" -gt 1 ]; then\n  echo \"one-time tar URL fetched more than once\" >&2\n  exit 22\nfi\necho \"archive\" > \""+tarOut+"\"\n")
+	writeExecutable("skopeo", "#!/bin/sh\nset -eu\ncount=0\nif [ -f \""+skopeoCountFile+"\" ]; then count=$(cat \""+skopeoCountFile+"\"); fi\ncount=$((count + 1))\necho \"$count\" > \""+skopeoCountFile+"\"\nif [ \"$count\" -lt 3 ]; then\n  echo \"pinging container registry registry.registry.svc.cluster.local:5000: dial tcp 10.43.209.245:5000: connect: connection refused\" >&2\n  exit 1\nfi\n")
+	writeExecutable("sleep", "#!/bin/sh\nexit 0\n")
+
+	cmd := helperCommand(Config{
+		AuthSecretName: "mcp-registry-publisher",
+		TarFetchURL:    "http://10.42.0.78:8084/internal/registry-push/tar",
+		TarFetchToken:  "one-time-token",
+	}, "registry.registry.svc.cluster.local:5000/acme/tools:v0.1.0")
+	if len(cmd) != 3 || cmd[0] != "sh" || cmd[1] != "-c" {
+		t.Fatalf("unexpected helperCommand: %v", cmd)
+	}
+	script := strings.ReplaceAll(cmd[2], defaultImageTarPath, tarOut)
+
+	execCmd := exec.Command("sh", "-c", script)
+	execCmd.Env = []string{"PATH=" + binDir + ":/usr/bin:/bin"}
+	out, err := execCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helper script failed: %v\n%s", err, string(out))
+	}
+	curlCount, err := os.ReadFile(curlCountFile)
+	if err != nil || strings.TrimSpace(string(curlCount)) != "1" {
+		t.Fatalf("curl count = %q, %v; want 1", string(curlCount), err)
+	}
+	skopeoCount, err := os.ReadFile(skopeoCountFile)
+	if err != nil || strings.TrimSpace(string(skopeoCount)) != "3" {
+		t.Fatalf("skopeo count = %q, %v; want 3", string(skopeoCount), err)
 	}
 }
 
