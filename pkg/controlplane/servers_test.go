@@ -381,3 +381,41 @@ func TestServerInfoAuthSupport(t *testing.T) {
 		})
 	}
 }
+
+func TestServerInfoReportsEgressDeclarationAndApproval(t *testing.T) {
+	declared := mcpv1alpha1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "youtube",
+			Namespace:   "mcp-servers-org",
+			Annotations: map[string]string{"mcpruntime.org/egress-approved": "true"},
+		},
+		Spec: mcpv1alpha1.MCPServerSpec{
+			Image:  "registry.example.com/youtube",
+			Egress: &mcpv1alpha1.EgressConfig{Hosts: []string{"www.googleapis.com"}},
+		},
+	}
+	info := ServerInfoFromMCPServer(declared, ServerDeploymentStatus{})
+	if info.Egress == nil {
+		t.Fatal("egress was not reported")
+	}
+	if len(info.Egress.Hosts) != 1 || info.Egress.Hosts[0] != "www.googleapis.com" {
+		t.Fatalf("hosts = %v", info.Egress.Hosts)
+	}
+	if len(info.Egress.Ports) != 1 || info.Egress.Ports[0] != 443 {
+		t.Fatalf("ports = %v, want the default 443 spelled out", info.Egress.Ports)
+	}
+	if !info.Egress.Approved {
+		t.Fatal("approved = false, want true for an annotated server")
+	}
+
+	declared.Annotations = nil
+	if got := ServerInfoFromMCPServer(declared, ServerDeploymentStatus{}).Egress; got == nil || got.Approved {
+		t.Fatalf("egress = %+v, want declared but not approved", got)
+	}
+
+	declared.Spec.Egress = nil
+	declared.Annotations = map[string]string{"mcpruntime.org/egress-approved": "true"}
+	if got := ServerInfoFromMCPServer(declared, ServerDeploymentStatus{}).Egress; got != nil {
+		t.Fatalf("egress = %+v, want none when nothing is declared (a stray annotation approves nothing)", got)
+	}
+}

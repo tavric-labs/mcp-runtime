@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"mcp-runtime/internal/cli/access"
 	"mcp-runtime/internal/cli/core"
 	cliroot "mcp-runtime/internal/cli/root"
 )
@@ -25,6 +26,7 @@ var (
 )
 
 func main() {
+	access.SetCLIVersion(version)
 	logger, err := newConsoleLogger(debug)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to init logger: %v\n", err)

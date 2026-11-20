@@ -55,6 +55,8 @@ For pushing MCP server images, use 'server push'.`,
 	var initToolRisk string
 	var initForce bool
 	var initFromServer string
+	var initEgressHosts []string
+	var initEgressPorts []int32
 	initCmd := &cobra.Command{
 		Use:   "init [name]",
 		Short: "Initialize .mcp metadata for a server",
@@ -86,7 +88,11 @@ For pushing MCP server images, use 'server push'.`,
 					initTools = merged
 				}
 			}
-			return mgr.InitServer(args[0], initMetadataDir, initImage, initTag, initScope, initPolicyMode, initDefaultDecision, initSessionRequired, initPort, initTools, initToolSpecs, initToolRisk, initForce)
+			var egress *blueprint.EgressConfig
+			if len(initEgressHosts) > 0 || len(initEgressPorts) > 0 {
+				egress = &blueprint.EgressConfig{Hosts: initEgressHosts, Ports: initEgressPorts}
+			}
+			return mgr.InitServerWithEgress(egress, args[0], initMetadataDir, initImage, initTag, initScope, initPolicyMode, initDefaultDecision, initSessionRequired, initPort, initTools, initToolSpecs, initToolRisk, initForce)
 		},
 	}
 	initCmd.Flags().StringVar(&initMetadataDir, "metadata-dir", ".mcp", "Directory where servers.yaml will be written")
@@ -102,6 +108,8 @@ For pushing MCP server images, use 'server push'.`,
 	initCmd.Flags().StringVar(&initToolRisk, "tool-risk", "", "Informational risk level for seeded tools: low, medium, or high")
 	initCmd.Flags().BoolVar(&initForce, "force", false, "Replace an existing metadata entry with the same server name")
 	initCmd.Flags().StringVar(&initFromServer, "from-server", "", "Discover tools by calling tools/list on a running MCP server at this URL (e.g. http://localhost:8088); discovered names are merged with --tool flags")
+	initCmd.Flags().StringArrayVar(&initEgressHosts, "egress-host", nil, "External DNS name the server must reach (for example www.googleapis.com); repeat for multiple. An administrator must approve it with 'server egress approve'")
+	initCmd.Flags().Int32SliceVar(&initEgressPorts, "egress-port", nil, "TCP port for --egress-host (default 443); repeat for multiple")
 
 	var namespace string
 	var team string
@@ -347,7 +355,7 @@ mcp-servers-org); --team is unavailable.`,
 	pushCmd.Flags().StringVar(&pushName, "name", "", "Override target repository/name")
 	pushCmd.Flags().StringVar(&pushScope, "scope", "", "Publish scope: tenant or org")
 
-	cmd.AddCommand(initCmd, listCmd, getCmd, createCmd, applyCmd, deployCmd, generateCmd, exportCmd, patchCmd, deleteCmd, logsCmd, statusCmd, connectCmd, policyCmd, buildCmd, pushCmd, newValidateCmd())
+	cmd.AddCommand(initCmd, listCmd, getCmd, createCmd, applyCmd, deployCmd, generateCmd, exportCmd, patchCmd, newEgressCmd(mgr), deleteCmd, logsCmd, statusCmd, connectCmd, policyCmd, buildCmd, pushCmd, newValidateCmd())
 	return cmd
 }
 

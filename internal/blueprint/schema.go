@@ -130,11 +130,23 @@ type ServerMetadata struct {
 	// Gateway configures an optional MCP proxy sidecar in front of the server container.
 	Gateway *GatewayConfig `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 
+	// Egress declares the external hosts the server must reach. The platform
+	// applies it only after an administrator approves the declaration.
+	Egress *EgressConfig `yaml:"egress,omitempty" json:"egress,omitempty"`
+
 	// Analytics configures analytics emission for the gateway sidecar.
 	Analytics *AnalyticsConfig `yaml:"analytics,omitempty" json:"analytics,omitempty"`
 
 	// Rollout configures deployment rollout behavior.
 	Rollout *RolloutConfig `yaml:"rollout,omitempty" json:"rollout,omitempty"`
+}
+
+// EgressConfig declares external network access for a server.
+type EgressConfig struct {
+	// Hosts lists DNS names the server needs to reach (no wildcards or IPs).
+	Hosts []string `yaml:"hosts" json:"hosts"`
+	// Ports lists the TCP ports the server may connect to (defaults to [443]).
+	Ports []int32 `yaml:"ports,omitempty" json:"ports,omitempty"`
 }
 
 // ResourceRequirements defines resource limits and requests.

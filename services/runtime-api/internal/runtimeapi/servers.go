@@ -150,6 +150,12 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 		writeAPIError(w, http.StatusBadRequest, "name and spec.image are required")
 		return
 	}
+	if req.Spec.Egress != nil {
+		if err := mcpaccess.ValidateServerEgress(req.Spec.Egress.Hosts, req.Spec.Egress.Ports); err != nil {
+			writeAPIError(w, http.StatusBadRequest, "spec."+err.Error())
+			return
+		}
+	}
 	scope, err := topology.NormalizeScope(req.Scope)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
@@ -281,6 +287,12 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 	}
 	if userID := p.UserID(); userID != "" {
 		annotations[platformLastPushByAnnotation] = userID
+	}
+	// Egress approval belongs to an administrator and is bound to the approved
+	// declaration. The request cannot supply it; it survives a redeploy only
+	// when spec.egress is exactly what was approved.
+	if egressApprovalStillValid(current, req.Spec.Egress) {
+		annotations[mcpaccess.EgressApprovedAnnotation] = "true"
 	}
 
 	server := &mcpv1alpha1.MCPServer{
@@ -938,4 +950,16 @@ func firstForwardedValue(value string) string {
 		value = value[:idx]
 	}
 	return strings.TrimSpace(value)
+}
+
+// egressApprovalStillValid reports whether the current server carries an admin
+// egress approval for exactly the declaration being applied.
+func egressApprovalStillValid(current *mcpv1alpha1.MCPServer, next *mcpv1alpha1.EgressConfig) bool {
+	if current == nil || next == nil || current.Spec.Egress == nil {
+		return false
+	}
+	if current.Annotations[mcpaccess.EgressApprovedAnnotation] != "true" {
+		return false
+	}
+	return mcpaccess.ServerEgressEqual(current.Spec.Egress.Hosts, current.Spec.Egress.Ports, next.Hosts, next.Ports)
 }

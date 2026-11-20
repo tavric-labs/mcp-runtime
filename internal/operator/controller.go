@@ -372,6 +372,13 @@ func (r *MCPServerReconciler) reconcileResources(ctx context.Context, mcpServer 
 		r.updateStatus(ctx, mcpServer, "Error", fmt.Sprintf("Failed to reconcile Traefik egress NetworkPolicy: %v", err), resourceReadiness{})
 		return wrappedErr
 	}
+	if err := r.reconcileExternalEgress(ctx, mcpServer); err != nil {
+		contextMap["resource"] = "external-egress-networkpolicy"
+		wrappedErr := wrapOperatorError(err, "Failed to reconcile external egress NetworkPolicy", contextMap)
+		logOperatorError(logger, wrappedErr, "Failed to reconcile external egress NetworkPolicy")
+		r.updateStatus(ctx, mcpServer, "Error", fmt.Sprintf("Failed to reconcile external egress NetworkPolicy: %v", err), resourceReadiness{})
+		return wrappedErr
+	}
 	// Trust bundle must exist before Traefik ServersTransport/IngressRoute so
 	// Traefik never loads a transport that references a missing CA secret.
 	if err := r.reconcileMTLSTrustBundle(ctx, mcpServer); err != nil {
@@ -477,6 +484,7 @@ func (r *MCPServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&networkingv1.Ingress{}).
+		Owns(&networkingv1.NetworkPolicy{}).
 		Watches(&mcpv1alpha1.MCPAccessGrant{}, handler.EnqueueRequestsFromMapFunc(r.requestsForReferencedServer)).
 		Watches(&networkingv1.NetworkPolicy{}, handler.EnqueueRequestsFromMapFunc(r.requestsForTraefikEgressPolicy)).
 		Complete(r)

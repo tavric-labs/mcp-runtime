@@ -398,6 +398,103 @@ mcp-runtime ops logs gateway --follow
 mcp-runtime server logs payments --follow --use-kube
 ```
 
+## External egress for MCP servers
+
+MCP server pods run under a default-deny egress NetworkPolicy. They can reach the
+platform API, DNS, observability, the registry, other pods in their namespace and
+the ingress controller, and nothing else. A server that calls an external API
+(for example `youtube` calling Google) therefore fails with an error such as
+`could not reach YouTube` even though its grants, sessions and gateway are
+healthy. Declare the hosts the server needs and have an administrator approve
+them.
+
+### Declare the hosts
+
+Set `egress` in the server's `.mcp` metadata (or `spec.egress` on the
+`MCPServer`), or scaffold it with `mcp-runtime server init --egress-host <host>`
+(repeat it for more hosts; `--egress-port` adds ports). `server validate`,
+`server build` and `server deploy` check the same rules:
+
+```yaml
+spec:
+  egress:
+    hosts:
+      - www.googleapis.com
+      - oauth2.googleapis.com
+    ports: [443]      # optional; TCP only, defaults to [443]
+```
+
+- `hosts` is required when `egress` is set: DNS names only. Wildcards and IP
+  literals are rejected.
+- `ports` lists TCP ports and defaults to `443`.
+- A server without `spec.egress` is unchanged and stays under default-deny.
+
+### Approve it
+
+Declaring egress does not open the network. A platform administrator reviews the
+hosts and approves them:
+
+```bash
+mcp-runtime server egress approve youtube --namespace mcp-servers-org --use-kube
+mcp-runtime server egress revoke  youtube --namespace mcp-servers-org --use-kube
+```
+
+Approval currently needs `--use-kube`, which requires administrator cluster
+access, because there is no platform API endpoint for it yet. The command pins
+the version it read, so it fails instead of approving a declaration that
+changed in between. An approval stays in place across a redeploy only while the
+hosts and ports are unchanged; changing either one revokes it.
+
+Approval is recorded as the `mcpruntime.org/egress-approved` annotation on the
+`MCPServer`. The platform API ignores that annotation on deploy, so a publisher
+cannot grant themselves internet access.
+
+### What the operator creates
+
+After approval the operator reconciles one NetworkPolicy owned by the server,
+named `<server>-external-egress`. It selects the server's pods and allows the
+declared TCP ports to public addresses only. Private (RFC 1918), loopback,
+link-local (including the cloud metadata address) and cluster pod and service
+ranges stay blocked. Retiring the server or revoking approval removes the policy.
+
+The `ExternalEgressReady` condition on `MCPServer.status` reports the state:
+
+| Reason | Meaning |
+|---|---|
+| `NotRequested` | The server declares no `spec.egress`. |
+| `PendingApproval` | Hosts are declared, no administrator has approved them, and no policy exists. |
+| `Applied` | Approved; `<server>-external-egress` is in place. |
+
+### Current limit: hosts are recorded, not enforced by name
+
+Kubernetes NetworkPolicy cannot match hostnames, and the reference cluster has no
+FQDN-aware network plugin. This release enforces the approved ports and "public
+addresses only" and records the declared hosts for review and audit. It does not
+stop an approved server from connecting to another public host on the same port.
+Treat approval as permission for outbound HTTPS to the internet, and review the
+declared hosts accordingly. Hostname enforcement needs an FQDN-aware plugin or an
+egress proxy and is tracked in
+[#957](https://github.com/tavric-labs/mcp-runtime/issues/957).
+
+### Troubleshooting
+
+- **`could not reach <service>` in the server log, grants and sessions fine.**
+  Check `mcp-runtime server get <name>` for the `ExternalEgressReady` condition.
+  `NotRequested` means the server never declared `spec.egress`.
+- **`PendingApproval`.** An administrator has not approved the declaration.
+  Review the hosts, then run `server egress approve`.
+- **`Applied` but calls still fail.** Confirm the server needs a port other than
+  `443`, that the destination is a public address (private and cluster addresses
+  stay blocked by design), and that the name resolves from inside the pod.
+- **Replacing a hand-applied policy.** Earlier installs may carry manually
+  applied egress NetworkPolicies (for example for `google-search`). Declare
+  `spec.egress`, approve it, confirm `Applied`, then delete the manual policy so
+  one managed policy remains.
+
+Example, the `youtube` server: declare `www.googleapis.com` and
+`oauth2.googleapis.com` on port `443`, approve with `server egress approve
+youtube`, and its tools can reach Google once `ExternalEgressReady` is `Applied`.
+
 ## Common failure points
 
 ### Image built, but deploy still points at the wrong image
@@ -498,6 +595,10 @@ but hand-written YAML must state them explicitly.
   The port your MCP process listens on inside the container.
 - `spec.publicPathPrefix`
   The public route prefix. `payments` becomes `/payments/mcp`.
+- `spec.egress`
+  Optional external hosts and TCP ports the server must reach. Applied only
+  after administrator approval; see
+  [External egress](#external-egress-for-mcp-servers).
 - `spec.gateway.enabled`
   Sends requests through `mcp-gateway` for metrics, traces, and request
   analytics. The sidecar is **on by default** (including `gateway: {}`). Set

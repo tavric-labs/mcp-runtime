@@ -53,7 +53,17 @@ type Decision struct {
 	// MatchedSessionNamespace qualifies it for the same reason.
 	MatchedSession          string
 	MatchedSessionNamespace string
+	// ConsideredGrantCount and ConsideredGrantNames are set only for a
+	// no_matching_grant denial. They report how many grants targeted this
+	// server and the first few names, so an operator can compare them with the
+	// presented identity. They are for logs and audit only and are never
+	// written to the client response.
+	ConsideredGrantCount int
+	ConsideredGrantNames string
 }
+
+// maxConsideredGrantNames bounds how many grant names a denial reports.
+const maxConsideredGrantNames = 10
 
 // Deny builds a denied authorization decision.
 func Deny(status int, reason, policyVersion string) Decision {
@@ -188,6 +198,7 @@ func authorize(policy *Document, request Request, now time.Time) Decision {
 	matchingGrants := matchingPolicyGrants(policy, identity)
 	if len(matchingGrants) == 0 {
 		denied := decideByDefault(policy, "no_matching_grant")
+		denied.ConsideredGrantCount, denied.ConsideredGrantNames = consideredGrants(policy)
 		denied.MatchedSession = matchedSession
 		denied.MatchedSessionNamespace = matchedSessionNamespace
 		return denied
@@ -519,4 +530,19 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// consideredGrants summarizes the grants a no_matching_grant denial evaluated.
+func consideredGrants(policy *Document) (int, string) {
+	if policy == nil {
+		return 0, ""
+	}
+	names := make([]string, 0, maxConsideredGrantNames)
+	for _, grant := range policy.Grants {
+		if len(names) == maxConsideredGrantNames {
+			break
+		}
+		names = append(names, string(grant.Name))
+	}
+	return len(policy.Grants), strings.Join(names, ",")
 }

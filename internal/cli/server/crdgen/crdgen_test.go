@@ -533,3 +533,31 @@ func TestGenerateCRDRewritesImageToPullHost(t *testing.T) {
 func boolPtr(v bool) *bool { return &v }
 
 func int32Ptr(v int32) *int32 { return &v }
+
+func TestGenerateCRDIncludesEgressButNeverApproval(t *testing.T) {
+	server := &blueprint.ServerMetadata{
+		Name:      "youtube",
+		Namespace: "mcp-servers-org",
+		Image:     "registry.example.com/youtube",
+		ImageTag:  "v1",
+		Port:      8088,
+		Egress:    &blueprint.EgressConfig{Hosts: []string{"www.googleapis.com"}, Ports: []int32{443}},
+	}
+	path := t.TempDir() + "/youtube.yaml"
+	if err := GenerateCRD(server, path); err != nil {
+		t.Fatalf("GenerateCRD: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated CRD: %v", err)
+	}
+	content := string(data)
+	for _, want := range []string{"egress:", "- www.googleapis.com", "- 443"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("generated manifest is missing %q:\n%s", want, content)
+		}
+	}
+	if strings.Contains(content, "egress-approved") {
+		t.Fatalf("generated manifests must never carry the admin approval annotation:\n%s", content)
+	}
+}

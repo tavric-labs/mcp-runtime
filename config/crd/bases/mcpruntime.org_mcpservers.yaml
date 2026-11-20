@@ -188,6 +188,32 @@ spec:
                 description: Description is a human-readable summary of what the MCP
                   server provides.
                 type: string
+              egress:
+                description: |-
+                  Egress declares the external hosts this server must reach. Servers run
+                  under a default-deny egress policy, so external calls fail unless the
+                  declaration is approved by a platform administrator.
+                properties:
+                  hosts:
+                    description: |-
+                      Hosts lists the DNS names the server needs to reach, for example
+                      "www.googleapis.com". Wildcards and IP literals are not allowed.
+                    items:
+                      type: string
+                    maxItems: 32
+                    minItems: 1
+                    type: array
+                  ports:
+                    description: Ports lists the TCP ports the server may connect
+                      to (defaults to [443]).
+                    items:
+                      format: int32
+                      type: integer
+                    maxItems: 8
+                    type: array
+                required:
+                - hosts
+                type: object
               envVars:
                 description: EnvVars are literal environment variables to pass to
                   the container.

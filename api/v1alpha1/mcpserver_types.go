@@ -155,6 +155,11 @@ type MCPServerSpec struct {
 	// analytics can run. Set gateway.enabled to false to opt out.
 	Gateway *GatewayConfig `json:"gateway,omitempty"`
 
+	// Egress declares the external hosts this server must reach. Servers run
+	// under a default-deny egress policy, so external calls fail unless the
+	// declaration is approved by a platform administrator.
+	Egress *EgressConfig `json:"egress,omitempty"`
+
 	// Analytics configures audit/analytics emission for the gateway sidecar.
 	// When the gateway is enabled and this field is omitted, analytics emission
 	// is on whenever the operator has a default ingest URL. Set
@@ -306,6 +311,19 @@ type SessionConfig struct {
 
 // GatewayConfig configures an optional MCP proxy sidecar for a server.
 // +kubebuilder:object:generate=true
+// EgressConfig declares external network access for an MCP server.
+type EgressConfig struct {
+	// Hosts lists the DNS names the server needs to reach, for example
+	// "www.googleapis.com". Wildcards and IP literals are not allowed.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
+	Hosts []string `json:"hosts"`
+
+	// Ports lists the TCP ports the server may connect to (defaults to [443]).
+	// +kubebuilder:validation:MaxItems=8
+	Ports []int32 `json:"ports,omitempty"`
+}
+
 type GatewayConfig struct {
 	// Enabled turns the gateway sidecar on or off. When nil/omitted the sidecar
 	// is enabled (observability by default). Set to false to opt out.

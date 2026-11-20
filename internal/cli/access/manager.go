@@ -64,27 +64,28 @@ func (m *AccessManager) accessListQueryNamespace(namespace string, allNamespaces
 }
 
 type accessManifestInitOptions struct {
-	Mode               string
-	Kind               string
-	Name               string
-	Namespace          string
-	Server             string
-	ServerNamespace    string
-	HumanID            string
-	AgentID            string
-	TeamID             string
-	Trust              string
-	SideEffects        []string
-	Tools              []string
-	ToolRules          []string
-	Output             string
-	Force              bool
-	PolicyVersion      string
-	UpstreamSecretName string
-	UpstreamSecretKey  string
-	ExpiresAt          string
-	ExpiresIn          string
-	Revoked            bool
+	Mode                 string
+	Kind                 string
+	Name                 string
+	Namespace            string
+	Server               string
+	ServerNamespace      string
+	HumanID              string
+	SubjectFromTokenFile string
+	AgentID              string
+	TeamID               string
+	Trust                string
+	SideEffects          []string
+	Tools                []string
+	ToolRules            []string
+	Output               string
+	Force                bool
+	PolicyVersion        string
+	UpstreamSecretName   string
+	UpstreamSecretKey    string
+	ExpiresAt            string
+	ExpiresIn            string
+	Revoked              bool
 }
 
 func (m *AccessManager) InitGrantManifest(opts accessManifestInitOptions) error {
@@ -163,7 +164,18 @@ func buildAccessManifest(opts accessManifestInitOptions) ([]byte, error) {
 		return nil, err
 	}
 	subject := map[string]string{}
-	if humanID := strings.TrimSpace(opts.HumanID); humanID != "" {
+	humanID := strings.TrimSpace(opts.HumanID)
+	if strings.TrimSpace(opts.SubjectFromTokenFile) != "" {
+		if humanID != "" {
+			return nil, core.NewWithBase(nil, "--subject-from-token-file cannot be combined with --human-id")
+		}
+		tokenSubject, err := resolveTokenSubject(opts.SubjectFromTokenFile, "")
+		if err != nil {
+			return nil, err
+		}
+		humanID = tokenSubject
+	}
+	if humanID != "" {
 		subject["humanID"] = humanID
 	}
 	if agentID := strings.TrimSpace(opts.AgentID); agentID != "" {
@@ -173,7 +185,7 @@ func buildAccessManifest(opts accessManifestInitOptions) ([]byte, error) {
 		subject["teamID"] = teamID
 	}
 	if len(subject) == 0 {
-		return nil, core.NewWithBase(nil, "one of --human-id, --agent-id, or --team-id is required")
+		return nil, core.NewWithBase(nil, "one of --human-id, --subject-from-token-file, --agent-id, or --team-id is required")
 	}
 	trust, err := normalizeAccessTrust(opts.Trust)
 	if err != nil {
