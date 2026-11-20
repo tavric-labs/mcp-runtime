@@ -2038,15 +2038,65 @@ staging_mt_read_agents() {
   MT_GLOBEX_DENIED_AGENT_ID="$(jq -er '.globex.deniedAgentID' "${MT_AGENTS_JSON}")"
 }
 
+# Compile the Go OAuth sample on the VM host using the verified toolchain and
+# module cache unpacked by stage_go_dependencies, then stage a scratch Docker
+# context for server build image. Building inside Docker cannot see the host
+# GOMODCACHE and pulls gcr.io/distroless, which fails when Google storage/GCR
+# returns 403 to the disposable VM.
+staging_prepare_multitenancy_server_context() {
+  local context_dir="${1:?missing multitenancy server context dir}"
+  local source_dir="${ROOT_DIR}/examples/oauth-example-go-2025-11-25"
+  local target_arch="amd64"
+  case "$(uname -m)" in
+    aarch64 | arm64) target_arch="arm64" ;;
+  esac
+  rm -rf "${context_dir}"
+  mkdir -p "${context_dir}"
+  local go_proxy="${GOPROXY:-}" go_sumdb="${GOSUMDB:-}"
+  if [[ -n "${GOMODCACHE:-}" && -d "${GOMODCACHE}/cache/download" ]]; then
+    go_proxy="off"
+    go_sumdb="off"
+  fi
+  (
+    cd "${source_dir}"
+    if [[ -n "${go_proxy}" ]]; then
+      export GOPROXY="${go_proxy}" GOSUMDB="${go_sumdb}"
+    fi
+    CGO_ENABLED=0 GOOS=linux GOARCH="${target_arch}" GOTOOLCHAIN="${GOTOOLCHAIN:-local}" \
+      go build -trimpath -ldflags="-s -w" -o "${context_dir}/oauth-example-go-2025-11-25" ./
+  ) || return 1
+  if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
+    cp /etc/ssl/certs/ca-certificates.crt "${context_dir}/ca-certificates.crt"
+  else
+    : >"${context_dir}/ca-certificates.crt"
+  fi
+  cat >"${context_dir}/Dockerfile" <<'EOF'
+FROM scratch
+WORKDIR /app
+COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --chown=65532:65532 oauth-example-go-2025-11-25 /app/oauth-example-go-2025-11-25
+EXPOSE 8088
+USER 65532:65532
+ENTRYPOINT ["/app/oauth-example-go-2025-11-25"]
+EOF
+}
+
 staging_check_multitenancy() {
   if ! staging_flag_enabled "${E2E_RUN_MULTITENANCY:-1}"; then
     staging_skip "run-multitenancy is false"
   fi
   mkdir -p "${STAGING_MT_CONFIG_DIR}"
+  local server_context="${SERVER_CONTEXT:-}" server_dockerfile="${SERVER_DOCKERFILE:-}"
+  if [[ -z "${server_context}" && -z "${server_dockerfile}" ]]; then
+    server_context="${WORK_DIR}/multitenancy-server-image"
+    server_dockerfile="${server_context}/Dockerfile"
+    staging_prepare_multitenancy_server_context "${server_context}" || return 1
+  fi
   PLATFORM_URL="${PLATFORM_URL}" MCP_URL="${MCP_URL}" REGISTRY_HOST="${REGISTRY_HOST}" \
     ADMIN_TOKEN_INPUT="${E2E_PLATFORM_API_TOKEN}" RUN_ID="${STAGING_MT_RUN_ID}" \
     MCP_RUNTIME_CONFIG_DIR="${STAGING_MT_CONFIG_DIR}" VERIFY_DEPLOY_PULL_SECRET=1 \
     BIN="${BIN}" WORK_DIR="${WORK_DIR}/multitenancy" \
+    SERVER_CONTEXT="${server_context}" SERVER_DOCKERFILE="${server_dockerfile}" \
     ANALYTICS_INGEST_URL="${STAGING_ANALYTICS_INGEST_URL:-https://mcp-ingest.mcp-observability.svc.cluster.local:8081/events}" \
     bash "${ROOT_DIR}/hack/qa/multitenancy-test.sh" | tee "${STAGING_ARTIFACT_DIR}/multitenancy.log"
   # Evidence that the tenant server went through build -> push -> deploy and is

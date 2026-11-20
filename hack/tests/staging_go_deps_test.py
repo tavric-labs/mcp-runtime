@@ -59,6 +59,12 @@ elif args==['clean','-modcache']:
   for root, dirs, files in os.walk(cache):
    pathlib.Path(root).chmod(0o700)
   shutil.rmtree(cache)
+elif args[0]=='build':
+ with open(os.environ['FIXTURE_LOG'],'a') as f:
+  f.write(json.dumps({'args':args,'cwd':os.getcwd(),'cache':os.environ.get('GOMODCACHE'),'proxy':os.environ.get('GOPROXY'),'sumdb':os.environ.get('GOSUMDB'),'cgo':os.environ.get('CGO_ENABLED'),'goos':os.environ.get('GOOS'),'goarch':os.environ.get('GOARCH'),'toolchain':os.environ.get('GOTOOLCHAIN')})+'\\n')
+ out=pathlib.Path(args[args.index('-o')+1])
+ out.parent.mkdir(parents=True,exist_ok=True)
+ out.write_text('compiled-server-binary')
 else: sys.exit(80)
 '''
         for go in [self.bin / 'go', self.goroot / 'bin/go']:
@@ -200,6 +206,48 @@ os.execv(program,[program]+args)
         env = dict(self.env, E2E_GO_DEPS_ARCHIVE='')
         result = subprocess.run(['bash', '-c', function + '\nstage_go_dependencies'], env=env, text=True, capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_multitenancy_stages_offline_server_context_from_unpacked_go_inputs(self):
+        self.pack()
+        self.assertEqual(self.run_script('unpack').returncode, 0)
+        example = self.repo / 'examples/oauth-example-go-2025-11-25'
+        example.mkdir(parents=True)
+        (example / 'go.mod').write_text('module oauth-example-go-2025-11-25\n\ngo 1.27.4\n')
+        source = (ROOT / 'test/e2e/lib/staging.sh').read_text()
+        self.assertIn('staging_prepare_multitenancy_server_context()', source)
+        prepare_fn = 'staging_prepare_multitenancy_server_context() {' + source.split('staging_prepare_multitenancy_server_context() {', 1)[1].split('\n}\n', 1)[0] + '\n}\n'
+        check_fn = 'staging_check_multitenancy() {' + source.split('staging_check_multitenancy() {', 1)[1].split('\n}\n', 1)[0] + '\n}\n'
+        self.log.write_text('')
+        context_dir = self.root / 'mt-server-image'
+        env = dict(
+            self.env,
+            ROOT_DIR=str(self.repo),
+            GOMODCACHE=str(self.destination / 'modules'),
+            GOTOOLCHAIN='local',
+        )
+        result = subprocess.run(
+            ['bash', '-c', prepare_fn + f'\nstaging_prepare_multitenancy_server_context "{context_dir}"'],
+            env=env, text=True, capture_output=True, timeout=20,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [json.loads(s) for s in self.log.read_text().splitlines()]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(Path(calls[0]['cwd']).name, 'oauth-example-go-2025-11-25')
+        self.assertEqual(calls[0]['cache'], str(self.destination / 'modules'))
+        self.assertEqual(calls[0]['proxy'], 'off')
+        self.assertEqual(calls[0]['sumdb'], 'off')
+        self.assertEqual(calls[0]['cgo'], '0')
+        self.assertEqual(calls[0]['goos'], 'linux')
+        self.assertEqual(calls[0]['goarch'], 'amd64')
+        self.assertEqual(calls[0]['toolchain'], 'local')
+        self.assertTrue((context_dir / 'oauth-example-go-2025-11-25').is_file())
+        self.assertTrue((context_dir / 'ca-certificates.crt').is_file())
+        dockerfile = (context_dir / 'Dockerfile').read_text()
+        self.assertIn('FROM scratch', dockerfile)
+        self.assertNotIn('gcr.io', dockerfile)
+        self.assertNotIn('go mod download', dockerfile)
+        self.assertIn('SERVER_CONTEXT="${server_context}"', check_fn)
+        self.assertIn('SERVER_DOCKERFILE="${server_dockerfile}"', check_fn)
 
 
 if __name__ == '__main__':
