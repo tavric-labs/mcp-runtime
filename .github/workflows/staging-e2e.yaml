@@ -135,6 +135,14 @@ jobs:
           E2E_VM_KNOWN_HOSTS: /home/runner/.ssh/mcp-runtime-e2e-known-hosts
         run: bash test/e2e/staging-target.sh check
 
+      - name: Package verified public Go dependencies
+        run: |
+          STAGING_GO_DEPS_REAL_GO=1 python3 -m unittest discover -s hack/tests -p staging_go_deps_test.py
+          bash hack/ci/staging-go-deps.sh pack /tmp/mcp-runtime-e2e-go-deps.tgz
+          # Download commands may add go.sum entries; never package a modified
+          # source graph under the candidate's unchanged Git commit identity.
+          git diff --exit-code -- .
+
       - name: Package repository
         run: |
           tar --exclude=.git --exclude='*/node_modules' \
@@ -147,7 +155,8 @@ jobs:
           sshpass -e scp \
             -o UserKnownHostsFile="$HOME/.ssh/mcp-runtime-e2e-known-hosts" -o StrictHostKeyChecking=yes \
             /tmp/mcp-runtime-e2e.tgz \
-            "${{ secrets.E2E_VM_USER }}@${{ secrets.E2E_VM_HOST }}:/tmp/mcp-runtime-e2e.tgz"
+            /tmp/mcp-runtime-e2e-go-deps.tgz /tmp/mcp-runtime-e2e-go-deps.tgz.sha256 \
+            "${{ secrets.E2E_VM_USER }}@${{ secrets.E2E_VM_HOST }}:/tmp/"
 
       - name: Ensure E2E runtime configuration
         env:
@@ -178,7 +187,7 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/mcp-runtime-e2e-known-hosts" -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes \
             "${{ secrets.E2E_VM_USER }}@${{ secrets.E2E_VM_HOST }}" \
-            "set -eu; rm -rf /opt/mcp-runtime-e2e; mkdir -p /opt/mcp-runtime-e2e; tar -xzf /tmp/mcp-runtime-e2e.tgz -C /opt/mcp-runtime-e2e; E2E_GHCR_AUTH_STDIN=1 E2E_GHCR_USER='${{ github.actor }}' E2E_RUN_ID='${E2E_RUN_ID}' E2E_RUN_MULTITENANCY='${RUN_MULTITENANCY}' E2E_FRESH_CERTIFICATE='${FRESH_CERTIFICATE}' E2E_WITH_MCP_AUTH_OVERRIDE='${WITH_MCP_AUTH}' E2E_PLATFORM_MODE_OVERRIDE='${PLATFORM_MODE}' WORKSPACE_BROWSER_CANDIDATE='${browser_candidate}' GITHUB_ACTIONS=true GITHUB_REF_NAME='${GITHUB_REF_NAME}' GITHUB_SHA='${GITHUB_SHA}' bash /opt/mcp-runtime-e2e/test/e2e/staging-vm.sh"
+            "set -eu; rm -rf /opt/mcp-runtime-e2e; mkdir -p /opt/mcp-runtime-e2e; tar -xzf /tmp/mcp-runtime-e2e.tgz -C /opt/mcp-runtime-e2e; E2E_GO_DEPS_ARCHIVE='/tmp/mcp-runtime-e2e-go-deps.tgz' E2E_GHCR_AUTH_STDIN=1 E2E_GHCR_USER='${{ github.actor }}' E2E_RUN_ID='${E2E_RUN_ID}' E2E_RUN_MULTITENANCY='${RUN_MULTITENANCY}' E2E_FRESH_CERTIFICATE='${FRESH_CERTIFICATE}' E2E_WITH_MCP_AUTH_OVERRIDE='${WITH_MCP_AUTH}' E2E_PLATFORM_MODE_OVERRIDE='${PLATFORM_MODE}' WORKSPACE_BROWSER_CANDIDATE='${browser_candidate}' GITHUB_ACTIONS=true GITHUB_REPOSITORY_OWNER='${{ github.repository_owner }}' GITHUB_REF_NAME='${GITHUB_REF_NAME}' GITHUB_SHA='${GITHUB_SHA}' bash /opt/mcp-runtime-e2e/test/e2e/staging-vm.sh"
 
       - name: Collect E2E artifacts
         if: always()

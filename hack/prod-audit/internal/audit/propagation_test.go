@@ -16,6 +16,7 @@ func TestNewGrantWaitsForPolicyButNotInvalidIdentity(t *testing.T) {
 		ok     bool
 	}{
 		{"tool_not_granted", true},
+		{"no_matching_grant", true},
 		{"session_expired", false},
 		{"trust_too_low", false},
 		{"tool_denied", false},
@@ -40,5 +41,23 @@ func TestNewGrantWaitsForPolicyButNotInvalidIdentity(t *testing.T) {
 				t.Fatal("retried a permanent identity/policy failure")
 			}
 		})
+	}
+}
+
+func TestAGrantThatNeverAppearsStillFails(t *testing.T) {
+	var calls atomic.Int32
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(403)
+		fmt.Fprint(w, `{"error":"no_matching_grant"}`)
+	}))
+	defer s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := waitForGrantedRead(ctx, s.URL); err == nil {
+		t.Fatal("a grant that never reached the gateway passed the acceptance wait")
+	}
+	if calls.Load() < 2 {
+		t.Fatalf("calls = %d, want the probe retried while waiting", calls.Load())
 	}
 }

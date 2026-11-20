@@ -308,7 +308,7 @@ manual findings.
 ## Step 12 — Run static and supply-chain scanners (full)
 
 - `gitleaks detect --source . --config .gitleaks.toml --redact`.
-- `gosec ./...` (pinned `v2.26.1` per CI).
+- `gosec ./...` (pinned `v2.30.0` per CI).
 - `govulncheck ./...` from repo root and from each `services/<name>/`.
 - `trivy fs --scanners vuln,secret,license,misconfig --severity CRITICAL,HIGH --ignore-unfixed --skip-dirs inspirations/mcp-gateway-registry .`.
 - `semgrep --config=auto` (and any project rules in `.semgrep/` if added).

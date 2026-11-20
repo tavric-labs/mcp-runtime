@@ -1,6 +1,6 @@
 module oauth-example-go-2025-11-25
 
-go 1.26.0
+go 1.27.4
 
 require (
 	github.com/Agent-Hellboy/mcp-auth/auth-client/go v0.1.1

@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.26.10
+ARG GO_VERSION=1.27.4
 FROM golang:${GO_VERSION}-alpine AS build
 
 # Keep the documentation renderer on a reviewed release rather than following

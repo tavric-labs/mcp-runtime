@@ -25,7 +25,12 @@ func waitForGrantedRead(ctx context.Context, endpoint string) error {
 			Error string `json:"error"`
 		}
 		_ = json.Unmarshal(raw, &body)
-		if status == http.StatusForbidden && body.Error == "tool_not_granted" || status == http.StatusServiceUnavailable && body.Error == "policy_unavailable" {
+		// The gateway answers no_matching_grant while the new grant is not in
+		// its policy yet (the session can arrive first), and tool_not_granted
+		// when the grant arrived but does not list the tool yet. Both are
+		// propagation; a grant that never appears still fails when the bounded
+		// wait ends.
+		if status == http.StatusForbidden && (body.Error == "tool_not_granted" || body.Error == "no_matching_grant") || status == http.StatusServiceUnavailable && body.Error == "policy_unavailable" {
 			return false, nil
 		}
 		// Do not put arbitrary response text (possibly an upstream page) into
