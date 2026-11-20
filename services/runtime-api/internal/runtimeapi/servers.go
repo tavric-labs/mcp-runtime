@@ -155,6 +155,9 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 			writeAPIError(w, http.StatusBadRequest, "spec."+err.Error())
 			return
 		}
+		for i, host := range req.Spec.Egress.Hosts {
+			req.Spec.Egress.Hosts[i] = mcpaccess.NormalizeEgressHost(host)
+		}
 	}
 	scope, err := topology.NormalizeScope(req.Scope)
 	if err != nil {

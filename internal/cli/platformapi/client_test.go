@@ -132,7 +132,7 @@ func TestGetRuntimeServer(t *testing.T) {
 			if r.Header.Get("x-api-key") != "token-1" {
 				t.Fatalf("x-api-key = %q, want token-1", r.Header.Get("x-api-key"))
 			}
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"server":{"name":"demo","namespace":"mcp-team-acme","runtimeStatus":{"connectionState":"ready","lastSessionState":"none"}}}`))}, nil
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"server":{"name":"demo","namespace":"mcp-team-acme","runtimeStatus":{"connectionState":"ready","lastSessionState":"none"},"egress":{"hosts":["www.googleapis.com"],"ports":[443],"approved":true}}}`))}, nil
 		})},
 	}
 
@@ -142,6 +142,9 @@ func TestGetRuntimeServer(t *testing.T) {
 	}
 	if server.Name != "demo" || server.RuntimeStatus.ConnectionState != "ready" || server.RuntimeStatus.LastSessionState != "none" {
 		t.Fatalf("server = %#v, want runtime status decoded", server)
+	}
+	if server.Egress == nil || !server.Egress.Approved || len(server.Egress.Hosts) != 1 || server.Egress.Hosts[0] != "www.googleapis.com" || len(server.Egress.Ports) != 1 || server.Egress.Ports[0] != 443 {
+		t.Fatalf("server.Egress = %#v, want decoded egress details", server.Egress)
 	}
 }
 

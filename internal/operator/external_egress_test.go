@@ -101,12 +101,15 @@ func TestExternalEgressApprovedCreatesOwnedPolicy(t *testing.T) {
 }
 
 func TestExternalEgressUsesDeclaredPortsSorted(t *testing.T) {
-	server := externalEgressServer(true, []string{"api.example.com"}, []int32{8443, 443})
+	server := externalEgressServer(true, []string{"API.Example.COM"}, []int32{8443, 443})
 	r, c := externalEgressFixture(t, server)
 	if err := r.reconcileExternalEgress(context.Background(), server); err != nil {
 		t.Fatal(err)
 	}
-	policy, _ := getExternalEgressPolicy(t, c, server)
+	policy, ok := getExternalEgressPolicy(t, c, server)
+	if !ok {
+		t.Fatal("approved egress with mixed-case host did not create a NetworkPolicy")
+	}
 	var got []int32
 	for _, p := range policy.Spec.Egress[0].Ports {
 		got = append(got, p.Port.IntVal)
@@ -246,6 +249,7 @@ func TestExternalEgressInvalidSpecReportsConditionWithoutPolicy(t *testing.T) {
 		"high port":   {hosts: []string{"a.example.com"}, ports: []int32{70000}, want: "port"},
 		"long label":  {hosts: []string{strings.Repeat("a", 64) + ".example.com"}, want: "DNS"},
 		"trailing":    {hosts: []string{"-a.example.com"}, want: "DNS"},
+		"cluster svc": {hosts: []string{"kubernetes.default.svc.cluster.local"}, want: "cluster-internal"},
 		"too many pt": {hosts: []string{"a.example.com"}, ports: []int32{1, 2, 3, 4, 5, 6, 7, 8, 9}, want: "ports"},
 	}
 	for name, tc := range cases {

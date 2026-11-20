@@ -125,8 +125,12 @@ func TestRuntimeServerApplyKeepsApprovalWhenEgressUnchanged(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
-	if got := currentEgressTestServer(t, server).Annotations[mcpaccess.EgressApprovedAnnotation]; got != "true" {
+	current := currentEgressTestServer(t, server)
+	if got := current.Annotations[mcpaccess.EgressApprovedAnnotation]; got != "true" {
 		t.Fatalf("approval annotation = %q, want an unchanged declaration to stay approved", got)
+	}
+	if len(current.Spec.Egress.Hosts) != 1 || current.Spec.Egress.Hosts[0] != "www.googleapis.com" {
+		t.Fatalf("persisted egress hosts = %v, want normalized lowercase host", current.Spec.Egress.Hosts)
 	}
 }
 

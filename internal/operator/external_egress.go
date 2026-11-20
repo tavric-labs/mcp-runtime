@@ -5,8 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"net/netip"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -23,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
+	"mcp-runtime/pkg/access"
 )
 
 // External egress (issue #957).
@@ -42,7 +41,7 @@ import (
 const (
 	// EgressApprovedAnnotation marks a server's spec.egress as approved by a
 	// platform administrator. Only the exact value "true" approves.
-	EgressApprovedAnnotation = "mcpruntime.org/egress-approved"
+	EgressApprovedAnnotation = access.EgressApprovedAnnotation
 
 	// ExternalEgressReadyCondition reports the state of the declared egress.
 	ExternalEgressReadyCondition = "ExternalEgressReady"
@@ -53,9 +52,6 @@ const (
 	ExternalEgressReasonInvalid         = "InvalidEgress"
 
 	externalEgressPolicySuffix = "-external-egress"
-	externalEgressMaxHosts     = 32
-	externalEgressMaxPorts     = 8
-	defaultExternalEgressPort  = int32(443)
 	dnsSubdomainMaxLength      = 253
 )
 
@@ -70,8 +66,6 @@ var externalEgressExcludedCIDRs = []string{
 	"169.254.0.0/16",
 	"100.64.0.0/10",
 }
-
-var dnsLabelPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 func externalEgressPolicyName(server string) string {
 	name := server + externalEgressPolicySuffix
@@ -90,50 +84,15 @@ func externalEgressApproved(server *mcpv1alpha1.MCPServer) bool {
 // validateExternalEgress checks a spec.egress declaration and returns the
 // normalized, sorted ports.
 func validateExternalEgress(egress *mcpv1alpha1.EgressConfig) ([]int32, error) {
-	if len(egress.Hosts) == 0 {
-		return nil, fmt.Errorf("spec.egress.hosts must list at least one host")
-	}
-	if len(egress.Hosts) > externalEgressMaxHosts {
-		return nil, fmt.Errorf("spec.egress.hosts allows at most %d hosts, got %d", externalEgressMaxHosts, len(egress.Hosts))
-	}
-	for _, host := range egress.Hosts {
-		if err := validateEgressHost(host); err != nil {
-			return nil, err
-		}
-	}
-	if len(egress.Ports) > externalEgressMaxPorts {
-		return nil, fmt.Errorf("spec.egress.ports allows at most %d ports, got %d", externalEgressMaxPorts, len(egress.Ports))
+	if err := access.ValidateServerEgress(egress.Hosts, egress.Ports); err != nil {
+		return nil, fmt.Errorf("spec.%w", err)
 	}
 	ports := slices.Clone(egress.Ports)
 	if len(ports) == 0 {
-		ports = []int32{defaultExternalEgressPort}
-	}
-	for _, port := range ports {
-		if port < 1 || port > 65535 {
-			return nil, fmt.Errorf("spec.egress.ports contains invalid port %d (must be 1-65535)", port)
-		}
+		ports = []int32{access.DefaultServerEgressPort}
 	}
 	slices.Sort(ports)
 	return slices.Compact(ports), nil
-}
-
-func validateEgressHost(host string) error {
-	if strings.Contains(host, "*") {
-		return fmt.Errorf("spec.egress.hosts entry %q: wildcard hosts are not allowed", host)
-	}
-	if _, err := netip.ParseAddr(strings.Trim(host, "[]")); err == nil {
-		return fmt.Errorf("spec.egress.hosts entry %q: IP literals are not allowed, use a DNS name", host)
-	}
-	invalid := fmt.Errorf("spec.egress.hosts entry %q is not a valid DNS name (lowercase letters, digits and hyphens, dot-separated, no scheme, port or path)", host)
-	if host == "" || len(host) > dnsSubdomainMaxLength || host != strings.TrimSpace(host) {
-		return invalid
-	}
-	for _, label := range strings.Split(host, ".") {
-		if !dnsLabelPattern.MatchString(label) {
-			return invalid
-		}
-	}
-	return nil
 }
 
 // reconcileExternalEgress keeps the owned external egress policy aligned with

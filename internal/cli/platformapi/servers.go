@@ -47,6 +47,7 @@ type ServerListItem struct {
 	LiveInventoryError string                           `json:"liveInventoryError,omitempty"`
 	AccessJSON         map[string]any                   `json:"access_json,omitempty"`
 	RuntimeStatus      controlplane.ServerRuntimeStatus `json:"runtimeStatus"`
+	Egress             *controlplane.ServerEgressInfo   `json:"egress,omitempty"`
 }
 
 type LivePromptArgument struct {
