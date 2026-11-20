@@ -7,7 +7,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
-## [0.18.1] - 2026-11-18
+## [0.18.1] - 2026-11-19
 
 Patch release for explicit adapter session trust and retirement of issued server
 TLS credentials, with shared production-audit tooling and Go dependency updates.
@@ -38,6 +38,9 @@ call, and audit after updating. Production deployment remains a separate operati
 
 ### Fixed
 
+- Staging E2E transfers the matching Linux Go toolchain and verified public module archives from its GitHub runner, allowing dependency-aware image-cache lookup when the disposable VM cannot download module ZIPs. The bundle is validated before use, scoped to the run and removed during teardown. Cold Docker builds still require module access; all release acceptance checks remain required ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
+
+- Staging E2E now derives its content-hash image-cache namespace from the workflow repository owner, matching Kind after the organization move. Manual runs default to `tavric-labs`, while explicit cache-prefix overrides and cache disablement remain supported. This repairs false cache misses against the former organization; cold builds still require module-source access from the disposable VM. ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954))
 - `adapter enroll` and enrolling `adapter proxy` commands forward explicit
   `--requested-trust low|medium|high` consent, including the environment default
   and renewal. Sessions retain a low default and platform-enforced grant ceilings
@@ -46,6 +49,10 @@ call, and audit after updating. Production deployment remains a separate operati
   lifecycle, removing issued private keys during retirement. Reconciliation
   preserves certificate material, cert-manager ownership, user-provided
   credentials and credentials belonging to another server ([#932](https://github.com/tavric-labs/mcp-runtime/pull/932)).
+
+### Security
+
+- Build the CLI, platform components, developer tooling and Go examples with Go 1.27.4. This fixes CVE-2026-97054 (GO-2026-6859), a `net/http` race that can panic an HTTP/1 server using request-body limits with concurrent response-header writes. Module declarations, builder images, embedded plugin modules and CI tool builds use the same Go baseline. Deploy the rebuilt release images and CLI through the normal update path; no fresh setup or data reset is required. ([Go advisory](https://pkg.go.dev/vuln/GO-2026-6859), [#954](https://github.com/tavric-labs/mcp-runtime/pull/954))
 
 ## [0.18.0] - 2026-11-12
 

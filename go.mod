@@ -1,6 +1,6 @@
 module mcp-runtime
 
-go 1.26.10
+go 1.27.4
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.51.0

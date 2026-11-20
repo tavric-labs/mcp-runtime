@@ -28,6 +28,27 @@ criteria for release candidates.
 Choose checks for the changed behavior; the contribution loop below explains
 when to use each guide.
 
+## Go toolchain
+
+Use Go 1.27.4, matching the project modules and builder images. This is the
+current Go 1.27 security patch reviewed on 2026-11-19 against the
+[official release history](https://go.dev/doc/devel/release#go1.27.0) and
+[GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859). Install the appropriate
+archive using the [official instructions](https://go.dev/doc/install), or let
+Go toolchain selection fetch the authenticated toolchain when using a recent
+Go installation with `GOTOOLCHAIN=auto`. Run `hack/dev/deps.sh check` before
+building. The CI tool builds read the same root `go.mod`. Staticcheck is pinned to
+2026.2.2 (`v0.8.2`), which supports Go 1.27.2+ export data; the
+[upstream release notes](https://github.com/dominikh/go-tools/releases/tag/2026.2.2)
+were reviewed on the same date. Install it with
+`go install honnef.co/go/tools/cmd/staticcheck@v0.8.2`. Gosec uses `v2.30.0`,
+whose [upstream release notes](https://github.com/securego/gosec/releases/tag/v2.30.0)
+record Go 1.27 support; its prior pinned analyzer fails to load Go 1.27 packages.
+Install it with `go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0`.
+The CI SAST gate enumerates root-module packages with `go list` to preserve
+its existing scope; Gosec 2.30 changes `./...` to include nested modules.
+Service image scans and acceptance gates remain required.
+
 ## Contribution Loop
 
 1. Sync the repo and check the worktree before editing.

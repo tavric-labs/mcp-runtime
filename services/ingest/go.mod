@@ -1,6 +1,6 @@
 module mcp-ingest
 
-go 1.26.10
+go 1.27.4
 
 require (
 	github.com/MicahParks/keyfunc v1.9.0

@@ -25,7 +25,13 @@ jobs:
           cache: true
 
       - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.26.1
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
 
       - name: Run gosec
-        run: $(go env GOPATH)/bin/gosec ./...
+        run: |
+          # Retain the root-module scope: gosec 2.30's ./... also traverses
+          # nested modules, unlike the previously pinned analyzer.
+          package_dirs="$(go list -f '{{.Dir}}' ./...)"
+          test -n "$package_dirs"
+          mapfile -t packages <<< "$package_dirs"
+          "$(go env GOPATH)/bin/gosec" "${packages[@]}"

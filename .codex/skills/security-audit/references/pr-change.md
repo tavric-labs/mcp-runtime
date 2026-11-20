@@ -75,7 +75,7 @@ only for design questions; ordinary change-scoped security reviews do not need i
      `gitleaks detect --source . --config .gitleaks.toml --redact` with
      the CLI.
    - **Go SAST:** install the pinned CI version once with
-     `go install github.com/securego/gosec/v2/cmd/gosec@v2.26.1` (verify
+     `go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0` (verify
      against `.github/workflows/security-gosec.yaml`), then
      `$(go env GOPATH)/bin/gosec ./...`.
    - **Vulnerable Go deps:** `go install golang.org/x/vuln/cmd/govulncheck@latest`,
