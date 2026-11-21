@@ -181,7 +181,7 @@ func helperCommand(cfg Config, pushTarget string) []string {
 			authFlag = " --dest-authfile=/registry-publisher/config.json"
 		}
 		script := fmt.Sprintf(
-			"set -eu; curl -fsSL -H %q -o %q %q; skopeo copy --dest-tls-verify=false%s docker-archive:%q docker://%s",
+			"set -eu; curl -fsSL --retry 5 --retry-delay 1 --retry-connrefused -H %q -o %q %q; attempt=0; until skopeo copy --retry-times=5 --dest-tls-verify=false%s docker-archive:%q docker://%s; do attempt=$((attempt + 1)); if [ \"$attempt\" -ge 10 ]; then exit 1; fi; sleep 1; done",
 			TransferTokenHeader+": "+token,
 			defaultImageTarPath,
 			url,
