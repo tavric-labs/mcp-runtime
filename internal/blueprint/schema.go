@@ -203,7 +203,16 @@ type AuthConfig struct {
 	Scopes             []string `yaml:"scopes,omitempty" json:"scopes,omitempty"`
 	// CredentialGateway opts a header-mode server into the bundled mcp-auth
 	// credential gateway; see mcpv1alpha1.CredentialGatewayConfig.
+	// PublicPaths opens bearer-less POST routes; see mcpv1alpha1.PublicPathConfig.
+	PublicPaths       []PublicPathConfig       `yaml:"publicPaths,omitempty" json:"publicPaths,omitempty"`
 	CredentialGateway *CredentialGatewayConfig `yaml:"credentialGateway,omitempty" json:"credentialGateway,omitempty"`
+}
+
+// PublicPathConfig declares one public path prefix for a server.
+type PublicPathConfig struct {
+	PathPrefix         string `yaml:"pathPrefix" json:"pathPrefix"`
+	MaxBodyBytes       int64  `yaml:"maxBodyBytes" json:"maxBodyBytes"`
+	MaxDurationSeconds int32  `yaml:"maxDurationSeconds" json:"maxDurationSeconds"`
 }
 
 // CredentialGatewayConfig configures the credential gateway for a header-mode server.

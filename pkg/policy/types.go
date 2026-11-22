@@ -27,6 +27,7 @@ var supportedSchemaVersions = map[string]struct{}{
 	SchemaVersionDelegatedHeaders: {},
 	SchemaVersionSessionSync:      {},
 	SchemaVersionGrantMonitor:     {},
+	SchemaVersionPublicPaths:      {},
 }
 
 // SchemaVersionSessionSync requires externally synchronized sessions. Older
@@ -40,12 +41,20 @@ const SchemaVersionGrantMonitor = "v5"
 // Older gateways must reject this policy rather than forward without resolving.
 const SchemaVersionCredentialBroker = "v6"
 
+// SchemaVersionPublicPaths is required when auth.public_paths is set. A gateway
+// that predates it would ignore the field and keep every path behind a bearer;
+// under v7 it rejects the document and reports the reload failure instead.
+const SchemaVersionPublicPaths = "v7"
+
 // SchemaVersionDelegatedHeaders is required when auth.mode is header. Older
 // gateways reject the document instead of ignoring delegated header fields.
 const SchemaVersionDelegatedHeaders = "v3"
 
 // RequiredSchemaVersion returns the lowest schema version that can carry doc.
 func RequiredSchemaVersion(doc *Document) string {
+	if doc != nil && doc.Auth != nil && len(doc.Auth.PublicPaths) > 0 {
+		return SchemaVersionPublicPaths
+	}
 	if doc != nil && len(doc.CredentialBindings) > 0 {
 		return SchemaVersionCredentialBroker
 	}
@@ -85,6 +94,8 @@ func schemaRank(version string) int {
 		return 5
 	case SchemaVersionCredentialBroker:
 		return 6
+	case SchemaVersionPublicPaths:
+		return 7
 	default:
 		return 0
 	}
@@ -154,6 +165,8 @@ type Auth struct {
 	Audience           string   `json:"audience,omitempty"`
 	Scopes             []string `json:"scopes,omitempty"`
 	TrustDomain        string   `json:"trust_domain,omitempty"`
+	// PublicPaths are bearer-less POST routes for single-use signed URLs.
+	PublicPaths []PublicPath `json:"public_paths,omitempty"`
 }
 
 // DelegatedToolRule is a server-scoped allow or deny used when auth.mode is header.

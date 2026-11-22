@@ -164,6 +164,46 @@ spec:
                     enum:
                     - header
                     type: string
+                  publicPaths:
+                    description: |-
+                      PublicPaths opens narrow, bearer-less POST routes to the upstream server,
+                      for features such as single-use signed upload URLs where the server
+                      authenticates by a secret in the path. Off by default. Only POST under a
+                      declared prefix skips gateway authentication and authorization; the
+                      gateway still bounds the body and duration, strips credentials and
+                      identity headers, and audits the request with the secret redacted.
+                    items:
+                      description: PublicPathConfig declares one public path prefix;
+                        see AuthConfig.PublicPaths.
+                      properties:
+                        maxBodyBytes:
+                          description: MaxBodyBytes is the largest request body accepted
+                            (up to 4 GiB).
+                          format: int64
+                          maximum: 4294967296
+                          minimum: 1
+                          type: integer
+                        maxDurationSeconds:
+                          description: MaxDurationSeconds bounds one whole request
+                            (up to one hour).
+                          format: int32
+                          maximum: 3600
+                          minimum: 1
+                          type: integer
+                        pathPrefix:
+                          description: |-
+                            PathPrefix is the path as the MCP server sees it, after the gateway's own
+                            public prefix is stripped. It must start and end with "/".
+                          maxLength: 256
+                          pattern: ^/[A-Za-z0-9._~/-]+/$
+                          type: string
+                      required:
+                      - maxBodyBytes
+                      - maxDurationSeconds
+                      - pathPrefix
+                      type: object
+                    maxItems: 8
+                    type: array
                   scopes:
                     description: |-
                       Scopes are the OAuth scopes this MCP resource permits clients to request.

@@ -71,6 +71,10 @@ type Exchange struct {
 	// identity or authorization decision was established for the request.
 	SkipAudit bool
 
+	// PublicPath marks a request served by a declared public path. It skipped
+	// authentication by design, and is audited with the path's secret redacted.
+	PublicPath bool
+
 	// Idempotency records the opt-in Idempotency-Key outcome for audit.
 	Idempotency idempotencyAudit
 }

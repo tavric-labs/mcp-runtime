@@ -125,6 +125,10 @@ func (s *gatewayServer) handleGateway(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	if rule, upstreamPath, ok := s.publicPathMatch(policy, ex.R); ok {
+		s.servePublicPath(ex, policy, rule, upstreamPath)
+		return
+	}
 	s.buildPipeline().Run(ex)
 	if ex.Decision.PolicyVersion == "" {
 		ex.Decision.PolicyVersion = s.defaultPolicyVersion
@@ -218,7 +222,10 @@ func (s *gatewayServer) emitAuditFromExchange(ex *Exchange) {
 		return
 	}
 	rpcMethod := ex.Inspection.Method()
-	if ex.Decision.Allowed {
+	if ex.PublicPath {
+		// Every public-path request is audited, allowed or not: it skipped
+		// authentication, so the record is the only trace of who used it.
+	} else if ex.Decision.Allowed {
 		if rpcMethod == "" {
 			return
 		}

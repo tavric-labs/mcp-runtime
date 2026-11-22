@@ -425,3 +425,34 @@ func TestRenderGatewayPolicyHeaderModeEnforcesWithoutIdentity(t *testing.T) {
 		t.Fatal("header mode must not require adapter certificates")
 	}
 }
+
+func TestRenderGatewayPolicyCarriesPublicPathsAtSchemaV7(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = mcpv1alpha1.AddToScheme(scheme)
+	mcpServer := &mcpv1alpha1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "uploader", Namespace: "servers"},
+		Spec: mcpv1alpha1.MCPServerSpec{
+			Auth: &mcpv1alpha1.AuthConfig{
+				IssuerURL: "https://issuer.example.com", Audience: "https://mcp.example.com/uploader/mcp",
+				PublicPaths: []mcpv1alpha1.PublicPathConfig{{PathPrefix: "/mcp/media/u/", MaxBodyBytes: 2 << 30, MaxDurationSeconds: 1800}},
+			},
+			Tools: []mcpv1alpha1.ToolConfig{{Name: "echo", SideEffect: mcpv1alpha1.ToolSideEffectRead}},
+		},
+	}
+	client := fake.NewClientBuilder().WithScheme(scheme).WithIndex(&mcpv1alpha1.MCPAccessGrant{}, grantTargetServerIndex, grantTargetServerKeys).WithObjects(mcpServer).Build()
+	r := MCPServerReconciler{GatewayProxyImage: "example.com/mcp-gateway:test", Client: client, Scheme: scheme}
+
+	doc, err := r.renderGatewayPolicy(context.Background(), mcpServer)
+	if err != nil {
+		t.Fatalf("renderGatewayPolicy() error = %v", err)
+	}
+	if doc.SchemaVersion != policy.SchemaVersionPublicPaths {
+		t.Fatalf("SchemaVersion = %q, want %q so older gateways reject it", doc.SchemaVersion, policy.SchemaVersionPublicPaths)
+	}
+	if doc.Auth == nil || len(doc.Auth.PublicPaths) != 1 || doc.Auth.PublicPaths[0].PathPrefix != "/mcp/media/u/" || doc.Auth.PublicPaths[0].MaxDurationSeconds != 1800 {
+		t.Fatalf("rendered auth = %+v", doc.Auth)
+	}
+	if err := policy.Validate(doc); err != nil {
+		t.Fatalf("rendered policy failed validation: %v", err)
+	}
+}

@@ -72,6 +72,7 @@ func main() {
 
 	srv := &gatewayServer{
 		proxy:                  proxy,
+		uploadProxy:            newPublicUploadProxy(target),
 		upstreamURL:            target,
 		metrics:                newGatewayMetrics(prometheus.DefaultRegisterer),
 		analyticsURL:           analyticsURL,

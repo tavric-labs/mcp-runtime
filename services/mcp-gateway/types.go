@@ -43,7 +43,9 @@ type analyticsEvent struct {
 }
 
 type gatewayServer struct {
-	proxy                  http.Handler
+	proxy http.Handler
+	// uploadProxy serves declared public paths; nil disables them.
+	uploadProxy            http.Handler
 	metrics                *gatewayMetrics
 	analyticsURL           string
 	apiKey                 string
