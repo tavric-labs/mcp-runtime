@@ -252,6 +252,45 @@ type AuthConfig struct {
 	// once on a page that collects the configured headers, and the gateway
 	// supplies them to this server on every request.
 	CredentialGateway *CredentialGatewayConfig `json:"credentialGateway,omitempty"`
+	// PublicPaths opens narrow, bearer-less POST routes to the upstream server,
+	// for features such as single-use signed upload URLs where the server
+	// authenticates by a secret in the path. Off by default. Only POST under a
+	// declared prefix skips gateway authentication and authorization; the
+	// gateway still bounds the body and duration, strips credentials and
+	// identity headers, and audits the request with the secret redacted.
+	// +kubebuilder:validation:MaxItems=8
+	PublicPaths []PublicPathConfig `json:"publicPaths,omitempty"`
+}
+
+// PublicPathConfig declares one public path prefix; see AuthConfig.PublicPaths.
+// +kubebuilder:object:generate=true
+type PublicPathConfig struct {
+	// PathPrefix is the path as the MCP server sees it, after the gateway's own
+	// public prefix is stripped. It must start and end with "/".
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern=`^/[A-Za-z0-9._~/-]+/$`
+	PathPrefix string `json:"pathPrefix"`
+	// MaxBodyBytes is the largest request body accepted (up to 4 GiB).
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4294967296
+	MaxBodyBytes int64 `json:"maxBodyBytes"`
+	// MaxDurationSeconds bounds one whole request (up to one hour).
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=3600
+	MaxDurationSeconds int32 `json:"maxDurationSeconds"`
+}
+
+// PolicyPublicPaths converts the declared public paths to the gateway policy
+// form. It returns nil when none are declared.
+func PolicyPublicPaths(auth *AuthConfig) []policypkg.PublicPath {
+	if auth == nil || len(auth.PublicPaths) == 0 {
+		return nil
+	}
+	paths := make([]policypkg.PublicPath, 0, len(auth.PublicPaths))
+	for _, path := range auth.PublicPaths {
+		paths = append(paths, policypkg.PublicPath{PathPrefix: path.PathPrefix, MaxBodyBytes: path.MaxBodyBytes, MaxDurationSeconds: int(path.MaxDurationSeconds)})
+	}
+	return paths
 }
 
 // CredentialGatewayConfig configures the bundled credential gateway for one

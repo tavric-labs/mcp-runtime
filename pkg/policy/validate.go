@@ -88,6 +88,9 @@ func validateAuth(auth *Auth) error {
 	if auth == nil {
 		return nil
 	}
+	if err := validatePublicPaths(auth); err != nil {
+		return err
+	}
 	mode := strings.ToLower(strings.TrimSpace(auth.Mode))
 	if mode == "header" {
 		return validateDelegatedAuth(auth)

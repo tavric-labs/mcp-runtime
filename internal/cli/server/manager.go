@@ -1119,6 +1119,11 @@ func mergeDeployMetadata(spec *mcpv1alpha1.MCPServerSpec, src *blueprint.ServerM
 			Audience:           src.Auth.Audience,
 			Scopes:             append([]string(nil), src.Auth.Scopes...),
 		}
+		for _, public := range src.Auth.PublicPaths {
+			spec.Auth.PublicPaths = append(spec.Auth.PublicPaths, mcpv1alpha1.PublicPathConfig{
+				PathPrefix: public.PathPrefix, MaxBodyBytes: public.MaxBodyBytes, MaxDurationSeconds: public.MaxDurationSeconds,
+			})
+		}
 		if gateway := src.Auth.CredentialGateway; gateway != nil {
 			spec.Auth.CredentialGateway = &mcpv1alpha1.CredentialGatewayConfig{
 				ValidationPath: gateway.ValidationPath,

@@ -502,3 +502,48 @@ func TestMCPServerCredentialGatewayValidation(t *testing.T) {
 		}
 	}
 }
+
+func publicPathServer(mutate func(*MCPServer)) *MCPServer {
+	server := &MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "uploader"},
+		Spec: MCPServerSpec{
+			Image: "example.com/mcp-server", Port: 8088,
+			Auth: &AuthConfig{
+				IssuerURL: "https://issuer.example.com", Audience: "https://mcp.example.com/uploader/mcp",
+				PublicPaths: []PublicPathConfig{{PathPrefix: "/mcp/media/u/", MaxBodyBytes: 2 << 30, MaxDurationSeconds: 1800}},
+			},
+			Tools: []ToolConfig{{Name: "echo", RequiredTrust: TrustLevelLow, SideEffect: ToolSideEffectRead}},
+		},
+	}
+	if mutate != nil {
+		mutate(server)
+	}
+	server.Default()
+	return server
+}
+
+func TestMCPServerPublicPathsValidation(t *testing.T) {
+	if _, err := publicPathServer(nil).ValidateCreate(); err != nil {
+		t.Fatalf("a server with a valid public path must validate: %v", err)
+	}
+	rejected := map[string]func(*MCPServer){
+		"relative prefix":    func(s *MCPServer) { s.Spec.Auth.PublicPaths[0].PathPrefix = "mcp/media/" },
+		"no trailing slash":  func(s *MCPServer) { s.Spec.Auth.PublicPaths[0].PathPrefix = "/mcp/media" },
+		"root prefix":        func(s *MCPServer) { s.Spec.Auth.PublicPaths[0].PathPrefix = "/" },
+		"traversal":          func(s *MCPServer) { s.Spec.Auth.PublicPaths[0].PathPrefix = "/mcp/../x/" },
+		"body limit too big": func(s *MCPServer) { s.Spec.Auth.PublicPaths[0].MaxBodyBytes = 5 << 30 },
+		"no body limit":      func(s *MCPServer) { s.Spec.Auth.PublicPaths[0].MaxBodyBytes = 0 },
+		"duration too long":  func(s *MCPServer) { s.Spec.Auth.PublicPaths[0].MaxDurationSeconds = 7200 },
+		"overlapping prefix": func(s *MCPServer) {
+			s.Spec.Auth.PublicPaths = append(s.Spec.Auth.PublicPaths, PublicPathConfig{PathPrefix: "/mcp/media/u/x/", MaxBodyBytes: 1, MaxDurationSeconds: 1})
+		},
+		"header-mode servers": func(s *MCPServer) {
+			s.Spec.Auth = &AuthConfig{Mode: "header", Headers: []string{"X-Api-Key"}, PublicPaths: s.Spec.Auth.PublicPaths}
+		},
+	}
+	for name, mutate := range rejected {
+		if _, err := publicPathServer(mutate).ValidateCreate(); err == nil {
+			t.Errorf("accepted: %s", name)
+		}
+	}
+}

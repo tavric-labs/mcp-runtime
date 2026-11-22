@@ -430,6 +430,11 @@ func (r *MCPServer) validate() error {
 		} else if r.Spec.Auth.CredentialGateway != nil {
 			allErrs = append(allErrs, field.Forbidden(specPath.Child("auth", "credentialGateway"), "credentialGateway requires auth.mode header"))
 		}
+		if len(r.Spec.Auth.PublicPaths) > 0 {
+			if err := policypkg.ValidatePublicPaths(&policypkg.Auth{Mode: r.Spec.Auth.Mode, PublicPaths: PolicyPublicPaths(r.Spec.Auth)}); err != nil {
+				allErrs = append(allErrs, field.Invalid(specPath.Child("auth", "publicPaths"), r.Spec.Auth.PublicPaths, err.Error()))
+			}
+		}
 		seenScopes := make(map[string]bool, len(r.Spec.Auth.Scopes))
 		for i, scope := range r.Spec.Auth.Scopes {
 			if scope == "" || strings.TrimSpace(scope) != scope || strings.ContainsAny(scope, " \t\r\n\"\\") || seenScopes[scope] {

@@ -7,6 +7,20 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Added
+
+- `MCPServer` `spec.auth.publicPaths` (`.mcp` `auth.publicPaths`) lets a server
+  declare narrow, bearer-less `POST` routes, for single-use signed upload URLs
+  where the server authenticates by a secret in the path. The gateway bounds each
+  route by body size and duration (replacing the 15s read and 30s upstream limits
+  for it), makes no retries, strips credentials and the verified-identity header,
+  and audits the request with the path secret redacted. Off by default; every
+  other path keeps full authentication. Rendered policies using it require schema
+  version `v7`. Roll out with `mcp-runtime update` (CRD, operator and gateway);
+  no fresh setup or data reset is needed, and servers that do not declare it
+  behave exactly as before. See
+  [API reference](docs/api-reference.md).
+
 ## [0.19.0] - 2026-11-20
 
 Feature release: MCP servers can now declare the external hosts they must reach,
