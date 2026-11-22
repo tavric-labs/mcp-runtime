@@ -7,6 +7,8 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-22
+
 ### Added
 
 - `MCPServer` `spec.auth.publicPaths` (`.mcp` `auth.publicPaths`) lets a server
@@ -970,7 +972,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...v0.17.0
