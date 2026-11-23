@@ -188,3 +188,39 @@ func TestPublicPathAuditRedactsSecretAndAlwaysEmits(t *testing.T) {
 		t.Error("exchange was not marked as a public-path request")
 	}
 }
+
+// A real server's read timeout (15s in production) must not cut off a slow
+// upload that is still inside its rule's own duration. The response writer is
+// wrapped by the exchange, so the per-request deadline must reach the server.
+func TestPublicPathUploadOutlivesServerReadTimeout(t *testing.T) {
+	server, upstream := publicPathGateway(t, publicRule(), 0)
+	gateway := httptest.NewUnstartedServer(http.HandlerFunc(server.handleGateway))
+	gateway.Config.ReadTimeout = 300 * time.Millisecond
+	gateway.Start()
+	t.Cleanup(gateway.Close)
+
+	reader, writer := io.Pipe()
+	go func() {
+		for i := 0; i < 5; i++ {
+			time.Sleep(200 * time.Millisecond)
+			_, _ = writer.Write([]byte("abcd"))
+		}
+		_ = writer.Close()
+	}()
+	request, err := http.NewRequest(http.MethodPost, gateway.URL+"/mcp/media/u/tok123", reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.ContentLength = 20
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("slow upload failed: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: the server read timeout cut off an upload within its rule's duration", response.StatusCode)
+	}
+	if upstream.body != "abcdabcdabcdabcdabcd" {
+		t.Fatalf("upstream body = %q, want the full upload", upstream.body)
+	}
+}

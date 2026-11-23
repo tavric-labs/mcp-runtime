@@ -7,6 +7,13 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- Public-path uploads (`auth.publicPaths`, 0.20.0) were still cut off by the gateway's
+  15s server read timeout, so large uploads failed with `504 upstream_timeout`. The
+  per-route deadline now reaches the connection. Servers on 0.20.0 pick this up with
+  `mcp-runtime update`.
+
 ## [0.20.0] - 2026-11-22
 
 ### Added
