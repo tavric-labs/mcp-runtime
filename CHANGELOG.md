@@ -7,12 +7,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
-### Fixed
-
-- `mcp-runtime setup` retries the post-setup smoke gate for up to about a minute
-  before failing, so a bundled mcp-auth-server rollout that is still settling no
-  longer fails a healthy install (seen in Pre-release Regression staging E2E).
-  A persistent fault still fails setup.
+## [0.20.0] - 2026-11-22
 
 ### Added
 
@@ -27,6 +22,13 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   no fresh setup or data reset is needed, and servers that do not declare it
   behave exactly as before. See
   [API reference](docs/api-reference.md).
+
+### Fixed
+
+- `mcp-runtime setup` retries the post-setup smoke gate for up to about a minute
+  before failing, so a bundled mcp-auth-server rollout that is still settling no
+  longer fails a healthy install (seen in Pre-release Regression staging E2E).
+  A persistent fault still fails setup.
 
 ## [0.19.0] - 2026-11-20
 
@@ -977,7 +979,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...v0.17.0
