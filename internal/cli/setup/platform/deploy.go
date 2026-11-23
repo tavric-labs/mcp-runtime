@@ -175,6 +175,27 @@ func isProtectedOperatorSecretNamespace(namespace string) bool {
 	return kubeworkload.OperatorSecretNamespaceProtected(namespace)
 }
 
+// Setup can leave rollouts of its own still settling (the operator re-reconciles
+// the bundled auth server after its restart), so a failing smoke gate is retried
+// for a bounded time before it fails setup. A persistent fault still fails.
+const smokeSettleAttempts = 5
+
+var smokeSettleDelay = 15 * time.Second
+
+func runSmokeUntilSettled(run func() error) error {
+	var err error
+	for attempt := 1; attempt <= smokeSettleAttempts; attempt++ {
+		if err = run(); err == nil {
+			return nil
+		}
+		if attempt < smokeSettleAttempts {
+			core.Info(fmt.Sprintf("Post-setup smoke attempt %d/%d failed; waiting %s for rollouts to settle", attempt, smokeSettleAttempts, smokeSettleDelay))
+			time.Sleep(smokeSettleDelay)
+		}
+	}
+	return err
+}
+
 func verifySetup(logger *zap.Logger, usingExternalRegistry bool, deps SetupDeps) error {
 	core.Step("Step 6: Verify platform components")
 
@@ -237,7 +258,7 @@ func verifySetup(logger *zap.Logger, usingExternalRegistry bool, deps SetupDeps)
 
 	if deps.RunPostSetupSmoke != nil {
 		core.Info("Running post-setup operational smoke checks")
-		if err := deps.RunPostSetupSmoke(); err != nil {
+		if err := runSmokeUntilSettled(deps.RunPostSetupSmoke); err != nil {
 			wrappedErr := core.WrapWithBaseAndContext(
 				core.ErrSetupStepFailed,
 				err,

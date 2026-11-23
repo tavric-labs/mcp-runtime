@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"errors"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -481,5 +482,56 @@ func TestVerifyStepWaitsForMCPAuthRolloutAfterOperatorRestart(t *testing.T) {
 	want := []string{"rollout:mcp-auth-server", "smoke"}
 	if !reflect.DeepEqual(order, want) {
 		t.Fatalf("order = %v, want %v (the operator re-reconciles mcp-auth after its restart, so smoke must wait for that rollout)", order, want)
+	}
+}
+
+// Rollouts started by setup itself (for example the operator re-reconciling the
+// bundled auth server) can still be settling when the smoke gate first runs, so
+// a transient failure must be retried, and a persistent one must still fail.
+func TestVerifyStepRetriesSmokeUntilRolloutsSettle(t *testing.T) {
+	prev := smokeSettleDelay
+	smokeSettleDelay = time.Millisecond
+	t.Cleanup(func() { smokeSettleDelay = prev })
+
+	var smokeCalls int
+	deps := SetupDeps{
+		WaitForDeploymentAvailable: func(_ *zap.Logger, _, _, _ string, _ time.Duration) error { return nil },
+		PrintDeploymentDiagnostics: func(_, _, _ string) {},
+		CheckCRDInstalled:          func(string) error { return nil },
+		RunPostSetupSmoke: func() error {
+			smokeCalls++
+			if smokeCalls < 3 {
+				return errors.New("deployment/mcp-auth-server unavailable=1")
+			}
+			return nil
+		},
+		GetDeploymentTimeout: func() time.Duration { return time.Second },
+	}
+	if err := (verifyStep{}).Run(zap.NewNop(), deps, &SetupContext{UsingExternalRegistry: true}); err != nil {
+		t.Fatalf("verify step failed despite the rollout settling: %v", err)
+	}
+	if smokeCalls != 3 {
+		t.Fatalf("smoke calls = %d, want 3", smokeCalls)
+	}
+}
+
+func TestVerifyStepFailsWhenSmokeNeverSettles(t *testing.T) {
+	prev := smokeSettleDelay
+	smokeSettleDelay = time.Millisecond
+	t.Cleanup(func() { smokeSettleDelay = prev })
+
+	var smokeCalls int
+	deps := SetupDeps{
+		WaitForDeploymentAvailable: func(_ *zap.Logger, _, _, _ string, _ time.Duration) error { return nil },
+		PrintDeploymentDiagnostics: func(_, _, _ string) {},
+		CheckCRDInstalled:          func(string) error { return nil },
+		RunPostSetupSmoke:          func() error { smokeCalls++; return errors.New("still broken") },
+		GetDeploymentTimeout:       func() time.Duration { return time.Second },
+	}
+	if err := (verifyStep{}).Run(zap.NewNop(), deps, &SetupContext{UsingExternalRegistry: true}); err == nil {
+		t.Fatal("verify step passed with a persistently failing smoke gate")
+	}
+	if smokeCalls != smokeSettleAttempts {
+		t.Fatalf("smoke calls = %d, want %d attempts before giving up", smokeCalls, smokeSettleAttempts)
 	}
 }

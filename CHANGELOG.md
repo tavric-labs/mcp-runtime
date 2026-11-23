@@ -23,6 +23,13 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   behave exactly as before. See
   [API reference](docs/api-reference.md).
 
+### Fixed
+
+- `mcp-runtime setup` retries the post-setup smoke gate for up to about a minute
+  before failing, so a bundled mcp-auth-server rollout that is still settling no
+  longer fails a healthy install (seen in Pre-release Regression staging E2E).
+  A persistent fault still fails setup.
+
 ## [0.19.0] - 2026-11-20
 
 Feature release: MCP servers can now declare the external hosts they must reach,
