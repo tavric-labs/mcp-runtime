@@ -1,0 +1,57 @@
+WEBVTT
+
+00:00:00.150 --> 00:00:01.980
+Agents can use your tools.
+
+00:00:02.230 --> 00:00:04.020
+But access needs boundaries.
+
+00:00:05.117 --> 00:00:06.347
+Which tools are allowed?
+
+00:00:06.897 --> 00:00:08.207
+When does access end?
+
+00:00:08.517 --> 00:00:09.747
+Who can revoke it?
+
+00:00:10.617 --> 00:00:12.307
+Meet MCP Runtime.
+
+00:00:12.477 --> 00:00:15.067
+Your control plane for MCP servers.
+
+00:00:16.150 --> 00:00:17.380
+Deploy your servers.
+
+00:00:17.750 --> 00:00:19.580
+Publish tools for your team.
+
+00:00:20.517 --> 00:00:24.187
+Give agents specific tools
+and time-limited access.
+
+00:00:24.597 --> 00:00:26.847
+The gateway checks each governed call.
+
+00:00:27.750 --> 00:00:32.240
+See what was allowed or denied,
+and investigate the recorded decisions.
+
+00:00:34.170 --> 00:00:34.550
+Your infrastructure.
+
+00:00:34.730 --> 00:00:35.680
+Your rules.
+
+00:00:35.830 --> 00:00:36.900
+One platform.
+
+00:00:38.083 --> 00:00:39.253
+MCP Runtime.
+
+00:00:39.723 --> 00:00:40.653
+Open source.
+
+00:00:40.943 --> 00:00:42.673
+Explore the hosted preview.

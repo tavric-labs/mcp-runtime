@@ -9,6 +9,8 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Added
 
+- Website product overview video with captions, a transcript, and playback controls on the homepage.
+
 - `MCPServer` `spec.auth.publicPaths` (`.mcp` `auth.publicPaths`) lets a server
   declare narrow, bearer-less `POST` routes, for single-use signed upload URLs
   where the server authenticates by a secret in the path. The gateway bounds each

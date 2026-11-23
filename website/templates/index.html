@@ -44,6 +44,37 @@
     </aside>
   </section>
 
+  <section id="overview-video" class="container overview-video" aria-labelledby="overview-video-title">
+    <div class="section-heading">
+      <span class="section-label">Watch / 45 seconds</span>
+      <h2 id="overview-video-title">MCP Runtime in 45 seconds</h2>
+      <p>See how MCP Runtime helps teams run MCP servers and set clear boundaries for agent access.</p>
+    </div>
+    <figure class="overview-video-player">
+      <video controls playsinline preload="none" width="1920" height="1080"
+        poster="{{ url_for('static', filename='media/mcp-runtime-overview.jpg') }}"
+        aria-label="MCP Runtime product overview" aria-describedby="overview-video-caption">
+        <source src="{{ url_for('static', filename='media/mcp-runtime-overview.mp4') }}" type="video/mp4">
+        <track kind="captions" src="{{ url_for('static', filename='media/mcp-runtime-overview.vtt') }}"
+          srclang="en" label="English" default>
+        <p><a href="{{ url_for('static', filename='media/mcp-runtime-overview.mp4') }}">Download the 45-second product overview</a>.</p>
+      </video>
+      <figcaption id="overview-video-caption">AI-assisted animation and synthetic narration. MCP Runtime is alpha software.</figcaption>
+    </figure>
+    <details class="overview-video-transcript">
+      <summary>Read the video transcript</summary>
+      <p>Agents can use your tools. But access needs boundaries.</p>
+      <p>Which tools are allowed? When does access end? Who can revoke it?</p>
+      <p>Meet MCP Runtime. Your control plane for MCP servers.</p>
+      <p>Deploy your servers. Publish tools for your team.</p>
+      <p>Give agents specific tools and time-limited access. The gateway checks each governed call.</p>
+      <p>See what was allowed or denied, and investigate the recorded decisions.</p>
+      <p>Your infrastructure. Your rules. One platform.</p>
+      <p>MCP Runtime. Open source. Explore the hosted preview.</p>
+    </details>
+    <p><a class="button primary" href="{{ platform_url }}">Explore the hosted preview</a></p>
+  </section>
+
   <section id="downloads" class="container blueprint" aria-labelledby="downloads-title">
     <div class="section-heading">
       <span class="section-label">Downloads</span>

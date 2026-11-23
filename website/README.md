@@ -5,6 +5,14 @@ Kubernetes-native control plane to deploy, govern, and broker MCP servers, and
 serves a single home page with links to GitHub, articles, and the documentation
 site.
 
+The homepage includes a native 45-second product overview with an English caption
+track, a poster, and an inline transcript. It uses same-origin assets under
+`static/media/`, does not autoplay, and defers video loading until requested.
+The editable video sources and production tracker belong in the separate private
+Tavric Labs video-source repository; this site carries the published MP4, poster,
+VTT captions, and a small provenance manifest. Replace those assets together and
+keep the inline transcript synchronized when revising the pitch.
+
 The **Downloads** section links to the universal macOS Adapter unsigned preview,
 release checksums, setup instructions, and the CLI installer's `--with-desktop`
 option. These links use the latest GitHub release assets; keep their filenames
