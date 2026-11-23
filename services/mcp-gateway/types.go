@@ -101,6 +101,10 @@ type statusRecorder struct {
 	bytes  int
 }
 
+// Unwrap lets http.ResponseController reach the underlying writer, so a handler
+// can set per-request read and write deadlines (public-path uploads need this).
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 const (
 	maxRPCBodyBytes      = 1 << 20
 	analyticsQueueSize   = 256
