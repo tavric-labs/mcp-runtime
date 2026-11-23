@@ -7,6 +7,13 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Fixed
+
+- `mcp-runtime setup` retries the post-setup smoke gate for up to about a minute
+  before failing, so a bundled mcp-auth-server rollout that is still settling no
+  longer fails a healthy install (seen in Pre-release Regression staging E2E).
+  A persistent fault still fails setup.
+
 ### Added
 
 - `MCPServer` `spec.auth.publicPaths` (`.mcp` `auth.publicPaths`) lets a server
