@@ -54,7 +54,8 @@ class Website(unittest.TestCase):
         self.assertIn('playsinline', videos[0])
         self.assertNotIn('autoplay', videos[0])
         self.assertEqual(videos[0]['preload'], 'none')
-        self.assertIn('MCP Runtime in 45 seconds', html)
+        self.assertNotIn('Watch / 45 seconds', html)
+        self.assertIn('MCP Runtime product overview video', html)
         self.assertIn('Read the video transcript', html)
         sources = [attrs for tag, attrs in media.tags if tag == 'source']
         self.assertEqual(sources[0]['type'], 'video/mp4')
