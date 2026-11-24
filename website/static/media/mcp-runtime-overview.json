@@ -1,14 +1,14 @@
 {
   "title": "MCP Runtime in 45 seconds",
   "duration_seconds": 45,
-  "source_project": "mcp-runtime-brand-pitch-v3",
-  "renderer": "Explainroo 0.6.2",
-  "narrator": "macOS Flo (English US), prerecorded WAV",
+  "source_project": "mcp-runtime-website-overview-v2",
+  "renderer": "Explainroo 0.6.1",
+  "narrator": "Kokoro af_heart (synthetic)",
   "synthetic_narration": true,
-  "created_on": "2026-11-23",
+  "created_on": "2026-11-24",
   "files": {
-    "mcp-runtime-overview.jpg": "60b48a7b504a77c1e75079d983f1597d707e6a17382f253df3281cf3f54503e2",
-    "mcp-runtime-overview.mp4": "bd7dbc28b048abafb72baea24d14941d8711e0ee674c7229c2961b63a6ee29b8",
-    "mcp-runtime-overview.vtt": "db5bbe8f88806c77e7d281b0feb7e60ca9171be02acab5fff34d7b84d2e6a202"
+    "mcp-runtime-overview.jpg": "3e97cb7d90e3946f1e51f87fa60327a0bfa917d933e3f7567ec5db08a6f54b9f",
+    "mcp-runtime-overview.mp4": "2e6a5444601d9a18d751965cc4976510e175581a82a05b5c8c96c1f6b89046eb",
+    "mcp-runtime-overview.vtt": "50760edd06abec89e1f0ed02ce46de4a4c99a467c5320b276c74b260479b43d0"
   }
 }
