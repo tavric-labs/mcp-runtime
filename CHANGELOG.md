@@ -16,17 +16,17 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
-- **Breaking:** the gateway now evaluates `resources/*`, `prompts/*` and `skills/*` requests
-  against grants and sessions. Previously any authenticated caller could read any resource or
+- **Breaking:** the gateway now evaluates `resources/*`, `prompts/*`, `skills/*`,
+  `subscriptions/listen` and `tasks/*` requests against grants and sessions. Previously any authenticated caller could read any resource or
   prompt a server exposed. Callers with no active matching grant now get `no_matching_grant`
   (or `missing_identity` / `session_*`). Existing grants without `primitiveRules` keep allowing
   every resource, prompt and skill, so grants only need editing to restrict them. Servers with
   header-delegated auth are unchanged.
 
 - The gateway's request metrics now label `resources/templates/list`, `resources/directory/read`,
-  `skills/list`, `skills/get`, `notifications/cancelled` and `notifications/progress` instead of
+  `skills/list`, `skills/get`, `server/discover`, `subscriptions/listen`, `tasks/*`, `notifications/cancelled` and `notifications/progress` instead of
   counting them as `other`, and the request inspector records the resource URI or prompt/skill
-  name a request addresses (not yet audited or authorized). First step of
+  name a request addresses. First step of
   [#544](https://github.com/tavric-labs/mcp-runtime/issues/544).
 
 ## [0.21.0] - 2026-11-23

@@ -58,6 +58,8 @@ type rpcInspection struct {
 	problem  inspectionProblem
 	// target is the resource URI or prompt/skill name of a primitive request.
 	target string
+	// listenTargets are the resource URIs a subscriptions/listen request opts into.
+	listenTargets []string
 	// Raw JSON is private dispatch data for idempotency hashing, never audit data.
 	paramsRaw json.RawMessage
 	idRaw     json.RawMessage
@@ -88,8 +90,20 @@ func (r rpcInspection) Method() string       { return string(r.method) }
 func (r rpcInspection) ToolName() string     { return string(r.toolName) }
 func (r rpcInspection) Kind() RPCMessageKind { return r.kind }
 
-// Target is the resource URI or prompt/skill name a request addresses, or "".
-func (r rpcInspection) Target() string      { return r.target }
+// Target is the resource URI, prompt name or skill URI a request addresses, or "".
+func (r rpcInspection) Target() string { return r.target }
+
+// Targets are every resource URI a request addresses: the single target, or the
+// URIs a subscriptions/listen request opts into.
+func (r rpcInspection) Targets() []string {
+	if r.listenTargets != nil {
+		return r.listenTargets
+	}
+	if r.target != "" {
+		return []string{r.target}
+	}
+	return nil
+}
 func (r rpcInspection) IsToolCall() bool    { return r.Class() == classToolCall }
 func (r rpcInspection) Indeterminate() bool { return r.Class() == classInvalid }
 

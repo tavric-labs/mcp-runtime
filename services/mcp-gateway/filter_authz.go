@@ -76,6 +76,7 @@ func authorizeRequest(in authorizationInput, now time.Time) policypkg.Decision {
 			RPCMethod: in.Inspection.Method(),
 			ToolName:  policypkg.ToolName(in.Inspection.ToolName()),
 			Target:    in.Inspection.Target(),
+			Targets:   in.Inspection.Targets(),
 			Session:   in.Identity.Session,
 		}, now)
 	}

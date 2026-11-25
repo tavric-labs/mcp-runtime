@@ -20,8 +20,10 @@ type Request struct {
 	Identity  Identity
 	RPCMethod string
 	ToolName  ToolName
-	// Target is the resource URI or prompt/skill name of a primitive request.
+	// Target is the resource URI, prompt name or skill URI of a primitive request.
 	Target string
+	// Targets are the resource URIs a subscriptions/listen request opts into.
+	Targets []string
 	// Session is the binding resolved from the synchronized platform store.
 	// It is request-scoped and never changes the immutable policy document.
 	Session *Binding
@@ -602,50 +604,41 @@ func authorizePrimitive(policy *Document, request Request, now time.Time) Decisi
 	sort.Slice(grants, func(i, j int) bool {
 		return string(grants[i].Namespace)+"\x00"+grants[i].Name < string(grants[j].Namespace)+"\x00"+grants[j].Name
 	})
-	var expired, active int
-	var allowedBy *Grant
-	for i := range grants {
-		grant := grants[i]
-		if grant.Disabled {
-			continue
-		}
-		if isExpiredAt(grant.ExpiresAt, now) {
+	var active []Grant
+	var expired int
+	for _, grant := range grants {
+		switch {
+		case grant.Disabled:
+		case isExpiredAt(grant.ExpiresAt, now):
 			expired++
-			continue
-		}
-		active++
-		if !targeted {
-			if allowedBy == nil {
-				allowedBy = &grants[i]
-			}
-			continue
-		}
-		scoped, matchedAllow := false, false
-		for _, rule := range grant.PrimitiveRules {
-			if rule.Kind != kind {
-				continue
-			}
-			scoped = true
-			if !primitivePatternMatches(rule.Pattern, request.Target) {
-				continue
-			}
-			if strings.EqualFold(rule.Decision, "deny") {
-				d := Deny(http.StatusForbidden, "primitive_denied", ChoosePolicyVersion(grant.PolicyVersion, version))
-				d.MatchedGrant, d.MatchedGrantNamespace = grant.Name, string(grant.Namespace)
-				return withSession(d)
-			}
-			matchedAllow = true
-		}
-		if (!scoped || matchedAllow) && allowedBy == nil {
-			allowedBy = &grants[i]
+		default:
+			active = append(active, grant)
 		}
 	}
-	if allowedBy == nil {
+	notGranted := func() Decision {
 		reason := "primitive_not_granted"
-		if expired > 0 && active == 0 {
+		if expired > 0 && len(active) == 0 {
 			reason = "grant_expired"
 		}
-		return withSession(decideByDefault(policy, reason))
+		return decideByDefault(policy, reason)
+	}
+	if len(active) == 0 {
+		return withSession(notGranted())
+	}
+	targets := request.Targets
+	if targeted {
+		targets = []string{request.Target}
+	}
+	allowedBy := &active[0]
+	for _, target := range targets {
+		grant, denial := grantForTarget(active, kind, target, version)
+		if denial != nil {
+			return withSession(*denial)
+		}
+		if grant == nil {
+			return withSession(notGranted())
+		}
+		allowedBy = grant
 	}
 	return withSession(Decision{
 		Allowed: true, Status: http.StatusOK, Reason: "allowed",
@@ -653,6 +646,37 @@ func authorizePrimitive(policy *Document, request Request, now time.Time) Decisi
 		MatchedGrant:          allowedBy.Name,
 		MatchedGrantNamespace: string(allowedBy.Namespace),
 	})
+}
+
+// grantForTarget returns the first active grant that allows target, or a denial
+// when a matching deny rule applies to any grant. A grant with no rule of the
+// kind allows everything of that kind. A nil grant and nil denial mean no grant
+// allowed it.
+func grantForTarget(active []Grant, kind, target, version string) (*Grant, *Decision) {
+	var allowedBy *Grant
+	for i := range active {
+		grant := active[i]
+		scoped, matchedAllow := false, false
+		for _, rule := range grant.PrimitiveRules {
+			if rule.Kind != kind {
+				continue
+			}
+			scoped = true
+			if !primitivePatternMatches(rule.Pattern, target) {
+				continue
+			}
+			if strings.EqualFold(rule.Decision, "deny") {
+				d := Deny(http.StatusForbidden, "primitive_denied", ChoosePolicyVersion(grant.PolicyVersion, version))
+				d.MatchedGrant, d.MatchedGrantNamespace = grant.Name, string(grant.Namespace)
+				return nil, &d
+			}
+			matchedAllow = true
+		}
+		if (!scoped || matchedAllow) && allowedBy == nil {
+			allowedBy = &active[i]
+		}
+	}
+	return allowedBy, nil
 }
 
 // primitivePatternMatches reports an exact match, or a prefix match when the

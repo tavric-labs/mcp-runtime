@@ -15,7 +15,8 @@ func IsToolCallMethod(method string) bool {
 }
 
 // PrimitiveMethod classifies the MCP methods that read resources, prompts and
-// skills. targeted is false for list methods, which name no single item.
+// skills, and the methods that stream or poll their data. targeted is false for
+// methods that name no single item.
 func PrimitiveMethod(method string) (kind string, targeted, ok bool) {
 	switch method {
 	case "resources/read", "resources/subscribe", "resources/unsubscribe", "resources/directory/read":
@@ -30,6 +31,11 @@ func PrimitiveMethod(method string) (kind string, targeted, ok bool) {
 		return PrimitiveSkill, true, true
 	case "skills/list":
 		return PrimitiveSkill, false, true
+	case "subscriptions/listen":
+		// Opts into resource-updated notifications for the URIs in Request.Targets.
+		return PrimitiveResource, false, true
+	case "tasks/get", "tasks/update", "tasks/cancel":
+		return PrimitiveTask, false, true
 	default:
 		return "", false, false
 	}

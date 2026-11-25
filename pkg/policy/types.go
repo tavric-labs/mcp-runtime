@@ -239,6 +239,10 @@ const (
 	PrimitiveResource = "resource"
 	PrimitivePrompt   = "prompt"
 	PrimitiveSkill    = "skill"
+	// PrimitiveTask is an internal kind for the tasks extension. Tasks have no
+	// per-item rules; they need an active matching grant. It is not valid in a
+	// PrimitiveRule.
+	PrimitiveTask = "task"
 )
 
 // PrimitiveRule allows or denies one resource URI, prompt name or skill name.

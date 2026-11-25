@@ -44,7 +44,7 @@ func TestAuthorizePrimitiveMethods(t *testing.T) {
 		{"prefix rule allows", []Grant{scoped}, "resources/read", "file:///docs/a.md", true, "allowed"},
 		{"outside the allow list is denied", []Grant{scoped}, "resources/read", "file:///etc/passwd", false, "primitive_not_granted"},
 		{"deny rule wins over prefix allow", []Grant{scoped}, "resources/read", "file:///docs/secret.md", false, "primitive_denied"},
-		{"rules for one kind leave others open", []Grant{scoped}, "skills/get", "pdf", true, "allowed"},
+		{"rules for one kind leave others open", []Grant{scoped}, "skills/get", "skill://pdf/SKILL.md", true, "allowed"},
 		{"prompt rule allows named prompt", []Grant{scoped}, "prompts/get", "review", true, "allowed"},
 		{"prompt rule rejects other prompt", []Grant{scoped}, "prompts/get", "deploy", false, "primitive_not_granted"},
 		{"subscribe follows resource rules", []Grant{scoped}, "resources/subscribe", "file:///etc/x", false, "primitive_not_granted"},
@@ -52,6 +52,9 @@ func TestAuthorizePrimitiveMethods(t *testing.T) {
 		{"missing target fails closed", []Grant{open}, "resources/read", "", false, "primitive_target_missing"},
 		{"disabled grant does not count", []Grant{{Name: "off", AgentID: "agent-a", Disabled: true}}, "resources/read", "file:///a", false, "primitive_not_granted"},
 		{"expired grant is reported", []Grant{{Name: "old", AgentID: "agent-a", ExpiresAt: "2026-01-01T00:00:00Z"}}, "resources/read", "file:///a", false, "grant_expired"},
+		{"tasks need a grant", nil, "tasks/get", "", false, "no_matching_grant"},
+		{"tasks allowed with a grant", []Grant{open}, "tasks/update", "", true, "allowed"},
+		{"tasks ignore resource rules", []Grant{scoped}, "tasks/cancel", "", true, "allowed"},
 		{"other agent's grant does not apply", []Grant{{Name: "other", AgentID: "agent-b"}}, "resources/read", "file:///a", false, "no_matching_grant"},
 	}
 	for _, tc := range tests {
@@ -142,5 +145,44 @@ func TestValidatePrimitiveRules(t *testing.T) {
 	ok := []PrimitiveRule{{Kind: PrimitiveResource, Pattern: "file:///docs/*", Decision: "allow"}, {Kind: PrimitivePrompt, Pattern: "p", Decision: "deny"}}
 	if err := validateGrants([]Grant{{Name: "g", AgentID: "a", PrimitiveRules: ok}}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAuthorizeSubscriptionsListenTargets(t *testing.T) {
+	t.Parallel()
+	scoped := Grant{Name: "scoped", AgentID: "agent-a", PrimitiveRules: []PrimitiveRule{
+		{Kind: PrimitiveResource, Pattern: "db://orders/*", Decision: "allow"},
+		{Kind: PrimitiveResource, Pattern: "db://orders/private", Decision: "deny"},
+	}}
+	req := func(targets ...string) Request {
+		return Request{Identity: Identity{AgentID: "agent-a"}, RPCMethod: "subscriptions/listen", Targets: targets}
+	}
+	p := primitivePolicy(scoped)
+	for _, tc := range []struct {
+		name    string
+		targets []string
+		allow   bool
+		reason  string
+	}{
+		{"no uris", nil, true, "allowed"},
+		{"allowed uri", []string{"db://orders/1"}, true, "allowed"},
+		{"one bad uri fails the whole listen", []string{"db://orders/1", "db://hr/1"}, false, "primitive_not_granted"},
+		{"deny rule wins", []string{"db://orders/private"}, false, "primitive_denied"},
+	} {
+		got := Authorize(p, req(tc.targets...), primitiveNow)
+		if got.Allowed != tc.allow || got.Reason != tc.reason {
+			t.Errorf("%s: %+v", tc.name, got)
+		}
+	}
+	if got := Authorize(primitivePolicy(), req("db://orders/1"), primitiveNow); got.Allowed || got.Reason != "no_matching_grant" {
+		t.Errorf("no grant: %+v", got)
+	}
+}
+
+func TestTaskKindIsNotARuleKind(t *testing.T) {
+	t.Parallel()
+	err := validateGrants([]Grant{{Name: "g", AgentID: "a", PrimitiveRules: []PrimitiveRule{{Kind: "task", Pattern: "x", Decision: "allow"}}}})
+	if err == nil {
+		t.Fatal("tasks have no per-item rules; kind \"task\" must be rejected")
 	}
 }

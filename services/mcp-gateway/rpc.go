@@ -31,7 +31,10 @@ func primitiveTarget(method string, params json.RawMessage) string {
 	switch method {
 	case "resources/read", "resources/subscribe", "resources/unsubscribe", "resources/directory/read":
 		byURI = true
-	case "prompts/get", "skills/get":
+	case "prompts/get":
+	case "skills/get":
+		// The skills extension addresses a skill by its URI.
+		byURI = true
 	default:
 		return ""
 	}
@@ -123,5 +126,23 @@ func inspectRPCBody(body []byte) rpcInspection {
 	inspection := inspectedRPC(req.Method, toolName, kind)
 	inspection.paramsRaw, inspection.idRaw = req.Params, req.ID
 	inspection.target = primitiveTarget(req.Method, req.Params)
+	inspection.listenTargets = listenTargets(req.Method, req.Params)
 	return inspection
+}
+
+// listenTargets returns the resource URIs a subscriptions/listen request asks
+// to be notified about. Each must pass the same resource rules as a read.
+func listenTargets(method string, params json.RawMessage) []string {
+	if method != "subscriptions/listen" || len(params) == 0 {
+		return nil
+	}
+	var p struct {
+		Notifications struct {
+			ResourceSubscriptions []string `json:"resourceSubscriptions"`
+		} `json:"notifications"`
+	}
+	if json.Unmarshal(params, &p) != nil {
+		return nil
+	}
+	return p.Notifications.ResourceSubscriptions
 }
