@@ -683,6 +683,25 @@ Restart request body examples (runtime-api admin operations):
 Grant/session apply bodies and CRD field details are in the
 [API reference](api-reference.md#runtime-governance-api).
 
+#### Team intent journal for development
+
+Set `PLATFORM_TEAM_INTENT_JOURNAL=true` on every Platform API replica in a
+disposable environment to exercise durable team intent. Use a direct PostgreSQL
+connection and a Platform API database role that can create and migrate the
+journal and River schemas.
+Team creation records an opaque desired revision and enqueues its River job in
+the same PostgreSQL transaction as the team, namespace record, and owner
+membership. Soft deletion records a new revision and job in the same
+transaction as the tombstones. Each job includes the team and revision IDs,
+plus the request ID and W3C trace context when available.
+
+The Runtime API continues synchronous namespace provisioning and Traefik
+cleanup. This stage records intents for new mutations while the flag is enabled
+and leaves the jobs unconsumed. Use a fresh disposable database for future
+worker experiments so earlier test jobs are never executed after a cutover.
+The worker, independent status observation, and request behavior are tracked in
+[#873](https://github.com/tavric-labs/mcp-runtime/issues/873).
+
 ### UI service
 
 `services/ui` runs on `PORT` (default `8082`). It serves static assets and

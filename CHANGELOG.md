@@ -7,6 +7,14 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Added
+
+- Platform API can record team creation and deletion revisions and their River
+  jobs in the same PostgreSQL transaction for isolated development testing.
+  Enable the journal with `PLATFORM_TEAM_INTENT_JOURNAL=true`. Namespace
+  provisioning still runs through the synchronous Runtime API path.
+  [#873](https://github.com/tavric-labs/mcp-runtime/issues/873)
+
 ## [0.22.0] - 2026-11-25
 
 ### Added

@@ -131,6 +131,11 @@ DO UPDATE SET role = EXCLUDED.role, deleted_at = NULL`, uuid.NewString(), teamID
 			return Team{}, err
 		}
 	}
+	if s.teamIntents != nil {
+		if err = s.teamIntents.Record(ctx, tx, teamID, false); err != nil {
+			return Team{}, fmt.Errorf("record team creation intent: %w", err)
+		}
+	}
 	if err = tx.Commit(); err != nil {
 		return Team{}, err
 	}
@@ -174,8 +179,21 @@ func (s *Store) DeleteTeamBySlug(ctx context.Context, slug string) error {
 	if _, err = tx.ExecContext(ctx, `UPDATE namespaces SET deleted_at = now() WHERE team_id = $1 AND deleted_at IS NULL`, team.ID); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, `UPDATE teams SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, team.ID); err != nil {
+	var deleted sql.Result
+	if deleted, err = tx.ExecContext(ctx, `UPDATE teams SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, team.ID); err != nil {
 		return err
+	}
+	if s.teamIntents != nil {
+		var affected int64
+		affected, err = deleted.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if affected > 0 {
+			if err = s.teamIntents.Record(ctx, tx, team.ID, true); err != nil {
+				return fmt.Errorf("record team deletion intent: %w", err)
+			}
+		}
 	}
 	if err = tx.Commit(); err != nil {
 		return err

@@ -172,6 +172,7 @@ jobs:
           --health-interval 3s --health-timeout 3s --health-retries 20
     env:
       MCP_PLATFORM_TEST_POSTGRES_DSN: postgres://postgres:disposable-test-password@127.0.0.1:5432/postgres?sslmode=disable
+      MCP_PLATFORM_TEAM_INTENT_TEST_POSTGRES_DSN: postgres://postgres:disposable-test-password@127.0.0.1:5432/postgres?sslmode=disable
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
