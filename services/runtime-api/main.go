@@ -297,14 +297,32 @@ func retryIntentStartup(ctx context.Context, timeout, interval time.Duration, la
 	}
 }
 
+// startIntentWorker bounds initialization without attaching the startup deadline
+// to the worker's lifetime after initialization succeeds.
+func startIntentWorker(ctx context.Context, start func(context.Context) error) (context.CancelFunc, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	runCtx, runCancel := context.WithCancel(context.Background())
+	stopStartupCancel := context.AfterFunc(ctx, runCancel)
+	err := start(runCtx)
+	if !stopStartupCancel() && err == nil {
+		err = ctx.Err()
+	}
+	if err != nil {
+		runCancel()
+		return nil, err
+	}
+	return runCancel, nil
+}
+
 func defaultStartTeamIntentWorker(ctx context.Context, cfg teamintentworker.RunnerConfig) (*teamintentworker.Runner, context.CancelFunc, error) {
 	runner, err := teamintentworker.NewRunner(ctx, cfg)
 	if err != nil {
 		return nil, nil, err
 	}
-	runCtx, runCancel := context.WithCancel(context.Background())
-	if err := runner.Start(runCtx); err != nil {
-		runCancel()
+	runCancel, err := startIntentWorker(ctx, runner.Start)
+	if err != nil {
 		_ = runner.Stop(context.Background())
 		return nil, nil, err
 	}
@@ -434,11 +452,17 @@ func startOptInTeamIntentObserverWith(
 	return runCancel, done, nil
 }
 
-func defaultStartAccessIntentWorker(_ context.Context, cfg accessintentworker.RunnerConfig) (*accessintentworker.Runner, context.CancelFunc, error) {
-	runCtx, runCancel := context.WithCancel(context.Background())
-	runner, err := accessintentworker.Start(runCtx, cfg)
+func defaultStartAccessIntentWorker(ctx context.Context, cfg accessintentworker.RunnerConfig) (*accessintentworker.Runner, context.CancelFunc, error) {
+	var runner *accessintentworker.Runner
+	runCancel, err := startIntentWorker(ctx, func(runCtx context.Context) error {
+		var startErr error
+		runner, startErr = accessintentworker.Start(runCtx, cfg)
+		return startErr
+	})
 	if err != nil {
-		runCancel()
+		if runner != nil {
+			_ = runner.Stop(context.Background())
+		}
 		return nil, nil, err
 	}
 	return runner, runCancel, nil
@@ -504,9 +528,8 @@ func defaultStartWorkloadIntentWorker(ctx context.Context, cfg workloadintentwor
 	if err != nil {
 		return nil, nil, err
 	}
-	runCtx, runCancel := context.WithCancel(context.Background())
-	if err := runner.Start(runCtx); err != nil {
-		runCancel()
+	runCancel, err := startIntentWorker(ctx, runner.Start)
+	if err != nil {
 		_ = runner.Stop(context.Background())
 		return nil, nil, err
 	}

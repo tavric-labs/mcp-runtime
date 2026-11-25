@@ -61,6 +61,16 @@ For every `MCPServer`, the operator reconciles:
 - Gateway defaults to enabled; set `spec.gateway.enabled: false` to route
   directly to the MCP application.
 
+## Opt-in intent worker startup
+
+The team, access, and workload intent workers remain disabled by default.
+When enabled for development verification, `RUNTIME_INTENT_STARTUP_TIMEOUT`
+bounds each worker's startup retry window (default `60s`), including stalled
+database connections. Startup cancellation stops initialization; after a worker
+starts successfully, that startup deadline does not stop its running jobs.
+The current implementation and remaining cutover gates are recorded in the
+[durable runtime checkpoint](internals/issue-873-checkpoint.md).
+
 ## Topology
 
 ```mermaid
