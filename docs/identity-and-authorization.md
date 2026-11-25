@@ -349,6 +349,28 @@ are unaffected, and `=?base64?...?=` values are decoded before comparing.
 A policy that uses `primitiveRules` is stamped schema version `v8`. A gateway
 that predates it rejects the document instead of ignoring the rules.
 
+### Protocol extensions and MCP Apps
+
+The gateway keeps a registry of extension methods (`services/mcp-gateway/extensions.go`).
+Skills (`skills/list`, `skills/get`, `resources/directory/read`) and Tasks
+(`tasks/get`, `tasks/update`, `tasks/cancel`) are registered as grant-gated and get
+fixed metric labels. Extension capabilities (`capabilities.extensions` in
+`initialize` and `server/discover`) and `_meta` keys are forwarded unchanged for
+both the `initialize` and the `2026-07-28` stateless styles. A method that is
+neither core nor registered is forwarded without grant evaluation and counted as
+`other`.
+
+MCP Apps adds no gateway method. An app's `ui://` HTML is read with
+`resources/read`, so scope it with a resource rule such as
+`{kind: resource, pattern: "ui://dashboard/*", decision: allow}`. A call made by an
+app reaches the gateway as a normal `tools/call` from the host and is checked
+against the same identity, session, grant, trust and side-effect rules; a tool the
+grant does not allow is denied even when `_meta.ui` is present. The app's
+Content-Security-Policy and permissions (`_meta.ui.csp`, `_meta.ui.permissions`)
+are enforced by the host, not the gateway. Extension identifiers are tracked in
+[#977](https://github.com/tavric-labs/mcp-runtime/issues/977); confirm each against
+the extension's own page before relying on it.
+
 ## Session: active delegated consent
 
 A platform session, represented by `MCPAgentSession` YAML for CLI input, answers:
