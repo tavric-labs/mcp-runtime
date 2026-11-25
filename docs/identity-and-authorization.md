@@ -298,7 +298,7 @@ never reused; do not invent an agent ID for a new managed subject.
 The gateway evaluates `resources/list`, `resources/templates/list`,
 `resources/read`, `resources/subscribe`, `resources/unsubscribe`,
 `resources/directory/read`, `prompts/list`, `prompts/get`, `skills/list`,
-`skills/get`, `subscriptions/listen` and `tasks/get|update|cancel` against grants
+`skills/get`, `subscriptions/listen` and `tasks/get|update|cancel`, `events/list|poll|stream|subscribe` against grants
 and sessions, like tool calls. Both protocol generations are covered:
 `resources/subscribe` (2025-11-25 and earlier) and `subscriptions/listen`
 (2026-07-28) are gated the same way. A caller needs an
@@ -352,9 +352,14 @@ that predates it rejects the document instead of ignoring the rules.
 ### Protocol extensions and MCP Apps
 
 The gateway keeps a registry of extension methods (`services/mcp-gateway/extensions.go`).
-Skills (`skills/list`, `skills/get`, `resources/directory/read`) and Tasks
-(`tasks/get`, `tasks/update`, `tasks/cancel`) are registered as grant-gated and get
-fixed metric labels. Extension capabilities (`capabilities.extensions` in
+Skills (`skills/list`, `skills/get`, `resources/directory/read`), Tasks
+(`tasks/get`, `tasks/update`, `tasks/cancel`) and Events (`events/list`,
+`events/poll`, `events/stream`, `events/subscribe`) are registered as grant-gated
+and get fixed metric labels. The gateway gates the Events request only: a webhook
+registered with `events/subscribe` is called by the server later, outside the
+gateway. OAuth Client Credentials and Enterprise-Managed Authorization add no RPC
+method (they are OAuth grants at the authorization server) and Server Cards are an
+HTTP discovery document, so none of the three needs gateway method handling. Extension capabilities (`capabilities.extensions` in
 `initialize` and `server/discover`) and `_meta` keys are forwarded unchanged for
 both the `initialize` and the `2026-07-28` stateless styles. A method that is
 neither core nor registered is forwarded without grant evaluation and counted as

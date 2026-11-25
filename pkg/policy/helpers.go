@@ -36,6 +36,8 @@ func PrimitiveMethod(method string) (kind string, targeted, ok bool) {
 		return PrimitiveResource, false, true
 	case "tasks/get", "tasks/update", "tasks/cancel":
 		return PrimitiveTask, false, true
+	case "events/list", "events/poll", "events/stream", "events/subscribe":
+		return PrimitiveEvent, false, true
 	default:
 		return "", false, false
 	}

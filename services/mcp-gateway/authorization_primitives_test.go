@@ -10,7 +10,7 @@ import (
 
 func TestPrimitiveMethodsRequireAuthorization(t *testing.T) {
 	t.Parallel()
-	for _, m := range []string{"resources/read", "resources/list", "resources/subscribe", "prompts/get", "prompts/list", "skills/get", "skills/list", "subscriptions/listen", "tasks/get", "tasks/update", "tasks/cancel"} {
+	for _, m := range []string{"resources/read", "resources/list", "resources/subscribe", "prompts/get", "prompts/list", "skills/get", "skills/list", "subscriptions/listen", "tasks/get", "tasks/update", "tasks/cancel", "events/list", "events/poll", "events/stream", "events/subscribe"} {
 		if !inspectedRPC(m, "", RPCRequest).RequiresAuthorization() {
 			t.Errorf("%s must be evaluated against grants", m)
 		}

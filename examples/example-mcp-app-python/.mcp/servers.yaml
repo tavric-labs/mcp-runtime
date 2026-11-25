@@ -24,8 +24,10 @@ servers:
       mcpResources:
         - name: dashboard
           description: ui://dashboard/main.html, the MCP App HTML.
-        - name: metrics-summary-skill
-          description: skill://metrics-summary/SKILL.md, a skill file.
+        - name: SKILL.md
+          description: skill://metrics-summary/SKILL.md, the skill entry point.
+        - name: thresholds.md
+          description: skill://metrics-summary/references/thresholds.md, a supporting file.
       auth: {}
       policy:
         mode: allow-list

@@ -22,13 +22,19 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   write tool the sample grant denies) plus a skill served as resources, with metadata, a
   grant using `primitiveRules`, a session and offline tests. Rendering in an external MCP
   Apps host is not verified yet.
+- Server inventory records the protocol extensions a server advertises:
+  `liveInventory.extensions` maps each identifier (for example
+  `io.modelcontextprotocol/skills`) to its settings. The console does not show it yet.
+- The sample serves the Skills methods (`skills/list`, `skills/get`,
+  `resources/directory/read`) with manifest digests and declares the extension; its dashboard
+  speaks the MCP Apps view protocol.
 - `server validate --grant-file` checks `primitiveRules` (kind, pattern, decision,
   duplicates), using the same validation as admission and platform apply.
 
 ### Changed
 
 - **Breaking:** the gateway now evaluates `resources/*`, `prompts/*`, `skills/*`,
-  `subscriptions/listen` and `tasks/*` requests against grants and sessions. Previously any
+  `subscriptions/listen`, `tasks/*` and `events/*` requests against grants and sessions. Previously any
   authenticated caller could read any resource or prompt a server exposed. Callers with no
   active matching grant now get `no_matching_grant` (or `missing_identity` / `session_*`).
   Existing grants without `primitiveRules` keep allowing every resource, prompt and skill,
@@ -40,7 +46,7 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   `tools/call`, `resources/read` and `prompts/get`, disagrees with the body, with
   `400 header_mismatch`. Clients that send neither header are unaffected.
 - Request metrics label `resources/templates/list`, `resources/directory/read`, `skills/list`,
-  `skills/get`, `server/discover`, `subscriptions/listen`, `tasks/*`, `notifications/cancelled`
+  `skills/get`, `server/discover`, `subscriptions/listen`, `tasks/*`, `events/*`, `notifications/cancelled`
   and `notifications/progress` instead of counting them as `other`.
 
 ## [0.21.0] - 2026-11-23

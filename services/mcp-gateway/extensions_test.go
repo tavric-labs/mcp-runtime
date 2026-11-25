@@ -36,7 +36,7 @@ func TestExtensionRegistryMatchesPolicyAndMetrics(t *testing.T) {
 			}
 		}
 	}
-	for _, want := range []string{"skills/list", "skills/get", "resources/directory/read", "tasks/get", "tasks/update", "tasks/cancel"} {
+	for _, want := range []string{"skills/list", "skills/get", "resources/directory/read", "tasks/get", "tasks/update", "tasks/cancel", "events/list", "events/poll", "events/stream", "events/subscribe"} {
 		if _, ok := seen[want]; !ok {
 			t.Errorf("%s missing from the extension registry", want)
 		}

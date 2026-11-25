@@ -55,6 +55,11 @@ func TestAuthorizePrimitiveMethods(t *testing.T) {
 		{"tasks need a grant", nil, "tasks/get", "", false, "no_matching_grant"},
 		{"tasks allowed with a grant", []Grant{open}, "tasks/update", "", true, "allowed"},
 		{"tasks ignore resource rules", []Grant{scoped}, "tasks/cancel", "", true, "allowed"},
+		{"events/list needs a grant", nil, "events/list", "", false, "no_matching_grant"},
+		{"events/poll allowed with a grant", []Grant{open}, "events/poll", "", true, "allowed"},
+		{"events/stream allowed with a grant", []Grant{open}, "events/stream", "", true, "allowed"},
+		{"events/subscribe needs a grant", nil, "events/subscribe", "", false, "no_matching_grant"},
+		{"events ignore resource rules", []Grant{scoped}, "events/poll", "", true, "allowed"},
 		{"other agent's grant does not apply", []Grant{{Name: "other", AgentID: "agent-b"}}, "resources/read", "file:///a", false, "no_matching_grant"},
 	}
 	for _, tc := range tests {

@@ -243,6 +243,9 @@ const (
 	// per-item rules; they need an active matching grant. It is not valid in a
 	// PrimitiveRule.
 	PrimitiveTask = "task"
+	// PrimitiveEvent is the internal kind for the events extension. Like tasks it
+	// has no per-item rules and is not valid in a PrimitiveRule.
+	PrimitiveEvent = "event"
 )
 
 // PrimitiveRule allows or denies one resource URI, prompt name or skill name.
