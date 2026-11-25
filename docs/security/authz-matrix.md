@@ -71,6 +71,7 @@ Expected codes:
 | `/api/v1/runtime/observability/links`                    | GET           | 401  | 200/403     | 200/403  | 200       | 401/403    | Normal users are limited to team namespaces or caller-owned catalog servers. |
 | `/api/v1/runtime/observability/prometheus/query`         | GET           | 401  | 200/403     | 200/403  | 200       | 401/403    | PromQL is allowlisted and server-scoped by the API. |
 | `/api/v1/runtime/observability/logs/query`                | GET           | 401  | 200/403     | 200/403  | 200       | 401/403    | Loki selector is fixed from the authorized server; response is bounded. |
+| `/api/v1/runtime/observability/traces`                   | GET           | 401  | 200/404     | 200/404  | 200       | 401/403    | TraceQL is fixed from the authorized server UID; spans are filtered to that UID, so another server's spans and trace IDs are never returned. |
 | `/api/v1/runtime/teams`                                  | GET           | 401  | 200         | 200      | 200       | 401/403    | |
 | `/api/v1/runtime/teams`                                  | POST          | 401  | 403         | 403      | 200       | 401/403    | Admin-only team + namespace provisioning. |
 | `/api/v1/runtime/teams/{id}`                             | GET           | 401  | 200         | 200      | 200       | 401/403    | Team members can read only their teams; admins can read all teams. |

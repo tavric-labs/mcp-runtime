@@ -126,8 +126,9 @@ after collection starts. Missing data displays as **Unavailable**, never zero.
 Infrastructure queries stay admin-only; tenant dashboards and bounded Explore
 do not accept them.
 
-Collection activates only after scoped-observability setup verifies supported
-enforcing Cilium and installs the shared telemetry ingress boundary
+Collection activates only after scoped-observability setup verifies a supported
+enforcing network provider (Cilium, or k3s's embedded network policy controller)
+and installs the shared telemetry ingress boundary
 (`GRAFANA_SCOPED_USER_ACCESS=true`). Standard Kind kindnet and unknown CNI keep
 collection off: authenticating a scrape does not protect data later copied into
 an anonymously reachable shared Prometheus. Those installs retain the local
@@ -358,14 +359,16 @@ For local `setup --test-mode` clusters, setup seeds two email/password logins:
 | **runtime-api** | `/api/v1/runtime/*` (servers, tools, grants, sessions, adapter sessions/certificates, observability), `/api/v1/deployments/*`, `/api/v1/dashboard/*` | `mcp-runtime-api:8084` | Runtime governance, registry push, dashboard summary. |
 | **analytics-api** | `/api/v1/stats`, `/api/v1/events`, `/api/v1/sources`, `/api/v1/event-types`, `/api/v1/analytics/*`, `/api/v1/user/analytics/*` | `mcp-analytics-api:8085` | ClickHouse query surfaces. All except `/api/v1/user/analytics/*` are admin-only. |
 | **Ingest** | `/ingest/events` | `mcp-ingest:8081/events` | Event intake used by `mcp-gateway`. Local path-based ingress strips `/ingest`. A public-host install does not publish this route; gateways call the in-cluster Service. |
-| **Grafana** | `/grafana` | `mcp-ui:8082` → `mcp-runtime-api:8084` → `grafana:3000` | Platform-session SSO. Tenant requests use the fixed, live-server-authorized query boundary; admins retain unfiltered datasource access. Direct Grafana ingress is blocked by NetworkPolicy. |
+| **Grafana** | `/grafana` | `mcp-ui:8082` → `mcp-runtime-api:8084` → `grafana:3000` | Platform-session SSO. Tenant requests use the fixed, live-server-authorized query boundary (metrics and container logs); admins retain unfiltered datasource access. Direct Grafana ingress is blocked by NetworkPolicy. |
 | **Prometheus** | Not exposed | `prometheus:9090` | Internal metrics backend and Grafana datasource. Use a temporary `kubectl port-forward` only for backend debugging. |
 | **MCP gateway sidecar** | per-server route, for example `/oauth-example-go-2025-11-25-gateway/mcp` | pod-local sidecar port | Enforces policy and forwards to the MCP server container. |
 
 ### Grafana access
 
-After a complete setup with supported Cilium enforcement, the platform session
-signs the user into Grafana. Other providers retain admin-only Grafana with its
+After a complete setup on a supported enforcing network provider (Cilium, or
+k3s with its embedded network policy controller), the platform session signs the
+user into Grafana: an administrator or a tenant who may see a server needs no
+separate Grafana credential. Other providers retain admin-only Grafana with its
 existing login and admin forward-auth gate; its auth proxy stays disabled.
 Signed-out Grafana page navigations redirect to platform sign-in with a
 validated same-origin return path. After platform administrator sign-in, the
@@ -390,13 +393,24 @@ Grafana HTML uses its native response-specific nonce Content Security Policy;
 the console keeps its separate policy. A missing Grafana policy fails closed.
 
 Tenant dashboard and Explore requests support only the four fixed Prometheus
-queries supplied by runtime-api for currently observable servers. Unknown or
-edited PromQL, expression datasources, arbitrary datasource proxy/resource
-requests, Grafana Live, snapshots, rendering, query history, and tenant Loki or
-Tempo queries are rejected. This is deliberately bounded Explore access:
+queries and one fixed Loki log query, all supplied by runtime-api for currently
+observable servers. The log query is exactly
+`{namespace="<ns>",app="<server>",server_uid="<uid>"}` as a bounded range query
+(at most 500 lines, caller options discarded); any added matcher, regex, line
+filter, pipeline, metric function or second selector is rejected, and the
+**MCP Server** dashboard has a **Container logs** panel that sends it. Loki's
+label and index feeds answer empty locally, so tenant Explore cannot browse
+other servers' labels. Unknown or
+edited PromQL or LogQL, expression datasources, arbitrary datasource proxy/resource
+requests, Grafana Live, snapshots, rendering, query history, and every Tempo
+query are rejected. This is deliberately bounded Explore access:
 opening Explore does not grant unrestricted PromQL/LogQL authoring. Tenant
-container logs remain available in the server detail through its fixed Loki
-endpoint; traces and unrestricted observability remain admin-only. The exact
+container logs are also available in the server detail through its fixed Loki
+endpoint. Traces are not available through Grafana: Tempo is single-tenant and
+Grafana returns whole traces, which can include spans from other servers when one
+caller talks to several of them. Tenants read traces through the platform
+instead (see "Tenant traces" below); unrestricted observability remains
+admin-only. The exact
 native alert-rules, correlations, metric metadata, metric-name and label feeds
 return empty platform-owned responses. Exemplars likewise return no samples;
 their expressions require the same authorization, except Grafana's literal
@@ -408,6 +422,31 @@ Grafana basic authentication remains enabled only for pod-local diagnostics and
 credential recovery (`mcp-runtime ops grafana check` and
 `mcp-runtime ops grafana reset-admin-password --yes`). Browser Basic credentials
 are discarded by the session proxy. Keep Grafana credentials private.
+
+### Tenant traces
+
+`GET /api/v1/runtime/observability/traces?namespace=<namespace>&server=<server>`
+lists recent traces for one server, and adding `&trace_id=<id>` returns that
+trace's spans. Tempo is single-tenant, so the API enforces isolation itself:
+
+- The search expression is built from the authorized server's namespace and UID
+  (`{resource.service.namespace="<ns>" && resource.mcp.server.uid="<uid>"}`);
+  caller text never reaches Tempo, and `trace_id` must be 16 or 32 hex digits.
+- The operator stamps `mcp.server.uid` (with `service.namespace`) on every
+  exporting container's `OTEL_RESOURCE_ATTRIBUTES`. The UID is immutable and
+  unique per instance, so a reused name never shows an earlier server's spans.
+- A trace is returned only after its spans are filtered to resources carrying
+  exactly this server's UID. Spans of other servers, platform callers, and
+  anything without the attribute are dropped, and a trace with none of this
+  server's spans is "not found", so a trace ID cannot be probed.
+- Search results are rebuilt from the matched spans only; Tempo's trace-wide
+  root service and root operation names are never copied.
+
+Servers created before this release export spans without the UID until their
+pods restart; the operator rolls them on its next reconcile after upgrade, and
+until then their traces appear empty. Runtime-api reaches Tempo on TCP 3200 under
+the same scoped telemetry policy (`TEMPO_API_URL` overrides the in-cluster
+address). The console does not render traces yet.
 
 ### Scoped Grafana migration
 
@@ -435,7 +474,7 @@ For an installation claiming the scoped feature is enabled, update refuses
 policy apply before any mutation if the auth-proxy/session-route migration is
 incomplete. Update never enables the flag or auth proxy.
 
-The initial supported capability is a fully current, ready and available
+Two providers are supported. The first is a fully current, ready and available
 `kube-system/cilium` DaemonSet with a `cilium-agent` container and
 `kube-system/cilium-config` explicitly setting `enable-k8s-networkpolicy=true`
 and `enable-policy=default` or `always`, without disabling argument/environment
@@ -462,8 +501,23 @@ supported isolation review; setup does not remove or weaken their policies.
 Before proxy auth starts and again before tenant activation, the installed
 telemetry policy must exactly match this release's source.
 
+The second is k3s's embedded network policy controller. It has no workload to
+inspect, so setup reads each node's `k3s.io/node-args` annotation and accepts it
+only on positive evidence: every node carries the annotation, no node passes
+`--disable-network-policy` (any value other than `false`), and no node passes
+`--flannel-backend=none` (a replaced CNI's policy behavior is not verified).
+A default k3s install satisfies this with no change. A node missing the
+annotation, an unreadable annotation, no nodes, or any of the above keeps tenant
+access and the auth proxy off. When Cilium is installed its own rules decide, and
+k3s evidence never rescues an unready Cilium. This reads configured intent only:
+settings made some other way are invisible, and live traffic tests still verify
+the deployed network boundary, so run the network boundary check on the cluster
+before relying on it. The Cilium refusal of native Cilium policy resources applies
+only when Cilium is the provider.
+
 Standard Kind kindnet does not enforce these policies. Kindnet, unknown
-providers, and unready/disabled Cilium keep both tenant access and Grafana auth
+providers, k3s with the controller disabled or flannel replaced, and
+unready/disabled Cilium keep both tenant access and Grafana auth
 proxy off, retain the admin-gated route, and print migration guidance. Setup
 does not install a CNI. A Kind-only API test cannot prove the network boundary.
 Only runtime-api may reach Grafana's auth-proxy listener. Shared Prometheus,
