@@ -181,7 +181,6 @@ func (s *RuntimeServer) AccessManager() *k8sstore.Manager {
 	}
 	return s.accessMgr
 }
-
 func (s *RuntimeServer) identityConfigured() bool {
 	return s != nil && s.identity != nil && s.identity.Configured()
 }

@@ -8,6 +8,8 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/riverqueue/river v0.51.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.51.0
+	github.com/riverqueue/river/rivertype v0.51.0
+	go.opentelemetry.io/otel v1.47.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.28.0
 	k8s.io/api v0.37.2
@@ -70,7 +72,6 @@ require (
 	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/riverqueue/river/riverdriver v0.51.0 // indirect
 	github.com/riverqueue/river/rivershared v0.51.0 // indirect
-	github.com/riverqueue/river/rivertype v0.51.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.6.0 // indirect
@@ -83,7 +84,6 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0 // indirect
-	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect

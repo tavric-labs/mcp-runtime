@@ -216,8 +216,18 @@ func (s *Store) SetAgentStatus(ctx context.Context, id, status, actorID string) 
 		return Agent{}, err
 	}
 	if status == "inactive" {
-		if _, err = revokeSessionsTx(ctx, tx, sessionstate.Filter{AgentID: item.ID}, "agent_deactivated"); err != nil {
-			return Agent{}, err
+		revokedCount, revokeErr := revokeSessionsTx(ctx, tx, sessionstate.Filter{AgentID: item.ID}, "agent_deactivated")
+		if revokeErr != nil {
+			return Agent{}, revokeErr
+		}
+		if s.accessIntents != nil {
+			deactivatedAt := item.UpdatedAt
+			if item.DeactivatedAt != nil {
+				deactivatedAt = *item.DeactivatedAt
+			}
+			if err = s.accessIntents.RecordAgentDeactivationTx(ctx, tx, item.ID, item.TeamID, deactivatedAt, revokedCount); err != nil {
+				return Agent{}, fmt.Errorf("record agent cleanup intent: %w", err)
+			}
 		}
 	}
 	err = tx.QueryRowContext(ctx, `SELECT slug FROM teams WHERE id=$1`, item.TeamID).Scan(&item.TeamSlug)
