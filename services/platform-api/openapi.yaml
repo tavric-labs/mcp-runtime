@@ -915,6 +915,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /internal/team-intents:
+    get:
+      summary: "List durable team namespace intents, execution receipts, and observations"
+      responses:
+        "200": {description: team namespace intents, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: team intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/team-intents/observer-lease:
+    post:
+      summary: "Claim a monotonic team-intent status observer epoch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observer_id]
+              properties:
+                cluster_key: {type: string}
+                observer_id: {type: string}
+      responses:
+        "200": {description: observer lease epoch, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: team intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
   /internal/access-intents/grants:
     get:
       summary: "List durable grant intents, execution receipts, and independent gateway observations"
@@ -1239,6 +1264,94 @@ paths:
         "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
         "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
         "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/team-intents/{team_id}:
+    parameters:
+      - {name: team_id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: "Read authoritative desired intent, execution receipt, and observation for one team incarnation"
+      responses:
+        "200": {description: team namespace intent, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: team intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/team-intents/{team_id}/fence:
+    parameters:
+      - {name: team_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Claim a per-team worker execution fence and read authoritative desired intent"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [worker_id]
+              properties:
+                worker_id: {type: string}
+      responses:
+        "200": {description: fenced intent claim, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: team intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/team-intents/{team_id}/receipt:
+    parameters:
+      - {name: team_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record a fenced worker execution receipt for one team incarnation and desired revision"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [desired_revision_id, fence_epoch, outcome, worker_id]
+              properties:
+                desired_revision_id: {type: string}
+                fence_epoch: {type: integer}
+                outcome: {type: string}
+                namespace_uid: {type: string}
+                attempt: {type: integer}
+                worker_id: {type: string}
+                last_error_class: {type: string}
+                last_error: {type: string}
+      responses:
+        "200": {description: recorded receipt, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence, revision, or incarnation ownership conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: team intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/team-intents/{team_id}/observation:
+    parameters:
+      - {name: team_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record an independently observed team namespace health update"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observer_id, observer_epoch, health]
+              properties:
+                cluster_key: {type: string}
+                observer_id: {type: string}
+                observer_epoch: {type: integer}
+                observed_revision_id: {type: string}
+                namespace_uid: {type: string}
+                health: {type: string}
+                reason: {type: string}
+                message: {type: string}
+                conditions: {type: array, items: {type: object}}
+                verified_at: {type: string, format: date-time}
+      responses:
+        "200": {description: recorded observation, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: team intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale observer epoch, revision, or namespace UID conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: team intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
   /internal/workload-intents/observer-lease:
     post:
       summary: "Claim a monotonic workload-intent status observer epoch"

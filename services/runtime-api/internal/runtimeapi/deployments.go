@@ -996,3 +996,29 @@ func (s *DeploymentService) ensureNamespaceUserWorkloadRBAC(ctx context.Context,
 	}
 	return k8sprovision.EnsureUserWorkloadRBAC(ctx, s.k8sClients.Clientset, namespace, userID)
 }
+
+// TeamIntentProvisionerConfig bundles the live Kubernetes client, registry pull
+// secret provisioner, and Traefik watch settings used by the opt-in durable
+// team intent worker and independent status observer.
+type TeamIntentProvisionerConfig struct {
+	Client                   kubernetes.Interface
+	EnsureRegistryPullSecret func(context.Context, kubernetes.Interface, string) error
+	Traefik                  k8sprovision.TraefikWatchConfig
+	IngressFromNamespaces    []string
+}
+
+// TeamIntentProvisionerConfig returns the cluster provisioning dependencies for
+// durable team intent reconciliation and observation, or false when Kubernetes
+// is unavailable.
+func (s *DeploymentService) TeamIntentProvisionerConfig() (TeamIntentProvisionerConfig, bool) {
+	if s == nil || s.k8sClients == nil || s.k8sClients.Clientset == nil {
+		return TeamIntentProvisionerConfig{}, false
+	}
+	cfg := platformTeamTraefikWatchConfig()
+	return TeamIntentProvisionerConfig{
+		Client:                   s.k8sClients.Clientset,
+		EnsureRegistryPullSecret: s.ensureNamespaceRegistryPullSecretAfterBinding,
+		Traefik:                  cfg.provisioningConfig(),
+		IngressFromNamespaces:    teamIngressAllowNamespaces(cfg),
+	}, true
+}

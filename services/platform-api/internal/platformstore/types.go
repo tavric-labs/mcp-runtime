@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"mcp-platform-api/internal/accessintent"
+	"mcp-platform-api/internal/teamintent"
 	"mcp-platform-api/internal/workloadintent"
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/passport"
@@ -47,6 +48,7 @@ type Store struct {
 	signer          passport.Signer
 	verifier        passport.Verifier
 	accessIntents   *accessintent.Writer
+	teamIntents     *teamintent.Writer
 	workloadIntents *workloadintent.Writer
 }
 

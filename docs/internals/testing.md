@@ -186,6 +186,19 @@ go test ./test/integration/... -count=1
 If envtest assets are missing, follow the setup in `Makefile.operator` or the CI
 workflow.
 
+The Platform API team intent tests use disposable PostgreSQL 17. Set
+`MCP_PLATFORM_TEAM_INTENT_TEST_POSTGRES_DSN` to a loopback URL for the test
+instance with a role that can create databases, then run this from the
+repository root.
+
+```bash
+hack/ci/go-test.sh services/platform-api -count=1 -run TestPostgresTeamIntent ./internal/platformstore
+```
+
+The tests create and drop a fresh database per case. They cover the default
+disabled mode, atomic create and delete, transaction rollback when the queue
+insert fails, competing deletes, and concurrent journal startup.
+
 ## QA E2E
 
 The `adapter-certificates` scenario includes cross-team delegation: resource

@@ -9,6 +9,18 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Added
 
+- Platform API can record team creation and deletion revisions and their River
+  jobs in the same PostgreSQL transaction for isolated development testing, and
+  exposes internal `/internal/team-intents` read, per-team fencing, receipt,
+  observer lease, and observation endpoints. Enable the journal with
+  `PLATFORM_TEAM_INTENT_JOURNAL=true`.
+- Runtime API provides opt-in durable team namespace reconciliation
+  (`RUNTIME_TEAM_INTENT_WORKER=true` with `RUNTIME_TEAM_INTENT_QUEUE_DATABASE_URL`)
+  and independent Kubernetes status observation (`RUNTIME_TEAM_INTENT_OBSERVER=true`)
+  using ownership-checked namespace provisioning, monotonic fencing/leases, and
+  live prerequisite drift detection. Both are disabled by default; synchronous
+  team provisioning remains unchanged.
+  [#873](https://github.com/tavric-labs/mcp-runtime/issues/873)
 - Grafana single sign-on now works on k3s. Setup accepts k3s's embedded network policy
   controller as a supported enforcing provider (alongside Cilium) when every node's
   `k3s.io/node-args` shows it enabled and flannel in place, so an administrator signs in once

@@ -12,6 +12,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"mcp-platform-api/internal/accessintent"
+	"mcp-platform-api/internal/teamintent"
 	"mcp-platform-api/internal/workloadintent"
 	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/telemetry/sqltrace"
@@ -19,6 +20,14 @@ import (
 
 // Open connects to Postgres, applies schema migrations, and returns a Store.
 func Open(ctx context.Context, dsn string, signer passport.Signer, verifier passport.Verifier) (*Store, error) {
+	var journalTeamIntent bool
+	if value := strings.TrimSpace(os.Getenv("PLATFORM_TEAM_INTENT_JOURNAL")); value != "" {
+		var err error
+		journalTeamIntent, err = strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.New("PLATFORM_TEAM_INTENT_JOURNAL must be a boolean")
+		}
+	}
 	var journalAccessIntent bool
 	if value := strings.TrimSpace(os.Getenv("PLATFORM_ACCESS_INTENT_JOURNAL")); value != "" {
 		var err error
@@ -50,6 +59,13 @@ func Open(ctx context.Context, dsn string, signer passport.Signer, verifier pass
 	if err := s.migrate(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
+	}
+	if journalTeamIntent {
+		s.teamIntents, err = teamintent.Open(ctx, db, dsn)
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("initialize team intent journal: %w", err)
+		}
 	}
 	if journalWorkloadIntent {
 		s.workloadIntents, err = workloadintent.Open(ctx, db, dsn)

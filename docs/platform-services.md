@@ -737,6 +737,44 @@ Restart request body examples (runtime-api admin operations):
 Grant/session apply bodies and CRD field details are in the
 [API reference](api-reference.md#runtime-governance-api).
 
+#### Team intent journal for development
+
+Set `PLATFORM_TEAM_INTENT_JOURNAL=true` on every Platform API replica in a
+disposable environment to exercise durable team intent. Use a direct PostgreSQL
+connection and a Platform API database role that can create and migrate the
+journal and River schemas.
+Team creation records an opaque desired revision and enqueues its River job in
+the same PostgreSQL transaction as the team, namespace record, and owner
+membership. Soft deletion records a new revision and job in the same
+transaction as the tombstones. Each job includes the team and revision IDs,
+plus the request ID and W3C trace context when available.
+
+The Runtime API continues synchronous namespace provisioning and Traefik
+cleanup by default. In isolated development or disposable clusters, opt-in
+background components on `mcp-runtime-api` can exercise durable reconciliation
+and independent status observation against Platform API's `/internal/team-intents`
+endpoints:
+
+- `RUNTIME_TEAM_INTENT_WORKER=true` starts the River worker on schema
+  `team_intent_queue` / queue `team_namespace` (requires
+  `RUNTIME_TEAM_INTENT_QUEUE_DATABASE_URL`, `PLATFORM_API_URL`,
+  `INTERNAL_AUTH_TOKEN`, and Kubernetes access). Each execution claims a
+  monotonic per-team fence, enforces namespace `mcpruntime.org/team-id`
+  ownership and safe adoption of soft-deleted prior incarnations, removes only
+  the Traefik watch on delete while retaining the namespace, and records a
+  fenced receipt without fabricating success on failure.
+- `RUNTIME_TEAM_INTENT_OBSERVER=true` starts the independent Kubernetes status
+  observer using a `SharedInformer` on `mcpruntime.org/managed=true` namespaces
+  plus periodic freshness verification. It acquires a monotonic observer lease
+  (`RUNTIME_TEAM_INTENT_CLUSTER_KEY`, default `default`) and records observed
+  health (`Ready`, `Degraded`, `Deleted`, etc.) without mutating desired
+  intent, execution receipts, or River jobs.
+
+Use a fresh disposable database for worker experiments so earlier unconsumed
+test jobs are not executed unexpectedly after a cutover. Request-path cutover
+and UI/CLI surfacing are tracked in
+[#873](https://github.com/tavric-labs/mcp-runtime/issues/873).
+
 ### UI service
 
 `services/ui` runs on `PORT` (default `8082`). It serves static assets and

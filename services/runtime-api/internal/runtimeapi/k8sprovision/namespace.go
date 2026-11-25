@@ -2,6 +2,7 @@ package k8sprovision
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,9 +10,26 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 
 	"mcp-runtime/pkg/kubeworkload"
+)
+
+const (
+	// TeamIDLabel records the authoritative team incarnation ID that owns a
+	// managed team namespace.
+	TeamIDLabel = "mcpruntime.org/team-id"
+)
+
+var (
+	// ErrNamespaceOwnershipConflict indicates an existing namespace is unmanaged
+	// or owned by a team incarnation that the caller is not permitted to adopt.
+	ErrNamespaceOwnershipConflict = errors.New("namespace ownership conflict")
+	// ErrNamespaceTerminating indicates the target namespace is terminating and
+	// provisioning must be retried after deletion finishes.
+	ErrNamespaceTerminating = errors.New("namespace is terminating")
 )
 
 // Provisioner owns namespace defaults and the order of namespace-local access
@@ -49,6 +67,111 @@ func (p Provisioner) EnsureNamespace(ctx context.Context, namespace string, labe
 			return err
 		}
 	}
+	return p.ensureNamespaceResources(ctx, base, namespace, ingressFromNamespaces...)
+}
+
+// EnsureOwnedTeamNamespace creates or updates a managed team namespace only
+// after proving ownership by teamID (or safe adoption from adoptablePriorTeamIDs).
+// It refuses reserved, terminating, unmanaged, or differently-owned namespaces
+// without mutating them, and returns the live namespace UID.
+func (p Provisioner) EnsureOwnedTeamNamespace(ctx context.Context, namespace, teamID string, adoptablePriorTeamIDs []string, labels map[string]string, ingressFromNamespaces ...string) (string, error) {
+	namespace = strings.TrimSpace(namespace)
+	teamID = strings.TrimSpace(teamID)
+	if p.Client == nil {
+		return "", fmt.Errorf("kubernetes client is required")
+	}
+	if namespace == "" {
+		return "", fmt.Errorf("namespace is required")
+	}
+	if teamID == "" {
+		return "", fmt.Errorf("team ID is required")
+	}
+	if p.EnsureRegistryPullSecret == nil {
+		return "", fmt.Errorf("registry pull secret provisioner is required")
+	}
+	if kubeworkload.OperatorSecretNamespaceProtected(namespace) {
+		return "", fmt.Errorf("managed MCPServer namespace %q is reserved for platform infrastructure", namespace)
+	}
+
+	desiredLabels := make(map[string]string, len(labels)+2)
+	for k, v := range labels {
+		if trimmed := strings.TrimSpace(k); trimmed != "" {
+			desiredLabels[trimmed] = v
+		}
+	}
+	desiredLabels[kubeworkload.PlatformManagedLabel] = "true"
+	desiredLabels[TeamIDLabel] = teamID
+
+	base := p.Client
+	var ns *corev1.Namespace
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, getErr := base.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+		if apierrors.IsNotFound(getErr) {
+			created, createErr := base.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   namespace,
+					Labels: desiredLabels,
+				},
+			}, metav1.CreateOptions{})
+			if apierrors.IsAlreadyExists(createErr) {
+				// Retry via optimistic conflict path so ownership is validated against the existing object.
+				return apierrors.NewConflict(schema.GroupResource{Resource: "namespaces"}, namespace, createErr)
+			}
+			if createErr != nil {
+				return createErr
+			}
+			ns = created
+			return nil
+		}
+		if getErr != nil {
+			return getErr
+		}
+		if current.Status.Phase == corev1.NamespaceTerminating || current.DeletionTimestamp != nil {
+			return fmt.Errorf("%w: namespace %q is terminating", ErrNamespaceTerminating, namespace)
+		}
+		if strings.TrimSpace(current.Labels[kubeworkload.PlatformManagedLabel]) != "true" {
+			return fmt.Errorf("%w: namespace %q is not platform-managed", ErrNamespaceOwnershipConflict, namespace)
+		}
+		currentOwner := strings.TrimSpace(current.Labels[TeamIDLabel])
+		if currentOwner != teamID && !isAdoptablePriorTeamID(adoptablePriorTeamIDs, currentOwner) {
+			return fmt.Errorf("%w: namespace %q is owned by team %q, not %q", ErrNamespaceOwnershipConflict, namespace, currentOwner, teamID)
+		}
+		updated := current.DeepCopy()
+		if mergeNamespaceLabels(updated, desiredLabels) {
+			updated.ResourceVersion = current.ResourceVersion
+			saved, updateErr := base.CoreV1().Namespaces().Update(ctx, updated, metav1.UpdateOptions{})
+			if updateErr != nil {
+				return updateErr
+			}
+			ns = saved
+			return nil
+		}
+		ns = current
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	if err := p.ensureNamespaceResources(ctx, base, namespace, ingressFromNamespaces...); err != nil {
+		return "", err
+	}
+	return string(ns.UID), nil
+}
+
+func isAdoptablePriorTeamID(adoptable []string, candidate string) bool {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return false
+	}
+	for _, id := range adoptable {
+		if strings.TrimSpace(id) == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func (p Provisioner) ensureNamespaceResources(ctx context.Context, base kubernetes.Interface, namespace string, ingressFromNamespaces ...string) error {
 	if err := ensureResourceQuota(ctx, base, namespace); err != nil {
 		return err
 	}

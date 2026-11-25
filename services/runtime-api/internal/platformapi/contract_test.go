@@ -112,11 +112,21 @@ func TestClientCallsOnlyDocumentedPlatformAPIOperations(t *testing.T) {
 		"DeletePendingSession":      func() { _ = c.DeletePendingSession(ctx, "ns", "s", "uid", "human") },
 		"DeleteSessionIfUID":        func() { _ = c.DeleteSessionIfUID(ctx, "ns", "s", "uid") },
 		"RevokeSessions":            func() { _, _ = c.RevokeSessions(ctx, filter, "cause") },
-		"ListGrantIntents":          func() { _, _ = c.ListGrantIntents(ctx) },
-		"UpsertGrantIntent":         func() { _, _ = c.UpsertGrantIntent(ctx, apikit.GrantIntentUpsertRequest{Namespace: "ns", Name: "g"}) },
-		"GetGrantIntent":            func() { _, _, _ = c.GetGrantIntent(ctx, "grant-1") },
-		"RevokeGrantIntent":         func() { _, _ = c.RevokeGrantIntent(ctx, "grant-1", true) },
-		"ClaimGrantIntentFence":     func() { _, _ = c.ClaimGrantIntentFence(ctx, "grant-1", "w1") },
+		"ListTeamIntents":           func() { _, _ = c.ListTeamIntents(ctx) },
+		"GetTeamIntent":             func() { _, _, _ = c.GetTeamIntent(ctx, "team-1") },
+		"ClaimTeamIntentFence":      func() { _, _ = c.ClaimTeamIntentFence(ctx, "team-1", "worker-1") },
+		"RecordTeamIntentReceipt": func() {
+			_, _ = c.RecordTeamIntentReceipt(ctx, "team-1", apikit.TeamIntentReceiptRequest{DesiredRevisionID: "rev-1", FenceEpoch: 1, Outcome: apikit.TeamIntentOutcomeApplied, WorkerID: "worker-1"})
+		},
+		"ClaimTeamIntentObserverLease": func() { _, _ = c.ClaimTeamIntentObserverLease(ctx, "default", "observer-1") },
+		"RecordTeamIntentObservation": func() {
+			_, _ = c.RecordTeamIntentObservation(ctx, "team-1", apikit.TeamIntentObservationRequest{ObserverID: "observer-1", ObserverEpoch: 1, Health: apikit.TeamIntentHealthReady})
+		},
+		"ListGrantIntents":      func() { _, _ = c.ListGrantIntents(ctx) },
+		"UpsertGrantIntent":     func() { _, _ = c.UpsertGrantIntent(ctx, apikit.GrantIntentUpsertRequest{Namespace: "ns", Name: "g"}) },
+		"GetGrantIntent":        func() { _, _, _ = c.GetGrantIntent(ctx, "grant-1") },
+		"RevokeGrantIntent":     func() { _, _ = c.RevokeGrantIntent(ctx, "grant-1", true) },
+		"ClaimGrantIntentFence": func() { _, _ = c.ClaimGrantIntentFence(ctx, "grant-1", "w1") },
 		"RecordGrantIntentReceipt": func() {
 			_, _ = c.RecordGrantIntentReceipt(ctx, "grant-1", apikit.GrantIntentReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.AccessIntentOutcomeApplied, WorkerID: "w1"})
 		},
@@ -244,6 +254,8 @@ func TestContractCoversEveryClientOperation(t *testing.T) {
 		ListTeamMemberships UpsertTeamMembership DeleteTeamMembership CreatePasswordUser CreateTeamUser WriteAudit
 		OperationsSnapshot OverviewCounts PutSession GetSession ListSessions ListSessionsFiltered SetSessionRevoked
 		RevokeSession DeleteSession CompleteSessionEnrollment DeletePendingSession DeleteSessionIfUID RevokeSessions
+		ListTeamIntents GetTeamIntent ClaimTeamIntentFence RecordTeamIntentReceipt ClaimTeamIntentObserverLease
+		RecordTeamIntentObservation
 		ListGrantIntents UpsertGrantIntent GetGrantIntent RevokeGrantIntent ClaimGrantIntentFence RecordGrantIntentReceipt RecordGrantIntentObservation
 		ListEnrollmentIntents CreateEnrollmentIntent GetEnrollmentIntent ClaimEnrollmentIntentFence RecordEnrollmentIntentReceipt ActivateEnrollmentIntent
 		GetAgentCleanupIntent ClaimAgentCleanupIntentFence RecordAgentCleanupIntentReceipt ClaimAccessIntentObserverLease

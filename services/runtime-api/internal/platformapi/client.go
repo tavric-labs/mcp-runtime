@@ -61,6 +61,9 @@ func (c *Client) requestJSON(ctx context.Context, method, path string, body any,
 		return 0, err
 	}
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(c.Token))
+	if reqID := httpx.RequestID(ctx); reqID != "" {
+		req.Header.Set(httpx.RequestIDHeader, reqID)
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
