@@ -51,6 +51,7 @@ var pkgLayers = map[string]layer{
 	"identity": leaf, "spiffecert": leaf, "oidcdiscovery": leaf, "openapi": leaf,
 	"topology":            leaf,
 	"registryauth":        leaf,
+	"registrystaging":     leaf,
 	"transport/httptrace": leaf, "transport/tlsconfig": leaf,
 
 	// Domain: rules and models, no Kubernetes or service infrastructure.
