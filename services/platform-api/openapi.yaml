@@ -1028,6 +1028,407 @@ paths:
         "404": {description: team intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
         "409": {description: "stale observer epoch, revision, or namespace UID conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
         "503": {description: team intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/observer-lease:
+    post:
+      summary: "Claim a monotonic workload-intent status observer epoch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observer_id]
+              properties:
+                cluster_key: {type: string}
+                observer_id: {type: string}
+      responses:
+        "200": {description: observer lease epoch, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/servers:
+    get:
+      summary: "List durable MCPServer intents, execution receipts, and observations"
+      responses:
+        "200": {description: server intents, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      summary: "Record durable Active MCPServer intent and enqueue reconciliation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "202": {description: server intent accepted, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/servers/{server_id}:
+    parameters:
+      - {name: server_id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: "Get authoritative MCPServer intent, retirement checkpoints, receipt, and observation"
+      responses:
+        "200": {description: server intent, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: server intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/servers/{server_id}/retire:
+    parameters:
+      - {name: server_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Mark MCPServer intent Retiring with target CR UID and enqueue ordered retirement"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "202": {description: server retirement accepted, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: server intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/servers/{server_id}/fence:
+    parameters:
+      - {name: server_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Claim per-server worker execution fence and return authoritative desired intent"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: fenced server intent, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: server intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/servers/{server_id}/checkpoint:
+    parameters:
+      - {name: server_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Persist fenced ordered server retirement checkpoints"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: updated server intent, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: server intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence or desired revision conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/servers/{server_id}/receipt:
+    parameters:
+      - {name: server_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record fenced worker execution receipt for one MCPServer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: recorded server receipt, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: server intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence, revision, or state conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/servers/{server_id}/observation:
+    parameters:
+      - {name: server_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record independent MCPServer health observation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: recorded server observation, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: server intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale observer epoch, revision, or target UID conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/deployments:
+    get:
+      summary: "List durable raw Deployment intents, receipts, and observations"
+      responses:
+        "200": {description: deployment intents, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      summary: "Record durable raw Deployment/Service intent and enqueue reconciliation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "202": {description: deployment intent accepted, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/deployments/{deployment_id}:
+    parameters:
+      - {name: deployment_id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: "Get authoritative raw Deployment intent, receipt, and observation"
+      responses:
+        "200": {description: deployment intent, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: deployment intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/deployments/{deployment_id}/delete:
+    parameters:
+      - {name: deployment_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Mark raw Deployment intent deleted and enqueue UID-conditional cleanup"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "202": {description: deployment deletion accepted, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: deployment intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/deployments/{deployment_id}/fence:
+    parameters:
+      - {name: deployment_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Claim per-deployment worker execution fence and return authoritative desired intent"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: fenced deployment intent, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: deployment intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/deployments/{deployment_id}/receipt:
+    parameters:
+      - {name: deployment_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record fenced worker execution receipt for one raw Deployment"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: recorded deployment receipt, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: deployment intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence, revision, or state conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/deployments/{deployment_id}/observation:
+    parameters:
+      - {name: deployment_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record independent raw Deployment health observation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: recorded deployment observation, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: deployment intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale observer epoch, revision, or target UID conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/publications:
+    get:
+      summary: "List durable registry image publication intents and receipts"
+      responses:
+        "200": {description: image publication intents, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      summary: "Begin staged image publication in Uploading state without enqueueing worker job"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "201": {description: staged image publication begun, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "concurrent mutable tag overlap conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/publications/{publication_id}:
+    parameters:
+      - {name: publication_id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: "Get authoritative image publication intent and execution receipt"
+      responses:
+        "200": {description: image publication intent, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: image publication intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/publications/{publication_id}/finalize:
+    parameters:
+      - {name: publication_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Commit finalized staged artifact metadata and enqueue registry_publication job atomically"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "202": {description: image publication finalized and queued, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: image publication intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "invalid publication state transition conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/publications/{publication_id}/abort:
+    parameters:
+      - {name: publication_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Abort or expire an image publication without enqueueing work"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: image publication aborted, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: image publication intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "invalid publication state transition conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/publications/{publication_id}/fence:
+    parameters:
+      - {name: publication_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Claim per-publication worker execution fence"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: fenced image publication intent, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: image publication intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/publications/{publication_id}/receipt:
+    parameters:
+      - {name: publication_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record fenced image publication receipt, helper identity, and verified registry digest"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: recorded image publication receipt, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: image publication intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence, revision, or state conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/restarts:
+    get:
+      summary: "List durable imperative component restart operations"
+      responses:
+        "200": {description: restart operations, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      summary: "Create durable component restart operation with fixed acceptance-time restarted_at token"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "201": {description: restart operation created, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/restarts/{operation_id}:
+    parameters:
+      - {name: operation_id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: "Get authoritative component restart operation, checkpoints, and receipt"
+      responses:
+        "200": {description: restart operation, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: restart operation not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/restarts/{operation_id}/fence:
+    parameters:
+      - {name: operation_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Claim per-operation worker execution fence"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: fenced restart operation, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: restart operation not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/restarts/{operation_id}/checkpoint:
+    parameters:
+      - {name: operation_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record durable per-component restart checkpoint under active fence"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: updated restart operation, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: restart operation not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence or desired revision conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/workload-intents/restarts/{operation_id}/receipt:
+    parameters:
+      - {name: operation_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record fenced worker execution receipt for a component restart operation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200": {description: recorded restart receipt, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: restart operation not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence, revision, or state conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: workload intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
   /internal/access/sessions:
     x-audience: "runtime-api"
     x-listener-port: 8080

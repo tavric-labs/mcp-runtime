@@ -12,6 +12,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"mcp-platform-api/internal/teamintent"
+	"mcp-platform-api/internal/workloadintent"
 	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/telemetry/sqltrace"
 )
@@ -24,6 +25,14 @@ func Open(ctx context.Context, dsn string, signer passport.Signer, verifier pass
 		journalTeamIntent, err = strconv.ParseBool(value)
 		if err != nil {
 			return nil, errors.New("PLATFORM_TEAM_INTENT_JOURNAL must be a boolean")
+		}
+	}
+	var journalWorkloadIntent bool
+	if value := strings.TrimSpace(os.Getenv("PLATFORM_WORKLOAD_INTENT_JOURNAL")); value != "" {
+		var err error
+		journalWorkloadIntent, err = strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.New("PLATFORM_WORKLOAD_INTENT_JOURNAL must be a boolean")
 		}
 	}
 	db, err := sqltrace.Open("postgres", dsn)
@@ -47,6 +56,13 @@ func Open(ctx context.Context, dsn string, signer passport.Signer, verifier pass
 		if err != nil {
 			_ = db.Close()
 			return nil, fmt.Errorf("initialize team intent journal: %w", err)
+		}
+	}
+	if journalWorkloadIntent {
+		s.workloadIntents, err = workloadintent.Open(ctx, db, dsn)
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("initialize workload intent journal: %w", err)
 		}
 	}
 	if err := s.initializeSessions(ctx); err != nil {

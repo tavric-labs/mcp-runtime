@@ -30,6 +30,7 @@ those workflows rather than duplicating cluster management.
 | Preview base namespace retirement | `deploy/reference/base-namespace-retirement.md` | Preview-only deployment note; trust bundle to `mcp-platform`, then explicit removal of the legacy namespace after verification |
 | Preview platform token keys | `deploy/reference/platform-token-keys.md` | Preview-only deployment and rotation note for the ES256 signing key pair; existing backup/update workflows, no HS256 fallback |
 | Go package documentation | `deploy/pkgsite/` | CI-built image, isolated source rewrite, tested remote rollback |
+| Team provisioning River spike | `spikes/river-team-provisioning/` | Throwaway Go prototype and fault-injection evidence; requires local Postgres and a disposable `kind-*` cluster (refuses non-`kind-*` contexts); not wired into product modules or CI |
 | Generated Go header | `boilerplate.go.txt` | Code-generation asset |
 
 ## Layout and ownership
@@ -43,6 +44,7 @@ hack/
   deploy/acceptance/   hosted platform acceptance
   deploy/pkgsite/      Go documentation hosting
   release/             release manifest tooling
+  spikes/              throwaway design spikes and evidence (not wired into product or CI)
   lib/                 shared sourced/imported helpers
   tests/               offline automation regressions
   boilerplate.go.txt   code-generation asset

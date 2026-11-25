@@ -60,6 +60,16 @@ spec:
         - protocol: TCP
           port: 3100
     - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: mcp-observability
+          podSelector:
+            matchLabels:
+              app: tempo
+      ports:
+        - protocol: TCP
+          port: 3200
+    - to:
         - ipBlock:
             cidr: 0.0.0.0/0
       ports:

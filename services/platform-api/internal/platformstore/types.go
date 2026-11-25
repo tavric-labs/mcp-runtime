@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"mcp-platform-api/internal/teamintent"
+	"mcp-platform-api/internal/workloadintent"
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/passport"
 )
@@ -42,10 +43,11 @@ const (
 
 // Store owns platform identity, API key, team, namespace, and audit persistence.
 type Store struct {
-	db          *sql.DB
-	signer      passport.Signer
-	verifier    passport.Verifier
-	teamIntents *teamintent.Writer
+	db              *sql.DB
+	signer          passport.Signer
+	verifier        passport.Verifier
+	teamIntents     *teamintent.Writer
+	workloadIntents *workloadintent.Writer
 }
 
 // NewStoreWithDB binds a Store to an existing database. Tests use it to observe
