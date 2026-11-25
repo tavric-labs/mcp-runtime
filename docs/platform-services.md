@@ -696,10 +696,29 @@ transaction as the tombstones. Each job includes the team and revision IDs,
 plus the request ID and W3C trace context when available.
 
 The Runtime API continues synchronous namespace provisioning and Traefik
-cleanup. This stage records intents for new mutations while the flag is enabled
-and leaves the jobs unconsumed. Use a fresh disposable database for future
-worker experiments so earlier test jobs are never executed after a cutover.
-The worker, independent status observation, and request behavior are tracked in
+cleanup by default. In isolated development or disposable clusters, opt-in
+background components on `mcp-runtime-api` can exercise durable reconciliation
+and independent status observation against Platform API's `/internal/team-intents`
+endpoints:
+
+- `RUNTIME_TEAM_INTENT_WORKER=true` starts the River worker on schema
+  `team_intent_queue` / queue `team_namespace` (requires
+  `RUNTIME_TEAM_INTENT_QUEUE_DATABASE_URL`, `PLATFORM_API_URL`,
+  `INTERNAL_AUTH_TOKEN`, and Kubernetes access). Each execution claims a
+  monotonic per-team fence, enforces namespace `mcpruntime.org/team-id`
+  ownership and safe adoption of soft-deleted prior incarnations, removes only
+  the Traefik watch on delete while retaining the namespace, and records a
+  fenced receipt without fabricating success on failure.
+- `RUNTIME_TEAM_INTENT_OBSERVER=true` starts the independent Kubernetes status
+  observer using a `SharedInformer` on `mcpruntime.org/managed=true` namespaces
+  plus periodic freshness verification. It acquires a monotonic observer lease
+  (`RUNTIME_TEAM_INTENT_CLUSTER_KEY`, default `default`) and records observed
+  health (`Ready`, `Degraded`, `Deleted`, etc.) without mutating desired
+  intent, execution receipts, or River jobs.
+
+Use a fresh disposable database for worker experiments so earlier unconsumed
+test jobs are not executed unexpectedly after a cutover. Request-path cutover
+and UI/CLI surfacing are tracked in
 [#873](https://github.com/tavric-labs/mcp-runtime/issues/873).
 
 ### UI service
