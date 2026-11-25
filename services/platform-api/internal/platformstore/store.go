@@ -11,6 +11,7 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"mcp-platform-api/internal/accessintent"
 	"mcp-platform-api/internal/teamintent"
 	"mcp-platform-api/internal/workloadintent"
 	"mcp-runtime/pkg/passport"
@@ -25,6 +26,14 @@ func Open(ctx context.Context, dsn string, signer passport.Signer, verifier pass
 		journalTeamIntent, err = strconv.ParseBool(value)
 		if err != nil {
 			return nil, errors.New("PLATFORM_TEAM_INTENT_JOURNAL must be a boolean")
+		}
+	}
+	var journalAccessIntent bool
+	if value := strings.TrimSpace(os.Getenv("PLATFORM_ACCESS_INTENT_JOURNAL")); value != "" {
+		var err error
+		journalAccessIntent, err = strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.New("PLATFORM_ACCESS_INTENT_JOURNAL must be a boolean")
 		}
 	}
 	var journalWorkloadIntent bool
@@ -68,6 +77,13 @@ func Open(ctx context.Context, dsn string, signer passport.Signer, verifier pass
 	if err := s.initializeSessions(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
+	}
+	if journalAccessIntent {
+		s.accessIntents, err = accessintent.Open(ctx, db, dsn)
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("initialize access intent journal: %w", err)
+		}
 	}
 	return s, nil
 }

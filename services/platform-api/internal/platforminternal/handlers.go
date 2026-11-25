@@ -63,6 +63,7 @@ func (h Handler) Register(mux *http.ServeMux) {
 	mux.Handle("/internal/operations/counts", h.authorize(http.HandlerFunc(h.overviewCounts)))
 	mux.Handle("/internal/team-intents", h.authorize(http.HandlerFunc(h.teamIntents)))
 	mux.Handle("/internal/team-intents/", h.authorize(http.HandlerFunc(h.teamIntentPath)))
+	mux.Handle("/internal/access-intents/", h.authorize(http.HandlerFunc(h.accessIntentPath)))
 	mux.Handle("/internal/workload-intents/", h.authorize(http.HandlerFunc(h.workloadIntentPath)))
 }
 

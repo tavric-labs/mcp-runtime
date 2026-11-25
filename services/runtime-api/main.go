@@ -14,6 +14,8 @@ import (
 	chdriver "github.com/ClickHouse/clickhouse-go/v2"
 	_ "go.uber.org/automaxprocs"
 
+	"mcp-runtime-api/internal/accessintentobserver"
+	"mcp-runtime-api/internal/accessintentworker"
 	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime-api/internal/runtimeapi"
 	"mcp-runtime-api/internal/teamintentobserver"
@@ -106,6 +108,52 @@ func main() {
 	}
 	if !runtimeServer.KubernetesAvailable() {
 		srv.runtimeInit = "kubernetes client not available"
+	}
+
+	var accessWorker *accessintentworker.Runner
+	if enabled, ok := envcfg.BoolEnv("RUNTIME_ACCESS_INTENT_WORKER"); ok && enabled {
+		dsn := strings.TrimSpace(os.Getenv("RUNTIME_ACCESS_INTENT_POSTGRES_DSN"))
+		if dsn == "" {
+			dsn = strings.TrimSpace(os.Getenv("PLATFORM_DB_DSN"))
+		}
+		if dsn == "" {
+			dsn = strings.TrimSpace(os.Getenv("DATABASE_URL"))
+		}
+		k8s := runtimeServer.KubernetesClients()
+		if k8s == nil || k8s.Dynamic == nil {
+			log.Fatalf("RUNTIME_ACCESS_INTENT_WORKER requires Kubernetes client access")
+		}
+		accessWorker, err = accessintentworker.Start(context.Background(), accessintentworker.RunnerConfig{
+			PostgresDSN:    dsn,
+			PlatformClient: platformClient,
+			DynamicClient:  k8s.Dynamic,
+			ClusterIssuer:  strings.TrimSpace(os.Getenv("MCP_MTLS_CLUSTER_ISSUER")),
+			WorkerID:       envcfg.EnvOr("RUNTIME_ACCESS_INTENT_WORKER_ID", envcfg.EnvOr("HOSTNAME", "runtime-api-access-worker")),
+		})
+		if err != nil {
+			log.Fatalf("access intent worker startup failed: %v", err)
+		}
+	}
+
+	var cancelObserver context.CancelFunc
+	if enabled, ok := envcfg.BoolEnv("RUNTIME_ACCESS_INTENT_OBSERVER"); ok && enabled {
+		k8s := runtimeServer.KubernetesClients()
+		if k8s == nil || k8s.Dynamic == nil || k8s.Clientset == nil {
+			log.Fatalf("RUNTIME_ACCESS_INTENT_OBSERVER requires Kubernetes client access")
+		}
+		obsCtx, cancel := context.WithCancel(context.Background())
+		cancelObserver = cancel
+		observer := accessintentobserver.New(
+			platformClient,
+			&accessintentobserver.K8sGrantReader{Dynamic: k8s.Dynamic},
+			&accessintentobserver.K8sGatewayStatusProber{Clientset: k8s.Clientset},
+			accessintentobserver.Config{
+				ClusterKey: envcfg.EnvOr("RUNTIME_ACCESS_INTENT_CLUSTER_KEY", "default"),
+				ObserverID: envcfg.EnvOr("RUNTIME_ACCESS_INTENT_OBSERVER_ID", envcfg.EnvOr("HOSTNAME", "runtime-api-access-observer")),
+				Interval:   envcfg.EnvDuration("RUNTIME_ACCESS_INTENT_OBSERVER_INTERVAL", 10*time.Second),
+			},
+		)
+		go observer.Run(obsCtx)
 	}
 
 	mux := http.NewServeMux()
@@ -207,6 +255,9 @@ func main() {
 		Handler:     mux,
 		OnShutdown: func(ctx context.Context) error {
 			var errs []error
+			if cancelObserver != nil {
+				cancelObserver()
+			}
 			if observerCancel != nil {
 				observerCancel()
 				select {
@@ -223,6 +274,11 @@ func main() {
 			}
 			if workerRunner != nil {
 				if err := workerRunner.Stop(ctx); err != nil {
+					errs = append(errs, err)
+				}
+			}
+			if accessWorker != nil {
+				if err := accessWorker.Stop(ctx); err != nil {
 					errs = append(errs, err)
 				}
 			}

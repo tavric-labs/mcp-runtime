@@ -122,6 +122,35 @@ func TestClientCallsOnlyDocumentedPlatformAPIOperations(t *testing.T) {
 		"RecordTeamIntentObservation": func() {
 			_, _ = c.RecordTeamIntentObservation(ctx, "team-1", apikit.TeamIntentObservationRequest{ObserverID: "observer-1", ObserverEpoch: 1, Health: apikit.TeamIntentHealthReady})
 		},
+		"ListGrantIntents":      func() { _, _ = c.ListGrantIntents(ctx) },
+		"UpsertGrantIntent":     func() { _, _ = c.UpsertGrantIntent(ctx, apikit.GrantIntentUpsertRequest{Namespace: "ns", Name: "g"}) },
+		"GetGrantIntent":        func() { _, _, _ = c.GetGrantIntent(ctx, "grant-1") },
+		"RevokeGrantIntent":     func() { _, _ = c.RevokeGrantIntent(ctx, "grant-1", true) },
+		"ClaimGrantIntentFence": func() { _, _ = c.ClaimGrantIntentFence(ctx, "grant-1", "w1") },
+		"RecordGrantIntentReceipt": func() {
+			_, _ = c.RecordGrantIntentReceipt(ctx, "grant-1", apikit.GrantIntentReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.AccessIntentOutcomeApplied, WorkerID: "w1"})
+		},
+		"RecordGrantIntentObservation": func() {
+			_, _ = c.RecordGrantIntentObservation(ctx, "grant-1", apikit.GrantIntentObservationRequest{ObserverID: "o1", ObserverEpoch: 1, Health: apikit.AccessIntentHealthReady, PropagationStatus: apikit.GrantPropagationVerified})
+		},
+		"ListEnrollmentIntents": func() { _, _ = c.ListEnrollmentIntents(ctx) },
+		"CreateEnrollmentIntent": func() {
+			_, _ = c.CreateEnrollmentIntent(ctx, apikit.EnrollmentIntentCreateRequest{SessionUID: "s1", ServerUID: "u1", Namespace: "ns", SessionName: "sn", CSRSHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"})
+		},
+		"GetEnrollmentIntent":        func() { _, _, _ = c.GetEnrollmentIntent(ctx, "op-1") },
+		"ClaimEnrollmentIntentFence": func() { _, _ = c.ClaimEnrollmentIntentFence(ctx, "op-1", "w1") },
+		"RecordEnrollmentIntentReceipt": func() {
+			_, _ = c.RecordEnrollmentIntentReceipt(ctx, "op-1", apikit.EnrollmentIntentReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.AccessIntentOutcomeApplied, WorkerID: "w1"})
+		},
+		"ActivateEnrollmentIntent": func() {
+			_, _ = c.ActivateEnrollmentIntent(ctx, "op-1", apikit.EnrollmentIntentActivateRequest{DesiredRevisionID: "r1", FenceEpoch: 1, WorkerID: "w1"})
+		},
+		"GetAgentCleanupIntent":        func() { _, _, _ = c.GetAgentCleanupIntent(ctx, "agt-1") },
+		"ClaimAgentCleanupIntentFence": func() { _, _ = c.ClaimAgentCleanupIntentFence(ctx, "agt-1", "w1") },
+		"RecordAgentCleanupIntentReceipt": func() {
+			_, _ = c.RecordAgentCleanupIntentReceipt(ctx, "agt-1", apikit.AgentCleanupReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.AccessIntentOutcomeCleaned, WorkerID: "w1"})
+		},
+		"ClaimAccessIntentObserverLease": func() { _, _ = c.ClaimAccessIntentObserverLease(ctx, "default", "obs-1") },
 
 		"ClaimWorkloadObserverLease": func() { _, _ = c.ClaimWorkloadObserverLease(ctx, "default", "obs-1") },
 		"ListServerIntents":          func() { _, _ = c.ListServerIntents(ctx) },
@@ -227,6 +256,9 @@ func TestContractCoversEveryClientOperation(t *testing.T) {
 		RevokeSession DeleteSession CompleteSessionEnrollment DeletePendingSession DeleteSessionIfUID RevokeSessions
 		ListTeamIntents GetTeamIntent ClaimTeamIntentFence RecordTeamIntentReceipt ClaimTeamIntentObserverLease
 		RecordTeamIntentObservation
+		ListGrantIntents UpsertGrantIntent GetGrantIntent RevokeGrantIntent ClaimGrantIntentFence RecordGrantIntentReceipt RecordGrantIntentObservation
+		ListEnrollmentIntents CreateEnrollmentIntent GetEnrollmentIntent ClaimEnrollmentIntentFence RecordEnrollmentIntentReceipt ActivateEnrollmentIntent
+		GetAgentCleanupIntent ClaimAgentCleanupIntentFence RecordAgentCleanupIntentReceipt ClaimAccessIntentObserverLease
 		ClaimWorkloadObserverLease
 		ListServerIntents UpsertServerIntent GetServerIntent RetireServerIntent ClaimServerIntentFence RecordServerRetirementCheckpoint RecordServerIntentReceipt RecordServerIntentObservation
 		ListDeploymentIntents UpsertDeploymentIntent GetDeploymentIntent DeleteDeploymentIntent ClaimDeploymentIntentFence RecordDeploymentIntentReceipt RecordDeploymentIntentObservation

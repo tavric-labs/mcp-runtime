@@ -940,6 +940,330 @@ paths:
         "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
         "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
         "503": {description: team intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/grants:
+    get:
+      summary: "List durable grant intents, execution receipts, and independent gateway observations"
+      responses:
+        "200": {description: durable grant intents, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      summary: "Atomically upsert durable grant intent and enqueue reconciliation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [namespace, name, team_id, server_name, server_uid]
+              properties:
+                grant_id: {type: string}
+                namespace: {type: string}
+                name: {type: string}
+                team_id: {type: string}
+                server_name: {type: string}
+                server_uid: {type: string}
+                subject: {type: object}
+                spec_json: {type: object}
+      responses:
+        "201": {description: accepted grant intent, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "deleted grant incarnation conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/grants/{grant_id}:
+    parameters:
+      - {name: grant_id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: "Read authoritative desired intent, receipt, and gateway propagation state for one grant incarnation"
+      responses:
+        "200": {description: grant intent, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: grant intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    delete:
+      summary: "Synchronously commit grant revocation or deletion in PostgreSQL and enqueue Kubernetes cleanup"
+      parameters:
+        - {name: delete, in: query, required: false, schema: {type: boolean}}
+      responses:
+        "200": {description: revoked or deleted grant intent, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: grant intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/grants/{grant_id}/fence:
+    parameters:
+      - {name: grant_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Claim a per-grant worker execution fence and read authoritative desired intent"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [worker_id]
+              properties:
+                worker_id: {type: string}
+      responses:
+        "200": {description: fenced grant claim, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: grant intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/grants/{grant_id}/receipt:
+    parameters:
+      - {name: grant_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record a fenced worker execution receipt for one grant incarnation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [desired_revision_id, fence_epoch, outcome, worker_id]
+              properties:
+                desired_revision_id: {type: string}
+                fence_epoch: {type: integer}
+                outcome: {type: string}
+                target_uid: {type: string}
+                target_generation: {type: integer}
+                spec_digest: {type: string}
+                attempt: {type: integer}
+                worker_id: {type: string}
+                last_error_class: {type: string}
+                last_error: {type: string}
+      responses:
+        "200": {description: recorded grant receipt, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: grant intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence, revision, or grant state conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/grants/{grant_id}/observation:
+    parameters:
+      - {name: grant_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record an independently observed grant CR and gateway propagation status update"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observer_id, observer_epoch, health, propagation_status]
+              properties:
+                cluster_key: {type: string}
+                observer_id: {type: string}
+                observer_epoch: {type: integer}
+                observed_revision_id: {type: string}
+                target_uid: {type: string}
+                health: {type: string}
+                reason: {type: string}
+                message: {type: string}
+                propagation_status: {type: string}
+                serving_replicas: {type: integer}
+                acknowledged_replicas: {type: integer}
+                gateway_evidence: {type: array, items: {type: object}}
+                verified_at: {type: string, format: date-time}
+      responses:
+        "200": {description: recorded grant observation, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: grant intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale observer epoch, revision, UID, or unverified propagation conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/enrollments:
+    get:
+      summary: "List durable adapter certificate enrollment operations"
+      responses:
+        "200": {description: enrollment operations, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+    post:
+      summary: "Idempotently create a durable adapter enrollment operation keyed by session UID, server UID, and CSR SHA256"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_uid, server_uid, namespace, session_name, csr_sha256]
+              properties:
+                session_uid: {type: string}
+                server_uid: {type: string}
+                agent_id: {type: string}
+                namespace: {type: string}
+                session_name: {type: string}
+                csr_sha256: {type: string}
+      responses:
+        "200": {description: existing idempotent enrollment operation, content: {application/json: {schema: {type: object}}}}
+        "201": {description: created enrollment operation, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/enrollments/{op_id}:
+    parameters:
+      - {name: op_id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: "Read durable adapter certificate enrollment state"
+      responses:
+        "200": {description: enrollment operation, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: enrollment operation not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/enrollments/{op_id}/fence:
+    parameters:
+      - {name: op_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Claim an execution fence for one enrollment operation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [worker_id]
+              properties:
+                worker_id: {type: string}
+      responses:
+        "200": {description: fenced enrollment claim, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: enrollment operation not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/enrollments/{op_id}/receipt:
+    parameters:
+      - {name: op_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record a fenced worker execution receipt for one enrollment operation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [desired_revision_id, fence_epoch, outcome, worker_id]
+              properties:
+                desired_revision_id: {type: string}
+                fence_epoch: {type: integer}
+                state: {type: string}
+                outcome: {type: string}
+                certificate_request_name: {type: string}
+                certificate_request_uid: {type: string}
+                attempt: {type: integer}
+                worker_id: {type: string}
+                last_error_class: {type: string}
+                last_error: {type: string}
+      responses:
+        "200": {description: recorded enrollment receipt, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: enrollment operation not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence, revision, or terminal enrollment state conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/enrollments/{op_id}/activate:
+    parameters:
+      - {name: op_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Conditionally activate an issued enrollment after re-verifying active session, active agent, and matching server UID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [desired_revision_id, fence_epoch, worker_id]
+              properties:
+                desired_revision_id: {type: string}
+                fence_epoch: {type: integer}
+                worker_id: {type: string}
+                certificate_request_name: {type: string}
+                certificate_request_uid: {type: string}
+                serial: {type: string}
+                fingerprint: {type: string}
+      responses:
+        "200": {description: activated enrollment operation, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: enrollment operation not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence, revoked session, inactive agent, or server UID mismatch", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/agent-cleanups/{agent_id}:
+    parameters:
+      - {name: agent_id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: "Read durable post-deactivation cleanup intent and receipt for one agent"
+      responses:
+        "200": {description: agent cleanup intent, content: {application/json: {schema: {type: object}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: agent cleanup intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/agent-cleanups/{agent_id}/fence:
+    parameters:
+      - {name: agent_id, in: path, required: true, schema: {type: string}}
+    post:
+      summary: "Claim an execution fence for post-deactivation agent cleanup"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [worker_id]
+              properties:
+                worker_id: {type: string}
+      responses:
+        "200": {description: fenced agent cleanup claim, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: agent cleanup intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/agent-cleanups/{agent_id}/receipt:
+    parameters:
+      - {name: agent_id, in: path, required: true, schema: {type: string}}
+    put:
+      summary: "Record a fenced worker execution receipt for post-deactivation agent cleanup"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [desired_revision_id, fence_epoch, outcome, worker_id]
+              properties:
+                desired_revision_id: {type: string}
+                fence_epoch: {type: integer}
+                outcome: {type: string}
+                attempt: {type: integer}
+                worker_id: {type: string}
+                last_error_class: {type: string}
+                last_error: {type: string}
+      responses:
+        "200": {description: recorded agent cleanup receipt, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "404": {description: agent cleanup intent not found, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "409": {description: "stale fence or revision conflict", content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+  /internal/access-intents/observer-lease:
+    post:
+      summary: "Claim a monotonic access-intent status observer epoch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observer_id]
+              properties:
+                cluster_key: {type: string}
+                observer_id: {type: string}
+      responses:
+        "200": {description: observer lease epoch, content: {application/json: {schema: {type: object}}}}
+        "400": {description: invalid request, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "401": {description: unauthorized, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
+        "503": {description: access intent journal disabled, content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}}
   /internal/team-intents/{team_id}:
     parameters:
       - {name: team_id, in: path, required: true, schema: {type: string}}
