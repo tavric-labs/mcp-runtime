@@ -3,6 +3,7 @@ package platformstore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -10,12 +11,21 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"mcp-platform-api/internal/accessintent"
 	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/telemetry/sqltrace"
 )
 
 // Open connects to Postgres, applies schema migrations, and returns a Store.
 func Open(ctx context.Context, dsn string, signer passport.Signer, verifier passport.Verifier) (*Store, error) {
+	var journalAccessIntent bool
+	if value := strings.TrimSpace(os.Getenv("PLATFORM_ACCESS_INTENT_JOURNAL")); value != "" {
+		var err error
+		journalAccessIntent, err = strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.New("PLATFORM_ACCESS_INTENT_JOURNAL must be a boolean")
+		}
+	}
 	db, err := sqltrace.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
@@ -35,6 +45,13 @@ func Open(ctx context.Context, dsn string, signer passport.Signer, verifier pass
 	if err := s.initializeSessions(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
+	}
+	if journalAccessIntent {
+		s.accessIntents, err = accessintent.Open(ctx, db, dsn)
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("initialize access intent journal: %w", err)
+		}
 	}
 	return s, nil
 }
