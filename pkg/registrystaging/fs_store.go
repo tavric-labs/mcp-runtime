@@ -88,17 +88,22 @@ func (s *FSStore) BeginUpload(ctx context.Context, publicationID string, maxSize
 		MaxSizeBytes:  maxSizeBytes,
 		CreatedAt:     now,
 	}
-	partPath := s.incomingPartPath(uploadID)
-	f, err := os.OpenFile(partPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o640)
+	partRel := incomingPartRel(uploadID)
+	rootFS, err := os.OpenRoot(s.root)
+	if err != nil {
+		return UploadHandle{}, fmt.Errorf("open staging root: %w", err)
+	}
+	defer rootFS.Close()
+	f, err := rootFS.OpenFile(partRel, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return UploadHandle{}, fmt.Errorf("create upload part file: %w", err)
 	}
 	if err := f.Close(); err != nil {
-		_ = os.Remove(partPath)
+		_ = rootFS.Remove(partRel)
 		return UploadHandle{}, fmt.Errorf("close upload part file: %w", err)
 	}
 	if err := writeJSONAtomic(s.incomingMetaPath(uploadID), meta); err != nil {
-		_ = os.Remove(partPath)
+		_ = rootFS.Remove(partRel)
 		return UploadHandle{}, fmt.Errorf("write upload metadata: %w", err)
 	}
 	return UploadHandle{
@@ -122,8 +127,12 @@ func (s *FSStore) WriteChunk(ctx context.Context, uploadID string, offset int64,
 	if err != nil {
 		return 0, err
 	}
-	partPath := s.incomingPartPath(uploadID)
-	f, err := os.OpenFile(partPath, os.O_WRONLY, 0o640)
+	rootFS, err := os.OpenRoot(s.root)
+	if err != nil {
+		return 0, fmt.Errorf("open staging root: %w", err)
+	}
+	defer rootFS.Close()
+	f, err := rootFS.OpenFile(incomingPartRel(uploadID), os.O_WRONLY, 0o600)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return 0, ErrUploadNotFound
@@ -181,8 +190,13 @@ func (s *FSStore) Finalize(ctx context.Context, uploadID string, expectedSHA256 
 		return FinalizedArtifact{}, err
 	}
 
+	rootFS, err := os.OpenRoot(s.root)
+	if err != nil {
+		return FinalizedArtifact{}, fmt.Errorf("open staging root: %w", err)
+	}
+	defer rootFS.Close()
 	partPath := s.incomingPartPath(uploadID)
-	f, err := os.Open(partPath)
+	f, err := rootFS.Open(incomingPartRel(uploadID))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return FinalizedArtifact{}, ErrUploadNotFound
@@ -257,10 +271,15 @@ func (s *FSStore) OpenFinalized(ctx context.Context, artifactRef string) (io.Rea
 		}
 		return nil, FinalizedArtifact{}, err
 	}
-	tarPath := filepath.Join(s.finalizedDir, pubID, sha+".tar")
-	metaPath := filepath.Join(s.finalizedDir, pubID, sha+".meta.json")
+	rootFS, err := os.OpenRoot(s.root)
+	if err != nil {
+		return nil, FinalizedArtifact{}, fmt.Errorf("open staging root: %w", err)
+	}
+	defer rootFS.Close()
+	tarRel := filepath.Join(finalizedDirName, pubID, sha+".tar")
+	metaRel := filepath.Join(finalizedDirName, pubID, sha+".meta.json")
 
-	rawMeta, err := os.ReadFile(metaPath)
+	rawMeta, err := rootFS.ReadFile(metaRel)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, FinalizedArtifact{}, ErrArtifactNotFound
@@ -271,7 +290,7 @@ func (s *FSStore) OpenFinalized(ctx context.Context, artifactRef string) (io.Rea
 	if err := json.Unmarshal(rawMeta, &artifact); err != nil {
 		return nil, FinalizedArtifact{}, fmt.Errorf("decode finalized metadata: %w", err)
 	}
-	f, err := os.Open(tarPath)
+	f, err := rootFS.Open(tarRel)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, FinalizedArtifact{}, ErrArtifactNotFound
@@ -341,8 +360,13 @@ func (s *FSStore) SweepExpired(ctx context.Context, now time.Time, maxUploadAge,
 		if err != nil {
 			return result, err
 		}
+		rootFS, err := os.OpenRoot(s.root)
+		if err != nil {
+			return result, err
+		}
+		defer rootFS.Close()
 		for _, dir := range pubDirs {
-			if !dir.IsDir() {
+			if !dir.IsDir() || !safeIDPattern.MatchString(dir.Name()) {
 				continue
 			}
 			pubPath := filepath.Join(s.finalizedDir, dir.Name())
@@ -355,7 +379,10 @@ func (s *FSStore) SweepExpired(ctx context.Context, now time.Time, maxUploadAge,
 					continue
 				}
 				sha := strings.TrimSuffix(f.Name(), ".meta.json")
-				raw, err := os.ReadFile(filepath.Join(pubPath, f.Name()))
+				if !safeSHA256Pattern.MatchString(sha) {
+					continue
+				}
+				raw, err := rootFS.ReadFile(filepath.Join(finalizedDirName, dir.Name(), f.Name()))
 				if err != nil {
 					continue
 				}
@@ -376,6 +403,14 @@ func (s *FSStore) SweepExpired(ctx context.Context, now time.Time, maxUploadAge,
 	return result, nil
 }
 
+func incomingPartRel(uploadID string) string {
+	return filepath.Join(incomingDirName, uploadID+".part")
+}
+
+func incomingMetaRel(uploadID string) string {
+	return filepath.Join(incomingDirName, uploadID+".meta.json")
+}
+
 func (s *FSStore) incomingPartPath(uploadID string) string {
 	return filepath.Join(s.incomingDir, uploadID+".part")
 }
@@ -385,7 +420,12 @@ func (s *FSStore) incomingMetaPath(uploadID string) string {
 }
 
 func (s *FSStore) readUploadMeta(uploadID string) (uploadMeta, error) {
-	raw, err := os.ReadFile(s.incomingMetaPath(uploadID))
+	rootFS, err := os.OpenRoot(s.root)
+	if err != nil {
+		return uploadMeta{}, fmt.Errorf("open staging root: %w", err)
+	}
+	defer rootFS.Close()
+	raw, err := rootFS.ReadFile(incomingMetaRel(uploadID))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return uploadMeta{}, ErrUploadNotFound
@@ -442,7 +482,12 @@ func writeJSONAtomic(target string, value any) error {
 }
 
 func syncDir(path string) error {
-	dir, err := os.Open(path)
+	rootFS, err := os.OpenRoot(path)
+	if err != nil {
+		return err
+	}
+	defer rootFS.Close()
+	dir, err := rootFS.Open(".")
 	if err != nil {
 		return err
 	}
