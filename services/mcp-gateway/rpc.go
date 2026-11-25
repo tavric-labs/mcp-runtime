@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -91,7 +92,67 @@ func inspectRPCRequest(r *http.Request) rpcInspection {
 		return failedRPCInspection(inspectionBodyTooLarge)
 	}
 	r.Body = io.NopCloser(bytes.NewReader(body))
-	return inspectRPCBody(body)
+	inspection := inspectRPCBody(body)
+	if inspection.problem == inspectionOK && headersDisagree(r.Header, inspection) {
+		return failedRPCInspection(inspectionHeaderMismatch)
+	}
+	return inspection
+}
+
+// headersDisagree reports an Mcp-Method or Mcp-Name header that contradicts the
+// body. Legacy clients send neither, so an absent header is never a mismatch.
+func headersDisagree(h http.Header, in rpcInspection) bool {
+	if v := strings.TrimSpace(h.Get("Mcp-Method")); v != "" && v != in.Method() {
+		return true
+	}
+	v := strings.TrimSpace(h.Get("Mcp-Name"))
+	if v == "" {
+		return false
+	}
+	var want string
+	switch in.Method() {
+	case "tools/call":
+		want = in.ToolName()
+	case "resources/read", "prompts/get":
+		want = in.Target()
+	default:
+		return false
+	}
+	return decodeHeaderValue(v) != want
+}
+
+// decodeHeaderValue undoes the spec's =?base64?...?= encoding for values that
+// are not safe in a header. An undecodable sentinel is compared verbatim.
+func decodeHeaderValue(v string) string {
+	const prefix, suffix = "=?base64?", "?="
+	if strings.HasPrefix(v, prefix) && strings.HasSuffix(v, suffix) && len(v) >= len(prefix)+len(suffix) {
+		if raw, err := base64.StdEncoding.DecodeString(v[len(prefix) : len(v)-len(suffix)]); err == nil {
+			return string(raw)
+		}
+	}
+	return v
+}
+
+// completionTarget maps a completion reference to the read it reveals.
+func completionTarget(params json.RawMessage) (method, target string) {
+	var p struct {
+		Ref struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+			URI  string `json:"uri"`
+		} `json:"ref"`
+	}
+	if json.Unmarshal(params, &p) != nil {
+		return "resources/read", ""
+	}
+	switch p.Ref.Type {
+	case "ref/prompt":
+		return "prompts/get", p.Ref.Name
+	case "ref/resource":
+		return "resources/read", p.Ref.URI
+	default:
+		return "resources/read", ""
+	}
 }
 
 // inspectRPCBody extracts authorization inputs without HTTP or I/O. It retains
@@ -127,6 +188,9 @@ func inspectRPCBody(body []byte) rpcInspection {
 	inspection.paramsRaw, inspection.idRaw = req.Params, req.ID
 	inspection.target = primitiveTarget(req.Method, req.Params)
 	inspection.listenTargets = listenTargets(req.Method, req.Params)
+	if req.Method == "completion/complete" {
+		inspection.completionAs, inspection.target = completionTarget(req.Params)
+	}
 	return inspection
 }
 

@@ -65,15 +65,19 @@ func authorizeRequest(in authorizationInput, now time.Time) policypkg.Decision {
 			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(in.Policy), in.DefaultPolicyVersion),
 		)
 	case in.Inspection.Indeterminate():
+		status := http.StatusForbidden
+		if in.Inspection.FailureReason() == "header_mismatch" {
+			status = http.StatusBadRequest
+		}
 		return policypkg.Deny(
-			http.StatusForbidden,
+			status,
 			policypkg.FirstNonEmpty(in.Inspection.FailureReason(), "rpc_inspection_failed"),
 			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(in.Policy), in.DefaultPolicyVersion),
 		)
 	default:
 		return policypkg.Authorize(in.Policy, policypkg.Request{
 			Identity:  policyIdentity(in.Identity),
-			RPCMethod: in.Inspection.Method(),
+			RPCMethod: in.Inspection.AuthMethod(),
 			ToolName:  policypkg.ToolName(in.Inspection.ToolName()),
 			Target:    in.Inspection.Target(),
 			Targets:   in.Inspection.Targets(),

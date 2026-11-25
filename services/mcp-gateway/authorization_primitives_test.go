@@ -15,7 +15,7 @@ func TestPrimitiveMethodsRequireAuthorization(t *testing.T) {
 			t.Errorf("%s must be evaluated against grants", m)
 		}
 	}
-	for _, m := range []string{"initialize", "tools/list", "ping", "completion/complete", "notifications/initialized", "server/discover"} {
+	for _, m := range []string{"initialize", "tools/list", "ping", "ping", "logging/setLevel", "notifications/initialized", "server/discover"} {
 		if inspectedRPC(m, "", RPCRequest).RequiresAuthorization() {
 			t.Errorf("%s must keep bypassing grant evaluation", m)
 		}

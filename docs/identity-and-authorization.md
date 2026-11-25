@@ -305,7 +305,7 @@ and sessions, like tool calls. Both protocol generations are covered:
 identity, a live session where sessions are required, and an active matching
 grant. Without one the call is denied with `missing_identity`, `session_*` or
 `no_matching_grant`. Other methods (`initialize`, `ping`, `tools/list`,
-`completion/complete`, `server/discover`, notifications) are not evaluated.
+`ping`, `logging/setLevel`, `server/discover`, notifications) are not evaluated.
 
 `primitiveRules` narrow a grant. Each rule names a `kind` (`resource`,
 `prompt` or `skill`), a `pattern` and a `decision`. A pattern is an exact
@@ -327,6 +327,10 @@ spec:
 - `subscriptions/listen` needs an active matching grant, and every URI in
   `notifications.resourceSubscriptions` must pass the resource rules, so one
   disallowed URI rejects the whole stream.
+- `completion/complete` is authorized as reading the item it completes: a
+  `ref/prompt` as `prompts/get` and a `ref/resource` as `resources/read`, so a
+  completion cannot reveal a prompt or resource the grant denies. A missing or
+  unknown `ref` is denied with `primitive_target_missing`.
 - `tasks/*` need an active matching grant. The gateway does not yet bind a task
   ID to the caller that created it; do not rely on task IDs being secret.
 - Listing methods need any active matching grant. They are not filtered per
@@ -335,6 +339,12 @@ spec:
 - A read with no `uri` or `name` is denied with `primitive_target_missing`.
 - Trust level and side-effect checks apply to tools only.
 - Header-delegated servers have no grants, so they are not gated.
+
+Requests that carry an `Mcp-Method` header, or an `Mcp-Name` header on
+`tools/call`, `resources/read` and `prompts/get`, must match the body the gateway
+authorizes. A mismatch is rejected with `400 header_mismatch` before anything
+reaches the server. Requests without those headers (earlier protocol revisions)
+are unaffected, and `=?base64?...?=` values are decoded before comparing.
 
 A policy that uses `primitiveRules` is stamped schema version `v8`. A gateway
 that predates it rejects the document instead of ignoring the rules.

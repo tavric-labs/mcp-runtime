@@ -22,6 +22,11 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   (or `missing_identity` / `session_*`). Existing grants without `primitiveRules` keep allowing
   every resource, prompt and skill, so grants only need editing to restrict them. Servers with
   header-delegated auth are unchanged.
+- **Breaking:** `completion/complete` is authorized as reading the prompt or resource it
+  completes, so it needs a matching grant and cannot reveal an item the grant denies.
+- The gateway rejects a request whose `Mcp-Method` header, or `Mcp-Name` header on
+  `tools/call`, `resources/read` and `prompts/get`, disagrees with the body, with
+  `400 header_mismatch`. Clients that send neither header are unaffected.
 
 - The gateway's request metrics now label `resources/templates/list`, `resources/directory/read`,
   `skills/list`, `skills/get`, `server/discover`, `subscriptions/listen`, `tasks/*`, `notifications/cancelled` and `notifications/progress` instead of
