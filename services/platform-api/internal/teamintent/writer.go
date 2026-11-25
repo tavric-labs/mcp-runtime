@@ -25,6 +25,40 @@ CREATE TABLE IF NOT EXISTS team_intent.team_namespace_intent (
 	deleted boolean NOT NULL,
 	updated_at timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS team_intent.team_namespace_receipt (
+	team_id text PRIMARY KEY REFERENCES team_intent.team_namespace_intent(team_id) ON DELETE CASCADE,
+	fence_epoch bigint NOT NULL DEFAULT 0,
+	fence_holder text NOT NULL DEFAULT '',
+	applied_revision_id text NOT NULL DEFAULT '',
+	outcome text NOT NULL DEFAULT '',
+	namespace_uid text NOT NULL DEFAULT '',
+	attempt int NOT NULL DEFAULT 0,
+	worker_id text NOT NULL DEFAULT '',
+	last_error_class text NOT NULL DEFAULT '',
+	last_error text NOT NULL DEFAULT '',
+	applied_at timestamptz,
+	updated_at timestamptz NOT NULL
+);
+CREATE TABLE IF NOT EXISTS team_intent.team_namespace_observation (
+	team_id text PRIMARY KEY REFERENCES team_intent.team_namespace_intent(team_id) ON DELETE CASCADE,
+	observer_id text NOT NULL DEFAULT '',
+	observer_epoch bigint NOT NULL DEFAULT 0,
+	observed_revision_id text NOT NULL DEFAULT '',
+	namespace_uid text NOT NULL DEFAULT '',
+	health text NOT NULL DEFAULT 'Unknown',
+	reason text NOT NULL DEFAULT '',
+	message text NOT NULL DEFAULT '',
+	conditions jsonb NOT NULL DEFAULT '[]'::jsonb,
+	last_transition_at timestamptz NOT NULL,
+	last_verified_at timestamptz NOT NULL,
+	updated_at timestamptz NOT NULL
+);
+CREATE TABLE IF NOT EXISTS team_intent.observer_lease (
+	cluster_key text PRIMARY KEY,
+	observer_id text NOT NULL,
+	observer_epoch bigint NOT NULL,
+	updated_at timestamptz NOT NULL
+);
 CREATE SCHEMA IF NOT EXISTS team_intent_queue;
 `
 
@@ -47,8 +81,9 @@ func newReconcileJob(ctx context.Context, teamID, revisionID string) reconcileJo
 	}
 }
 
-// Writer owns the insert-only River client.
+// Writer owns the insert-only River client and team intent persistence.
 type Writer struct {
+	db    *sql.DB
 	queue *river.Client[*sql.Tx]
 }
 
@@ -90,7 +125,7 @@ func Open(ctx context.Context, db *sql.DB, dsn string) (*Writer, error) {
 	if _, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
 		return nil, fmt.Errorf("migrate team intent queue: %w", err)
 	}
-	return &Writer{queue: client}, nil
+	return &Writer{db: db, queue: client}, nil
 }
 
 // Record stores the latest desired revision for the team ID and schedules its
