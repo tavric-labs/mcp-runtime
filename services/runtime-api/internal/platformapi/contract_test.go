@@ -112,9 +112,9 @@ func TestClientCallsOnlyDocumentedPlatformAPIOperations(t *testing.T) {
 		"DeletePendingSession":      func() { _ = c.DeletePendingSession(ctx, "ns", "s", "uid", "human") },
 		"DeleteSessionIfUID":        func() { _ = c.DeleteSessionIfUID(ctx, "ns", "s", "uid") },
 		"RevokeSessions":            func() { _, _ = c.RevokeSessions(ctx, filter, "cause") },
-		"ListTeamIntents":      func() { _, _ = c.ListTeamIntents(ctx) },
-		"GetTeamIntent":        func() { _, _, _ = c.GetTeamIntent(ctx, "team-1") },
-		"ClaimTeamIntentFence": func() { _, _ = c.ClaimTeamIntentFence(ctx, "team-1", "worker-1") },
+		"ListTeamIntents":           func() { _, _ = c.ListTeamIntents(ctx) },
+		"GetTeamIntent":             func() { _, _, _ = c.GetTeamIntent(ctx, "team-1") },
+		"ClaimTeamIntentFence":      func() { _, _ = c.ClaimTeamIntentFence(ctx, "team-1", "worker-1") },
 		"RecordTeamIntentReceipt": func() {
 			_, _ = c.RecordTeamIntentReceipt(ctx, "team-1", apikit.TeamIntentReceiptRequest{DesiredRevisionID: "rev-1", FenceEpoch: 1, Outcome: apikit.TeamIntentOutcomeApplied, WorkerID: "worker-1"})
 		},
