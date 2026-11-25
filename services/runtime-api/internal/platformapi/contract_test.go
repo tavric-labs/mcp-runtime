@@ -141,6 +141,66 @@ func TestClientCallsOnlyDocumentedPlatformAPIOperations(t *testing.T) {
 			_, _ = c.RecordAgentCleanupIntentReceipt(ctx, "agt-1", apikit.AgentCleanupReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.AccessIntentOutcomeCleaned, WorkerID: "w1"})
 		},
 		"ClaimAccessIntentObserverLease": func() { _, _ = c.ClaimAccessIntentObserverLease(ctx, "default", "obs-1") },
+
+		"ClaimWorkloadObserverLease": func() { _, _ = c.ClaimWorkloadObserverLease(ctx, "default", "obs-1") },
+		"ListServerIntents":          func() { _, _ = c.ListServerIntents(ctx) },
+		"UpsertServerIntent": func() {
+			_, _ = c.UpsertServerIntent(ctx, apikit.ServerIntentUpsertRequest{ServerID: "srv-1", Namespace: "ns", Name: "app"})
+		},
+		"GetServerIntent": func() { _, _, _ = c.GetServerIntent(ctx, "srv-1") },
+		"RetireServerIntent": func() {
+			_, _ = c.RetireServerIntent(ctx, "srv-1", apikit.ServerIntentRetireRequest{TargetCRUID: "uid-1"})
+		},
+		"ClaimServerIntentFence": func() { _, _ = c.ClaimServerIntentFence(ctx, "srv-1", "w-1") },
+		"RecordServerRetirementCheckpoint": func() {
+			_, _ = c.RecordServerRetirementCheckpoint(ctx, "srv-1", apikit.ServerRetirementCheckpointRequest{DesiredRevisionID: "r1", FenceEpoch: 1, WorkerID: "w-1"})
+		},
+		"RecordServerIntentReceipt": func() {
+			_, _ = c.RecordServerIntentReceipt(ctx, "srv-1", apikit.ServerIntentReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.WorkloadIntentOutcomeApplied, WorkerID: "w-1"})
+		},
+		"RecordServerIntentObservation": func() {
+			_, _ = c.RecordServerIntentObservation(ctx, "srv-1", apikit.ServerIntentObservationRequest{ObserverID: "obs-1", ObserverEpoch: 1, Health: apikit.WorkloadIntentHealthReady})
+		},
+		"ListDeploymentIntents": func() { _, _ = c.ListDeploymentIntents(ctx) },
+		"UpsertDeploymentIntent": func() {
+			_, _ = c.UpsertDeploymentIntent(ctx, apikit.DeploymentIntentUpsertRequest{DeploymentID: "dep-1", Namespace: "ns", Name: "app", Image: "img:v1"})
+		},
+		"GetDeploymentIntent": func() { _, _, _ = c.GetDeploymentIntent(ctx, "dep-1") },
+		"DeleteDeploymentIntent": func() {
+			_, _ = c.DeleteDeploymentIntent(ctx, "dep-1", apikit.DeploymentIntentDeleteRequest{TargetDeploymentUID: "uid-1"})
+		},
+		"ClaimDeploymentIntentFence": func() { _, _ = c.ClaimDeploymentIntentFence(ctx, "dep-1", "w-1") },
+		"RecordDeploymentIntentReceipt": func() {
+			_, _ = c.RecordDeploymentIntentReceipt(ctx, "dep-1", apikit.DeploymentIntentReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.WorkloadIntentOutcomeApplied, WorkerID: "w-1"})
+		},
+		"RecordDeploymentIntentObservation": func() {
+			_, _ = c.RecordDeploymentIntentObservation(ctx, "dep-1", apikit.DeploymentIntentObservationRequest{ObserverID: "obs-1", ObserverEpoch: 1, Health: apikit.WorkloadIntentHealthReady})
+		},
+		"ListImagePublicationIntents": func() { _, _ = c.ListImagePublicationIntents(ctx) },
+		"BeginImagePublication": func() {
+			_, _ = c.BeginImagePublication(ctx, apikit.ImagePublicationBeginRequest{PublicationID: "pub-1", Namespace: "ns", Registry: "r", Repository: "repo", Tag: "v1"})
+		},
+		"GetImagePublicationIntent": func() { _, _, _ = c.GetImagePublicationIntent(ctx, "pub-1") },
+		"FinalizeImagePublication": func() {
+			_, _ = c.FinalizeImagePublication(ctx, "pub-1", apikit.ImagePublicationFinalizeRequest{ArtifactRef: "finalized/pub-1/sha.tar", ArtifactSHA256: "abc", ArtifactSizeBytes: 10})
+		},
+		"AbortImagePublication":      func() { _, _ = c.AbortImagePublication(ctx, "pub-1", apikit.ImagePublicationAbortRequest{}) },
+		"ClaimImagePublicationFence": func() { _, _ = c.ClaimImagePublicationFence(ctx, "pub-1", "w-1") },
+		"RecordImagePublicationReceipt": func() {
+			_, _ = c.RecordImagePublicationReceipt(ctx, "pub-1", apikit.ImagePublicationReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.WorkloadIntentOutcomeApplied, VerifiedDigest: "sha256:abc", WorkerID: "w-1"})
+		},
+		"ListRestartOperationIntents": func() { _, _ = c.ListRestartOperationIntents(ctx) },
+		"CreateRestartOperation": func() {
+			_, _ = c.CreateRestartOperation(ctx, apikit.RestartOperationCreateRequest{OperationID: "op-1", RequestedBy: "admin", TargetComponents: []string{"gateway"}})
+		},
+		"GetRestartOperationIntent":  func() { _, _, _ = c.GetRestartOperationIntent(ctx, "op-1") },
+		"ClaimRestartOperationFence": func() { _, _ = c.ClaimRestartOperationFence(ctx, "op-1", "w-1") },
+		"RecordRestartComponentCheckpoint": func() {
+			_, _ = c.RecordRestartComponentCheckpoint(ctx, "op-1", apikit.RestartComponentCheckpointRequest{DesiredRevisionID: "r1", FenceEpoch: 1, WorkerID: "w-1", Checkpoint: apikit.ComponentRestartCheckpoint{Component: "gateway", Completed: true}})
+		},
+		"RecordRestartOperationReceipt": func() {
+			_, _ = c.RecordRestartOperationReceipt(ctx, "op-1", apikit.RestartOperationReceiptRequest{DesiredRevisionID: "r1", FenceEpoch: 1, Outcome: apikit.WorkloadIntentOutcomeApplied, WorkerID: "w-1"})
+		},
 	}
 
 	names := make([]string, 0, len(operations))
@@ -187,6 +247,11 @@ func TestContractCoversEveryClientOperation(t *testing.T) {
 		ListGrantIntents UpsertGrantIntent GetGrantIntent RevokeGrantIntent ClaimGrantIntentFence RecordGrantIntentReceipt RecordGrantIntentObservation
 		ListEnrollmentIntents CreateEnrollmentIntent GetEnrollmentIntent ClaimEnrollmentIntentFence RecordEnrollmentIntentReceipt ActivateEnrollmentIntent
 		GetAgentCleanupIntent ClaimAgentCleanupIntentFence RecordAgentCleanupIntentReceipt ClaimAccessIntentObserverLease
+		ClaimWorkloadObserverLease
+		ListServerIntents UpsertServerIntent GetServerIntent RetireServerIntent ClaimServerIntentFence RecordServerRetirementCheckpoint RecordServerIntentReceipt RecordServerIntentObservation
+		ListDeploymentIntents UpsertDeploymentIntent GetDeploymentIntent DeleteDeploymentIntent ClaimDeploymentIntentFence RecordDeploymentIntentReceipt RecordDeploymentIntentObservation
+		ListImagePublicationIntents BeginImagePublication GetImagePublicationIntent FinalizeImagePublication AbortImagePublication ClaimImagePublicationFence RecordImagePublicationReceipt
+		ListRestartOperationIntents CreateRestartOperation GetRestartOperationIntent ClaimRestartOperationFence RecordRestartComponentCheckpoint RecordRestartOperationReceipt
 		Configured`) {
 		covered[name] = true
 	}

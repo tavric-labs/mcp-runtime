@@ -166,14 +166,21 @@ func (s *RuntimeServer) KubernetesAvailable() bool {
 	return s != nil && s.k8sClients != nil
 }
 
-// K8sClients returns the initialized Kubernetes client bundle, or nil if unavailable.
-func (s *RuntimeServer) K8sClients() *k8sclient.Clients {
+// KubernetesClients returns the shared Kubernetes client bundle when initialized.
+func (s *RuntimeServer) KubernetesClients() *k8sclient.Clients {
 	if s == nil {
 		return nil
 	}
 	return s.k8sClients
 }
 
+// AccessManager returns the shared grant/session manager when initialized.
+func (s *RuntimeServer) AccessManager() *k8sstore.Manager {
+	if s == nil {
+		return nil
+	}
+	return s.accessMgr
+}
 func (s *RuntimeServer) identityConfigured() bool {
 	return s != nil && s.identity != nil && s.identity.Configured()
 }

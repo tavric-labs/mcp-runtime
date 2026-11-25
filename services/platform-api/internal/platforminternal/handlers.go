@@ -62,6 +62,7 @@ func (h Handler) Register(mux *http.ServeMux) {
 	mux.Handle("/internal/operations/snapshot", h.authorize(http.HandlerFunc(h.operationsSnapshot)))
 	mux.Handle("/internal/operations/counts", h.authorize(http.HandlerFunc(h.overviewCounts)))
 	mux.Handle("/internal/access-intents/", h.authorize(http.HandlerFunc(h.accessIntentPath)))
+	mux.Handle("/internal/workload-intents/", h.authorize(http.HandlerFunc(h.workloadIntentPath)))
 }
 
 func (h Handler) agentPath(w http.ResponseWriter, r *http.Request) {
