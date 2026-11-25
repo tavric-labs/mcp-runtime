@@ -113,7 +113,7 @@ Gateway audit shows actor and resource teams separately. Unknown historical
 actor attribution stays unknown; the resource `team_id` does not prove actor
 membership.
 
-The default `mcp-servers` namespace is fine for a single team, local
+The default `mcp-servers-org` namespace is fine for a single team, local
 development, and simple evaluation clusters. For a deployment that hosts
 multiple teams or tenant boundaries, use one namespace per team.
 
@@ -315,29 +315,25 @@ when present, or the sole team ID when there is only one.
 
 The platform API blocks changes outside a user's allowed team namespaces.
 When you install MCP Runtime, `--platform-mode` chooses which catalog users see
-by default. In `public` mode, visitors can browse that catalog without signing
-in. This is a setting for your own platform; the public reference deployment
-at `platform.mcpruntime.org` is a separate installation.
+by default. Both modes require sign-in. This is a setting for your own
+platform; the public reference deployment at `platform.mcpruntime.org` is a
+separate installation.
 
 | Mode | Default namespace behavior | Non-admin behavior |
 |---|---|---|
 | `org` (default) | `mcp-servers-org` | Authenticated users publish and browse the org catalog together with their authorized team namespaces. |
-| `public` | `mcp-servers-public` | Anonymous users read the public catalog; signed-in users also publish and browse org and authorized team namespaces. |
+| `public` | `mcp-servers-org` | Hosted profile with the same behavior as `org`; setup additionally requires browser login configuration on TLS installs. |
 
-- In `org` mode, anonymous callers cannot read the MCP server
-  catalog.
+- Anonymous callers cannot read the MCP server catalog in any mode.
 - In `org` and `public` modes, non-admin listings cover the active catalog
-  namespace (`mcp-servers-org` or `mcp-servers-public` by default, plus any
+  namespace (`mcp-servers-org` by default, plus any
   `PLATFORM_CATALOG_NAMESPACES` entries) **and** the team namespaces authorized
-  on the caller's principal. Anonymous public-mode reads are limited to the
-  public catalog namespaces only; org and team namespaces remain authenticated.
-- Server publish requests may pass `scope: tenant`, `scope: org`, or
-  `scope: public` in place of an explicit catalog namespace. The API
-  accepts `org` and `tenant` in both modes and `public` only in public mode;
+  on the caller's principal.
+- Server publish requests may pass `scope: tenant` or `scope: org` in place of
+  an explicit catalog namespace. The API accepts both in both modes and
+  rejects any other scope, including the removed `public`;
   `tenant` resolves to the caller's team namespace unless an authorized team
   namespace is provided.
-- Non-admin callers cannot write servers, grants, or sessions into the shared
-  `mcp-servers` catalog namespace unless it is explicitly configured as an active catalog.
 - Non-admin callers can only read or write resources in namespaces listed on
   their authenticated principal, except for the active `org`/`public` mode
   catalog namespace.
@@ -364,8 +360,7 @@ only grants and sessions whose `serverRef` points at the target server. Missing
 ## Ingress controller watch scope
 
 The bundled Traefik manifests watch only `registry`, `mcp-platform`,
-`mcp-observability`, `mcp-log-collector`, `mcp-servers`, `mcp-servers-org`, and
-`mcp-servers-public` by default so Traefik does not need broad namespace access.
+`mcp-observability`, `mcp-log-collector`, and `mcp-servers-org` by default so Traefik does not need broad namespace access.
 If MCP servers live in team namespaces,
 update the ingress controller watch list, bind the Traefik watch role in each
 team namespace, and allow ingress-controller traffic through the namespace
@@ -376,7 +371,7 @@ the repo-managed `traefik/traefik` Deployment when
 For the bundled Traefik overlay, extend the argument:
 
 ```text
---providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-log-collector,mcp-servers,mcp-servers-org,mcp-servers-public,mcp-team-acme,mcp-team-globex
+--providers.kubernetesingress.namespaces=registry,mcp-platform,mcp-observability,mcp-log-collector,mcp-servers-org,mcp-team-acme,mcp-team-globex
 ```
 
 External ingress controllers need equivalent namespace watch, RBAC, and
@@ -415,6 +410,33 @@ email-like strings, case-sensitive uppercase email identifiers, or values that
 appear to encode `mcp-team-*` namespace names. The warnings never block the
 apply.
 
+### Troubleshooting `no_matching_grant` for OAuth logins
+
+`humanID` must equal the `sub` claim of the token the MCP client presents. A
+platform login (the user ID in your `mcp-runtime auth login` token) and an
+mcp-auth OAuth login are different identities: the mcp-auth `sub` comes from
+the sign-in provider chosen on the consent page. A grant written for the
+platform user ID can therefore pass `access explain` and still return
+`{"error":"no_matching_grant"}` to a client signed in through mcp-auth. Being a
+platform admin lets you write grants; it does not make the gateway match an
+identity the grant does not name.
+
+To fix it, find the subject the client actually presents and set that value as
+`humanID`. The gateway logs a `gateway.no_matching_grant` line with the identity
+it matched and the grants it considered, and the mcp-auth `token_exchange` audit
+event records the subject. If you have the client's token in a file, `access
+grant init --subject-from-token-file <path>` writes the grant for it, and
+`access explain --token-file <path>` (or `--token-env <NAME>`) evaluates that
+subject. Only the `sub` claim is read and the token is never printed. Then
+confirm with `mcp-runtime access explain --server <name> --namespace <ns>
+--human <subject> --tool <tool>` before retrying the call.
+
+`access explain` reads the live rendered policy, so the CLI must understand the
+policy schema version the platform renders. An older CLI fails with
+`unsupported schema version "vN"` and tells you to install the matching CLI
+release. Do not use
+`mcp-runtime update` for this: it upgrades the platform, not the CLI.
+
 Grants default to enforcement. Add `--mode monitor` when initializing a grant,
 or choose **Monitor** in the dashboard, to observe tool, trust and side-effect
 denials before enforcing them. Audit events include `would_deny` and
@@ -444,8 +466,7 @@ server owner's team without joining through namespace names.
   the guardrail for direct writers.
 - Cross-team server sharing is a privileged pattern. Prefer a shared namespace
   and explicit admin-owned grants when a server is intentionally shared.
-- The bundled setup manifests create the legacy single-team namespace and the
-  org/public catalog namespaces; per-team tenant namespaces are an explicit
+- The bundled setup manifests create the org catalog namespace; per-team tenant namespaces are an explicit
   operational step. Personal user namespaces are not created for tenant
   publishing.
 

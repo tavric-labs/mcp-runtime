@@ -1,0 +1,14 @@
+{
+  "title": "MCP Runtime in 45 seconds",
+  "duration_seconds": 45,
+  "source_project": "mcp-runtime-website-overview-v2",
+  "renderer": "Explainroo 0.6.1",
+  "narrator": "Kokoro af_heart (synthetic)",
+  "synthetic_narration": true,
+  "created_on": "2026-11-24",
+  "files": {
+    "mcp-runtime-overview.jpg": "fcc088c2c60920011b7644a3bbb199e0cb73bbb634adcaeb293ebaade2485356",
+    "mcp-runtime-overview.mp4": "4c43a0ef7205d01ef51d8581897f71bd38558e230600dd115ba09a4d0d9c96b2",
+    "mcp-runtime-overview.vtt": "50760edd06abec89e1f0ed02ce46de4a4c99a467c5320b276c74b260479b43d0"
+  }
+}

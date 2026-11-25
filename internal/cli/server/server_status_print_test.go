@@ -13,7 +13,7 @@ import (
 )
 
 func TestServerStatus_printingAndKubectl(t *testing.T) {
-	namespace := "mcp-servers"
+	namespace := "mcp-servers-org"
 
 	t.Run("returns-error-and-logs-combined-output-on-mcpserver-list-failure", func(t *testing.T) {
 		mock := &core.MockExecutor{

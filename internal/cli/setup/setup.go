@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	mcpauthpin "mcp-runtime/config/release/mcp-auth"
 	"mcp-runtime/internal/cli/core"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
 	setupplatform "mcp-runtime/internal/cli/setup/platform"
@@ -401,7 +402,7 @@ will use to push and pull container images.`,
 	cmd.Flags().StringVar(&externalRegistryUsername, "external-registry-username", "", "External/provisioned registry username for --registry-mode external")
 	cmd.Flags().StringVar(&externalRegistryPassword, "external-registry-password", "", "External/provisioned registry password for --registry-mode external (prefer PROVISIONED_REGISTRY_PASSWORD for shells)")
 	cmd.Flags().StringVar(&storageMode, "storage-mode", "dynamic", "Storage mode for local/dev clusters (dynamic|hostpath). Use hostpath for single-node k3s/minikube/kind without a provisioner.")
-	cmd.Flags().StringVar(&platformMode, "platform-mode", "org", "Platform access model (org|public). org supports organization and team publishing; public also supports the public preview catalog without login.")
+	cmd.Flags().StringVar(&platformMode, "platform-mode", "org", "Platform access model (org|public). org supports organization and team publishing; public is the hosted, internet-facing profile with the same catalogs and scopes and stricter login configuration.")
 	cmd.Flags().StringVar(&podEgressCIDRs, "pod-egress-cidrs", "", "Comma-separated destination CIDRs that team MCP servers may reach on TCP 443. Empty installs nothing. 0.0.0.0/0 is rejected. Private ranges also require --pod-egress-except-cidrs. Overrides env MCP_POD_EGRESS_CIDRS")
 	cmd.Flags().StringVar(&podEgressExceptCIDRs, "pod-egress-except-cidrs", "", "Cluster pod and service CIDRs to keep out of --pod-egress-cidrs. Required when a destination is private. Overrides env MCP_POD_EGRESS_EXCEPT_CIDRS")
 	cmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig file (default: ~/.kube/config; auto-detects /etc/rancher/k3s/k3s.yaml on k3s hosts)")
@@ -423,7 +424,7 @@ will use to push and pull container images.`,
 	cmd.Flags().BoolVar(&strictProd, "strict-prod", false, "Require production-style registry and TLS validation for non-test setup")
 	cmd.Flags().BoolVar(&withoutPlatformStack, "without-platform-stack", false, "Skip deploying the bundled platform stack")
 	cmd.Flags().BoolVar(&withMCPAuthServer, "with-mcp-auth-server", false, "Deploy the optional bundled mcp-auth authorization server; production requires a platform domain, connector, and TLS-enabled ingress")
-	cmd.Flags().StringVar(&mcpAuthServerImage, "mcp-auth-server-image", "docker.io/princekrroshan01/mcp-auth-server:0.7.1", "Container image for the optional bundled mcp-auth authorization server")
+	cmd.Flags().StringVar(&mcpAuthServerImage, "mcp-auth-server-image", mcpauthpin.DefaultImage, "Container image for the optional bundled mcp-auth authorization server")
 	cmd.Flags().StringVar(&mcpAuthIssuerURL, "mcp-auth-issuer-url", "", "Public HTTPS issuer URL for the bundled mcp-auth authorization server (defaults to https://auth.<MCP_PLATFORM_DOMAIN>/mcp-auth)")
 	cmd.Flags().StringSliceVar(&mcpAuthResourceURLs, "mcp-auth-resource-url", nil, "Optional initial resource URI for the bundled mcp-auth server; the operator reconciles this list from OAuth MCPServer audiences")
 	cmd.Flags().StringVar(&mcpAuthSigningKeySecret, "mcp-auth-signing-key-secret", "", "Secret holding the mcp-auth RSA signing key as private-key.pem (required outside --test-mode)")

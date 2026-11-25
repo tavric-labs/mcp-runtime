@@ -23,7 +23,10 @@ func BuildSessionCSR(trustDomain, namespace, sessionName string) (keyPEM, csrPEM
 	if trustDomain == "" {
 		return nil, nil, "", fmt.Errorf("trust domain must not be empty")
 	}
-	spiffeID = SessionSPIFFEID(trustDomain, namespace, sessionName)
+	spiffeID, err = SessionSPIFFEID(trustDomain, namespace, sessionName)
+	if err != nil {
+		return nil, nil, "", err
+	}
 	spiffe, err := url.Parse(spiffeID)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("parse session SPIFFE URI: %w", err)

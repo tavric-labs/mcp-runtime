@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/topology"
 	"os"
 	"path/filepath"
@@ -88,6 +89,22 @@ func loadMetadataForRewrite(path string) (*blueprint.RegistryFile, error) {
 }
 
 func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, policyMode, defaultDecision string, sessionRequired bool, port int32, tools, toolSpecs []string, toolRisk string, force bool) error {
+	return m.InitServerWithEgress(nil, name, metadataDir, image, imageTag, scope, policyMode, defaultDecision, sessionRequired, port, tools, toolSpecs, toolRisk, force)
+}
+
+// InitServerWithEgress is InitServer with an optional external egress
+// declaration. The platform applies it only after an administrator approves it.
+func (m *ServerManager) InitServerWithEgress(egress *blueprint.EgressConfig, name, metadataDir, image, imageTag, scope, policyMode, defaultDecision string, sessionRequired bool, port int32, tools, toolSpecs []string, toolRisk string, force bool) error {
+	if egress != nil {
+		normalized := &blueprint.EgressConfig{Ports: egress.Ports}
+		for _, host := range egress.Hosts {
+			normalized.Hosts = append(normalized.Hosts, access.NormalizeEgressHost(host))
+		}
+		if err := access.ValidateServerEgress(normalized.Hosts, normalized.Ports); err != nil {
+			return core.NewWithBase(nil, err.Error())
+		}
+		egress = normalized
+	}
 	name, err := validateManifestValue("name", name)
 	if err != nil {
 		return err
@@ -176,6 +193,7 @@ func (m *ServerManager) InitServer(name, metadataDir, image, imageTag, scope, po
 		Gateway: &blueprint.GatewayConfig{
 			Enabled: boolPtr(true),
 		},
+		Egress: egress,
 	}
 	toolMetadata, err := initToolMetadata(tools, toolSpecs, toolRisk)
 	if err != nil {
@@ -346,7 +364,7 @@ func (m *ServerManager) ListServers(namespace, team string) error {
 		return nil
 	}
 	if namespace == "" {
-		namespace = core.NamespaceMCPServers
+		namespace = core.DefaultServerNamespace
 	}
 	namespace, err = validateManifestValue("namespace", namespace)
 	if err != nil {
@@ -644,7 +662,7 @@ func (m *ServerManager) DeployServer(name, namespace, team, scope, image, imageT
 			scope = string(selectedMetadata.Scope)
 		}
 		if namespace == "" && team == "" && (scope == "" || scope == string(topology.ScopeTenant)) {
-			if !(scope == string(topology.ScopeTenant) && strings.TrimSpace(selectedMetadata.Namespace) == core.NamespaceMCPServers) {
+			if !(scope == string(topology.ScopeTenant) && strings.TrimSpace(selectedMetadata.Namespace) == core.DefaultServerNamespace) {
 				namespace = selectedMetadata.Namespace
 			}
 		}
@@ -662,10 +680,10 @@ func (m *ServerManager) DeployServer(name, namespace, team, scope, image, imageT
 		return core.NewWithBase(nil, "use either --namespace or --team, not both")
 	}
 	if scope != "" && namespace != "" && scope != string(topology.ScopeTenant) {
-		return core.NewWithBase(nil, "--scope public/org resolves the platform catalog namespace; use --scope tenant when passing --namespace")
+		return core.NewWithBase(nil, "--scope org resolves the platform catalog namespace; use --scope tenant when passing --namespace")
 	}
 	if scope != "" && team != "" && scope != string(topology.ScopeTenant) {
-		return core.NewWithBase(nil, "--scope public/org cannot be combined with --team")
+		return core.NewWithBase(nil, "--scope org cannot be combined with --team")
 	}
 	plat, err := platformapi.NewPlatformClient()
 	if err != nil {
@@ -1101,6 +1119,11 @@ func mergeDeployMetadata(spec *mcpv1alpha1.MCPServerSpec, src *blueprint.ServerM
 			Audience:           src.Auth.Audience,
 			Scopes:             append([]string(nil), src.Auth.Scopes...),
 		}
+		for _, public := range src.Auth.PublicPaths {
+			spec.Auth.PublicPaths = append(spec.Auth.PublicPaths, mcpv1alpha1.PublicPathConfig{
+				PathPrefix: public.PathPrefix, MaxBodyBytes: public.MaxBodyBytes, MaxDurationSeconds: public.MaxDurationSeconds,
+			})
+		}
 		if gateway := src.Auth.CredentialGateway; gateway != nil {
 			spec.Auth.CredentialGateway = &mcpv1alpha1.CredentialGatewayConfig{
 				ValidationPath: gateway.ValidationPath,
@@ -1130,6 +1153,12 @@ func mergeDeployMetadata(spec *mcpv1alpha1.MCPServerSpec, src *blueprint.ServerM
 			MaxLifetime:         src.Session.MaxLifetime,
 			IdleTimeout:         src.Session.IdleTimeout,
 			UpstreamTokenHeader: src.Session.UpstreamTokenHeader,
+		}
+	}
+	if src.Egress != nil {
+		spec.Egress = &mcpv1alpha1.EgressConfig{
+			Hosts: append([]string(nil), src.Egress.Hosts...),
+			Ports: append([]int32(nil), src.Egress.Ports...),
 		}
 	}
 	if src.Gateway != nil {

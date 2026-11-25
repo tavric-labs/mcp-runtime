@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/golang-jwt/jwt/v4"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"mcp-runtime-api/internal/runtimeapi"
 	"mcp-runtime/pkg/authzmatrix"
 	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/passport/passporttest"
 )
 
 func TestAuthzMatrixRows(t *testing.T) {
@@ -25,10 +25,11 @@ func TestAuthzMatrixRows(t *testing.T) {
 		t.Fatal("expected runtime-api authz rows")
 	}
 
+	signer, verifier := passporttest.NewKeys(t)
 	srv := &server{
 		runtime: &runtimeapi.RuntimeServer{},
 		authentic: passport.Authenticator{
-			Secret:         []byte("test-secret"),
+			Verifier:       verifier,
 			Audience:       passport.AudienceRuntime,
 			ServiceAPIKeys: map[string]struct{}{"test-user": {}, "test-admin": {}},
 			AdminAPIKeys:   map[string]struct{}{"test-admin": {}},
@@ -48,17 +49,13 @@ func TestAuthzMatrixRows(t *testing.T) {
 		"analytics-jwt":      {passport.AudienceAnalytics},
 		"multi-audience-jwt": {passport.AudiencePlatform, passport.AudienceRuntime, passport.AudienceAnalytics},
 	} {
-		token, err := passport.Sign([]byte("test-secret"), passport.Principal{Subject: "matrix-user", Role: passport.RoleAdmin}, time.Minute, audiences)
+		token, err := passport.Sign(signer, passport.Principal{Subject: "matrix-user", Role: passport.RoleAdmin}, time.Minute, audiences)
 		if err != nil {
 			t.Fatal(err)
 		}
 		keys[role] = token
 	}
-	expired := passport.ClaimsFromPrincipal(passport.Principal{Subject: "matrix-user", Role: passport.RoleAdmin})
-	expired.Issuer = passport.Issuer
-	expired.Audience = jwt.ClaimStrings{srv.authentic.Audience}
-	expired.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-time.Minute))
-	keys["expired-jwt"], err = jwt.NewWithClaims(jwt.SigningMethodHS256, expired).SignedString([]byte("test-secret"))
+	keys["expired-jwt"], err = signer.Sign(passport.Principal{Subject: "matrix-user", Role: passport.RoleAdmin}, time.Now().Add(-2*time.Minute), time.Now().Add(-time.Minute), []string{srv.authentic.Audience})
 	if err != nil {
 		t.Fatal(err)
 	}

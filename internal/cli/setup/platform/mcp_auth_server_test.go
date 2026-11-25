@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -123,7 +124,7 @@ func TestRenderMCPAuthServerManifestTestModeDefaults(t *testing.T) {
 		`{name: MCP_AUTH_LOCAL_TOKEN_EXCHANGE, value: "true"}`,
 		`{name: MCP_AUTH_REQUIRE_HTTPS, value: "false"}`,
 		`{name: MCP_AUTH_STORE, value: memory}`,
-		"- host: localhost:18080",
+		"- host: localhost\n",
 		"kind: NetworkPolicy",
 	} {
 		if !strings.Contains(manifest, want) {
@@ -132,6 +133,10 @@ func TestRenderMCPAuthServerManifestTestModeDefaults(t *testing.T) {
 	}
 	if strings.Contains(manifest, "tls:") {
 		t.Error("test-mode manifest should not carry an ingress TLS block")
+	}
+	// A Kubernetes Ingress host is a DNS name; an API server rejects one with a port.
+	if portInHost := regexp.MustCompile(`(?m)^\s*- host: \S*:\S*$`).FindString(manifest); portInHost != "" {
+		t.Errorf("ingress host carries a port the API server rejects: %q", portInHost)
 	}
 }
 
@@ -619,5 +624,83 @@ func TestNewMCPAuthServerOptionsCarriesPullSecret(t *testing.T) {
 	opts := newMCPAuthServerOptions(setupplan.Plan{MCPAuthServerImage: "img", TestMode: true}, "pull")
 	if opts.Image != "img" || !opts.TestMode || opts.ImagePullSecret != "pull" {
 		t.Fatalf("options = %+v", opts)
+	}
+}
+
+// Test mode keeps its state in memory and mounts an emptyDir, so a data claim
+// would never be consumed: it stays Pending on a WaitForFirstConsumer class and
+// fails setup's own PVC verification. Production keeps the claim for SQLite.
+func TestRenderMCPAuthServerManifestOnlyCreatesTheDataClaimWhenItIsMounted(t *testing.T) {
+	testMode, err := renderMCPAuthServerManifest(mcpAuthManifestTemplate(t), mcpAuthServerOptions{
+		Image:    "registry.local/mcp-auth-server:dev",
+		TestMode: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(testMode, "PersistentVolumeClaim") || strings.Contains(testMode, "claimName: mcp-auth-server-data") {
+		t.Error("test mode mounts an emptyDir, but still creates the unused data PVC")
+	}
+	if !strings.Contains(testMode, "emptyDir: {}") {
+		t.Error("test mode lost its emptyDir data volume")
+	}
+	if !strings.Contains(testMode, "kind: Service") || !strings.Contains(testMode, "kind: NetworkPolicy") {
+		t.Error("dropping the claim removed other mcp-auth objects")
+	}
+
+	production, err := renderMCPAuthServerManifest(mcpAuthManifestTemplate(t), mcpAuthServerOptions{
+		Image:            "registry.example.com/mcp-auth-server:1.0.0",
+		IssuerURL:        "https://auth.example.com/mcp-auth",
+		ResourceURLs:     []string{"https://mcp.example.com/demo/mcp"},
+		TLSSecret:        "mcp-auth-tls",
+		SigningKeySecret: "mcp-auth-signing-key",
+		ConnectorsFile:   "connectors.json",
+		Connector:        "keycloak",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(production, "kind: PersistentVolumeClaim") || !strings.Contains(production, "claimName: mcp-auth-server-data") {
+		t.Error("production must keep the data claim its SQLite store mounts")
+	}
+}
+
+// In test mode MCP Auth does not trust a forwarded-proto header
+// (MCP_AUTH_TRUST_PROXY_TLS is false), which is the only reason its pod is
+// limited to the ingress controller. A throwaway cluster therefore also lets
+// servers reach it in-cluster, for JWKS and token exchange, through an additive
+// policy. Production keeps the strict policy alone.
+func TestMCPAuthManifestOnlyOpensItsIngressInTestMode(t *testing.T) {
+	const name = "name: mcp-auth-server-test-mode-ingress"
+	testMode, err := renderMCPAuthServerManifest(mcpAuthManifestTemplate(t), mcpAuthServerOptions{Image: "registry.local/mcp-auth-server:dev", TestMode: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var policy string
+	for _, document := range strings.Split(testMode, "\n---\n") {
+		if strings.Contains(document, name) {
+			policy = document
+		}
+	}
+	if policy == "" {
+		t.Fatal("test mode does not add the permissive mcp-auth ingress policy")
+	}
+	if !strings.Contains(policy, "port: 8080") || strings.Contains(policy, "from:") {
+		t.Errorf("the test-mode policy must allow port 8080 from any source:\n%s", policy)
+	}
+	if !strings.Contains(testMode, "name: mcp-auth-server-ingress") {
+		t.Error("the strict mcp-auth ingress policy was removed; the test-mode one must be additive")
+	}
+
+	production, err := renderMCPAuthServerManifest(mcpAuthManifestTemplate(t), mcpAuthServerOptions{
+		Image: "registry.example.com/mcp-auth-server:1.0.0", IssuerURL: "https://auth.example.com/mcp-auth",
+		ResourceURLs: []string{"https://mcp.example.com/demo/mcp"}, TLSSecret: "mcp-auth-tls",
+		SigningKeySecret: "mcp-auth-signing-key", ConnectorsFile: "connectors.json", Connector: "keycloak",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(production, name) {
+		t.Error("production must not open the mcp-auth ingress policy")
 	}
 }

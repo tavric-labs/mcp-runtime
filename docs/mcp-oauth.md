@@ -270,7 +270,13 @@ The TLS certificate for the issuer host is provisioned by setup using the
 configured TLS ClusterIssuer. Pass `--mcp-auth-tls-secret` only when the
 certificate is externally managed (and use `--provided-tls-secrets`).
 
-The default image is `docker.io/princekrroshan01/mcp-auth-server:0.7.1`.
+Setup writes the connectors file as the main connector, but keeps the
+`gateway-login-*` and `resource-login-*` entries that `gateway apply` and
+`cluster mcp-auth resource apply` added to the live `mcp-auth-connectors`
+ConfigMap, as `connector apply` does. A fresh install has none to keep.
+
+The default image is the one pinned in `config/release/mcp-auth/Dockerfile`
+(`setup --help` prints it).
 The server uses SQLite on a PVC in production and memory storage only in
 `--test-mode`. The setup flag is opt-in; when it is absent, Runtime does not
 deploy this authorization server.
@@ -278,7 +284,7 @@ deploy this authorization server.
 An explicitly empty `MCP_AUTH_RESOURCES` is a deny-all audience allowlist:
 discovery, JWKS and readiness remain available before the first OAuth server
 is deployed and after the last one is removed. Authorization and token issuance
-reject unregistered audiences. MCP Auth 0.7.1 fixes startup in this state while
+reject unregistered audiences. MCP Auth 0.7.1 and later fix startup in this state while
 retaining HTTPS, persistent signing-key and storage requirements.
 
 The mcp-auth server image is released independently from the MCP Runtime CLI
@@ -289,10 +295,10 @@ An image-only update preserves the existing connector configuration, SQLite
 PVC, signing key, and TLS Secret; it does not require rerunning `setup` or
 issuing a certificate.
 Existing installations need a separately reviewed component manifest selecting
-MCP Auth 0.7.1 and `mcp-runtime update --only mcp-auth`; updating Runtime alone
-does not replace the installed Auth image.
+the pinned MCP Auth version and `mcp-runtime update --only mcp-auth`; updating
+Runtime alone does not replace the installed Auth image.
 
-Client ID Metadata Documents (CIMD) are enabled by default in MCP Auth 0.7.1.
+Client ID Metadata Documents (CIMD) are enabled by default in MCP Auth 0.7.1 and later.
 Set `MCP_AUTH_CLIENT_ID_METADATA_ENABLED=false` to disable them. When enabled,
 authorization server metadata advertises `client_id_metadata_document_supported: true`.
 `MCP_AUTH_CLIENT_ID_METADATA_HOSTS` can restrict fetched metadata documents to
@@ -363,7 +369,8 @@ Auth0, Microsoft Entra ID, Google, or other provider-specific adapter:
 MCP_AUTH_CONNECTORS_FILE → MCP_AUTH_CONNECTOR → IdentityProvider/TokenExchanger
 ```
 
-One auth-server process selects one connector and one MCP resource. A file may
+One auth-server process selects one main connector and serves every resource in
+`MCP_AUTH_RESOURCES`. A file may
 contain several named connectors for different environments, but changing the
 selected provider requires changing `--mcp-auth-connector` and restarting or
 rolling out the deployment. This keeps provider credentials and provider
@@ -410,7 +417,9 @@ Typical issuer patterns are:
 Support for optional features varies by provider. Verify discovery, callback behavior, token endpoint
 authentication, scopes, refresh behavior, and claims with the provider before
 using it in production. The mcp-auth project has provider-specific notes and a
-verified-provider matrix in its [authorization-server guide](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/auth-server.md).
+verified-provider matrix in its [authorization-server guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-server.md).
+The full connector schema and the login method types are in its
+[connectors guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/connectors.md).
 
 Before setup, run the Runtime preflight against the provider issuer:
 
@@ -424,6 +433,94 @@ credentials and checks the issuer, authorization endpoint, token endpoint, and
 JWKS URI. It does not prove client-secret validity, redirect registration, user
 login, refresh behavior, or provider claim mappings; complete those with a
 dedicated test user before production rollout.
+
+## Give one resource its own provider login and token
+
+Some MCP servers must call an upstream provider's API as the person who signed
+in. Such a server stays an ordinary OAuth resource server: it validates the MCP
+access token, then exchanges it at MCP Auth for that person's own upstream token
+(RFC 8693 token exchange, authenticating as a **resource client** with
+`private_key_jwt`) and calls the provider with it. Runtime stores no upstream
+token and the server caches none.
+
+`mcp-runtime cluster mcp-auth resource apply` wires one such resource into an
+installed MCP Auth that signs everyone else in through its selected connector.
+Describe the resource in a YAML or JSON file, typically kept in the MCP server's own
+`.mcp/` directory, since the provider's connector settings are that server's concern: the
+file is applied by an administrator and is not part of the tenant-deployed `servers.yaml`.
+It holds no secret: the connector names the
+environment variable that carries its client secret, and the resource client is a
+public key.
+
+```json
+{
+  "id": "example-api",
+  "resource_url": "https://mcp.example.com/example-api/mcp",
+  "required_scopes": ["tools:read", "tools:write"],
+  "resource_client": {"client_id": "example-mcp", "public_key_pem": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"},
+  "login": {"label": "Sign in with Example", "downstream_token": "upstream_session"},
+  "connector": {
+    "issuer": "https://idp.example.com/oauth",
+    "authorization_endpoint": "https://idp.example.com/oauth/authorize",
+    "token_endpoint": "https://idp.example.com/oauth/token",
+    "client_id": "example-client-id",
+    "client_secret_env": "EXAMPLE_IDP_CLIENT_SECRET",
+    "token_endpoint_auth_method": "client_secret_post",
+    "exchange_client_id": "example-client-id",
+    "scopes": ["openid", "profile"]
+  }
+}
+```
+
+The `connector` object is an ordinary MCP Auth connector, so provider quirks go there and
+stay out of Runtime: for a provider that refuses client-secret authentication for a code
+issued with PKCE, or whose ID tokens carry no `nonce`, set `"pkce": false` and
+`"id_token_nonce_policy": "disabled"` as MCP Auth's
+[connector guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-server.md)
+describes. Runtime passes the object through and names no provider.
+
+```bash
+mcp-runtime cluster mcp-auth resource apply --file resource.json \
+  --kubeconfig /path/to/cluster.yaml --context selected-context --dry-run
+```
+
+Rerun with `--yes` instead of `--dry-run` to apply. Before it writes anything the
+command checks that:
+
+- MCP Auth uses a single connector (not login methods mode) and does not already
+  point `MCP_AUTH_RESOURCE_LOGINS_FILE` or `MCP_AUTH_RESOURCE_CLIENTS_FILE` at
+  another file;
+- MCP Auth already serves `resource_url`. Deploy the MCP server first, with its
+  `auth` block, so the operator registers the resource; a resource client for an
+  unserved resource would stop MCP Auth from starting;
+- the `mcp-auth-connector-secrets` Secret already has the connector's
+  `client_secret_env` key. The command checks the key name only and never reads
+  or prints a value;
+- after the apply, every login method in the wiring ConfigMap names a connector
+  that the connectors ConfigMap defines. MCP Auth exits at startup when one does
+  not, so the command refuses (also under `--dry-run`), names the method and the
+  missing connector, and writes nothing. Repair the state with
+  `mcp-runtime cluster mcp-auth connector apply` (add the missing entry) or
+  `mcp-runtime cluster gateway apply` (restores `gateway-login-*` entries), then
+  apply the resource again. `connector apply` and `gateway apply` run the same
+  check on their final files; `connector apply` refuses only a change that makes a
+  login method newly point at a missing connector, so it can still repair one.
+
+The command adds a login method `res-<id>`, a resource client named
+`resource:<id>` and a connector `resource-login-<id>` to the wiring MCP Auth
+reads, and restarts MCP Auth only when something changed. Entries it does not own
+are kept as written, including the connectors the installation set up and the
+[credential gateway's](#other-identity-providers) `form-*` logins, and re-applying
+the gateway keeps these entries too. The resource's key stays with its server:
+only the public half is registered.
+
+`downstream_token: "upstream_session"` makes MCP Auth store the provider's token
+set for the people who sign in to that resource and hand it to the resource's
+server on exchange. That table holds usable secrets, so protect MCP Auth's database
+as a credential store. A provider that issues no refresh token cannot be renewed
+silently: after its access token expires the person signs in again. This needs an
+MCP Auth 0.8.0 or later, which supports login `downstream_token`
+([tavric-labs/mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)).
 
 ## Clean setup and credential preservation
 
@@ -505,8 +602,8 @@ The SDK runs at the application boundary, outside Runtime governance:
 The SDK consumes provider-neutral MCP authorization metadata and JWTs. Switching
 from Keycloak to Okta or PingOne changes the connector and IdP client
 configuration; MCP tool code stays the same. Read the
-mcp-auth project's [auth-server architecture](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/architecture.md)
-and [auth-client SDK guide](https://github.com/Agent-Hellboy/mcp-auth/blob/main/docs/auth-client.md)
+mcp-auth project's [auth-server architecture](https://github.com/tavric-labs/mcp-auth/blob/main/docs/architecture.md)
+and [auth-client SDK guide](https://github.com/tavric-labs/mcp-auth/blob/main/docs/auth-client.md)
 for the Python and Go APIs, verifier options, metadata discovery, and token
 exchange boundaries.
 

@@ -4,16 +4,16 @@ Usage:
   mcp-runtime cluster [command]
 
 Available Commands:
-  cert               Manage cert-manager resources
-  config             Configure cluster settings
-  diagnostics        Diagnose an installed MCP Runtime cluster
-  doctor             Check whether a cluster is ready for MCP Runtime setup
-  identity           Inspect workload adapter identity health
-  init               Initialize cluster configuration
-  mcp-auth-connector Manage the bundled MCP Auth identity connector
-  operator-rbac      Reconcile operator permissions from this release
-  provision          Provision a new cluster
-  status             Check cluster status
+  cert          Manage cert-manager resources
+  config        Configure cluster settings
+  diagnostics   Diagnose an installed MCP Runtime cluster
+  doctor        Check whether a cluster is ready for MCP Runtime setup
+  identity      Inspect workload adapter identity health
+  init          Initialize cluster configuration
+  mcp-auth      Manage the installed MCP Auth server's connectors and resources
+  operator-rbac Reconcile operator permissions from this release
+  provision     Provision a new cluster
+  status        Check cluster status
 
 Flags:
   -h, --help   help for cluster

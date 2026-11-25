@@ -98,6 +98,7 @@ nav:
       - Overview: concepts-overview.md
       - Core Concepts: core-concepts.md
       - Identity and Authorization: identity-and-authorization.md
+      - SPIFFE Agent Identity: spiffe-agent-identity.md
       - Architecture: architecture.md
   - CLI and API Reference:
       - Overview: reference-overview.md
@@ -115,7 +116,9 @@ nav:
       - Verification:
           - MCP Runtime Tests: contributor/runtime-mcp-testing.md
           - Staging End-to-End Tests: contributor/staging-e2e.md
+          - Bundled MCP Auth Pin: contributor/mcp-auth-pin.md
           - Release Gate: contributor/release-gate.md
+          - Production Audit Fixture: prod-audit.md
           - Regression Coverage: contributor/regression-index.md
   - Implementation Details:
       - Overview: internals/README.md

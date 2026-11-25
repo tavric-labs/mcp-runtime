@@ -203,6 +203,15 @@ func (s mcpAuthServerStep) Run(logger *zap.Logger, deps SetupDeps, ctx *SetupCon
 
 func (s verifyStep) Name() string { return "verify" }
 func (s verifyStep) Run(logger *zap.Logger, deps SetupDeps, ctx *SetupContext) error {
+	if ctx.Plan.DeployMCPAuthServer {
+		// The operator restart in the mcp-auth step makes it reconcile the bundled
+		// authorization server again, which can start a second rollout after the
+		// first one was observed complete. Settle it before the smoke checks run.
+		if err := deps.WaitForDeploymentRolledOut(logger, "mcp-auth-server", core.ComponentNamespace("mcp-auth"), "app=mcp-auth-server", analyticsRolloutTimeoutDuration()); err != nil {
+			core.Error("Post-setup verification failed")
+			return fmt.Errorf("mcp-auth authorization server rollout after operator restart: %w", err)
+		}
+	}
 	if err := verifySetup(logger, ctx.UsingExternalRegistry, deps); err != nil {
 		core.Error("Post-setup verification failed")
 		return err

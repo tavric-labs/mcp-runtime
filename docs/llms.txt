@@ -15,7 +15,7 @@
 
 - Overview: https://docs.mcpruntime.org/usage-overview/ — Follow server publishing, team access, client connections, and optional OAuth setup.
 
-- Publish an MCP server: https://docs.mcpruntime.org/publish-mcp-server/ — Generate metadata, build and push an image, deploy, and verify the server.
+- Publish an MCP server: https://docs.mcpruntime.org/publish-mcp-server/ — Generate metadata, build and push an image, deploy, verify the server, and request approved external egress.
 - Multi-team isolation: https://docs.mcpruntime.org/teams-and-access/ — Team namespaces, RBAC, NetworkPolicy, and cross-team grants.
 - Agent adapters: https://docs.mcpruntime.org/connect-clients/ — Configure the CLI proxy or macOS Adapter app, create profiles, connect Cursor, Codex, Claude Code, or VS Code, and pass OAuth tokens when the target uses OAuth.
 - MCP authorization: https://docs.mcpruntime.org/mcp-oauth/ — Configure the optional authorization server and OAuth resource settings.
@@ -50,6 +50,7 @@
 
 - Concepts: https://docs.mcpruntime.org/core-concepts/ — MCPServer, grants, sessions, trust levels, tool effects, the gateway, and the adapter.
 - Identity and authorization: https://docs.mcpruntime.org/identity-and-authorization/ — Platform principals, managed agents, grants, sessions, gateway decisions, and Kubernetes workload identity.
+- SPIFFE agent identity: https://docs.mcpruntime.org/spiffe-agent-identity/ — How session-bound SPIFFE certificates are issued, validated with go-spiffe and checked at the gateway.
 - Architecture: https://docs.mcpruntime.org/architecture/ — Control, runtime, policy, and observability planes.
 
 ## CLI and API reference
@@ -67,7 +68,9 @@
 - Local Kind: https://docs.mcpruntime.org/contributor/local-kind/ — Contributor cluster setup and test mode.
 - Service iteration: https://docs.mcpruntime.org/contributor/service-iteration/ — Iterate on services without rebuilding the full platform.
 - Runtime MCP testing: https://docs.mcpruntime.org/contributor/runtime-mcp-testing/ — Test deployment, catalog, and gateway behavior locally.
+- Production audit fixture: https://docs.mcpruntime.org/prod-audit/ — Use the dedicated bounded MCP fixture and shared development auditor for hosted acceptance.
 - Staging E2E: https://docs.mcpruntime.org/contributor/staging-e2e/ — Run and inspect the disposable VM test suite.
+- Bundled MCP Auth pin: https://docs.mcpruntime.org/contributor/mcp-auth-pin/ — Where the default MCP Auth image is pinned and how Dependabot bumps it.
 - Release gate: https://docs.mcpruntime.org/contributor/release-gate/ — Required release combinations, completion criteria and exact-commit publication checks.
 - Contributor troubleshooting: https://docs.mcpruntime.org/contributor/troubleshooting/ — Fix common development environment failures.
 - Regression coverage: https://docs.mcpruntime.org/contributor/regression-index/ — Map confirmed incidents to regression checks.
@@ -88,4 +91,4 @@
 - The adapter's default local listener is `127.0.0.1:8099` and does not authenticate local clients. Share it only with clients using the same Runtime agent identity.
 - The gateway evaluates declared tool metadata; it does not inspect the server implementation. Tool names and side-effect declarations must match the actual server tools.
 - Trust levels: `low`, `medium`, `high`. Side effects: `read`, `write`, `destructive`.
-- Platform modes: `org` (default), `public`. Publish scopes: `tenant` (a team), `org`, `public`.
+- Platform modes: `org` (default), `public`. Publish scopes: `tenant` (a team), `org`.

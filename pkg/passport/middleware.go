@@ -31,14 +31,17 @@ type PrincipalResolver interface {
 }
 
 type Authenticator struct {
-	Secret          []byte
+	// Verifier accepts platform JWTs. Services other than platform-api set only
+	// this, so they cannot mint tokens. A nil Verifier disables JWT auth.
+	Verifier Verifier
+	// Signer mints exchange tokens. Only platform-api sets it.
+	Signer          Signer
 	Audience        string
 	ServiceAPIKeys  map[string]struct{}
 	AdminAPIKeys    map[string]struct{}
 	UserKeyResolver UserKeyResolver
 	OIDC            OIDCVerifier
 	Principals      PrincipalResolver
-	PublicFallback  func(*http.Request) (Principal, bool)
 }
 
 func (a Authenticator) Middleware(next http.Handler) http.Handler {
@@ -48,9 +51,6 @@ func (a Authenticator) Middleware(next http.Handler) http.Handler {
 			log.Printf("auth error: %v", err)
 			apikit.WriteEnvelope(w, http.StatusInternalServerError, apikit.CodeAuthFailed, "authentication failed")
 			return
-		}
-		if !ok && a.PublicFallback != nil {
-			p, ok = a.PublicFallback(r)
 		}
 		if !ok {
 			apikit.WriteEnvelope(w, http.StatusUnauthorized, apikit.CodeUnauthorized, "authentication required")
@@ -90,8 +90,8 @@ func (a Authenticator) AuthenticateRequest(r *http.Request) (Principal, bool, er
 	if token == "" {
 		return Principal{}, false, nil
 	}
-	if len(a.Secret) > 0 {
-		if claims, err := Verify(a.Secret, token, a.Audience); err == nil {
+	if a.Verifier != nil {
+		if claims, err := a.Verifier.Verify(token, a.Audience); err == nil {
 			return a.currentPrincipal(r.Context(), ToPrincipal(claims))
 		}
 	}

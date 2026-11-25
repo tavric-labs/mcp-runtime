@@ -22,13 +22,13 @@ func (s *lifecyclePrincipalStub) PrincipalForUserID(context.Context, string) (Pr
 }
 
 func TestBearerUsesCurrentAccountAndRejectsDeactivation(t *testing.T) {
-	secret := []byte("test-lifecycle-secret")
-	token, err := Sign(secret, Principal{Role: RoleAdmin, Subject: "user", AuthType: "platform_jwt", Teams: []PrincipalTeam{{ID: "old-team", Role: "owner"}}}, time.Hour, []string{AudienceRuntime})
+	signer, verifier := testKeys(t)
+	token, err := Sign(signer, Principal{Role: RoleAdmin, Subject: "user", AuthType: "platform_jwt", Teams: []PrincipalTeam{{ID: "old-team", Role: "owner"}}}, time.Hour, []string{AudienceRuntime})
 	if err != nil {
 		t.Fatal(err)
 	}
 	resolver := &lifecyclePrincipalStub{current: Principal{Role: RoleUser, Subject: "user", Teams: []PrincipalTeam{{ID: "new-team", Role: "member"}}}}
-	a := Authenticator{Secret: secret, Audience: AudienceRuntime, Principals: resolver}
+	a := Authenticator{Verifier: verifier, Audience: AudienceRuntime, Principals: resolver}
 	r := httptest.NewRequest(http.MethodGet, "/private", nil)
 	r.Header.Set("Authorization", "Bearer "+token)
 	p, ok, err := a.AuthenticateRequest(r)

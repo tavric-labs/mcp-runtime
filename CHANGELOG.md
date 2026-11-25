@@ -7,6 +7,322 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-25
+
+### Added
+
+- Grants accept `primitiveRules` to allow or deny MCP resources (by URI), prompts (by name)
+  and skills (by URI), with an exact or trailing-`*` pattern. The policy schema moves to `v8`
+  when they are used, so an older gateway rejects the document rather than ignoring the rules.
+  [#544](https://github.com/tavric-labs/mcp-runtime/issues/544)
+- A gateway extension registry (Skills, Tasks, MCP Apps) that drives metric labels and is
+  tested against the policy's gated methods, with tests that `ui://` resources follow
+  resource rules, app-originated tool calls are authorized like any tool call, and
+  extension capabilities and `_meta` reach the server unchanged
+  ([#977](https://github.com/tavric-labs/mcp-runtime/issues/977)).
+- `examples/example-mcp-app-python`: a sample MCP App (dashboard UI, an app-callable tool, a
+  write tool the sample grant denies) plus a skill served as resources, with metadata, a
+  grant using `primitiveRules`, a session and offline tests. Rendering in an external MCP
+  Apps host is not verified yet.
+- Server inventory records the protocol extensions a server advertises:
+  `liveInventory.extensions` maps each identifier (for example
+  `io.modelcontextprotocol/skills`) to its settings. The console does not show it yet.
+- The sample serves the Skills methods (`skills/list`, `skills/get`,
+  `resources/directory/read`) with manifest digests and declares the extension; its dashboard
+  speaks the MCP Apps view protocol.
+- `server validate --grant-file` checks `primitiveRules` (kind, pattern, decision,
+  duplicates), using the same validation as admission and platform apply.
+
+### Changed
+
+- **Upgrade:** no fresh setup, data migration or restore is needed; apply it with
+  `mcp-runtime update --to v0.22.0`. Before updating, list the agents and teams that read
+  resources, prompts or skills and confirm each has an active grant on that server, because
+  after the update a caller with no active matching grant is denied those reads
+  (`access explain` covers tool calls only for now). Roll back with the previous release's
+  `mcp-runtime update`; a policy that uses `primitiveRules` is rejected by an older gateway
+  (schema `v8`), so remove the rules from a grant before rolling back.
+- **Breaking:** the gateway now evaluates `resources/*`, `prompts/*`, `skills/*`,
+  `subscriptions/listen`, `tasks/*` and `events/*` requests against grants and sessions. Previously any
+  authenticated caller could read any resource or prompt a server exposed. Callers with no
+  active matching grant now get `no_matching_grant` (or `missing_identity` / `session_*`).
+  Existing grants without `primitiveRules` keep allowing every resource, prompt and skill,
+  so grants only need editing to restrict them. Servers with header-delegated auth are
+  unchanged.
+- **Breaking:** `completion/complete` is authorized as reading the prompt or resource it
+  completes, so it needs a matching grant and cannot reveal an item the grant denies.
+- The gateway rejects a request whose `Mcp-Method` header, or `Mcp-Name` header on
+  `tools/call`, `resources/read` and `prompts/get`, disagrees with the body, with
+  `400 header_mismatch`. Clients that send neither header are unaffected.
+- Request metrics label `resources/templates/list`, `resources/directory/read`, `skills/list`,
+  `skills/get`, `server/discover`, `subscriptions/listen`, `tasks/*`, `events/*`, `notifications/cancelled`
+  and `notifications/progress` instead of counting them as `other`.
+
+## [0.21.0] - 2026-11-23
+
+### Added
+
+- Website product overview video with captions, a transcript, and playback controls on the homepage.
+
+### Fixed
+
+- Public-path uploads (`auth.publicPaths`, 0.20.0) were still cut off by the gateway's
+  15s server read timeout, so large uploads failed with `504 upstream_timeout`. The
+  per-route deadline now reaches the connection. Servers on 0.20.0 pick this up with
+  `mcp-runtime update`.
+
+## [0.20.0] - 2026-11-22
+
+### Added
+
+- `MCPServer` `spec.auth.publicPaths` (`.mcp` `auth.publicPaths`) lets a server
+  declare narrow, bearer-less `POST` routes, for single-use signed upload URLs
+  where the server authenticates by a secret in the path. The gateway bounds each
+  route by body size and duration (replacing the 15s read and 30s upstream limits
+  for it), makes no retries, strips credentials and the verified-identity header,
+  and audits the request with the path secret redacted. Off by default; every
+  other path keeps full authentication. Rendered policies using it require schema
+  version `v7`. Roll out with `mcp-runtime update` (CRD, operator and gateway);
+  no fresh setup or data reset is needed, and servers that do not declare it
+  behave exactly as before. See
+  [API reference](docs/api-reference.md).
+
+### Fixed
+
+- `mcp-runtime setup` retries the post-setup smoke gate for up to about a minute
+  before failing, so a bundled mcp-auth-server rollout that is still settling no
+  longer fails a healthy install (seen in Pre-release Regression staging E2E).
+  A persistent fault still fails setup.
+
+## [0.19.0] - 2026-11-20
+
+Feature release: MCP servers can now declare the external hosts they must reach,
+and a platform administrator approves that access. It also carries the changes
+prepared as 0.18.1, which was never tagged or released: explicit adapter session
+trust, retirement of issued server TLS credentials, shared production-audit
+tooling and the Go 1.27.4 security update.
+
+Deploy existing installs with `mcp-runtime update`; it applies the new
+`MCPServer` `spec.egress` field in the CRD and rolls the operator and gateway
+images. No fresh setup, data reset or backup-and-restore is required. Servers
+that do not declare `spec.egress` behave exactly as before and stay under the
+default-deny egress policy. A server that needs an external API (for example
+`youtube` calling Google) must declare its hosts, and an administrator must
+approve them before the operator opens egress; see
+[external egress](docs/publish-mcp-server.md#external-egress-for-mcp-servers).
+Restart adapters with an explicit `--requested-trust medium` or
+`--requested-trust high` when their tools require it; grant ceilings still
+apply. The operator adds lifecycle ownership to existing issued per-server TLS
+Secrets during reconciliation. Credentials already orphaned before this release
+require separately reviewed ownership-verified cleanup. Verify login, server
+deployment, adapter enrollment, an allowed and a denied tool call, and audit
+after updating. Production deployment remains a separate operation.
+
+### Added
+
+- Easier grants for OAuth logins ([#956](https://github.com/tavric-labs/mcp-runtime/issues/956)).
+  `access explain --token-file` and `--token-env` read only the `sub` claim of a
+  token to show which identity a client presents, and
+  `access grant init --subject-from-token-file` writes a grant for it. A
+  `no_matching_grant` denial now logs a `gateway.no_matching_grant` line with the
+  identity the gateway matched and the grants it considered. The HTTP response
+  is unchanged. An older CLI that cannot read the platform policy schema now says
+  to install the matching CLI release instead of failing with a bare schema error.
+- External egress for MCP servers. `MCPServer` gains `spec.egress` with `hosts`
+  (DNS names, no wildcards or IP literals) and `ports` (TCP, default `443`). The
+  operator applies it only after an administrator approves it with
+  `mcp-runtime server egress approve <name>` (the `mcpruntime.org/egress-approved`
+  annotation); `server egress revoke` removes the approval. Approved egress
+  becomes one owned `<server>-external-egress` NetworkPolicy that allows the
+  declared ports to public addresses only, excluding private, loopback,
+  link-local and cluster ranges. The `ExternalEgressReady` condition reports
+  `Applied`, `PendingApproval`, `InvalidEgress` or `NotRequested`. Declare hosts in
+  the `.mcp` metadata or with `server init --egress-host` and `--egress-port`;
+  `server get` shows the declared hosts and approval. Approval currently needs
+  `--use-kube`, and it is revoked when the declared hosts or ports change. Kubernetes NetworkPolicy
+  cannot match hostnames, so this release enforces ports and public destinations
+  and records the declared hosts for review; hostname enforcement is left for a
+  follow-up ([#957](https://github.com/tavric-labs/mcp-runtime/issues/957)).
+- Shared development audit tooling and a bounded prod-audit MCP fixture verify
+  deployed release images, rollouts, auth metadata, governed tool results,
+  synthetic writes, policy denial, session revocation and cleanup ([#938](https://github.com/tavric-labs/mcp-runtime/pull/938)).
+
+### Changed
+
+- Hosted post-deployment acceptance uses audit code pinned to the workflow
+  revision, reuses prod-audit, and publishes a structured report. LinkedIn and
+  Cully remain real services and receive no synthetic audit calls ([#938](https://github.com/tavric-labs/mcp-runtime/pull/938)).
+- Update ClickHouse, OpenAPI, AWS SDK and Go support dependencies across the root
+  and service modules; synchronize service module graphs so builds remain
+  reproducible after root dependency updates ([#948](https://github.com/tavric-labs/mcp-runtime/pull/948), [#949](https://github.com/tavric-labs/mcp-runtime/pull/949), [#950](https://github.com/tavric-labs/mcp-runtime/pull/950), [#951](https://github.com/tavric-labs/mcp-runtime/pull/951)).
+- Documentation: a new troubleshooting section in
+  [teams and access](docs/teams-and-access.md#troubleshooting-no_matching_grant-for-oauth-logins)
+  explains that a grant's `humanID` must equal the OAuth token's `sub`, why a
+  platform user ID can pass `access explain` and still return `no_matching_grant`
+  to an mcp-auth login, and that `access explain` needs a CLI that matches the
+  platform's policy schema ([#956](https://github.com/tavric-labs/mcp-runtime/issues/956)).
+
+### Fixed
+
+- The production audit waits, within its existing 90 second bounded wait, when
+  the gateway reports `no_matching_grant` for a grant created moments earlier, as
+  it already did for `tool_not_granted` and `policy_unavailable`. A grant that
+  never appears, expired or revoked sessions, `trust_too_low` and `tool_denied`
+  still fail immediately. This removes a false failure of the hosted
+  post-deployment check ([#955](https://github.com/tavric-labs/mcp-runtime/pull/955)).
+- `adapter enroll` and enrolling `adapter proxy` commands forward explicit
+  `--requested-trust low|medium|high` consent, including the environment default
+  and renewal. Sessions retain a low default and platform-enforced grant ceilings
+  ([#933](https://github.com/tavric-labs/mcp-runtime/pull/933)).
+- Generated gateway and ingress-client TLS Secrets follow their MCPServer's
+  lifecycle, removing issued private keys during retirement. Reconciliation
+  preserves certificate material, cert-manager ownership, user-provided
+  credentials and credentials belonging to another server ([#932](https://github.com/tavric-labs/mcp-runtime/pull/932)).
+- Staging E2E transfers the matching Linux Go toolchain and verified public
+  module archives from its GitHub runner, allowing dependency-aware image-cache
+  lookup when the disposable VM cannot download module ZIPs. The bundle is
+  validated before use, scoped to the run and removed during teardown. Cold
+  Docker builds still require module access; all release acceptance checks
+  remain required ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
+- Staging E2E derives its content-hash image-cache namespace from the workflow
+  repository owner, matching Kind after the organization move. Manual runs
+  default to `tavric-labs`, while explicit cache-prefix overrides and cache
+  disablement remain supported ([#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
+
+### Security
+
+- Build the CLI, platform components, developer tooling and Go examples with Go
+  1.27.4. This fixes CVE-2026-97054 (GO-2026-6859), a `net/http` race that can
+  panic an HTTP/1 server using request-body limits with concurrent
+  response-header writes. Module declarations, builder images, embedded plugin
+  modules and CI tool builds use the same Go baseline. Deploy the rebuilt
+  release images and CLI through the normal update path ([Go advisory](https://pkg.go.dev/vuln/GO-2026-6859), [#954](https://github.com/tavric-labs/mcp-runtime/pull/954)).
+
+### Security
+
+- Build the CLI, platform components, developer tooling and Go examples with Go 1.27.4. This fixes CVE-2026-97054 (GO-2026-6859), a `net/http` race that can panic an HTTP/1 server using request-body limits with concurrent response-header writes. Module declarations, builder images, embedded plugin modules and CI tool builds use the same Go baseline. Deploy the rebuilt release images and CLI through the normal update path; no fresh setup or data reset is required. ([Go advisory](https://pkg.go.dev/vuln/GO-2026-6859), [#954](https://github.com/tavric-labs/mcp-runtime/pull/954))
+
+## [0.18.0] - 2026-11-12
+
+Breaking `0.x` release: the `public` publish scope and the `mcp-servers-public`
+namespace are removed (`--platform-mode public` stays as the hosted profile),
+and the legacy `mcp-servers` base namespace is retired. Servers now default to
+`mcp-servers-org`, the operator trust bundle `mcp-adapter-client-ca` lives in
+`mcp-platform` (set `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-platform`),
+the doctor checks are renamed, and the namespace and principal APIs no longer
+return `is_shared` or `sharedCatalogNamespace` (principals' `allowedNamespaces`
+no longer includes the legacy namespace).
+
+Existing installs, including the live preview, deploy with `mcp-runtime update`
+and then follow the trust bundle migration in the
+[base namespace retirement note](hack/deploy/reference/base-namespace-retirement.md):
+create the new bundle in `mcp-platform`, verify, then clean up. No fresh setup,
+backup-and-restore or data reset is required. Once the migration is verified, the
+operator can delete the empty `mcp-servers-public` and `mcp-servers` namespaces.
+Redeploy any server in the public catalog with `--scope org` first. For a rebuilt
+platform, the existing backup, fresh setup and restore procedure applies. Verify
+sign-in, server deployment, an allowed and a denied tool call, and audit after
+updating.
+
+### Removed
+
+- Breaking: the `public` publish scope and the anonymous catalog are removed; publish scopes are now `tenant` and `org`. `--scope public` (and `scope: public` in `.mcp` metadata or the API) is rejected with an error listing `tenant` and `org`. The `public` registry alias, the anonymous `/api/public/v1` UI proxy, the signed-out catalog preview in the console, the `public` filter in the Requests view and the `PLATFORM_PUBLIC_NAMESPACE(S)` settings are gone. Setup and update no longer create or manage `mcp-servers-public`, and the bundled Traefik manifests no longer watch it. An existing `mcp-servers-public` namespace is left in place, unmanaged: once it holds no servers, the operator can delete it. The `--platform-mode public` profile is kept as the hosted, internet-facing profile with the same catalogs and scopes as `org`. No fresh setup or data reset is required; this applies to the hosted reference platform through `mcp-runtime update`, and a server deployed to the public catalog must be redeployed with `--scope org` first.
+
+### Changed
+
+- The legacy `mcp-servers` base namespace is retired and the platform no longer creates, defaults to or depends on it. Observable changes: omitted namespaces (`server`/`access` CLI `--namespace` defaults and their help text, blueprint and access-resource defaults) now resolve to `mcp-servers-org`; the doctor checks the organization catalog namespace and launches its smoke pods there, so the checks `mcp-servers DNS/network`, `mcp-servers imagePullSecrets` and `mcp-servers image pull smoke` are now `server namespace DNS/network`, `server namespace imagePullSecrets` and `server namespace image pull smoke`; setup, `cluster init` and the Traefik manifests no longer create `mcp-servers`, its operator RoleBindings or its `traefik-watch` Role, and Traefik no longer watches it; the release wiring no longer declares the two `mcp-servers` RoleBindings; the namespace and principal APIs no longer return `is_shared` or `sharedCatalogNamespace` and principals no longer get the legacy namespace in `allowedNamespaces`; the org catalog namespace name is now reserved for team namespaces. The operator trust bundle `mcp-adapter-client-ca` belongs in `mcp-platform`: set `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE=mcp-platform` (docs, Kind QA and staging defaults now do). The live preview follows the [base namespace retirement note](hack/deploy/reference/base-namespace-retirement.md): create the new bundle, verify, then delete the old namespace.
+- The bundled MCP Auth default image now lives in one file, `config/release/mcp-auth/Dockerfile`, which Dependabot bumps. The default moves from 0.9.0 to 0.9.1 (the release production runs: it fixes the client metadata document fetch for hosts that publish IPv6, and caches fetched documents); the flags are unchanged and it is never `latest`; the setup help, docs and deployment profile no longer repeat the version ([maintainer guide](docs/contributor/mcp-auth-pin.md)). No fresh setup is required.
+
+### Fixed
+
+- Retiring a server (`DELETE /api/v1/runtime/servers/{namespace}/{name}`) re-reads and retries when the operator updates the server while the retirement marker is written, instead of returning `500 failed to mark server retirement`; other marker failures are now logged.
+
+## [0.17.0] - 2026-11-10
+
+Breaking `0.x` release: the MCP Auth apply commands now refuse to leave a login
+method without its connector, and setup keeps the connectors that gateway and
+resource logins own. The bundled MCP Auth default is now 0.9.0, which disables
+an invalid login method instead of crashing at startup. This release also adds an
+article on how connectors plug into MCP Auth, updates test infrastructure and
+bumps dependencies. The 0.16.1 fixes
+(`update` provisions the JWT keys and wires their env) are unchanged.
+
+Deploy with `mcp-runtime update` and, for the hosted deploy workflow, the
+`mcp_auth_version` input. No fresh setup, backup-and-restore or data reset is
+required: existing installs keep their current MCP Auth image until you update
+it, and platform data, API keys, OIDC identities and sessions are unaffected.
+Users sign in again only if they have not already done so since 0.16.1. For a
+rebuilt platform, the existing backup, fresh setup and restore procedure
+applies. Verify sign-in, an allowed and a denied tool call, and audit after
+updating.
+
+### Changed
+
+- **Behavior change:** `cluster mcp-auth resource apply`, `gateway apply` and `cluster mcp-auth connector apply` now compute the final connectors and login methods first and refuse, naming the method and the missing connector and writing nothing (also under `--dry-run`), when a login method would name a connector the connectors ConfigMap does not define. Before, such an apply succeeded and the next MCP Auth pod exited at startup (seen on the reference platform after a connectors ConfigMap lost `gateway-login-*`). `connector apply` refuses only a change that newly leaves a method dangling, so it and `gateway apply` still repair the state; no setup change is needed.
+- The bundled MCP Auth default image is now `docker.io/princekrroshan01/mcp-auth-server:0.9.0` (it was 0.8.0). Fresh `setup --with-mcp-auth-server` installs get 0.9.0, which disables a login method that is invalid instead of exiting at startup. Existing installs keep their current image until you run `mcp-runtime update --only mcp-auth` with a component manifest selecting 0.9.0, or pass the hosted deploy's `mcp_auth_version` input. No fresh setup is required.
+
+### Fixed
+
+- `setup` no longer drops the `gateway-login-*` and `resource-login-*` entries from the live `mcp-auth-connectors` ConfigMap when it re-renders the main connector (the same entries `cluster mcp-auth connector apply` already kept). A re-run used to remove a connector that a login method in the wiring ConfigMap still named, and the next MCP Auth pod exited at startup. A fresh install is unchanged. If a platform already lost an entry, restore it with `gateway apply` or `connector apply`.
+- Staging E2E now stops stale k3s containerd shims (and unmounts leftover k3s mounts) after uninstalling k3s and before installing it, and a new `disk-guard` stage prunes suite-owned garbage and fails fast when the VM has under 15 GiB free or is over 80% used. A shim left running by one cell's uninstall made the next cell's k3s service fail to start, and a nearly full disk caused kubelet DiskPressure evictions. Docker containers and images used by other workloads on the VM are never touched. Contributors see the new stage and a richer `diagnostics/vm-resources.txt`; no setup change is needed.
+
+## [0.16.1] - 2026-11-08
+
+Patch release that fixes the failed 0.16.0 production update. `mcp-runtime update`
+now provisions the platform token key pair and wires the `JWT_SIGNING_KEY` and
+`JWT_VERIFY_KEY` env from Secrets before it rolls platform services (#913 and
+#914). Do not deploy 0.16.0 with `update`; use 0.16.1. Update now writes the two
+JWT keys into Secrets and rewrites the Deployment env wiring. Users sign in again
+after the token cutover; API keys, OIDC identities and sessions are unaffected.
+
+### Changed
+
+- **Behavior change:** `mcp-runtime update` now applies `secretKeyRef` env and env removal that a release declares in `config/release/wiring.yaml` (`secretEnv`, `removeEnv`), not only literal env. The release declares `JWT_SIGNING_KEY` for platform-api and `JWT_VERIFY_KEY` for runtime-api and analytics-api (each from the service's own credentials Secret, matching `k8s/`) and retires the `JWT_SECRET` env on all three. A failed rollout restores the previous env, including `JWT_SECRET`, and the printed recovery commands cover the new env. Other env is untouched, `--dry-run` reports the drift, and the key Secrets are provisioned before any of these Deployments roll.
+
+### Fixed
+
+- `mcp-runtime update` now wires the platform token key env before it rolls platform services. The 0.16.0 update patched only images and literal env, so a platform whose Deployments still carried `JWT_SECRET` had platform-api crash-loop with `JWT_SIGNING_KEY is required` (and runtime-api and analytics-api with `JWT_VERIFY_KEY is required`) and the update rolled back. A platform whose update was rolled back needs only a rerun of update with a CLI and release manifest that include this wiring; no fresh setup is required. See [platform token keys](hack/deploy/reference/platform-token-keys.md).
+
+- `mcp-runtime update` now provisions the platform token key pair itself before it rolls platform-api, runtime-api or analytics-api. The 0.16.0 notes said update would generate the ES256 pair, but only `setup` did, so updating a platform that held just the old `JWT_SECRET` left platform-api crash-looping on a missing `JWT_SIGNING_KEY` and the update rolled back. Update keeps an existing pair, generates a signing key when none exists, adds its public key to the verification set, writes `JWT_SIGNING_KEY` only to platform-api's Secret and `JWT_VERIFY_KEY` to the platform-api, runtime-api and analytics-api Secrets, and never removes existing verification keys or the legacy `JWT_SECRET`. A signing key it cannot parse stops the update before any change, and `--dry-run` reports the provisioning without writing. platform-api now rolls after runtime-api and analytics-api so every verifier trusts the key first. This is the one place update writes Secrets. A platform whose 0.16.0 update was rolled back needs only a rerun of update from the release containing this fix; no fresh setup is required. See [platform token keys](hack/deploy/reference/platform-token-keys.md).
+
+- `mcp-runtime setup` no longer aborts with `create scoped registry pull credential: HTTP 502` when the ingress is still swapping platform-api endpoints right after the registry-auth rollout. Before it issues the namespace pull credentials, setup now waits until the registry administration preflight answers correctly three times in a row, riding through HTTP 502, 503 and 504 and connection errors for up to 60 seconds and logging why it waits. Credential creation itself is still attempted once per namespace, so a failure cannot leave duplicate credentials; 401, 403 and 404 still fail immediately. No fresh setup is required; rerunning setup is safe.
+
+## [0.16.0] - 2026-11-07
+
+Breaking `0.x` release: platform tokens move to ES256 with a platform-api-only
+private key, and the MCP Auth connector command moves under `cluster mcp-auth`.
+Deploy with `mcp-runtime update`. Users sign in again after the update because
+earlier login tokens stop verifying; API keys, OIDC identities and sessions are
+unaffected. No database reset or fresh setup is required when updating from
+0.15.0. Before updating, back up the platform credentials Secret; after the
+update it also holds the new token private key (see
+[platform token keys](hack/deploy/reference/platform-token-keys.md)). Recovery
+on a rebuilt platform is the existing backup, fresh setup and restore procedure
+with that Secret restored. Verify login, an allowed and a denied tool call, and
+audit after updating.
+
+### Added
+
+- `mcp-runtime cluster mcp-auth resource apply` wires an OAuth MCP server's own provider login, resource client and connector into an installed MCP Auth from a YAML or JSON file kept with the server, so a server can exchange a person's MCP token for their upstream provider token without a second auth server. It validates before writing, supports `--dry-run`, keeps entries it does not own (including the credential gateway's), and only checks that the connector secret key exists. Re-applying the credential gateway now preserves these resource entries. Needs MCP Auth 0.8.0 or later for login `downstream_token` support ([mcp-auth#39](https://github.com/tavric-labs/mcp-auth/pull/39)); see [Give one resource its own provider login and token](docs/mcp-oauth.md#give-one-resource-its-own-provider-login-and-token). No fresh setup is required.
+
+### Fixed
+
+- `setup --test-mode --with-mcp-auth-server` no longer stops at the `mcp-auth-server` step on a real cluster. The Ingress host (and TLS host) is now the issuer's hostname without its port, `localhost` and not `localhost:18080`, because Kubernetes rejects a port in an Ingress host. No fresh setup is required.
+- `setup --test-mode --with-mcp-auth-server` no longer creates the unused `mcp-auth-server-data` PersistentVolumeClaim. Test mode keeps MCP Auth's state in memory and mounts an `emptyDir`, so the claim stayed Pending and made setup's own PVC verification fail. Production still creates it for the SQLite store. A claim left by an earlier test-mode setup can be deleted.
+
+### Security
+
+- **Breaking:** platform tokens are signed with ES256 and only platform-api holds the private key (`JWT_SIGNING_KEY`). runtime-api and analytics-api receive only public keys (`JWT_VERIFY_KEY`), pin the algorithm and select the key by `kid`, so a compromised backend can no longer mint platform or service tokens. The shared HS256 `JWT_SECRET` and its code path are removed. Setup generates the key pair, keeps an existing one, and delivers the private key to platform-api alone ([#903](https://github.com/tavric-labs/mcp-runtime/issues/903), AUTH-02).
+- **Upgrade (breaking, fresh login required):** deploy with `mcp-runtime update`. Existing login tokens stop verifying, so users sign in again; API keys, OIDC identities and sessions are unaffected. Back up the new private key with the platform credentials Secret. Steps and rotation: [platform token keys](hack/deploy/reference/platform-token-keys.md).
+- Registry push authorizes the target and scope before the image archive is written to disk, so a caller who cannot publish to the requested repository gets a `403` without making the runtime API spool up to 512 MiB. Concurrent uploads are capped by `MCP_REGISTRY_PUSH_MAX_CONCURRENT` (default 4); extra pushes receive `429` and can be retried. The runtime API upload volume now has a 2Gi size limit and a 3Gi ephemeral-storage limit so concurrent pushes cannot cause node disk pressure. No fresh setup is required; `mcp-runtime update` rolls the new limits.
+
+### Changed
+
+- The bundled MCP Auth image default is now `docker.io/princekrroshan01/mcp-auth-server:0.8.0` (was 0.7.1) for new `setup --with-mcp-auth-server` installs. Existing installs keep their image until updated with `mcp-runtime update --only mcp-auth` and a component manifest selecting 0.8.0. No fresh setup is required.
+- **Breaking:** `mcp-runtime cluster mcp-auth-connector apply` is now `mcp-runtime cluster mcp-auth connector apply`, grouped with the new `mcp-runtime cluster mcp-auth resource apply`. Only the command name changes; its flags and behavior are the same, and the old name is removed. Update scripts and runbooks that call it. Updating the main connector now also keeps the connectors the resource command owns (`resource-login-*`), as it already kept the credential gateway's.
+- `setup --test-mode` no longer needs hand-written NetworkPolicies for a server that calls an external API or reaches MCP Auth in-cluster. In test mode only, the namespace default-deny policy gains an allow-all egress rule (`MCP_POD_EGRESS_ALLOW_ALL`, set by setup and never otherwise) and an extra MCP Auth policy accepts port 8080 from any namespace. Normal installs keep default-deny egress and the ingress-controller-only MCP Auth policy. Rerun `setup --test-mode` to apply it to existing namespaces.
+- SPIFFE session identities are built and parsed with go-spiffe's `spiffeid` package instead of hand-written URI handling, and a new [SPIFFE agent identity](docs/spiffe-agent-identity.md) page explains the issuance and verification flow. Identity validation is now strict: session namespaces and names may use only letters, digits, `.`, `-` and `_` (Kubernetes namespace names and platform session names already do), and the trust domain must be lowercase. Names outside that set are refused at certificate issuance instead of being percent-escaped, URI SANs that are not valid SPIFFE IDs are ignored, and the gateway rejects them as `invalid_spiffe_identity`. `identity.SessionSPIFFEID` now returns an error. The gateway's trusted-ingress pin (`TRUSTED_PROXY_SPIFFE_ID`) is compared as a parsed SPIFFE ID against a certificate that has exactly one URI SAN (go-spiffe's `x509svid` rules, in the new `pkg/spiffecert`). A pin that is not a valid SPIFFE ID, or an ingress certificate with extra URI SANs, now matches nothing (fail closed); the operator-issued ingress certificate and pin are valid. The operator builds that pin with `spiffeid.FromSegments`; an invalid `MCP_TRUST_DOMAIN`, ingress namespace or service account now fails the MCPServer reconcile with an error instead of producing a malformed pin or running the gateway without one. No setup or data migration is needed; an installed `MCP_TRUST_DOMAIN` must already be lowercase.
+
 ## [0.15.0] - 2026-11-01
 
 Breaking `0.x` release: sessions use the platform Postgres store exclusively;
@@ -727,7 +1043,15 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.21.0...v0.22.0
+[0.21.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.19.0...v0.20.0
+[0.19.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.1...v0.17.0
+[0.16.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.16.0...v0.16.1
+[0.16.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/mcp-runtime/mcp-runtime/compare/v0.14.0...v0.14.1

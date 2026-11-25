@@ -31,7 +31,7 @@ Flags:
       --mcp-auth-connectors-file string      Provider connector JSON file for the bundled mcp-auth authorization server
       --mcp-auth-issuer-url string           Public HTTPS issuer URL for the bundled mcp-auth authorization server (defaults to https://auth.<MCP_PLATFORM_DOMAIN>/mcp-auth)
       --mcp-auth-resource-url strings        Optional initial resource URI for the bundled mcp-auth server; the operator reconciles this list from OAuth MCPServer audiences
-      --mcp-auth-server-image string         Container image for the optional bundled mcp-auth authorization server (default "docker.io/princekrroshan01/mcp-auth-server:0.7.1")
+      --mcp-auth-server-image string         Container image for the optional bundled mcp-auth authorization server (default "docker.io/princekrroshan01/mcp-auth-server:<pinned>")
       --mcp-auth-signing-key-secret string   Secret holding the mcp-auth RSA signing key as private-key.pem (required outside --test-mode)
       --mcp-auth-tls-secret string           Override the managed TLS Secret for the bundled mcp-auth ingress (default: mcp-auth-server-tls)
       --mtls-cluster-issuer string           Enable adapter client-certificate authentication on gateway server routes using this workload ClusterIssuer (requires --with-tls). Production requires a ready enterprise issuer with a signing root separate from registry TLS, and MCP_TRUST_DOMAIN. Test mode defaults to the bundled mcp-runtime-ca. Overrides env MCP_SETUP_MTLS_CLUSTER_ISSUER
@@ -39,7 +39,7 @@ Flags:
       --operator-metrics-addr string         Operator metrics bind address (default: :8080 from manager.yaml)
       --operator-probe-addr string           Operator health probe bind address (default: :8081 from manager.yaml)
       --parallel-builds                      Build and publish setup images in parallel; keeps cluster, registry, TLS, and rollout sequencing unchanged
-      --platform-mode string                 Platform access model (org|public). org supports organization and team publishing; public also supports the public preview catalog without login. (default "org")
+      --platform-mode string                 Platform access model (org|public). org supports organization and team publishing; public is the hosted, internet-facing profile with the same catalogs and scopes and stricter login configuration. (default "org")
       --platform-path-prefix string          Public dashboard path prefix (e.g. /platform); session and asset routes use this prefix (default "/")
       --pod-egress-cidrs string              Comma-separated destination CIDRs that team MCP servers may reach on TCP 443. Empty installs nothing. 0.0.0.0/0 is rejected. Private ranges also require --pod-egress-except-cidrs. Overrides env MCP_POD_EGRESS_CIDRS
       --pod-egress-except-cidrs string       Cluster pod and service CIDRs to keep out of --pod-egress-cidrs. Required when a destination is private. Overrides env MCP_POD_EGRESS_EXCEPT_CIDRS

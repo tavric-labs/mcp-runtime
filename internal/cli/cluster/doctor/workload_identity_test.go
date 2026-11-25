@@ -61,7 +61,7 @@ func TestCheckWorkloadIdentity(t *testing.T) {
 			case strings.Contains(args, "get secret workload-server-gateway-mtls"):
 				return &core.MockCommand{OutputData: []byte(base64.StdEncoding.EncodeToString([]byte(fixture.caPEM)))}
 			case strings.Contains(args, "get ingressroute.traefik.io workload-server"):
-				route := map[string]any{"apiVersion": "traefik.io/v1alpha1", "kind": "IngressRoute", "metadata": map[string]any{"name": "workload-server", "namespace": "mcp-servers"}, "spec": map[string]any{"tls": map[string]any{}}}
+				route := map[string]any{"apiVersion": "traefik.io/v1alpha1", "kind": "IngressRoute", "metadata": map[string]any{"name": "workload-server", "namespace": "mcp-servers-org"}, "spec": map[string]any{"tls": map[string]any{}}}
 				if fixture.explicitOption != "" {
 					route["spec"] = map[string]any{"tls": map[string]any{"options": map[string]any{"name": fixture.explicitOption, "namespace": "traefik"}}}
 				}
@@ -81,7 +81,7 @@ func TestCheckWorkloadIdentity(t *testing.T) {
 				return &core.MockCommand{}
 			}
 		}}
-		return CheckWorkloadIdentity(core.NewTestKubectlClient(mock), "mcp-servers", "workload-server"), calls
+		return CheckWorkloadIdentity(core.NewTestKubectlClient(mock), "mcp-servers-org", "workload-server"), calls
 	}
 
 	base := workloadIdentityFixture{

@@ -49,7 +49,7 @@ func TestHandleAdminUsageRejectsNonGET(t *testing.T) {
 	}
 }
 
-func TestPrincipalOwnedScopeExcludesSharedCatalog(t *testing.T) {
+func TestPrincipalOwnedScopeIsUserAndTeamOnly(t *testing.T) {
 	t.Parallel()
 	scope := usage.PrincipalOwnedScope(passport.Principal{
 		Namespace: "user-a",
@@ -57,7 +57,7 @@ func TestPrincipalOwnedScopeExcludesSharedCatalog(t *testing.T) {
 			ID:        "team-acme-id",
 			Namespace: "mcp-team-acme",
 		}},
-		AllowedNamespaces: []string{"user-a", "mcp-team-acme", "mcp-servers"},
+		AllowedNamespaces: []string{"user-a", "mcp-team-acme"},
 	})
 	if got := strings.Join(scope.Namespaces, ","); got != "user-a,mcp-team-acme" {
 		t.Fatalf("namespaces = %q, want user/team only", got)

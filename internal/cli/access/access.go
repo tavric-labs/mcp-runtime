@@ -61,7 +61,7 @@ func newRevokeGrantSessionsCmd(mgr *AccessManager) *cobra.Command {
 			return mgr.RevokeGrantSessions(args[0], namespace)
 		},
 	}
-	cmd.Flags().StringVar(&namespace, "namespace", core.NamespaceMCPServers, "Grant namespace")
+	cmd.Flags().StringVar(&namespace, "namespace", core.DefaultServerNamespace, "Grant namespace")
 	return cmd
 }
 
@@ -93,6 +93,7 @@ func newGrantInitCmd(mgr *AccessManager) *cobra.Command {
 		},
 	}
 	bindAccessInitCommonFlags(cmd, &opts)
+	cmd.Flags().StringVar(&opts.SubjectFromTokenFile, "subject-from-token-file", "", "File containing a JWT; its sub claim becomes the human subject (grant to the identity a client will present; cannot be combined with --human-id)")
 	cmd.Flags().StringVar(&opts.Mode, "mode", "enforce", "Grant policy mode: enforce or monitor")
 	cmd.Flags().StringArrayVar(&opts.SideEffects, "side-effect", []string{"read"}, "Allowed side effect class: read, write, or destructive; repeat for multiple")
 	cmd.Flags().StringArrayVar(&opts.Tools, "tool", nil, "Tool name to allow; repeat for multiple tools")
@@ -126,7 +127,7 @@ func newSessionInitCmd(mgr *AccessManager) *cobra.Command {
 }
 
 func bindAccessInitCommonFlags(cmd *cobra.Command, opts *accessManifestInitOptions) {
-	cmd.Flags().StringVar(&opts.Namespace, "namespace", core.NamespaceMCPServers, "Manifest namespace")
+	cmd.Flags().StringVar(&opts.Namespace, "namespace", core.DefaultServerNamespace, "Manifest namespace")
 	cmd.Flags().StringVar(&opts.Server, "server", "", "Target MCPServer name")
 	cmd.Flags().StringVar(&opts.ServerNamespace, "server-namespace", "", "Target MCPServer namespace (default: --namespace)")
 	cmd.Flags().StringVar(&opts.HumanID, "human-id", "", "Human subject ID")
@@ -163,7 +164,7 @@ func newGetCmd(mgr *AccessManager, resource, label string) *cobra.Command {
 			return mgr.GetAccessResource(resource, args[0], namespace)
 		},
 	}
-	cmd.Flags().StringVar(&namespace, "namespace", core.NamespaceMCPServers, "Namespace")
+	cmd.Flags().StringVar(&namespace, "namespace", core.DefaultServerNamespace, "Namespace")
 	return cmd
 }
 
@@ -191,7 +192,7 @@ func newDeleteCmd(mgr *AccessManager, resource, label string) *cobra.Command {
 			return mgr.DeleteAccessResource(resource, args[0], namespace)
 		},
 	}
-	cmd.Flags().StringVar(&namespace, "namespace", core.NamespaceMCPServers, "Namespace")
+	cmd.Flags().StringVar(&namespace, "namespace", core.DefaultServerNamespace, "Namespace")
 	return cmd
 }
 
@@ -205,6 +206,6 @@ func newToggleCmd(mgr *AccessManager, resource, use, short string, value bool) *
 			return mgr.ToggleAccessResource(resource, args[0], namespace, value)
 		},
 	}
-	cmd.Flags().StringVar(&namespace, "namespace", core.NamespaceMCPServers, "Namespace")
+	cmd.Flags().StringVar(&namespace, "namespace", core.DefaultServerNamespace, "Namespace")
 	return cmd
 }

@@ -210,7 +210,7 @@ workflow. It also retains only allowlisted runtime initialization error lines,
 with credentials redacted. Any failed E2E run additionally saves the last 15
 minutes (200 lines) of the log of every pod in the platform namespaces
 (`mcp-runtime`, `mcp-platform`, `mcp-observability`, `mcp-log-collector`,
-`registry`, `traefik`, `cert-manager` and the `mcp-servers*` namespaces) as
+`registry`, `traefik`, `cert-manager` and the `mcp-servers-*` namespaces) as
 `pod-logs/<namespace>/<pod>.log`, plus `<pod>.previous.log` for a pod whose
 container restarted. Pods are discovered, so a new service is covered without
 an edit, and an API `query_failed` response comes with the backend error. The

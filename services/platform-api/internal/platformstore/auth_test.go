@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/passport/passporttest"
 )
 
 func TestEnsureTeamPasswordUserTrimsBeforeLengthCheck(t *testing.T) {
-	store := NewForTest(nil)
+	store := NewForTest(nil, nil)
 	_, err := store.EnsureTeamPasswordUser(context.Background(), "member@example.com", " 12345678901 ")
 	if err == nil {
 		t.Fatal("expected short password error")
@@ -21,17 +22,17 @@ func TestEnsureTeamPasswordUserTrimsBeforeLengthCheck(t *testing.T) {
 }
 
 func TestLoginAccessTokenIsPlatformOnly(t *testing.T) {
-	secret := []byte("login-audience-test")
-	store := NewForTest(secret)
+	signer, verifier := passporttest.NewKeys(t)
+	store := NewForTest(signer, verifier)
 	token, err := store.CreateAccessToken(User{ID: "user", Email: "user@example.com", Role: RoleUser}, 15*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := passport.Verify(secret, token, passport.AudiencePlatform); err != nil {
+	if _, err := verifier.Verify(token, passport.AudiencePlatform); err != nil {
 		t.Fatal(err)
 	}
 	for _, audience := range []string{passport.AudienceRuntime, passport.AudienceAnalytics} {
-		if _, err := passport.Verify(secret, token, audience); err == nil {
+		if _, err := verifier.Verify(token, audience); err == nil {
 			t.Fatalf("login token accepted directly at %s", audience)
 		}
 	}

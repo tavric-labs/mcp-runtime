@@ -6,11 +6,13 @@
 // (WithPrincipal, FromContext) and in audit fields (AuditSource,
 // AuditIdentityLabel, RequestIP).
 //
-// Proof. Sign and Verify issue and check short-lived HS256 JWTs. The
-// algorithm is pinned, the issuer is fixed, and a token carries exactly one
-// audience (platform-api, runtime-api or analytics-api), so a token minted for
-// one service is rejected by another. JWTSecretFromEnv reads the shared signing
-// secret.
+// Proof. A Signer (platform-api only) issues short-lived ES256 JWTs and a
+// Verifier checks them. The algorithm is pinned, the issuer is fixed, and a
+// token carries exactly one audience (platform-api, runtime-api or
+// analytics-api), so a token minted for one service is rejected by another.
+// Backend services receive only public keys (VerifierFromEnv), so a compromised
+// backend can verify tokens but cannot mint them. Keys rotate by overlapping
+// public keys, selected by the token's kid header.
 //
 // Enforcement. An Authenticator is built for one audience
 // (NewAudienceAuthenticator) and wraps handlers with authentication and role

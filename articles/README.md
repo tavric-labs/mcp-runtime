@@ -21,6 +21,17 @@ Current category roots:
 
 Images live under `static/articles/<category>/<article>/`.
 
+## RSS feed
+
+`/feed.xml` is an RSS 2.0 feed of every article, newest first, with the full
+article HTML in `content:encoded` and absolute URLs. Every page advertises it
+with a `<link rel="alternate" type="application/rss+xml">` tag. The feed uses
+each article's `published` front-matter date (`YYYY-MM-DD`); an article without
+a valid date is left out. Point feed readers and automation (for example a
+Zapier, Make or IFTTT RSS trigger that shares to LinkedIn) at
+`https://articles.mcpruntime.org/feed.xml`. Each item's `guid` is the article's
+permanent URL, so automation does not repost an article.
+
 ## Run Locally
 
 ```sh

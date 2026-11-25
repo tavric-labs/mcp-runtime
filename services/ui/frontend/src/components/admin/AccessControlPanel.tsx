@@ -33,7 +33,7 @@ type AccessControlPanelProps = {
 };
 
 function defaultNamespace(current: string): string {
-  return current.trim() || readRuntimeConfig().defaults.namespace || "mcp-servers";
+  return current.trim() || readRuntimeConfig().defaults.namespace || "mcp-servers-org";
 }
 
 function emptyGrantDraft(namespace: string): GrantDraft {

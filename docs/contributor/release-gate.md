@@ -32,8 +32,7 @@ roots and reports `SKIPPED, NOT TESTED` without one. Its service-level tests
 still run; a green gate must not be described as live credential-broker evidence.
 
 Audience-isolation and anonymous-denial probes use the authenticated workspace
-route in both modes. Public catalog reads intentionally permit anonymous
-fallback, so their success cannot establish whether a bearer was accepted.
+route in both modes.
 
 ## Run and publish
 

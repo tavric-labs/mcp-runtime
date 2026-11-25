@@ -13,10 +13,10 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-func exchangeSource(t *testing.T, secret []byte, p Principal, ttl time.Duration, audiences ...string) string {
+func exchangeSource(t *testing.T, signer Signer, p Principal, ttl time.Duration, audiences ...string) string {
 	t.Helper()
 	now := time.Now()
-	token, err := signUntil(secret, p, now, now.Add(ttl), audiences)
+	token, err := signer.Sign(p, now, now.Add(ttl), audiences)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,12 +24,12 @@ func exchangeSource(t *testing.T, secret []byte, p Principal, ttl time.Duration,
 }
 
 func TestExchangeBoundsAudienceExpiryAndRefreshesIdentity(t *testing.T) {
-	secret := []byte("exchange-test-secret")
+	signer, verifier := testKeys(t)
 	for _, target := range []string{AudienceRuntime, AudienceAnalytics} {
 		for _, ttl := range []time.Duration{20 * time.Second, 15 * time.Minute} {
 			t.Run(target+ttl.String(), func(t *testing.T) {
 				resolver := &lifecyclePrincipalStub{current: Principal{Subject: "user", Role: RoleUser, Teams: []PrincipalTeam{{ID: "current-team", Role: "member"}}}}
-				source := exchangeSource(t, secret, Principal{Subject: "user", Role: RoleAdmin}, ttl, AudiencePlatform)
+				source := exchangeSource(t, signer, Principal{Subject: "user", Role: RoleAdmin}, ttl, AudiencePlatform)
 				req := httptest.NewRequest(http.MethodGet, ExchangePath(target)+"?audience=platform-api", nil)
 				req.Header.Set("Authorization", source)
 				// The existing CLI duplicates its saved token into both fields.
@@ -37,7 +37,7 @@ func TestExchangeBoundsAudienceExpiryAndRefreshesIdentity(t *testing.T) {
 				req.Header.Set("X-Forwarded-Uri", "/api/v1/auth/me")
 				req.Header.Set("X-Forwarded-Host", "attacker.invalid")
 				rec := httptest.NewRecorder()
-				ExchangeHandler{Auth: Authenticator{Secret: secret, Audience: AudiencePlatform, Principals: resolver}, Target: target}.ServeHTTP(rec, req)
+				ExchangeHandler{Auth: Authenticator{Verifier: verifier, Signer: signer, Audience: AudiencePlatform, Principals: resolver}, Target: target}.ServeHTTP(rec, req)
 				if rec.Code != 200 || resolver.calls != 1 {
 					t.Fatalf("status=%d body=%s calls=%d", rec.Code, rec.Body.String(), resolver.calls)
 				}
@@ -45,11 +45,11 @@ func TestExchangeBoundsAudienceExpiryAndRefreshesIdentity(t *testing.T) {
 					t.Fatal("source bearer copy leaked to backend as API key")
 				}
 				bearer := strings.TrimPrefix(rec.Header().Get("Authorization"), "Bearer ")
-				claims, err := Verify(secret, bearer, target)
+				claims, err := verifier.Verify(bearer, target)
 				if err != nil {
 					t.Fatal(err)
 				}
-				original, err := Verify(secret, strings.TrimPrefix(source, "Bearer "), AudiencePlatform)
+				original, err := verifier.Verify(strings.TrimPrefix(source, "Bearer "), AudiencePlatform)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -61,7 +61,7 @@ func TestExchangeBoundsAudienceExpiryAndRefreshesIdentity(t *testing.T) {
 				}
 				for _, other := range []string{AudiencePlatform, AudienceRuntime, AudienceAnalytics} {
 					if other != target {
-						if _, err := Verify(secret, bearer, other); err == nil {
+						if _, err := verifier.Verify(bearer, other); err == nil {
 							t.Fatalf("replay accepted at %s", other)
 						}
 					}
@@ -75,28 +75,29 @@ func TestExchangeBoundsAudienceExpiryAndRefreshesIdentity(t *testing.T) {
 }
 
 func TestExchangeRejectsInvalidSourceAndInactivePrincipal(t *testing.T) {
-	secret := []byte("exchange-test-secret")
+	signer, verifier := testKeys(t)
 	user := Principal{Subject: "user", Role: RoleUser}
 	missingExpiry := ClaimsFromPrincipal(user)
 	missingExpiry.Issuer = Issuer
 	missingExpiry.Audience = jwt.ClaimStrings{AudiencePlatform}
-	noExpiry, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, missingExpiry).SignedString(secret)
+	noExpiry := signRawClaims(t, signer, missingExpiry)
+	forgerSigner, _ := testKeys(t)
 	for _, tc := range []struct {
 		name, authorization string
 		resolverErr         error
 		status              int
 		service             bool
 	}{
-		{"runtime-reexchange", exchangeSource(t, secret, user, time.Minute, AudienceRuntime), nil, 401, false},
-		{"analytics-reexchange", exchangeSource(t, secret, user, time.Minute, AudienceAnalytics), nil, 401, false},
-		{"multi-audience", exchangeSource(t, secret, user, time.Minute, AudiencePlatform, AudienceRuntime), nil, 401, false},
-		{"expired", exchangeSource(t, secret, user, -time.Minute, AudiencePlatform), nil, 401, false},
+		{"runtime-reexchange", exchangeSource(t, signer, user, time.Minute, AudienceRuntime), nil, 401, false},
+		{"analytics-reexchange", exchangeSource(t, signer, user, time.Minute, AudienceAnalytics), nil, 401, false},
+		{"multi-audience", exchangeSource(t, signer, user, time.Minute, AudiencePlatform, AudienceRuntime), nil, 401, false},
+		{"expired", exchangeSource(t, signer, user, -time.Minute, AudiencePlatform), nil, 401, false},
 		{"missing-expiry", "Bearer " + noExpiry, nil, 401, false},
-		{"forged", exchangeSource(t, []byte("wrong-key"), user, time.Minute, AudiencePlatform), nil, 401, false},
+		{"forged", exchangeSource(t, forgerSigner, user, time.Minute, AudiencePlatform), nil, 401, false},
 		{"malformed", "Bearer invalid", nil, 401, false},
-		{"deactivated", exchangeSource(t, secret, user, time.Minute, AudiencePlatform), sql.ErrNoRows, 401, false},
-		{"directory-unavailable", exchangeSource(t, secret, user, time.Minute, AudiencePlatform), errors.New("unavailable"), 503, false},
-		{"service-principal", exchangeSource(t, secret, user, time.Minute, AudiencePlatform), nil, 401, true},
+		{"deactivated", exchangeSource(t, signer, user, time.Minute, AudiencePlatform), sql.ErrNoRows, 401, false},
+		{"directory-unavailable", exchangeSource(t, signer, user, time.Minute, AudiencePlatform), errors.New("unavailable"), 503, false},
+		{"service-principal", exchangeSource(t, signer, user, time.Minute, AudiencePlatform), nil, 401, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resolver := &lifecyclePrincipalStub{current: user, err: tc.resolverErr}
@@ -104,7 +105,7 @@ func TestExchangeRejectsInvalidSourceAndInactivePrincipal(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, ExchangePath(AudienceRuntime), nil)
 			req.Header.Set("Authorization", tc.authorization)
 			rec := httptest.NewRecorder()
-			ExchangeHandler{Auth: Authenticator{Secret: secret, Audience: AudiencePlatform, Principals: resolver}, Target: AudienceRuntime}.ServeHTTP(rec, req)
+			ExchangeHandler{Auth: Authenticator{Verifier: verifier, Signer: signer, Audience: AudiencePlatform, Principals: resolver}, Target: AudienceRuntime}.ServeHTTP(rec, req)
 			if rec.Code != tc.status || rec.Header().Get("Authorization") != "" {
 				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 			}
@@ -113,8 +114,9 @@ func TestExchangeRejectsInvalidSourceAndInactivePrincipal(t *testing.T) {
 }
 
 func TestExchangePassThroughNeverMintsIdentity(t *testing.T) {
+	signer, verifier := testKeys(t)
 	resolver := &lifecyclePrincipalStub{err: errors.New("must not resolve keys or anonymous requests")}
-	h := ExchangeHandler{Auth: Authenticator{Secret: []byte("test-secret"), Audience: AudiencePlatform, Principals: resolver}, Target: AudienceRuntime}
+	h := ExchangeHandler{Auth: Authenticator{Verifier: verifier, Signer: signer, Audience: AudiencePlatform, Principals: resolver}, Target: AudienceRuntime}
 	for _, key := range []string{"", "valid-only-at-destination", "invalid-key"} {
 		req := httptest.NewRequest(http.MethodGet, ExchangePath(AudienceRuntime), nil)
 		if key != "" {
@@ -141,7 +143,7 @@ func TestExchangePassThroughNeverMintsIdentity(t *testing.T) {
 	} {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(tc.method, "/", nil)
-		ExchangeHandler{Auth: Authenticator{Secret: []byte("test-secret"), Audience: AudiencePlatform, Principals: tc.principals}, Target: tc.target}.ServeHTTP(rec, req)
+		ExchangeHandler{Auth: Authenticator{Verifier: verifier, Signer: signer, Audience: AudiencePlatform, Principals: tc.principals}, Target: tc.target}.ServeHTTP(rec, req)
 		if rec.Code != tc.want {
 			t.Fatalf("status=%d want=%d", rec.Code, tc.want)
 		}
@@ -166,13 +168,13 @@ func TestExchangeBearerRejectsRedirectAndMissingCredential(t *testing.T) {
 }
 
 func TestForwardAuthHeaderReplacementPreservesCredentialBoundaries(t *testing.T) {
-	secret := []byte("forward-auth-secret")
+	signer, verifier := testKeys(t)
 	user := Principal{Subject: "human", Role: RoleUser}
 	resolver := &lifecyclePrincipalStub{current: user}
-	h := ExchangeHandler{Auth: Authenticator{Secret: secret, Audience: AudiencePlatform, Principals: resolver}, Target: AudienceRuntime}
-	backend := Authenticator{Secret: secret, Audience: AudienceRuntime, Principals: resolver,
+	h := ExchangeHandler{Auth: Authenticator{Verifier: verifier, Signer: signer, Audience: AudiencePlatform, Principals: resolver}, Target: AudienceRuntime}
+	backend := Authenticator{Verifier: verifier, Audience: AudienceRuntime, Principals: resolver,
 		ServiceAPIKeys: map[string]struct{}{"service-admin": {}, "service-user": {}}, AdminAPIKeys: map[string]struct{}{"service-admin": {}}}
-	source := exchangeSource(t, secret, user, time.Minute, AudiencePlatform)
+	source := exchangeSource(t, signer, user, time.Minute, AudiencePlatform)
 	for _, tc := range []struct {
 		name, authorization, key string
 		want                     bool

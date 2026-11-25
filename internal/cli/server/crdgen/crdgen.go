@@ -110,6 +110,11 @@ func GenerateCRD(server *blueprint.ServerMetadata, outputPath string) error {
 			Audience:           server.Auth.Audience,
 			Scopes:             append([]string(nil), server.Auth.Scopes...),
 		}
+		for _, public := range server.Auth.PublicPaths {
+			mcpServer.Spec.Auth.PublicPaths = append(mcpServer.Spec.Auth.PublicPaths, mcpv1alpha1.PublicPathConfig{
+				PathPrefix: public.PathPrefix, MaxBodyBytes: public.MaxBodyBytes, MaxDurationSeconds: public.MaxDurationSeconds,
+			})
+		}
 		if gateway := server.Auth.CredentialGateway; gateway != nil {
 			mcpServer.Spec.Auth.CredentialGateway = &mcpv1alpha1.CredentialGatewayConfig{
 				ValidationPath: gateway.ValidationPath,
@@ -141,6 +146,13 @@ func GenerateCRD(server *blueprint.ServerMetadata, outputPath string) error {
 			MaxLifetime:         server.Session.MaxLifetime,
 			IdleTimeout:         server.Session.IdleTimeout,
 			UpstreamTokenHeader: server.Session.UpstreamTokenHeader,
+		}
+	}
+
+	if server.Egress != nil {
+		mcpServer.Spec.Egress = &mcpv1alpha1.EgressConfig{
+			Hosts: append([]string(nil), server.Egress.Hosts...),
+			Ports: append([]int32(nil), server.Egress.Ports...),
 		}
 	}
 

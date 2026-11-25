@@ -138,6 +138,7 @@ default. Override the path with `MCP_DEPLOY_ENV=/path/to/other.env`. See
 | `MCP_REGISTRY_HOST` | do not set | — | Public ingress hostname; derived from `MCP_PLATFORM_DOMAIN`. Do not use as the internal pull URL. |
 | `MCP_REGISTRY_INTERNAL` | optional | rollout | Override registry ClusterIP:port for **build/push** inside rollout script only. Pull path still uses `MCP_REGISTRY_ENDPOINT` in configmap. |
 | `MCP_REGISTRY_PUSH_MODE` | `internal` | rollout | `public` pushes directly to `registry.<domain>` using the workstation's selected Docker daemon. |
+| `MCP_REGISTRY_PUSH_MAX_CONCURRENT` | `4` | runtime API | Maximum simultaneous `server push` uploads spooled to the runtime API pod's 2Gi upload volume (each capped at 512 MiB). Extra pushes get `429`; raise it only together with the `emptyDir` `sizeLimit` in `k8s/08-runtime-api.yaml`. |
 
 MCP Auth updates use a separately reviewed release manifest and
 `mcp-runtime update --only mcp-auth`. Runtime updates do not build,
@@ -404,8 +405,10 @@ No wrapper authorizes data reset as part of an ordinary update.
 The v0.9.0 Runtime configuration supports `org` and `public` platform modes;
 `tenant` remains a team publish scope. Before upgrading an older profile that
 uses `MCP_SETUP_PLATFORM_MODE=tenant`, explicitly choose `org` or `public`.
-The hosted reference platform uses `public`, with public previews/listings,
-signed-in organization publishing, and team publishing all available.
+The hosted reference platform uses `public`, with signed-in organization
+publishing and team publishing available. The `public` publish scope and the
+anonymous catalog were removed; the `mcp-servers-public` namespace is no longer
+managed by setup or update, and the operator can delete it once it is empty.
 
 Take the protected setup snapshot described in
 [Backups and recovery](#backups-and-recovery) and build the CLI from the exact
@@ -441,8 +444,7 @@ recover the previous three images and prior ConfigMap mode through a reviewed
 rollback update manifest; restore only those changed fields.
 
 Verify signed-in login, CLI image publishing in all enabled scopes, server
-deployment, anonymous public-catalog visibility, and anonymous denial for org
-and team catalogs. Run hosted certificate/grant acceptance for allowed and
+deployment, and anonymous denial for the org and team catalogs. Run hosted certificate/grant acceptance for allowed and
 denied calls as well. The
 [`test-mcpsnoop` example](https://github.com/mcp-runtime/mcp-runtime/tree/main/examples/test-mcpsnoop)
 provides a separate unauthenticated two-tool server for payload inspection.
@@ -587,17 +589,20 @@ For an existing installation, update the identity connector without changing
 its credential Secret or other platform configuration:
 
 ```bash
-./bin/mcp-runtime cluster mcp-auth-connector apply \
+./bin/mcp-runtime cluster mcp-auth connector apply \
   --file config/deployments/mcpruntime-org-keycloak-connectors.json \
   --connector keycloak --kubeconfig "$PROD_KUBECONFIG" \
   --context "$PROD_CONTEXT" --dry-run
-./bin/mcp-runtime cluster mcp-auth-connector apply \
+./bin/mcp-runtime cluster mcp-auth connector apply \
   --file config/deployments/mcpruntime-org-keycloak-connectors.json \
   --connector keycloak --kubeconfig "$PROD_KUBECONFIG" \
   --context "$PROD_CONTEXT" --yes
 ```
 
-The next MCP Auth rollout loads the updated file. Entries named
+The command updates the ConfigMap only. MCP Auth reads the connectors file when it
+starts, so roll the Deployment (`kubectl -n mcp-platform rollout restart
+deployment/mcp-auth-server`, with an explicit `--context`) for the change to take
+effect. Entries named
 `gateway-login-*` stay in place when the file does not mention them, so
 refreshing the identity connector does not remove a credential gateway's
 resource login. Connector configuration
@@ -841,7 +846,7 @@ Secrets and PVCs in place. It leaves MCP Auth on its current image unless an
 operator passes `mcp_auth_version` for a manual Auth upgrade. The workflow uses
 GitHub's `production` environment and
 updates the README's live-version badge only after platform health and a
-temporary `qa-audit-*` MCP server pass their post-deploy checks. Publishing a
+the persistent `prod-audit` fixture pass their post-deploy checks. Publishing a
 release never triggers the production deploy automatically.
 
 Verify the user path after rollout:
@@ -849,17 +854,21 @@ Verify the user path after rollout:
 1. Install the candidate CLI built from the selected Runtime ref and confirm
    `mcp-runtime --version` reports that commit. After release publication,
    verify the `releases/latest` binary download reports the release tag.
-2. Follow [Quickstart](hosted-quickstart.md) against
-   `https://platform.mcpruntime.org`: log in, build/push/deploy a temporary
-   `qa-audit-*` server, create a grant, and verify the adapter result matches
-   the configured identity mode. The hosted preview currently leaves adapter
-   identity verification off, so its allow-list call returns `missing_identity`.
-   Verify a successful governed call separately on the guarded staging target
-   with adapter certificates enabled.
-3. Check the signed-out platform page and signed-in role-gated UI with browser
-   evidence. Use only temporary `qa-audit-*` resources and clean them up.
-4. Verify `mcp-runtime status`, server listing, deployment readiness, and
-   `cluster doctor`; confirm the existing certificate resources remain Ready.
+2. Run [the shared production audit](prod-audit.md) through
+   the development auditor (`hack/prod-audit/cmd/postdeploy`). The hosted workflow builds the auditor CLI
+   from its immutable `github.workflow_sha`; deployment still uses the selected
+   release's CLI. All verification logic lives in `hack/prod-audit/internal/audit`.
+   The auditor verifies the cluster UID, release images, completed rollouts,
+   authorization metadata, registry denial and `cluster doctor`, then checks
+   allowed tools, explicit tool-policy and anonymous denials, temporary CRUD,
+   session revocation and cleanup. It writes a JSON evidence report.
+3. Check signed-out and signed-in role-gated UI surfaces and correlate fixture
+   events in **Analytics → Tools** with browser evidence. These checks are
+   separate from the automated report; record anything skipped as unverified.
+4. Use only `prod-audit` for synthetic MCP calls. Temporary grants, sessions,
+   agents and bounded records are cleaned up; historical audit records remain.
+   Preserve LinkedIn and Cully for real work. New-server build/push/deploy tests
+   run on isolated Kind/staging, never through extra production demo servers.
 
 Users access the same `https://platform.mcpruntime.org` URL after a platform
 rollout. They update the CLI separately from the GitHub Releases page. Until a

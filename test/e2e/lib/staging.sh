@@ -557,7 +557,7 @@ staging_finish() {
 # ---------------------------------------------------------------------------
 
 staging_platform_namespaces() {
-  printf '%s\n' mcp-runtime mcp-platform mcp-observability mcp-log-collector registry cert-manager mcp-servers traefik kube-system
+  printf '%s\n' mcp-runtime mcp-platform mcp-observability mcp-log-collector registry cert-manager mcp-servers-org traefik kube-system
 }
 
 # Collect the logs of EVERY pod a deployment owns. `kubectl logs deploy/<name>`
@@ -688,8 +688,8 @@ staging_failed_checks() {
 # E2E_DIAGNOSTICS_ACCEPTED (a |-separated list; empty = strict).
 #   - "platform OIDC configuration": org mode wants Google/OIDC login, and the
 #     staging VM has no identity provider unless E2E_WITH_MCP_AUTH/OIDC is set.
-#   - "mcp-servers image pull smoke" / "MCPServer reconcile smoke": the doctor
-#     smoke pod in mcp-servers pulls from the auth-protected public registry
+#   - "server namespace image pull smoke" / "MCPServer reconcile smoke": the doctor
+#     smoke pod in mcp-servers-org pulls from the auth-protected public registry
 #     before any managed deploy has provisioned the mcp-workload pull secret, so
 #     the pull is refused (no basic auth credentials). Tracked as a product
 #     finding; tenant pulls are asserted by the image-pulls and multitenancy
@@ -711,7 +711,7 @@ staging_check_release_profile() {
 }
 
 staging_default_accepted_checks() {
-  local accepted="mcp-servers image pull smoke|MCPServer reconcile smoke"
+  local accepted="server namespace image pull smoke|MCPServer reconcile smoke"
   if [[ -z "${OIDC_ISSUER:-}${GOOGLE_CLIENT_ID:-}${MCP_GOOGLE_CLIENT_ID:-}" ]] &&
     ! staging_flag_enabled "${E2E_WITH_MCP_AUTH:-0}"; then
     accepted+="|platform OIDC configuration"
@@ -1456,7 +1456,7 @@ staging_check_oidc() {
 # never requires, a client certificate. Omitting MCPServer.spec.auth keeps
 # OAuth off (cert-only); setting spec.auth enables OAuth + optional cert.
 # Setup reads these from the environment.
-STAGING_ADAPTER_TLS_NAMESPACE_DEFAULT="mcp-servers"
+STAGING_ADAPTER_TLS_NAMESPACE_DEFAULT="mcp-platform"
 
 # The SPIFFE trust domain is a name, not a DNS lookup; default it to the
 # disposable suffix so staging identities never look like production ones.
@@ -1915,7 +1915,7 @@ staging_check_adapter_enrollment() {
     image_tag="${image##*:}"
   fi
 
-  local ns=mcp-servers
+  local ns=mcp-servers-org
   # A tenant service account must not bypass the runtime API's session checks
   # by submitting its own CertificateRequest to the workload issuer.
   local sa decision
@@ -2038,15 +2038,65 @@ staging_mt_read_agents() {
   MT_GLOBEX_DENIED_AGENT_ID="$(jq -er '.globex.deniedAgentID' "${MT_AGENTS_JSON}")"
 }
 
+# Compile the Go OAuth sample on the VM host using the verified toolchain and
+# module cache unpacked by stage_go_dependencies, then stage a scratch Docker
+# context for server build image. Building inside Docker cannot see the host
+# GOMODCACHE and pulls gcr.io/distroless, which fails when Google storage/GCR
+# returns 403 to the disposable VM.
+staging_prepare_multitenancy_server_context() {
+  local context_dir="${1:?missing multitenancy server context dir}"
+  local source_dir="${ROOT_DIR}/examples/oauth-example-go-2025-11-25"
+  local target_arch="amd64"
+  case "$(uname -m)" in
+    aarch64 | arm64) target_arch="arm64" ;;
+  esac
+  rm -rf "${context_dir}"
+  mkdir -p "${context_dir}"
+  local go_proxy="${GOPROXY:-}" go_sumdb="${GOSUMDB:-}"
+  if [[ -n "${GOMODCACHE:-}" && -d "${GOMODCACHE}/cache/download" ]]; then
+    go_proxy="off"
+    go_sumdb="off"
+  fi
+  (
+    cd "${source_dir}"
+    if [[ -n "${go_proxy}" ]]; then
+      export GOPROXY="${go_proxy}" GOSUMDB="${go_sumdb}"
+    fi
+    CGO_ENABLED=0 GOOS=linux GOARCH="${target_arch}" GOTOOLCHAIN="${GOTOOLCHAIN:-local}" \
+      go build -trimpath -ldflags="-s -w" -o "${context_dir}/oauth-example-go-2025-11-25" ./
+  ) || return 1
+  if [[ -f /etc/ssl/certs/ca-certificates.crt ]]; then
+    cp /etc/ssl/certs/ca-certificates.crt "${context_dir}/ca-certificates.crt"
+  else
+    : >"${context_dir}/ca-certificates.crt"
+  fi
+  cat >"${context_dir}/Dockerfile" <<'EOF'
+FROM scratch
+WORKDIR /app
+COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --chown=65532:65532 oauth-example-go-2025-11-25 /app/oauth-example-go-2025-11-25
+EXPOSE 8088
+USER 65532:65532
+ENTRYPOINT ["/app/oauth-example-go-2025-11-25"]
+EOF
+}
+
 staging_check_multitenancy() {
   if ! staging_flag_enabled "${E2E_RUN_MULTITENANCY:-1}"; then
     staging_skip "run-multitenancy is false"
   fi
   mkdir -p "${STAGING_MT_CONFIG_DIR}"
+  local server_context="${SERVER_CONTEXT:-}" server_dockerfile="${SERVER_DOCKERFILE:-}"
+  if [[ -z "${server_context}" && -z "${server_dockerfile}" ]]; then
+    server_context="${WORK_DIR}/multitenancy-server-image"
+    server_dockerfile="${server_context}/Dockerfile"
+    staging_prepare_multitenancy_server_context "${server_context}" || return 1
+  fi
   PLATFORM_URL="${PLATFORM_URL}" MCP_URL="${MCP_URL}" REGISTRY_HOST="${REGISTRY_HOST}" \
     ADMIN_TOKEN_INPUT="${E2E_PLATFORM_API_TOKEN}" RUN_ID="${STAGING_MT_RUN_ID}" \
     MCP_RUNTIME_CONFIG_DIR="${STAGING_MT_CONFIG_DIR}" VERIFY_DEPLOY_PULL_SECRET=1 \
     BIN="${BIN}" WORK_DIR="${WORK_DIR}/multitenancy" \
+    SERVER_CONTEXT="${server_context}" SERVER_DOCKERFILE="${server_dockerfile}" \
     ANALYTICS_INGEST_URL="${STAGING_ANALYTICS_INGEST_URL:-https://mcp-ingest.mcp-observability.svc.cluster.local:8081/events}" \
     bash "${ROOT_DIR}/hack/qa/multitenancy-test.sh" | tee "${STAGING_ARTIFACT_DIR}/multitenancy.log"
   # Evidence that the tenant server went through build -> push -> deploy and is

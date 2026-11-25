@@ -20,9 +20,10 @@ func TestRuntimeServerApplyDoesNotPersistDerivedOAuthAudience(t *testing.T) {
 	t.Setenv("PLATFORM_MODE", "org")
 	t.Setenv("PLATFORM_TEAM_TRAEFIK_WATCH", "disabled")
 	t.Setenv("MCP_REGISTRY_INGRESS_HOST", "registry.example.com")
+	t.Setenv("ADMIN_API_KEYS", "test-admin-key")
 
 	stale := &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "buddy", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "buddy", Namespace: "mcp-servers-org"},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Image: "registry.example.com/acme/buddy",
 			Auth: &mcpv1alpha1.AuthConfig{
@@ -35,7 +36,7 @@ func TestRuntimeServerApplyDoesNotPersistDerivedOAuthAudience(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/servers", bytes.NewReader([]byte(`{
 		"name": "buddy",
-		"namespace": "mcp-servers",
+		"namespace": "mcp-servers-org",
 		"update": true,
 		"spec": {"image":"registry.example.com/acme/buddy","auth":{}}
 	}`)))
@@ -46,7 +47,7 @@ func TestRuntimeServerApplyDoesNotPersistDerivedOAuthAudience(t *testing.T) {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body.String())
 	}
 
-	persisted, err := server.controlPlane().GetServer(context.Background(), "mcp-servers", "buddy")
+	persisted, err := server.controlPlane().GetServer(context.Background(), "mcp-servers-org", "buddy")
 	if err != nil {
 		t.Fatalf("GetServer: %v", err)
 	}

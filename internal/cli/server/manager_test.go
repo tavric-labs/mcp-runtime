@@ -326,13 +326,13 @@ func TestServerManager_ListServers(t *testing.T) {
 		cmd := mock.LastCommand()
 		found := false
 		for i, arg := range cmd.Args {
-			if arg == "-n" && i+1 < len(cmd.Args) && cmd.Args[i+1] == core.NamespaceMCPServers {
+			if arg == "-n" && i+1 < len(cmd.Args) && cmd.Args[i+1] == core.DefaultServerNamespace {
 				found = true
 				break
 			}
 		}
 		if !found {
-			t.Errorf("expected default namespace %q in args, got %v", core.NamespaceMCPServers, cmd.Args)
+			t.Errorf("expected default namespace %q in args, got %v", core.DefaultServerNamespace, cmd.Args)
 		}
 	})
 
@@ -428,7 +428,7 @@ func TestServerManager_ListServersModeSelection(t *testing.T) {
 		kubectl := core.NewTestKubectlClient(mock)
 		mgr := newKubeTestServerManager(kubectl)
 
-		if err := mgr.ListServers("mcp-servers", ""); err != nil {
+		if err := mgr.ListServers("mcp-servers-org", ""); err != nil {
 			t.Fatalf("unexpected kube list error: %v", err)
 		}
 		if len(mock.Commands) != 1 {
@@ -446,7 +446,7 @@ func TestServerManager_ListServersModeSelection(t *testing.T) {
 		kubectl := core.NewTestKubectlClient(mock)
 		mgr := newKubeTestServerManager(kubectl)
 
-		err := mgr.ListServers("mcp-servers", "")
+		err := mgr.ListServers("mcp-servers-org", "")
 		if err == nil {
 			t.Fatal("expected forbidden kube error")
 		}
@@ -1563,4 +1563,48 @@ func TestSelectDeployMetadataNameMatching(t *testing.T) {
 			t.Fatal("expected error for mismatched name with multiple servers")
 		}
 	})
+}
+
+func TestApplyDeployMetadataDefaultsMergesEgress(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.Mkdir(filepath.Join(tmp, ".mcp"), 0o750); err != nil {
+		t.Fatalf("mkdir metadata: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, ".mcp", "servers.yaml"), []byte(`version: v1
+servers:
+  - name: youtube
+    egress:
+      hosts: [www.googleapis.com, oauth2.googleapis.com]
+      ports: [443]
+`), 0o600); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	spec := buildDeployServerSpec("youtube", "registry.example.com/acme/youtube", "v1.0.0", 1, 8088, 80)
+	if err := applyDeployMetadataDefaults(&spec, "youtube", "", filepath.Join(tmp, ".mcp")); err != nil {
+		t.Fatalf("applyDeployMetadataDefaults() error = %v", err)
+	}
+	if spec.Egress == nil || len(spec.Egress.Hosts) != 2 || spec.Egress.Hosts[0] != "www.googleapis.com" || len(spec.Egress.Ports) != 1 || spec.Egress.Ports[0] != 443 {
+		t.Fatalf("egress = %+v, want hosts and ports from metadata", spec.Egress)
+	}
+}
+
+func TestInitServerWithEgressWritesValidatedMetadata(t *testing.T) {
+	dir := t.TempDir()
+	mgr := NewServerManager(core.NewTestKubectlClient(&core.MockExecutor{}), zap.NewNop())
+	egress := &blueprint.EgressConfig{Hosts: []string{"WWW.GoogleAPIs.com"}, Ports: []int32{443}}
+	if err := mgr.InitServerWithEgress(egress, "youtube", dir, "", "v1", "tenant", "allow-list", "deny", false, 8088, nil, nil, "", false); err != nil {
+		t.Fatalf("InitServerWithEgress() error = %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "servers.yaml"))
+	if err != nil {
+		t.Fatalf("read metadata: %v", err)
+	}
+	if !strings.Contains(string(data), "egress:") || !strings.Contains(string(data), "www.googleapis.com") {
+		t.Fatalf("metadata is missing the normalised egress block:\n%s", data)
+	}
+
+	bad := &blueprint.EgressConfig{Hosts: []string{"*.googleapis.com"}}
+	if err := mgr.InitServerWithEgress(bad, "other", dir, "", "v1", "tenant", "allow-list", "deny", false, 8088, nil, nil, "", false); err == nil {
+		t.Fatal("InitServerWithEgress accepted a wildcard host")
+	}
 }

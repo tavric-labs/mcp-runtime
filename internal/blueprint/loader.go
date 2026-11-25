@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/credentialbroker"
 	"mcp-runtime/pkg/identity"
 	policypkg "mcp-runtime/pkg/policy"
@@ -120,7 +121,7 @@ func setDefaults(server *ServerMetadata) error {
 		if namespace, ok := topology.ScopeCatalogNamespace(scope); ok {
 			server.Namespace = namespace
 		} else {
-			server.Namespace = topology.MCPServersNamespace
+			server.Namespace = topology.DefaultServerNamespace
 		}
 	}
 	if server.Auth != nil && strings.EqualFold(strings.TrimSpace(server.Auth.Mode), identity.AuthModeHeader) {
@@ -201,6 +202,11 @@ func setDefaults(server *ServerMetadata) error {
 		}
 		if server.Rollout.MaxSurge == "" {
 			server.Rollout.MaxSurge = "25%"
+		}
+	}
+	if server.Egress != nil {
+		if err := access.ValidateServerEgress(server.Egress.Hosts, server.Egress.Ports); err != nil {
+			return err
 		}
 	}
 	return validateHeaderAuth(server)

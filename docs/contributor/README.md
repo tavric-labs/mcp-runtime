@@ -21,10 +21,33 @@ For verification, [MCP Runtime Tests](runtime-mcp-testing.md) covers real reques
 and governance flows, [Staging End-to-End Tests](staging-e2e.md) exercises a
 production-style installation on a disposable VM, and
 [Regression Coverage](regression-index.md) maps known incidents to checks.
+[Bundled MCP Auth pin](mcp-auth-pin.md) explains how the default MCP Auth
+version is bumped.
 [Release Gate](release-gate.md) defines the required matrix and publication
 criteria for release candidates.
 Choose checks for the changed behavior; the contribution loop below explains
 when to use each guide.
+
+## Go toolchain
+
+Use Go 1.27.4, matching the project modules and builder images. This is the
+current Go 1.27 security patch reviewed on 2026-11-19 against the
+[official release history](https://go.dev/doc/devel/release#go1.27.0) and
+[GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859). Install the appropriate
+archive using the [official instructions](https://go.dev/doc/install), or let
+Go toolchain selection fetch the authenticated toolchain when using a recent
+Go installation with `GOTOOLCHAIN=auto`. Run `hack/dev/deps.sh check` before
+building. The CI tool builds read the same root `go.mod`. Staticcheck is pinned to
+2026.2.2 (`v0.8.2`), which supports Go 1.27.2+ export data; the
+[upstream release notes](https://github.com/dominikh/go-tools/releases/tag/2026.2.2)
+were reviewed on the same date. Install it with
+`go install honnef.co/go/tools/cmd/staticcheck@v0.8.2`. Gosec uses `v2.30.0`,
+whose [upstream release notes](https://github.com/securego/gosec/releases/tag/v2.30.0)
+record Go 1.27 support; its prior pinned analyzer fails to load Go 1.27 packages.
+Install it with `go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0`.
+The CI SAST gate enumerates root-module packages with `go list` to preserve
+its existing scope; Gosec 2.30 changes `./...` to include nested modules.
+Service image scans and acceptance gates remain required.
 
 ## Contribution Loop
 
@@ -87,13 +110,12 @@ The contributor Kind flow installs a full local stack:
 - analytics-api, ingest, processor, and the telemetry stores in `mcp-observability`
 - Traefik ingress on the local gateway path
 - A bundled registry for runtime images
-- `mcp-servers` as the legacy single-team/example MCP namespace
-- `mcp-servers-org` in default org mode; public mode also creates `mcp-servers-public`
+- `mcp-servers-org` in both platform modes
 - Optional `mcp-team-<slug>` namespaces for tenant isolation
 
 The default org-mode catalog is authenticated. Logged-in users see the org
-catalog plus their authorized team namespaces. Use `--platform-mode public`
-to add an anonymous public preview catalog; org and team catalogs stay private.
+catalog plus their authorized team namespaces. `--platform-mode public` is the
+hosted profile with the same catalogs; there is no anonymous catalog.
 
 ## Before Opening a PR
 

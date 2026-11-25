@@ -45,7 +45,7 @@ mcpruntime_org_namespace_name_is_mcp_runtime() {
     fi
   done
   case "$ns" in
-    mcp-servers|mcp-servers-*|mcp-team-*)
+    mcp-servers-*|mcp-team-*)
       return 0
       ;;
   esac

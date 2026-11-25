@@ -88,6 +88,9 @@ func validateAuth(auth *Auth) error {
 	if auth == nil {
 		return nil
 	}
+	if err := validatePublicPaths(auth); err != nil {
+		return err
+	}
 	mode := strings.ToLower(strings.TrimSpace(auth.Mode))
 	if mode == "header" {
 		return validateDelegatedAuth(auth)
@@ -263,6 +266,36 @@ func validateGrants(grants []Grant) error {
 				return fmt.Errorf("policy: grant %q tool rule %q has invalid required_trust %q", grant.Name, rule.Name, rule.RequiredTrust)
 			}
 		}
+		if err := validatePrimitiveRules(grant); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePrimitiveRules(grant Grant) error {
+	type ruleKey struct{ kind, pattern string }
+	seen := make(map[ruleKey]struct{}, len(grant.PrimitiveRules))
+	for j, rule := range grant.PrimitiveRules {
+		switch rule.Kind {
+		case PrimitiveResource, PrimitivePrompt, PrimitiveSkill:
+		default:
+			return fmt.Errorf("policy: grant %q primitive_rules[%d] has invalid kind %q", grant.Name, j, rule.Kind)
+		}
+		if strings.TrimSpace(rule.Pattern) == "" {
+			return fmt.Errorf("policy: grant %q primitive_rules[%d] pattern is required", grant.Name, j)
+		}
+		if i := strings.Index(rule.Pattern, "*"); i >= 0 && i != len(rule.Pattern)-1 {
+			return fmt.Errorf("policy: grant %q primitive_rules[%d] pattern %q may use * only as a trailing wildcard", grant.Name, j, rule.Pattern)
+		}
+		if !validDecision(rule.Decision) {
+			return fmt.Errorf("policy: grant %q primitive_rules[%d] has invalid decision %q", grant.Name, j, rule.Decision)
+		}
+		key := ruleKey{rule.Kind, rule.Pattern}
+		if _, dup := seen[key]; dup {
+			return fmt.Errorf("policy: grant %q has duplicate %s rule %q", grant.Name, rule.Kind, rule.Pattern)
+		}
+		seen[key] = struct{}{}
 	}
 	return nil
 }

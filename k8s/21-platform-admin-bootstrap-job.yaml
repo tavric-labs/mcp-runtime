@@ -39,11 +39,11 @@ spec:
                 secretKeyRef:
                   name: mcp-platform-api-credentials
                   key: POSTGRES_DSN
-            - name: JWT_SECRET
+            - name: JWT_SIGNING_KEY
               valueFrom:
                 secretKeyRef:
                   name: mcp-platform-api-credentials
-                  key: JWT_SECRET
+                  key: JWT_SIGNING_KEY
             - name: PLATFORM_ADMIN_EMAIL
               valueFrom:
                 secretKeyRef:

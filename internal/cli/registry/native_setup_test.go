@@ -87,6 +87,9 @@ func TestEnableNativeAuthForSetupRejectsHTTPRealm(t *testing.T) {
 type recordingCredentialCreator struct{ calls int }
 
 func (r *recordingCredentialCreator) CheckRegistryAdmin(context.Context) error { return nil }
+func (r *recordingCredentialCreator) WaitRegistryAdminReady(context.Context, func(string)) error {
+	return nil
+}
 func (r *recordingCredentialCreator) CreateRegistryPullCredential(context.Context, registryauth.PullScope) (platformapi.RegistryPullCredential, error) {
 	r.calls++
 	return platformapi.RegistryPullCredential{}, errors.New("unexpected credential issuance")

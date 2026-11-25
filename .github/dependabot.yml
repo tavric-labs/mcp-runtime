@@ -115,3 +115,16 @@ updates:
       example-server-go-modules:
         patterns:
           - "*"
+
+  # Bundled MCP Auth default image. The directory holds only a pin file
+  # (never built); see docs/contributor/mcp-auth-pin.md.
+  - package-ecosystem: docker
+    directory: /config/release/mcp-auth
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 1
+    labels:
+      - dependencies
+      - mcp-auth
+    commit-message:
+      prefix: "fix(setup):"

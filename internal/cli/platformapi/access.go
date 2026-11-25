@@ -50,6 +50,7 @@ type grantAPIBody struct {
 	PolicyVersion      string                     `json:"policyVersion,omitempty"`
 	Disabled           *bool                      `json:"disabled,omitempty"`
 	ToolRules          []mcpaccess.ToolRule       `json:"toolRules"`
+	PrimitiveRules     []mcpaccess.PrimitiveRule  `json:"primitiveRules,omitempty"`
 }
 
 type sessionAPIBody struct {
@@ -150,7 +151,7 @@ func (c *PlatformClient) GetSession(ctx context.Context, namespace, name string)
 func (c *PlatformClient) postGrant(ctx context.Context, body grantAPIBody) error {
 	// Validate the same request contract as runtime-api without rewriting the
 	// manifest payload or changing omitted state-field semantics.
-	req := mcpaccess.GrantApplyRequest{Name: body.Name, Namespace: body.Namespace, ServerRef: body.ServerRef, Subject: body.Subject, MaxTrust: body.MaxTrust, ExpiresAt: body.ExpiresAt, AllowedSideEffects: append([]mcpaccess.ToolSideEffect(nil), body.AllowedSideEffects...), PolicyVersion: body.PolicyVersion, Disabled: body.Disabled, ToolRules: append([]mcpaccess.ToolRule(nil), body.ToolRules...)}
+	req := mcpaccess.GrantApplyRequest{Name: body.Name, Namespace: body.Namespace, ServerRef: body.ServerRef, Subject: body.Subject, MaxTrust: body.MaxTrust, ExpiresAt: body.ExpiresAt, AllowedSideEffects: append([]mcpaccess.ToolSideEffect(nil), body.AllowedSideEffects...), PolicyVersion: body.PolicyVersion, Disabled: body.Disabled, ToolRules: append([]mcpaccess.ToolRule(nil), body.ToolRules...), PrimitiveRules: append([]mcpaccess.PrimitiveRule(nil), body.PrimitiveRules...)}
 	if body.Mode != "" {
 		mode := body.Mode
 		req.Mode = &mode
@@ -335,6 +336,10 @@ func grantFromV1(g *mcpv1alpha1.MCPAccessGrant) grantAPIBody {
 			RequiredTrust: mcpaccess.TrustLevel(tr.RequiredTrust),
 		})
 	}
+	primitives := make([]mcpaccess.PrimitiveRule, 0, len(g.Spec.PrimitiveRules))
+	for _, pr := range g.Spec.PrimitiveRules {
+		primitives = append(primitives, mcpaccess.PrimitiveRule{Kind: pr.Kind, Pattern: pr.Pattern, Decision: mcpaccess.PolicyDecision(pr.Decision)})
+	}
 	dis := g.Spec.Disabled
 	return grantAPIBody{
 		Mode:               mcpaccess.GrantMode(g.Spec.Mode),
@@ -348,6 +353,7 @@ func grantFromV1(g *mcpv1alpha1.MCPAccessGrant) grantAPIBody {
 		PolicyVersion:      g.Spec.PolicyVersion,
 		Disabled:           &dis,
 		ToolRules:          rules,
+		PrimitiveRules:     primitives,
 	}
 }
 

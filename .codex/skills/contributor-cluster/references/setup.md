@@ -221,7 +221,7 @@ certificate-backed `tools/call`. For an OAuth-enabled target the same adapter
 also carries a bearer token; the OAuth scenario covers that combined path.
 
 If this fails, do not declare bring-up successful. Capture
-`kubectl logs -n mcp-servers <pod> -c mcp-gateway --tail=120` and
+`kubectl logs -n mcp-servers-org <pod> -c mcp-gateway --tail=120` and
 `kubectl logs -n traefik deploy/traefik --tail=120`, then return.
 
 ## Step 9 — Report

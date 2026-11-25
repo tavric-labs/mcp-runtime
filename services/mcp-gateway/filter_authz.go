@@ -8,7 +8,8 @@ import (
 )
 
 // authzFilter consumes a complete identity and the captured policy snapshot.
-// Non-tool traffic gets an explicit allow; tool calls evaluate grants/sessions.
+// Lifecycle traffic gets an explicit allow; tool calls and resource, prompt and
+// skill access evaluate grants/sessions.
 func (s *gatewayServer) authzFilter(in AuthenticatedRequest) (EvaluatedRequest, *FilterResponse) {
 	now := s.currentTime()
 	if !in.Caller.Usable() {
@@ -46,7 +47,7 @@ type authorizationInput struct {
 
 func authorizeRequest(in authorizationInput, now time.Time) policypkg.Decision {
 	if !in.Inspection.RequiresAuthorization() {
-		// Non-tool traffic intentionally bypasses grant/session evaluation.
+		// Lifecycle and utility traffic intentionally bypasses grant/session evaluation.
 		return policypkg.Allow(
 			"allowed",
 			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(in.Policy), in.DefaultPolicyVersion),
@@ -64,16 +65,22 @@ func authorizeRequest(in authorizationInput, now time.Time) policypkg.Decision {
 			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(in.Policy), in.DefaultPolicyVersion),
 		)
 	case in.Inspection.Indeterminate():
+		status := http.StatusForbidden
+		if in.Inspection.FailureReason() == "header_mismatch" {
+			status = http.StatusBadRequest
+		}
 		return policypkg.Deny(
-			http.StatusForbidden,
+			status,
 			policypkg.FirstNonEmpty(in.Inspection.FailureReason(), "rpc_inspection_failed"),
 			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(in.Policy), in.DefaultPolicyVersion),
 		)
 	default:
 		return policypkg.Authorize(in.Policy, policypkg.Request{
 			Identity:  policyIdentity(in.Identity),
-			RPCMethod: in.Inspection.Method(),
+			RPCMethod: in.Inspection.AuthMethod(),
 			ToolName:  policypkg.ToolName(in.Inspection.ToolName()),
+			Target:    in.Inspection.Target(),
+			Targets:   in.Inspection.Targets(),
 			Session:   in.Identity.Session,
 		}, now)
 	}

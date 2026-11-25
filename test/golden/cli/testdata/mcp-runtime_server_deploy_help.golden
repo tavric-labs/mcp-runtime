@@ -11,7 +11,7 @@ Flags:
       --namespace string       Target namespace (optional when --team is provided)
       --port int32             Container port (default 8088)
       --replicas int32         Replica count (default 1)
-      --scope string           Publish scope: tenant, org, or public
+      --scope string           Publish scope: tenant or org
       --service-port int32     Service port (default 80)
       --tag string             Container image tag (default "latest")
       --team string            Team slug to resolve target namespace

@@ -8,6 +8,7 @@ import (
 
 	"mcp-runtime/pkg/identity"
 	policypkg "mcp-runtime/pkg/policy"
+	"mcp-runtime/pkg/spiffecert"
 )
 
 // authFilter establishes identity from OAuth and/or verified adapter certificates.
@@ -159,7 +160,7 @@ func (s *gatewayServer) authenticateAdapterCertificate(r *http.Request, policy *
 	}
 	// (2) Optionally pin the trusted ingress identity.
 	if expected := strings.TrimSpace(s.trustedProxySPIFFE); expected != "" {
-		if !identity.CertificateHasURI(r.TLS.PeerCertificates[0], expected) {
+		if !spiffecert.HasID(r.TLS.PeerCertificates[0], expected) {
 			return identityContext{}, errUntrustedProxy
 		}
 	}

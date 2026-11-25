@@ -32,7 +32,7 @@ staging_adapter_wait_granted_tool() {
 # Read-only diagnostics over a local port-forward; use the enrolled certificate
 # and workload CA with the gateway Service DNS name, preserving TLS validation.
 staging_adapter_capture_policy_status() (
-  local credential_dir="$1" url="$2" server namespace="${ns:-mcp-servers}" port pid i
+  local credential_dir="$1" url="$2" server namespace="${ns:-mcp-servers-org}" port pid i
   server="${url%/mcp}"
   server="${server##*/}"
   [[ "${server}" =~ ^[a-z0-9][a-z0-9-]*$ && "${namespace}" =~ ^[a-z0-9][a-z0-9-]*$ ]] || return 1

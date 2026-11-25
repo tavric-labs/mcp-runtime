@@ -201,7 +201,16 @@ func DefaultDenyNetworkPolicy(ns string, ingressFromNamespaces ...string) *netwo
 // Empty MCP_POD_EGRESS_CIDRS leaves the default policy unchanged. Private
 // destinations must list MCP_POD_EGRESS_EXCEPT_CIDRS so pod and service ranges
 // stay on the normal namespace policy.
+//
+// MCP_POD_EGRESS_ALLOW_ALL=true, which setup sets only for --test-mode, adds an
+// allow-all egress rule instead, so a throwaway cluster lets a server call any
+// API and reach in-cluster services such as the auth server. It is never set by a
+// normal install, and only the exact value "true" enables it.
 func applyConfiguredPodEgress(policy *networkingv1.NetworkPolicy) error {
+	if os.Getenv("MCP_POD_EGRESS_ALLOW_ALL") == "true" {
+		policy.Spec.Egress = append(policy.Spec.Egress, networkingv1.NetworkPolicyEgressRule{})
+		return nil
+	}
 	allows, err := kubeworkload.ParseEgressCIDRs(os.Getenv("MCP_POD_EGRESS_CIDRS"))
 	if err != nil {
 		return err

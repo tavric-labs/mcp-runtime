@@ -166,7 +166,7 @@ func TestRegistryNetworkPolicyDeniesTenantNamespaces(t *testing.T) {
 	if !ok {
 		t.Fatal("registry-allow-ingress policy not found")
 	}
-	for _, ns := range []string{"mcp-servers", "mcp-servers-org", "mcp-servers-public"} {
+	for _, ns := range []string{"mcp-servers-org", "mcp-servers-public"} {
 		if hasNamespaceIngressToPort(ingress, ns, 5000) {
 			t.Fatalf("registry ingress policy must not allow tenant namespace %s", ns)
 		}

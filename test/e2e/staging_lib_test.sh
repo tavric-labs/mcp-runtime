@@ -11,6 +11,8 @@ bash "${SCRIPT_DIR}/staging_issuer_test.sh"
 source "${SCRIPT_DIR}/lib/staging.sh"
 # shellcheck source=test/e2e/lib/k3s-installer.sh
 source "${SCRIPT_DIR}/lib/k3s-installer.sh"
+# shellcheck source=test/e2e/lib/staging-vm-clean.sh
+source "${SCRIPT_DIR}/lib/staging-vm-clean.sh"
 # shellcheck source=hack/lib/adapter-readiness.sh
 source "${SCRIPT_DIR}/../../hack/lib/adapter-readiness.sh"
 
@@ -47,11 +49,11 @@ identity_diagnostic_case() (
   local fixture_exit="$1" fixture_message="$2"
   BIN=identity_fixture_cli
   identity_fixture_cli() {
-    [[ "$*" == 'cluster identity status --server mcp-servers/fixture' ]] || return 97
+    [[ "$*" == 'cluster identity status --server mcp-servers-org/fixture' ]] || return 97
     printf '%s\n' "${fixture_message}" 'Remedy: reconcile workload trust'
     return "${fixture_exit}"
   }
-  staging_identity_expect_failure mcp-servers/fixture 'workload CA expires within 30 days' "${TMP}/identity-output"
+  staging_identity_expect_failure mcp-servers-org/fixture 'workload CA expires within 30 days' "${TMP}/identity-output"
 )
 identity_cleanup_case() (
   local cleanup_status="$1" original_status="$2"
@@ -95,21 +97,21 @@ adapter_pull_scope_case() (
   PLATFORM_URL=https://platform.e2e.mcpruntime.org
   BIN=fake_registry_cli
   fake_registry_cli() {
-    [[ "${MCP_PLATFORM_API_PROFILE}" == e2e && "$*" == 'registry enable-auth --realm https://platform.e2e.mcpruntime.org/api/v1/registry/token --pull-namespace mcp-servers --allow-bundled-broker' ]] || return 1
+    [[ "${MCP_PLATFORM_API_PROFILE}" == e2e && "$*" == 'registry enable-auth --realm https://platform.e2e.mcpruntime.org/api/v1/registry/token --pull-namespace mcp-servers-org --allow-bundled-broker' ]] || return 1
     printf 'rotate\n' >>"${calls}"
   }
   kubectl() {
     case "$*" in
-      '-n mcp-servers get deploy fixture'|'-n mcp-servers get deploy other') return 0 ;;
-      '-n mcp-servers get secret mcp-runtime-registry-pull -o json')
+      '-n mcp-servers-org get deploy fixture'|'-n mcp-servers-org get deploy other') return 0 ;;
+      '-n mcp-servers-org get secret mcp-runtime-registry-pull -o json')
         [[ "$(cat "${calls}")" == rotate ]] || return 1
         printf '{"apiVersion":"v1","kind":"Secret","type":"kubernetes.io/dockerconfigjson","data":{}}'
         ;;
-      'apply -f -') jq -e '.metadata.namespace == "mcp-servers" and .metadata.name == "fixture-pull"' >/dev/null ;;
+      'apply -f -') jq -e '.metadata.namespace == "mcp-servers-org" and .metadata.name == "fixture-pull"' >/dev/null ;;
       *) return 1 ;;
     esac
   }
-  staging_adapter_provision_pull mcp-servers fixture-pull fixture other
+  staging_adapter_provision_pull mcp-servers-org fixture-pull fixture other
 )
 expect_ok "adapter fixture rotates and copies its own namespace credential" adapter_pull_scope_case
 
@@ -365,10 +367,10 @@ adapter_env() {
   )
 }
 expect_eq "adapter certificates enabled with the workload issuer" \
-  "$(adapter_env E2E_MTLS_CLUSTER_ISSUER=mcp-runtime-ca)" "true|e2e.mcpruntime.org|mcp-servers"
+  "$(adapter_env E2E_MTLS_CLUSTER_ISSUER=mcp-runtime-ca)" "true|e2e.mcpruntime.org|mcp-platform"
 expect_eq "adapter certificates honor an explicit trust domain" \
   "$(adapter_env E2E_MTLS_CLUSTER_ISSUER=mcp-runtime-ca E2E_ADAPTER_TRUST_DOMAIN=staging.example.test)" \
-  "true|staging.example.test|mcp-servers"
+  "true|staging.example.test|mcp-platform"
 expect_eq "adapter certificates off without a workload issuer" \
   "$(adapter_env E2E_MTLS_CLUSTER_ISSUER= MCP_ADAPTER_CERTIFICATES=true)" "||"
 expect_eq "adapter certificates opt-out" \
@@ -669,6 +671,108 @@ workspace_browser_skip_case() (
   [[ "${status}" == "${STAGING_SKIP_RC}" ]]
 )
 expect_ok "workspace browser explicitly skips absent role fixtures" workspace_browser_skip_case
+
+# --- VM hygiene: stale k3s shims and the disk guard -------------------------
+STAGING_LOG_PREFIX='staging-test'
+shim_fixture_table() {
+  cat <<'TABLE'
+  101 /var/lib/rancher/k3s/data/abc/bin/containerd-shim-runc-v2 -namespace k8s.io -id aaa -address /run/k3s/containerd/containerd.sock
+  202 /usr/bin/containerd-shim-runc-v2 -namespace moby -id slashdocs -address /run/containerd/containerd.sock
+  303 /usr/bin/containerd-shim-runc-v2 -namespace k8s.io -id other -address /run/containerd/containerd.sock
+  404 /usr/local/bin/k3s server
+TABLE
+}
+shim_selection_case() (
+  staging_process_table() { shim_fixture_table; }
+  [[ "$(staging_k3s_shim_pids | tr '\n' ' ')" == '101 ' ]]
+)
+expect_ok "stale shim selection matches only the k3s k8s.io shim, never moby/docker or a k3s server" shim_selection_case
+shim_selfmatch_case() (
+  # The filter itself and the shell that runs it carry the marker strings in
+  # their own arguments; they must never be selected as shims.
+  staging_process_table() {
+    shim_fixture_table
+    echo "  505 awk index(\$0, \"containerd-shim\") && index(\$0, \"-namespace k8s.io\") && index(\$0, \"-address /run/k3s/\") { print \$1 }"
+    echo "  506 bash -c pgrep containerd-shim -namespace k8s.io -address /run/k3s/ | grep"
+  }
+  [[ "$(staging_k3s_shim_pids | tr '\n' ' ')" == '101 ' ]]
+)
+expect_ok "shim selection ignores the filter process and shells that merely mention the markers" shim_selfmatch_case
+shim_live_process_table_case() (
+  # Real ps, no fixture: with no k3s shim on this machine nothing may match,
+  # including the awk that does the matching.
+  [[ -z "$(staging_k3s_shim_pids | tr -d ' \n')" ]]
+)
+expect_ok "shim selection against the real process table never matches its own awk" shim_live_process_table_case
+shim_kill_case() (
+  STAGING_SHIM_WAIT=0
+  local alive=" 101 202 303 404 " signals="${TMP}/signals"
+  : >"${signals}"
+  staging_process_table() { local pid; for pid in ${alive}; do grep -E "^ *${pid} " <(shim_fixture_table); done; }
+  staging_signal_pid() { echo "$1 $2" >>"${signals}"; [[ "$1" == KILL ]] && alive="${alive/ $2 / }"; return 0; }
+  staging_kill_stale_k3s_shims
+  [[ "$(cat "${signals}")" == $'TERM 101\nKILL 101' ]]
+)
+expect_ok "stale shim kill escalates TERM then KILL on the k3s shim only" shim_kill_case
+shim_survivor_case() (
+  STAGING_SHIM_WAIT=0
+  staging_process_table() { shim_fixture_table; }
+  staging_signal_pid() { return 0; }
+  staging_kill_stale_k3s_shims
+)
+expect_fail "a k3s shim that survives SIGKILL fails the cleanup" shim_survivor_case
+unmount_case() (
+  STAGING_MOUNTS_FILE="${TMP}/mounts"
+  cat >"${STAGING_MOUNTS_FILE}" <<'MOUNTS'
+overlay /var/lib/docker/overlay2/x/merged overlay rw 0 0
+shm /run/k3s/containerd/io.containerd.grpc.v1.cri/sandboxes/a/shm tmpfs rw 0 0
+tmpfs /var/lib/kubelet/pods/p/volumes/kubernetes.io~secret/s tmpfs rw 0 0
+tmpfs /var/lib/kubelet tmpfs rw 0 0
+/dev/sda1 /var/lib/rancher/k3s-other ext4 rw 0 0
+MOUNTS
+  : >"${TMP}/umounted"
+  staging_umount() { echo "$1" >>"${TMP}/umounted"; }
+  staging_unmount_k3s_mounts
+  [[ "$(cat "${TMP}/umounted")" == $'/var/lib/kubelet/pods/p/volumes/kubernetes.io~secret/s\n/var/lib/kubelet\n/run/k3s/containerd/io.containerd.grpc.v1.cri/sandboxes/a/shm' ]]
+)
+expect_ok "k3s mounts are unmounted deepest first and docker mounts are left alone" unmount_case
+clean_killall_case() (
+  STAGING_SHIM_WAIT=0 STAGING_MOUNTS_FILE=/dev/null
+  printf '#!/bin/sh\necho ran >"%s/killall-ran"\n' "${TMP}" >"${TMP}/killall.sh"
+  chmod +x "${TMP}/killall.sh"
+  STAGING_K3S_KILLALL="${TMP}/killall.sh"
+  staging_process_table() { :; }
+  staging_clean_k3s_leftovers
+  [[ -f "${TMP}/killall-ran" ]]
+)
+expect_ok "leftover cleanup calls the supported k3s-killall.sh when present" clean_killall_case
+disk_fixture() {
+  # path -> "<avail KiB> <used%> <mountpoint>"
+  case "$1" in
+    /var/lib/rancher/k3s | /var/lib/docker | /var/tmp) echo "${DISK_FIXTURE_ROOT}" ;;
+  esac
+}
+disk_short_case() (
+  WORK_DIR=/var/tmp/mcp-runtime-e2e-x
+  staging_df_line() { disk_fixture "$1"; }
+  DISK_FIXTURE_ROOT="$1"
+  staging_disk_short
+)
+expect_fail "disk check flags 11 GiB free / 86% used" disk_short_case "11534336 86 /"
+expect_fail "disk check flags low free space despite low percentage" disk_short_case "10485760 40 /"
+expect_ok "disk check passes with ample space" disk_short_case "41943040 50 /"
+disk_guard_case() (
+  WORK_DIR=/var/tmp/mcp-runtime-e2e-x
+  local state="${TMP}/disk-state" pruned="${TMP}/pruned"
+  echo low >"${state}"; rm -f "${pruned}"
+  staging_df_line() { if [[ "$(cat "${state}")" == low ]]; then echo "11534336 86 /"; else echo "41943040 50 /"; fi; }
+  staging_prune_suite_garbage() { echo pruned >"${pruned}"; [[ "${DISK_GUARD_PRUNE_HELPS}" == 1 ]] && echo ok >"${state}"; return 0; }
+  staging_disk_guard
+)
+disk_guard_recovers() { DISK_GUARD_PRUNE_HELPS=1 disk_guard_case; }
+disk_guard_stuck() { DISK_GUARD_PRUNE_HELPS=0 disk_guard_case; }
+expect_ok "disk guard prunes then proceeds once space is recovered" disk_guard_recovers
+expect_fail "disk guard fails fast when pruning does not free enough" disk_guard_stuck
 
 if [[ "${FAILURES}" -ne 0 ]]; then
   echo "${FAILURES} staging lib test(s) failed" >&2

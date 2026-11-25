@@ -47,6 +47,7 @@ type ServerListItem struct {
 	LiveInventoryError string                           `json:"liveInventoryError,omitempty"`
 	AccessJSON         map[string]any                   `json:"access_json,omitempty"`
 	RuntimeStatus      controlplane.ServerRuntimeStatus `json:"runtimeStatus"`
+	Egress             *controlplane.ServerEgressInfo   `json:"egress,omitempty"`
 }
 
 type LivePromptArgument struct {
@@ -64,6 +65,9 @@ type LiveInventory struct {
 	Tools           []LiveTool     `json:"tools"`
 	Prompts         []LivePrompt   `json:"prompts"`
 	Resources       []LiveResource `json:"resources"`
+	// Extensions are the protocol extensions the server advertised, keyed by
+	// identifier, with their settings.
+	Extensions map[string]json.RawMessage `json:"extensions,omitempty"`
 }
 
 type LiveTool struct {

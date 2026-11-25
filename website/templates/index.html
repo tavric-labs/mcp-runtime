@@ -44,6 +44,31 @@
     </aside>
   </section>
 
+  <section id="overview-video" class="container overview-video" aria-label="MCP Runtime product overview video">
+    <div class="section-heading">
+      <p>See how MCP Runtime helps teams run MCP servers and set clear boundaries for agent access.</p>
+    </div>
+    <figure class="overview-video-player">
+      <video controls playsinline preload="none" width="1920" height="1080"
+        poster="{{ url_for('static', filename='media/mcp-runtime-overview.jpg') }}"
+        aria-label="MCP Runtime product overview" aria-describedby="overview-video-caption">
+        <source src="{{ url_for('static', filename='media/mcp-runtime-overview.mp4') }}" type="video/mp4">
+        <track kind="captions" src="{{ url_for('static', filename='media/mcp-runtime-overview.vtt') }}"
+          srclang="en" label="English" default>
+        <p><a href="{{ url_for('static', filename='media/mcp-runtime-overview.mp4') }}">Download the 45-second product overview</a>.</p>
+      </video>
+      <figcaption id="overview-video-caption">AI-assisted animation and synthetic narration. MCP Runtime is alpha software.</figcaption>
+    </figure>
+    <details class="overview-video-transcript">
+      <summary>Read the video transcript</summary>
+      <p>Agents can call your tools. But who decides which ones, and for how long?</p>
+      <p>That is what MCP Runtime does. It is a control plane for MCP servers. Set it up with one command. Deploy a server. Then give an agent a grant, with a time limit.</p>
+      <p>Open the console. Here are your servers and their tools. Here are the grants and sessions. And here, every call the gateway checked, including the denied ones.</p>
+      <p>Your infrastructure. Your rules. Open source, with a hosted preview you can try today.</p>
+    </details>
+    <p><a class="button primary" href="{{ platform_url }}">Explore the hosted preview</a></p>
+  </section>
+
   <section id="downloads" class="container blueprint" aria-labelledby="downloads-title">
     <div class="section-heading">
       <span class="section-label">Downloads</span>

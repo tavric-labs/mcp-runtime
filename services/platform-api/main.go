@@ -45,7 +45,7 @@ type apiServer struct {
 
 const defaultPlatformStoreStartupTimeout = 90 * time.Second
 
-type platformStoreOpener func(context.Context, string, []byte) (*platformStore, error)
+type platformStoreOpener func(context.Context, string, passport.Signer, passport.Verifier) (*platformStore, error)
 
 var (
 	platformStoreConnectAttemptTimeout = 10 * time.Second
@@ -111,16 +111,17 @@ func main() {
 		internalAuthToken: strings.TrimSpace(os.Getenv("INTERNAL_AUTH_TOKEN")),
 	}
 
+	signer, verifier, err := passport.PlatformKeysFromEnv()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
 	var store *platformStore
 	if dsn := platformDSNFromEnv(); dsn != "" {
 		startupTimeout := envcfg.EnvDuration("PLATFORM_DB_STARTUP_TIMEOUT", defaultPlatformStoreStartupTimeout)
 		ctx, cancel := context.WithTimeout(context.Background(), startupTimeout)
 		defer cancel()
-		jwtSecret, err := jwtSecretFromEnv()
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		store, err = openPlatformStoreWithRetry(ctx, dsn, jwtSecret, newPlatformStore)
+		store, err = openPlatformStoreWithRetry(ctx, dsn, signer, verifier, newPlatformStore)
 		if err != nil {
 			log.Fatalf("failed to initialize platform identity database: %v", err)
 		}
@@ -137,10 +138,6 @@ func main() {
 		server.registryAuth = store
 	}
 
-	jwtSecret, err := jwtSecretFromEnv()
-	if err != nil {
-		log.Fatal(err.Error())
-	}
 	// User API keys live in this service's Postgres store; there is no other
 	// place to resolve them.
 	var userResolver passport.UserKeyResolver
@@ -149,7 +146,8 @@ func main() {
 	}
 	server.authentic = passport.Authenticator{
 		Principals:      storeAPIKeyResolver{store: store},
-		Secret:          jwtSecret,
+		Signer:          signer,
+		Verifier:        verifier,
 		Audience:        passport.AudiencePlatform,
 		ServiceAPIKeys:  apiKeys,
 		AdminAPIKeys:    adminAPIKeys,
@@ -289,14 +287,14 @@ func (s *apiServer) authenticateRequest(r *http.Request) (principal, bool, error
 	return principal(p), ok, err
 }
 
-func openPlatformStoreWithRetry(ctx context.Context, dsn string, jwtSecret []byte, open platformStoreOpener) (*platformStore, error) {
+func openPlatformStoreWithRetry(ctx context.Context, dsn string, signer passport.Signer, verifier passport.Verifier, open platformStoreOpener) (*platformStore, error) {
 	if open == nil {
 		open = newPlatformStore
 	}
 	var lastErr error
 	for attempt := 1; ; attempt++ {
 		attemptCtx, cancel := context.WithTimeout(ctx, platformStoreConnectAttemptTimeout)
-		store, err := open(attemptCtx, dsn, jwtSecret)
+		store, err := open(attemptCtx, dsn, signer, verifier)
 		cancel()
 		if err == nil {
 			if attempt > 1 {

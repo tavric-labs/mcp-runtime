@@ -13,6 +13,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"mcp-platform-api/internal/platformstore"
+	"mcp-runtime/pkg/passport/passporttest"
 	"mcp-runtime/pkg/registryauth"
 )
 
@@ -46,7 +47,8 @@ func TestTeamSlugCanBeReusedAfterProvisioningRollback(t *testing.T) {
 	q := u.Query()
 	q.Set("search_path", schema)
 	u.RawQuery = q.Encode()
-	store, err := platformstore.Open(ctx, u.String(), []byte("integration-test-key"))
+	integrationSigner, integrationVerifier := passporttest.NewKeys(t)
+	store, err := platformstore.Open(ctx, u.String(), integrationSigner, integrationVerifier)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +60,7 @@ func TestTeamSlugCanBeReusedAfterProvisioningRollback(t *testing.T) {
 	if _, err := db.ExecContext(ctx, "ALTER TABLE "+schema+".teams ADD CONSTRAINT teams_slug_key UNIQUE (slug)"); err != nil {
 		t.Fatal(err)
 	}
-	store, err = platformstore.Open(ctx, u.String(), []byte("integration-test-key"))
+	store, err = platformstore.Open(ctx, u.String(), integrationSigner, integrationVerifier)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +116,8 @@ func TestRegistryPullCredentialsRevocationAndExpiry(t *testing.T) {
 	q := u.Query()
 	q.Set("search_path", schema)
 	u.RawQuery = q.Encode()
-	store, err := platformstore.Open(ctx, u.String(), []byte("integration-test-key"))
+	integrationSigner, integrationVerifier := passporttest.NewKeys(t)
+	store, err := platformstore.Open(ctx, u.String(), integrationSigner, integrationVerifier)
 	if err != nil {
 		t.Fatal(err)
 	}

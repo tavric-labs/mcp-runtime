@@ -142,7 +142,6 @@ func ensureOperatorSecretAccessBindingsClientGo() error {
 		return fmt.Errorf("list managed namespaces for Secret RBAC migration: %w", err)
 	}
 	namespaceSet := make(map[string]struct{}, len(servers.Items)+1)
-	namespaceSet[core.NamespaceMCPServers] = struct{}{}
 	for i := range servers.Items {
 		if namespace := strings.TrimSpace(servers.Items[i].GetNamespace()); namespace != "" {
 			if isProtectedOperatorSecretNamespace(namespace) {
@@ -174,6 +173,27 @@ func ensureOperatorSecretAccessBindingsClientGo() error {
 
 func isProtectedOperatorSecretNamespace(namespace string) bool {
 	return kubeworkload.OperatorSecretNamespaceProtected(namespace)
+}
+
+// Setup can leave rollouts of its own still settling (the operator re-reconciles
+// the bundled auth server after its restart), so a failing smoke gate is retried
+// for a bounded time before it fails setup. A persistent fault still fails.
+const smokeSettleAttempts = 5
+
+var smokeSettleDelay = 15 * time.Second
+
+func runSmokeUntilSettled(run func() error) error {
+	var err error
+	for attempt := 1; attempt <= smokeSettleAttempts; attempt++ {
+		if err = run(); err == nil {
+			return nil
+		}
+		if attempt < smokeSettleAttempts {
+			core.Info(fmt.Sprintf("Post-setup smoke attempt %d/%d failed; waiting %s for rollouts to settle", attempt, smokeSettleAttempts, smokeSettleDelay))
+			time.Sleep(smokeSettleDelay)
+		}
+	}
+	return err
 }
 
 func verifySetup(logger *zap.Logger, usingExternalRegistry bool, deps SetupDeps) error {
@@ -238,7 +258,7 @@ func verifySetup(logger *zap.Logger, usingExternalRegistry bool, deps SetupDeps)
 
 	if deps.RunPostSetupSmoke != nil {
 		core.Info("Running post-setup operational smoke checks")
-		if err := deps.RunPostSetupSmoke(); err != nil {
+		if err := runSmokeUntilSettled(deps.RunPostSetupSmoke); err != nil {
 			wrappedErr := core.WrapWithBaseAndContext(
 				core.ErrSetupStepFailed,
 				err,
@@ -274,12 +294,9 @@ func deployOperatorManifests(logger *zap.Logger, operatorImage, gatewayProxyImag
 // config/rbac/kustomization.yaml must be listed here, or a namespace-local
 // binding can reference a role that setup never created.
 var operatorRBACManifests = []string{
-	"config/rbac/managed_server_namespace.yaml",
 	"config/rbac/service_account.yaml",
 	"config/rbac/operator_secret_access.yaml",
-	"config/rbac/operator_secret_access_binding.yaml",
 	"config/rbac/operator_workload_access.yaml",
-	"config/rbac/operator_workload_access_binding.yaml",
 	"config/rbac/role_binding.yaml",
 }
 

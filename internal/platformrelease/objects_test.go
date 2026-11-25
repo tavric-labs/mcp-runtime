@@ -87,6 +87,7 @@ subjects:
 		{"user subject", binding("mcp-ingest-tokenreview", "{kind: User, name: mallory}"), "only ServiceAccount"},
 		{"foreign namespace subject", binding("mcp-ingest-tokenreview", "{kind: ServiceAccount, name: a, namespace: kube-system}"), "not a platform namespace"},
 		{"foreign namespace object", "apiVersion: v1\nkind: ServiceAccount\nmetadata: {name: x, namespace: kube-system}\n", "not a platform namespace"},
+		{"release bindings in a server namespace", "apiVersion: rbac.authorization.k8s.io/v1\nkind: RoleBinding\nmetadata: {name: mcp-runtime-operator-managed-secrets, namespace: mcp-servers-org}\nroleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: mcp-runtime-operator-managed-secrets}\nsubjects:\n- {kind: ServiceAccount, name: mcp-runtime-operator-controller-manager, namespace: mcp-runtime}\n", "not a platform namespace"},
 		{"unprefixed cluster role", strings.Replace(goodRole, "mcp-ingest-tokenreview", "admin-ish", 1), `must start with "mcp-"`},
 	}
 	for _, tc := range tests {
@@ -193,6 +194,34 @@ func TestReleaseWiringMatchesK8sManifests(t *testing.T) {
 			for k, v := range want.Env {
 				if env[k] != v {
 					t.Errorf("%s: k8s env %s=%q != wiring %q", name, k, env[k], v)
+				}
+			}
+			// secretKeyRef wiring must equal what setup renders: same Secret,
+			// key and optional flag; retired env must not be rendered at all.
+			for _, ref := range want.SecretEnv {
+				found := false
+				for _, ei := range list {
+					e, _ := ei.(map[string]any)
+					if e["name"] != ref.Name {
+						continue
+					}
+					found = true
+					vf, _ := e["valueFrom"].(map[string]any)
+					sk, _ := vf["secretKeyRef"].(map[string]any)
+					optional, _ := sk["optional"].(bool)
+					if sk["name"] != ref.Secret || sk["key"] != ref.Key || optional != ref.Optional {
+						t.Errorf("%s: k8s env %s secretKeyRef %v != wiring %+v", name, ref.Name, sk, ref)
+					}
+				}
+				if !found {
+					t.Errorf("%s: wiring secretEnv %s is not in the k8s/ container env", name, ref.Name)
+				}
+			}
+			for _, removed := range want.RemoveEnv {
+				for _, ei := range list {
+					if e, _ := ei.(map[string]any); e["name"] == removed {
+						t.Errorf("%s: wiring removes env %s but k8s/ still renders it", name, removed)
+					}
 				}
 			}
 			var args []string
@@ -356,6 +385,29 @@ func TestVerifyReleaseRejectsBrokenManifests(t *testing.T) {
 	} {
 		if err := clone(mutate).VerifyRelease("v9.9.9", commit); err == nil {
 			t.Errorf("%s must be rejected", name)
+		}
+	}
+}
+
+func TestComponentWiringValidatesSecretEnvAndRemoveEnv(t *testing.T) {
+	ok := &ComponentWiring{
+		SecretEnv: []SecretEnvRef{{Name: "JWT_VERIFY_KEY", Secret: "mcp-runtime-api-credentials", Key: "JWT_VERIFY_KEY"}},
+		RemoveEnv: []string{"JWT_SECRET"},
+	}
+	if errs := ok.validate("c"); len(errs) != 0 || ok.IsZero() {
+		t.Fatalf("valid wiring rejected or zero: %v", errs)
+	}
+	for name, w := range map[string]*ComponentWiring{
+		"bad env name":    {SecretEnv: []SecretEnvRef{{Name: "bad-name", Secret: "s", Key: "k"}}},
+		"bad secret name": {SecretEnv: []SecretEnvRef{{Name: "A", Secret: "Bad Secret", Key: "k"}}},
+		"bad key":         {SecretEnv: []SecretEnvRef{{Name: "A", Secret: "s", Key: "a/b"}}},
+		"duplicate":       {SecretEnv: []SecretEnvRef{{Name: "A", Secret: "s", Key: "k"}, {Name: "A", Secret: "s", Key: "k"}}},
+		"literal and ref": {Env: map[string]string{"A": "1"}, SecretEnv: []SecretEnvRef{{Name: "A", Secret: "s", Key: "k"}}},
+		"remove and set":  {SecretEnv: []SecretEnvRef{{Name: "A", Secret: "s", Key: "k"}}, RemoveEnv: []string{"A"}},
+		"bad remove name": {RemoveEnv: []string{"lower"}},
+	} {
+		if errs := w.validate("c"); len(errs) == 0 {
+			t.Errorf("%s: expected a validation error", name)
 		}
 	}
 }

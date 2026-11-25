@@ -143,10 +143,9 @@ servers:
 - `imageTag`
   The image tag.
 - `scope`
-  Optional publish destination: `tenant`, `org`, or `public`. `server init`
+  Optional publish destination: `tenant` or `org`. `server init`
   writes `scope: tenant` by default so new metadata starts in the private team
-  publish path. `org` resolves to the org catalog namespace, and `public`
-  resolves to the public catalog namespace. `tenant` selects one of the
+  publish path. `org` resolves to the org catalog namespace. `tenant` selects one of the
   authenticated user's team namespaces when you publish through the platform
   API; when generating Kubernetes YAML directly, set `namespace` explicitly for
   team deployments.
@@ -168,16 +167,14 @@ servers:
 If fields are omitted, the loader applies defaults:
 
 - image defaults toward the platform registry path
-- `server init` writes `scope: tenant` unless you pass `--scope org` or
-  `--scope public`
-- `scope: org` / `scope: public` prefix default image repositories with
-  `org/` or `public/` and default the generated namespace to
-  `mcp-servers-org` or `mcp-servers-public`
+- `server init` writes `scope: tenant` unless you pass `--scope org`
+- `scope: org` prefixes default image repositories with `org/` and defaults the
+  generated namespace to `mcp-servers-org`
 - tag defaults to `latest`
 - route is normalized with a leading `/`
 - port defaults to `8088`
 - replicas default to `1`
-- namespace defaults to `mcp-servers`
+- namespace defaults to `mcp-servers-org`
 - `server init` omits platform-managed gateway wiring and auth/session header
   details; add those fields only when you intentionally need to override the
   platform/operator defaults
@@ -235,7 +232,7 @@ unauthenticated pushes are
 rejected before Docker or the in-cluster helper starts. `<exact-image-ref-from-build>`
 may be a resolved public registry host such as `registry.example.com/org/payments:v1.0.0`,
 or a registry Service address when no public registry Ingress is configured.
-Use `--scope public` for public catalog images. Use `--scope tenant` for team
+Use `--scope org` for org catalog images. Use `--scope tenant` for team
 images; if the image name has no repository prefix, the CLI prefixes it with
 the authenticated user's sole team slug. For users in multiple teams, initialize
 the metadata with a team-scoped repository, for example
@@ -244,10 +241,9 @@ then run `server build image`, push
 the printed image ref and deploy to that team. Explicit tenant repository
 prefixes must match one of the user's teams; ambiguous unscoped tenant
 repositories are rejected before Docker runs.
-`--scope org` works in both platform modes; `--scope public` requires
-`PLATFORM_MODE=public`. Public mode accepts all three scopes; `server push` and
-`server deploy` reject a disabled scope the same way and list the enabled
-scopes. `--scope tenant` publishes to an authorized team in either mode. Uploads may take up
+`--scope org` works in both platform modes. The `public` scope was removed:
+`server push` and `server deploy` reject it and list the enabled scopes
+(`tenant`, `org`). `--scope tenant` publishes to an authorized team in either mode. Uploads may take up
 to `MCP_REGISTRY_PUSH_UPLOAD_TIMEOUT` (default `20m`) on `mcp-runtime-api`;
 archives over 512 MiB are rejected with `413`. The saved API URL must be
 `https://` when the front door redirects HTTP to HTTPS, or the upload POST
@@ -270,17 +266,16 @@ the `MCPServer` for you:
 ```bash
 docker build -t payments:v1.0.0 .
 mcp-runtime auth login --api-url https://platform.example.com
-mcp-runtime server push --scope public --image payments:v1.0.0
-mcp-runtime server deploy payments --scope public --image payments --tag v1.0.0
+mcp-runtime server push --scope org --image payments:v1.0.0
+mcp-runtime server deploy payments --scope org --image payments --tag v1.0.0
 ```
 
 Short names like `payments:v1.0.0` are valid for `server push` when that
 exact local image tag exists. For `server deploy`, the platform API accepts
 short names such as `payments` and resolves them to the configured registry and
-scope prefix, for example `<registry>/public/payments` in public mode or
-`<registry>/<team-slug>/payments` with tenant scope in either mode.
-`server deploy --scope public` resolves the platform public catalog namespace;
-`--scope org` resolves the org catalog namespace; `--scope tenant` uses the
+scope prefix, for example `<registry>/org/payments` with org scope or
+`<registry>/<team-slug>/payments` with tenant scope.
+`server deploy --scope org` resolves the org catalog namespace; `--scope tenant` uses the
 authenticated user's team namespace unless `--team` or `--namespace` selects one
 explicitly. `server deploy` uses the default public route `/<name>/mcp`, and
 the operator sets `MCP_PATH` to the path the server receives so the bundled Go,
@@ -315,6 +310,16 @@ server namespace/name (including records in other namespaces), remove its
 exclusively managed analytics credential, and delete the server. Shared image
 pull credentials, user-provided secrets, agents, teams, and historical audit
 and analytics records are retained.
+
+The operator links issued per-server gateway and ingress-client TLS Secrets to
+the MCPServer as non-controller dependents. Retirement garbage-collects those
+credentials even when cert-manager keeps Secrets after Certificate deletion.
+Reconciliation adds the link only when the issued TLS Secret identifies the
+expected Certificate and configured ClusterIssuer; it preserves certificate
+data and any cert-manager controller owner. A matching name alone does not
+authorize adopting a user-provided credential. Credentials orphaned before
+this ownership repair need a separately reviewed cleanup after checking that
+no server, Certificate or workload references them.
 
 For servers applied directly through Kubernetes, retirement repairs a missing
 namespace-local API credential binding after checking ownership. It waits up to
@@ -371,7 +376,7 @@ mcp-runtime status
 ```
 
 Tenant deploys land in the team namespace, `mcp-team-<team-slug>`, not
-`mcp-servers`. Pass `--namespace mcp-team-acme` to `server get`,
+`mcp-servers-org`. Pass `--namespace mcp-team-acme` to `server get`,
 `server status`, `server policy inspect`, and the `access` commands when the
 server is not in your default namespace.
 
@@ -392,6 +397,103 @@ mcp-runtime status
 mcp-runtime ops logs gateway --follow
 mcp-runtime server logs payments --follow --use-kube
 ```
+
+## External egress for MCP servers
+
+MCP server pods run under a default-deny egress NetworkPolicy. They can reach the
+platform API, DNS, observability, the registry, other pods in their namespace and
+the ingress controller, and nothing else. A server that calls an external API
+(for example `youtube` calling Google) therefore fails with an error such as
+`could not reach YouTube` even though its grants, sessions and gateway are
+healthy. Declare the hosts the server needs and have an administrator approve
+them.
+
+### Declare the hosts
+
+Set `egress` in the server's `.mcp` metadata (or `spec.egress` on the
+`MCPServer`), or scaffold it with `mcp-runtime server init --egress-host <host>`
+(repeat it for more hosts; `--egress-port` adds ports). `server validate`,
+`server build` and `server deploy` check the same rules:
+
+```yaml
+spec:
+  egress:
+    hosts:
+      - www.googleapis.com
+      - oauth2.googleapis.com
+    ports: [443]      # optional; TCP only, defaults to [443]
+```
+
+- `hosts` is required when `egress` is set: DNS names only. Wildcards and IP
+  literals are rejected.
+- `ports` lists TCP ports and defaults to `443`.
+- A server without `spec.egress` is unchanged and stays under default-deny.
+
+### Approve it
+
+Declaring egress does not open the network. A platform administrator reviews the
+hosts and approves them:
+
+```bash
+mcp-runtime server egress approve youtube --namespace mcp-servers-org --use-kube
+mcp-runtime server egress revoke  youtube --namespace mcp-servers-org --use-kube
+```
+
+Approval currently needs `--use-kube`, which requires administrator cluster
+access, because there is no platform API endpoint for it yet. The command pins
+the version it read, so it fails instead of approving a declaration that
+changed in between. An approval stays in place across a redeploy only while the
+hosts and ports are unchanged; changing either one revokes it.
+
+Approval is recorded as the `mcpruntime.org/egress-approved` annotation on the
+`MCPServer`. The platform API ignores that annotation on deploy, so a publisher
+cannot grant themselves internet access.
+
+### What the operator creates
+
+After approval the operator reconciles one NetworkPolicy owned by the server,
+named `<server>-external-egress`. It selects the server's pods and allows the
+declared TCP ports to public addresses only. Private (RFC 1918), loopback,
+link-local (including the cloud metadata address) and cluster pod and service
+ranges stay blocked. Retiring the server or revoking approval removes the policy.
+
+The `ExternalEgressReady` condition on `MCPServer.status` reports the state:
+
+| Reason | Meaning |
+|---|---|
+| `NotRequested` | The server declares no `spec.egress`. |
+| `PendingApproval` | Hosts are declared, no administrator has approved them, and no policy exists. |
+| `Applied` | Approved; `<server>-external-egress` is in place. |
+
+### Current limit: hosts are recorded, not enforced by name
+
+Kubernetes NetworkPolicy cannot match hostnames, and the reference cluster has no
+FQDN-aware network plugin. This release enforces the approved ports and "public
+addresses only" and records the declared hosts for review and audit. It does not
+stop an approved server from connecting to another public host on the same port.
+Treat approval as permission for outbound HTTPS to the internet, and review the
+declared hosts accordingly. Hostname enforcement needs an FQDN-aware plugin or an
+egress proxy and is tracked in
+[#957](https://github.com/tavric-labs/mcp-runtime/issues/957).
+
+### Troubleshooting
+
+- **`could not reach <service>` in the server log, grants and sessions fine.**
+  Check `mcp-runtime server get <name>` for the `ExternalEgressReady` condition.
+  `NotRequested` means the server never declared `spec.egress`.
+- **`PendingApproval`.** An administrator has not approved the declaration.
+  Review the hosts, then run `server egress approve`.
+- **`Applied` but calls still fail.** Confirm the server needs a port other than
+  `443`, that the destination is a public address (private and cluster addresses
+  stay blocked by design), and that the name resolves from inside the pod.
+- **Replacing a hand-applied policy.** Earlier installs may carry manually
+  applied egress NetworkPolicies (for example for `google-search`). Declare
+  `spec.egress`, approve it, confirm `Applied`, then delete the manual policy so
+  one managed policy remains.
+
+Example, the `youtube` server: declare `www.googleapis.com` and
+`oauth2.googleapis.com` on port `443`, approve with `server egress approve
+youtube`, and its tools can reach Google once `ExternalEgressReady` is `Applied`.
 
 ## Common failure points
 
@@ -456,7 +558,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPServer
 metadata:
   name: payments
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   description: Payments MCP server for invoice lookup and refund workflows.
   image: registry.example.com/payments
@@ -467,7 +569,7 @@ spec:
     enabled: true
 ```
 
-`namespace: mcp-servers` suits a single-team install. For a tenant deployment,
+`namespace: mcp-servers-org` publishes to the organization catalog. For a tenant deployment,
 use the team namespace (`mcp-team-<team-slug>`) and set `spec.teamID`: the
 platform API fills both when you publish with `server deploy --scope tenant`,
 but hand-written YAML must state them explicitly.
@@ -477,7 +579,7 @@ but hand-written YAML must state them explicitly.
 - `metadata.name`
   The server name inside the platform. This is also the default public route prefix when you do not override it.
 - `metadata.namespace`
-  Usually `mcp-servers` for a single-team setup. In a multi-team deployment,
+  Usually `mcp-servers-org` for a single-team setup. In a multi-team deployment,
   use the team's namespace, for example `mcp-team-acme`; see
   [Multi-team isolation](teams-and-access.md).
 - `spec.teamID`
@@ -493,6 +595,10 @@ but hand-written YAML must state them explicitly.
   The port your MCP process listens on inside the container.
 - `spec.publicPathPrefix`
   The public route prefix. `payments` becomes `/payments/mcp`.
+- `spec.egress`
+  Optional external hosts and TCP ports the server must reach. Applied only
+  after administrator approval; see
+  [External egress](#external-egress-for-mcp-servers).
 - `spec.gateway.enabled`
   Sends requests through `mcp-gateway` for metrics, traces, and request
   analytics. The sidecar is **on by default** (including `gateway: {}`). Set

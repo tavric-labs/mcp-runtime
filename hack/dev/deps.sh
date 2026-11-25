@@ -16,7 +16,7 @@ go_version_ok() {
 	if ! command -v go >/dev/null 2>&1; then
 		return 1
 	fi
-	# e.g. "go version go1.25.0 darwin/arm64" or "go1.25.0"
+	# e.g. "go version go1.27.4 darwin/arm64" or "go1.27.4"
 	local ver
 	ver=$(go version | awk '{print $3}' | sed 's/^go//')
 	local major minor patch

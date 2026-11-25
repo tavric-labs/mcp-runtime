@@ -3,6 +3,7 @@ package update
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -37,6 +38,12 @@ type wiringChange struct {
 	// leaves them as the literal rather than guessing the reference.
 	prevEnvFrom map[string]bool
 
+	// secretEnv are env vars to source from a Secret key, with the definition
+	// each replaced (nil when it was absent) so rollback can restore it.
+	secretEnv []secretEnvChange
+	// removeEnv are retired env vars with their previous definition.
+	removeEnv []removedEnv
+
 	// args is the full desired container argument list (the field is atomic).
 	args     []string
 	prevArgs []string
@@ -52,6 +59,77 @@ type wiringChange struct {
 	// prevHash holds the previous value, nil meaning the annotation was absent.
 	configHash map[string]string
 	prevHash   map[string]*string
+}
+
+type secretEnvChange struct {
+	ref  platformrelease.SecretEnvRef
+	prev *corev1.EnvVar
+}
+
+type removedEnv struct {
+	name string
+	prev corev1.EnvVar
+}
+
+// secretRefMatches reports whether e is exactly the wanted secretKeyRef.
+func secretRefMatches(e *corev1.EnvVar, ref platformrelease.SecretEnvRef) bool {
+	if e == nil || e.Value != "" || e.ValueFrom == nil {
+		return false
+	}
+	src := e.ValueFrom
+	if src.SecretKeyRef == nil || src.ConfigMapKeyRef != nil || src.FieldRef != nil || src.ResourceFieldRef != nil {
+		return false
+	}
+	k := src.SecretKeyRef
+	return k.Name == ref.Secret && k.Key == ref.Key && (k.Optional != nil && *k.Optional) == ref.Optional
+}
+
+func findEnv(env []corev1.EnvVar, name string) *corev1.EnvVar {
+	for i := range env {
+		if env[i].Name == name {
+			return &env[i]
+		}
+	}
+	return nil
+}
+
+// envVarSourceKeys are every valueFrom source; a patch nulls the ones it does
+// not set so a merge never leaves a stale source beside the new one.
+var envVarSourceKeys = []string{"secretKeyRef", "configMapKeyRef", "fieldRef", "resourceFieldRef"}
+
+// envVarPatch renders env as a strategic-merge entry that fully replaces any
+// previous definition of the same name (literal or reference).
+func envVarPatch(e corev1.EnvVar) map[string]any {
+	entry := map[string]any{"name": e.Name}
+	if e.ValueFrom == nil {
+		entry["value"] = e.Value
+		entry["valueFrom"] = nil
+		return entry
+	}
+	entry["value"] = nil
+	source := map[string]any{}
+	if raw, err := json.Marshal(e.ValueFrom); err == nil {
+		_ = json.Unmarshal(raw, &source)
+	}
+	for _, k := range envVarSourceKeys {
+		if _, ok := source[k]; !ok {
+			source[k] = nil
+		}
+	}
+	if ref, ok := source["secretKeyRef"].(map[string]any); ok {
+		// merge would keep a stale optional flag when it is omitted
+		if _, has := ref["optional"]; !has {
+			ref["optional"] = false
+		}
+	}
+	entry["valueFrom"] = source
+	return entry
+}
+
+func secretEnvVar(ref platformrelease.SecretEnvRef) corev1.EnvVar {
+	optional := ref.Optional
+	return corev1.EnvVar{Name: ref.Name, ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{Name: ref.Secret}, Key: ref.Key, Optional: &optional}}}
 }
 
 // configHashes computes the annotation set a component needs for the ConfigMaps
@@ -214,6 +292,27 @@ func planWiring(deploy *appsv1.Deployment, container *corev1.Container, want *pl
 				drift = append(drift, fmt.Sprintf("env %s corrected", name))
 			}
 		}
+		for _, ref := range want.SecretEnv {
+			existing := findEnv(container.Env, ref.Name)
+			if secretRefMatches(existing, ref) {
+				continue
+			}
+			sc := secretEnvChange{ref: ref}
+			verb := "set from secret"
+			if existing != nil {
+				prev := *existing.DeepCopy()
+				sc.prev = &prev
+				verb = "corrected to secret"
+			}
+			change.secretEnv = append(change.secretEnv, sc)
+			drift = append(drift, fmt.Sprintf("env %s %s %s key %s", ref.Name, verb, ref.Secret, ref.Key))
+		}
+		for _, name := range want.RemoveEnv {
+			if existing := findEnv(container.Env, name); existing != nil {
+				change.removeEnv = append(change.removeEnv, removedEnv{name: name, prev: *existing.DeepCopy()})
+				drift = append(drift, fmt.Sprintf("env %s removed", name))
+			}
+		}
 		if len(want.Args) > 0 {
 			if args, changed := ensureArgs(container.Args, want.Args); changed {
 				change.setArgs = true
@@ -310,6 +409,16 @@ func wiringSatisfied(deploy *appsv1.Deployment, container *corev1.Container, cha
 			if e.Name == name && e.ValueFrom != nil {
 				return false
 			}
+		}
+	}
+	for _, sc := range change.secretEnv {
+		if !secretRefMatches(findEnv(container.Env, sc.ref.Name), sc.ref) {
+			return false
+		}
+	}
+	for _, r := range change.removeEnv {
+		if findEnv(container.Env, r.name) != nil {
+			return false
 		}
 	}
 	if change.setArgs && !reflect.DeepEqual(container.Args, change.args) {
@@ -411,6 +520,23 @@ func (c *wiringChange) apply(parts *patchParts, rollback bool) (env []map[string
 			env = append(env, map[string]any{"name": name, "value": *c.prevEnv[name], "valueFrom": nil})
 		}
 	}
+	for _, sc := range c.secretEnv {
+		switch {
+		case !rollback:
+			env = append(env, envVarPatch(secretEnvVar(sc.ref)))
+		case sc.prev == nil:
+			env = append(env, map[string]any{"name": sc.ref.Name, "$patch": "delete"})
+		default:
+			env = append(env, envVarPatch(*sc.prev))
+		}
+	}
+	for _, r := range c.removeEnv {
+		if rollback {
+			env = append(env, envVarPatch(r.prev))
+		} else {
+			env = append(env, map[string]any{"name": r.name, "$patch": "delete"})
+		}
+	}
 	return env, args, setArgs
 }
 
@@ -433,4 +559,27 @@ func hasWiring(plan *Plan) bool {
 		}
 	}
 	return false
+}
+
+// recoveryCommands are the kubectl commands that undo the secret env wiring by
+// hand: unset what update added and restore a retired env that was a Secret
+// reference. A retired literal is never printed (it may be a credential);
+// `rollout undo` restores it.
+func (c *wiringChange) recoveryCommands(namespace, deployment, container string) []string {
+	if c == nil {
+		return nil
+	}
+	var cmds []string
+	base := fmt.Sprintf("kubectl -n %s set env deployment/%s -c %s", namespace, deployment, container)
+	for _, sc := range c.secretEnv {
+		if sc.prev == nil {
+			cmds = append(cmds, fmt.Sprintf("%s %s-", base, sc.ref.Name))
+		}
+	}
+	for _, r := range c.removeEnv {
+		if ref := r.prev.ValueFrom; ref != nil && ref.SecretKeyRef != nil && ref.SecretKeyRef.Key == r.name {
+			cmds = append(cmds, fmt.Sprintf("%s --from=secret/%s --keys=%s", base, ref.SecretKeyRef.Name, r.name))
+		}
+	}
+	return cmds
 }

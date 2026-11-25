@@ -19,13 +19,19 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.26.1
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
 
       - name: Run gosec
-        run: $(go env GOPATH)/bin/gosec ./...
+        run: |
+          # Retain the root-module scope: gosec 2.30's ./... also traverses
+          # nested modules, unlike the previously pinned analyzer.
+          package_dirs="$(go list -f '{{.Dir}}' ./...)"
+          test -n "$package_dirs"
+          mapfile -t packages <<< "$package_dirs"
+          "$(go env GOPATH)/bin/gosec" "${packages[@]}"

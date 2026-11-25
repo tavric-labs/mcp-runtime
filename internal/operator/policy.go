@@ -194,6 +194,7 @@ func (r *MCPServerReconciler) renderGatewayPolicy(ctx context.Context, mcpServer
 			doc.Auth.IssuerURL = mcpServer.Spec.Auth.IssuerURL
 			doc.Auth.Audience = mcpServer.Spec.Auth.Audience
 			doc.Auth.Scopes = append([]string(nil), mcpServer.Spec.Auth.Scopes...)
+			doc.Auth.PublicPaths = mcpv1alpha1.PolicyPublicPaths(mcpServer.Spec.Auth)
 		}
 	}
 	if mcpServer.Spec.Policy != nil {
@@ -294,6 +295,13 @@ func (r *MCPServerReconciler) renderGatewayPolicy(ctx context.Context, mcpServer
 				Name:          policy.ToolName(rule.Name),
 				Decision:      string(defaultDecision(rule.Decision)),
 				RequiredTrust: string(defaultTrust(rule.RequiredTrust)),
+			})
+		}
+		for _, rule := range grant.Spec.PrimitiveRules {
+			rendered.PrimitiveRules = append(rendered.PrimitiveRules, policy.PrimitiveRule{
+				Kind:     rule.Kind,
+				Pattern:  rule.Pattern,
+				Decision: string(defaultDecision(rule.Decision)),
 			})
 		}
 		doc.Grants = append(doc.Grants, rendered)

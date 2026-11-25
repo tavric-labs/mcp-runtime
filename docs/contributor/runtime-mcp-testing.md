@@ -5,19 +5,19 @@ gateway policy, and clean up stale runtime objects in a contributor cluster.
 
 ## Catalog Model
 
-`mcp-servers` is the legacy single-team/example namespace used by the local
+`mcp-servers-org` is the default example namespace used by the local
 testing manifests below. In default `org` platform mode, signed-in users see
 the `mcp-servers-org` authenticated catalog and their authorized team namespaces.
-`--platform-mode public` adds `mcp-servers-public` as the anonymous preview
-catalog. Team-specific MCPs belong in namespaces such as `mcp-team-tenant-a`.
+`--platform-mode public` is the hosted profile with the same catalogs.
+Team-specific MCPs belong in namespaces such as `mcp-team-tenant-a`.
 
 Expected UI/API behavior:
 
 | Principal | Expected catalog |
 |---|---|
-| Anonymous | `401` for `/api/v1/runtime/servers`, except public mode can read `mcp-servers-public` |
+| Anonymous | `401` for `/api/v1/runtime/servers` in every mode |
 | User in org mode | MCPs from `mcp-servers-org` and authorized team namespaces |
-| User in public mode | MCPs from public, org, and authorized team namespaces |
+| User in public mode | MCPs from `mcp-servers-org` and authorized team namespaces |
 | Admin | Cluster-wide management visibility, with namespace/team checks on writes |
 
 ## Deploy the bundled workspace assistant
@@ -33,7 +33,7 @@ version: v1
 servers:
   - name: oauth-example-go-2025-11-25-gateway
     description: Workspace assistant MCP server for task cards, release notes, and text cleanup.
-    namespace: mcp-servers
+    namespace: mcp-servers-org
     route: /oauth-example-go-2025-11-25-gateway/mcp
     publicPathPrefix: oauth-example-go-2025-11-25-gateway
     port: 8088
@@ -163,7 +163,7 @@ the adapter path described in the user docs.
   --email admin@mcpruntime.org --password 'admin@123'
 
 ./bin/mcp-runtime access grant init workspace-assistant-grant \
-  --namespace mcp-servers \
+  --namespace mcp-servers-org \
   --server oauth-example-go-2025-11-25-gateway \
   --human-id local-user \
   --agent-id local-agent \
@@ -172,7 +172,7 @@ the adapter path described in the user docs.
   --output /tmp/grant.yaml
 
 ./bin/mcp-runtime access session init local-session \
-  --namespace mcp-servers \
+  --namespace mcp-servers-org \
   --server oauth-example-go-2025-11-25-gateway \
   --human-id local-user \
   --agent-id local-agent \

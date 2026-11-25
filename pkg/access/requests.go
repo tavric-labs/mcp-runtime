@@ -21,6 +21,7 @@ type GrantApplyRequest struct {
 	Disabled           *bool            `json:"disabled,omitempty"`
 	ExpiresAt          *Time            `json:"expiresAt,omitempty"`
 	ToolRules          []ToolRule       `json:"toolRules"`
+	PrimitiveRules     []PrimitiveRule  `json:"primitiveRules,omitempty"`
 }
 
 // SessionApplyRequest is the administrative platform session input contract.
@@ -92,6 +93,12 @@ func ValidateGrantApplyRequest(req *GrantApplyRequest, now time.Time) error {
 		req.ToolRules[i].Decision = PolicyDecision(strings.TrimSpace(string(rule.Decision)))
 		req.ToolRules[i].RequiredTrust = TrustLevel(strings.TrimSpace(string(rule.RequiredTrust)))
 		spec.ToolRules = append(spec.ToolRules, specvalidation.ToolRule{Name: req.ToolRules[i].Name, Decision: string(req.ToolRules[i].Decision), RequiredTrust: string(req.ToolRules[i].RequiredTrust)})
+	}
+	for i, rule := range req.PrimitiveRules {
+		req.PrimitiveRules[i].Kind = strings.TrimSpace(rule.Kind)
+		req.PrimitiveRules[i].Pattern = strings.TrimSpace(rule.Pattern)
+		req.PrimitiveRules[i].Decision = PolicyDecision(strings.TrimSpace(string(rule.Decision)))
+		spec.PrimitiveRules = append(spec.PrimitiveRules, specvalidation.PrimitiveRule{Kind: req.PrimitiveRules[i].Kind, Pattern: req.PrimitiveRules[i].Pattern, Decision: string(req.PrimitiveRules[i].Decision)})
 	}
 	return specvalidation.ValidateGrant(spec, specvalidation.Apply, now).FirstError()
 }

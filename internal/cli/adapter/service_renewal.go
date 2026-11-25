@@ -28,7 +28,7 @@ func renewProfileCertificate(ctx context.Context, p adapterd.Profile, platformTo
 	if err != nil {
 		return renewedCredential{}, err
 	}
-	key, csr, _, err := identity.BuildSessionCSR(p.TrustDomain, p.Namespace, p.Session)
+	key, csr, expected, err := identity.BuildSessionCSR(p.TrustDomain, p.Namespace, p.Session)
 	if err != nil {
 		return renewedCredential{}, err
 	}
@@ -44,7 +44,6 @@ func renewProfileCertificate(ctx context.Context, p adapterd.Profile, platformTo
 	if err != nil {
 		return renewedCredential{}, err
 	}
-	expected := "spiffe://" + p.TrustDomain + "/ns/" + p.Namespace + "/session/" + p.Session
 	now := time.Now()
 	if issued.SPIFFEID != expected || !issued.ExpiresAt.After(now) || issued.ExpiresAt.After(p.SessionExpires) || leaf.NotAfter.After(issued.ExpiresAt) || leaf.NotAfter.After(p.SessionExpires) || !leaf.NotAfter.After(now) || leaf.NotBefore.After(now) {
 		return renewedCredential{}, errors.New("certificate identity or lifetime mismatch")

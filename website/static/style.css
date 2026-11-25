@@ -849,3 +849,12 @@ pre {
     transition: none !important;
   }
 }
+
+/* Native, same-origin overview video; the movie loads only when requested. */
+.overview-video { padding-block: 2rem 4rem; }
+.overview-video-player { margin: 1.5rem 0 1rem; }
+.overview-video-player video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid var(--line, #39445a); border-radius: 12px; background: #080f24; }
+.overview-video-player figcaption { margin-top: .65rem; font-size: .85rem; opacity: .75; }
+.overview-video-transcript { margin: 1rem 0 1.5rem; max-width: 75ch; }
+.overview-video-transcript summary { cursor: pointer; padding-block: .5rem; font-weight: 600; }
+.overview-video-transcript p { line-height: 1.65; }

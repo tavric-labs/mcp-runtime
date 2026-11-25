@@ -97,10 +97,10 @@ type ServerMetadata struct {
 	// SecretEnvVars are secret-backed environment variables to pass to the container.
 	SecretEnvVars []SecretEnvVar `yaml:"secretEnvVars,omitempty" json:"secretEnvVars,omitempty"`
 
-	// Namespace is the Kubernetes namespace (defaults to "mcp-servers").
+	// Namespace is the Kubernetes namespace (defaults to "mcp-servers-org").
 	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 
-	// Scope selects a publish destination: tenant, org, or public.
+	// Scope selects a publish destination: tenant or org.
 	Scope topology.Scope `yaml:"scope,omitempty" json:"scope,omitempty"`
 
 	// TeamID is the stable platform team identifier that owns the server.
@@ -130,11 +130,23 @@ type ServerMetadata struct {
 	// Gateway configures an optional MCP proxy sidecar in front of the server container.
 	Gateway *GatewayConfig `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 
+	// Egress declares the external hosts the server must reach. The platform
+	// applies it only after an administrator approves the declaration.
+	Egress *EgressConfig `yaml:"egress,omitempty" json:"egress,omitempty"`
+
 	// Analytics configures analytics emission for the gateway sidecar.
 	Analytics *AnalyticsConfig `yaml:"analytics,omitempty" json:"analytics,omitempty"`
 
 	// Rollout configures deployment rollout behavior.
 	Rollout *RolloutConfig `yaml:"rollout,omitempty" json:"rollout,omitempty"`
+}
+
+// EgressConfig declares external network access for a server.
+type EgressConfig struct {
+	// Hosts lists DNS names the server needs to reach (no wildcards or IPs).
+	Hosts []string `yaml:"hosts" json:"hosts"`
+	// Ports lists the TCP ports the server may connect to (defaults to [443]).
+	Ports []int32 `yaml:"ports,omitempty" json:"ports,omitempty"`
 }
 
 // ResourceRequirements defines resource limits and requests.
@@ -191,7 +203,16 @@ type AuthConfig struct {
 	Scopes             []string `yaml:"scopes,omitempty" json:"scopes,omitempty"`
 	// CredentialGateway opts a header-mode server into the bundled mcp-auth
 	// credential gateway; see mcpv1alpha1.CredentialGatewayConfig.
+	// PublicPaths opens bearer-less POST routes; see mcpv1alpha1.PublicPathConfig.
+	PublicPaths       []PublicPathConfig       `yaml:"publicPaths,omitempty" json:"publicPaths,omitempty"`
 	CredentialGateway *CredentialGatewayConfig `yaml:"credentialGateway,omitempty" json:"credentialGateway,omitempty"`
+}
+
+// PublicPathConfig declares one public path prefix for a server.
+type PublicPathConfig struct {
+	PathPrefix         string `yaml:"pathPrefix" json:"pathPrefix"`
+	MaxBodyBytes       int64  `yaml:"maxBodyBytes" json:"maxBodyBytes"`
+	MaxDurationSeconds int32  `yaml:"maxDurationSeconds" json:"maxDurationSeconds"`
 }
 
 // CredentialGatewayConfig configures the credential gateway for a header-mode server.

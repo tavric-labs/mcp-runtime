@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" width="1920" height="840" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif">
+  <title>How one MCP request is authenticated and authorized</title>
+  <desc>The agent presents a SPIFFE certificate over mTLS. The ingress verifies the chain. The gateway checks the identity, the session and the grant, and denies on any failure.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="420" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+  <text x="480" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">One request, three questions, fail closed</text>
+
+  <!-- Agent -->
+  <rect x="24" y="150" width="170" height="110" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+  <text x="109" y="184" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">Agent adapter</text>
+  <text x="109" y="208" text-anchor="middle" font-size="12" fill="#475569">private key never</text>
+  <text x="109" y="225" text-anchor="middle" font-size="12" fill="#475569">leaves this machine</text>
+
+  <!-- Ingress -->
+  <rect x="262" y="150" width="170" height="110" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+  <text x="347" y="184" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">Ingress</text>
+  <text x="347" y="208" text-anchor="middle" font-size="12" fill="#475569">verifies the cert chain,</text>
+  <text x="347" y="225" text-anchor="middle" font-size="12" fill="#475569">drops client-set headers,</text>
+  <text x="347" y="242" text-anchor="middle" font-size="12" fill="#475569">sets the verified ID</text>
+
+  <!-- Gateway -->
+  <rect x="500" y="150" width="150" height="110" rx="10" fill="#e0f2fe" stroke="#0369a1" stroke-width="2.5"/>
+  <text x="575" y="184" text-anchor="middle" font-size="16" font-weight="700" fill="#0c4a6e">MCP gateway</text>
+  <text x="575" y="208" text-anchor="middle" font-size="12" fill="#0c4a6e">authenticated hop,</text>
+  <text x="575" y="225" text-anchor="middle" font-size="12" fill="#0c4a6e">pinned ingress ID</text>
+
+  <!-- Arrows main -->
+  <line x1="194" y1="205" x2="260" y2="205" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="227" y="112" text-anchor="middle" font-size="12" fill="#334155">mTLS, one</text>
+  <text x="227" y="128" text-anchor="middle" font-size="12" fill="#334155">SPIFFE URI SAN</text>
+  <line x1="227" y1="134" x2="227" y2="203" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="432" y1="205" x2="498" y2="205" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="465" y="190" text-anchor="middle" font-size="12" fill="#334155">mTLS hop</text>
+
+  <!-- Three checks -->
+  <rect x="716" y="62" width="224" height="88" rx="10" fill="#f8fafc" stroke="#0369a1" stroke-width="1.5"/>
+  <circle cx="738" cy="86" r="11" fill="#0369a1"/><text x="738" y="91" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">1</text>
+  <text x="758" y="91" font-size="15" font-weight="700" fill="#0c4a6e">Who is calling?</text>
+  <text x="730" y="113" font-size="12" fill="#334155">go-spiffe parses the ID, exact</text>
+  <text x="730" y="130" font-size="12" fill="#334155">trust-domain match, 4 segments</text>
+
+  <rect x="716" y="166" width="224" height="88" rx="10" fill="#f8fafc" stroke="#0369a1" stroke-width="1.5"/>
+  <circle cx="738" cy="190" r="11" fill="#0369a1"/><text x="738" y="195" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">2</text>
+  <text x="758" y="195" font-size="15" font-weight="700" fill="#0c4a6e">Is the session live?</text>
+  <text x="730" y="217" font-size="12" fill="#334155">found, not revoked or expired,</text>
+  <text x="730" y="234" font-size="12" fill="#334155">human, agent and team match</text>
+
+  <rect x="716" y="270" width="224" height="88" rx="10" fill="#f8fafc" stroke="#047857" stroke-width="1.5"/>
+  <circle cx="738" cy="294" r="11" fill="#047857"/><text x="738" y="299" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">3</text>
+  <text x="758" y="299" font-size="15" font-weight="700" fill="#064e3b">What may it do?</text>
+  <text x="730" y="321" font-size="12" fill="#334155">a grant for this server and</text>
+  <text x="730" y="338" font-size="12" fill="#334155">this tool, within its limits</text>
+
+  <path d="M650,190 C685,190 685,106 714,106" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="650" y1="210" x2="714" y2="210" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M650,230 C685,230 685,314 714,314" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Decision connectors -->
+  <line x1="575" y1="260" x2="575" y2="290" stroke="#475569" stroke-width="2"/>
+  <line x1="357" y1="290" x2="575" y2="290" stroke="#475569" stroke-width="2"/>
+  <line x1="357" y1="290" x2="357" y2="316" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="565" y1="290" x2="565" y2="316" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="585" y="282" font-size="12" fill="#334155">decision</text>
+
+  <!-- Verdict -->
+  <rect x="262" y="318" width="190" height="52" rx="10" fill="#fef2f2" stroke="#b91c1c" stroke-width="1.5"/>
+  <text x="357" y="340" text-anchor="middle" font-size="14" font-weight="700" fill="#7f1d1d">Any check fails: deny</text>
+  <text x="357" y="358" text-anchor="middle" font-size="12" fill="#7f1d1d">logged with identity and reason</text>
+  <rect x="470" y="318" width="190" height="52" rx="10" fill="#ecfdf5" stroke="#047857" stroke-width="1.5"/>
+  <text x="565" y="340" text-anchor="middle" font-size="14" font-weight="700" fill="#064e3b">All three pass: allow</text>
+  <text x="565" y="358" text-anchor="middle" font-size="12" fill="#064e3b">the call reaches the MCP server</text>
+
+  <text x="480" y="402" text-anchor="middle" font-size="13" fill="#64748b">Identity comes from the certificate, never from a header the caller can write.</text>
+</svg>

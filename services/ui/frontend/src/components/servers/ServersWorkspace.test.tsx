@@ -19,13 +19,13 @@ function renderWorkspace(props: { authenticated: boolean; onSignIn?: () => void;
   );
 }
 
-const NAMESPACES = { namespaces: [{ namespace: "mcp-servers" }, { namespace: "mcp-shared" }] };
+const NAMESPACES = { namespaces: [{ namespace: "mcp-servers-org" }, { namespace: "mcp-shared" }] };
 
 const SERVERS = {
   servers: [
     {
       name: "workspace-assistant",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       ready: "1/1",
       status: "Ready",
       description: "Workspace helper",
@@ -33,7 +33,7 @@ const SERVERS = {
     },
     {
       name: "degraded-server",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       ready: "0/1",
       status: "Pending",
     },
@@ -46,7 +46,7 @@ const TOOLS = {
       tool_name: "add",
       description: "Add two numeric values",
       server_name: "workspace-assistant",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       declared: true,
       live: true,
       drift_status: "declared",
@@ -58,7 +58,7 @@ const TOOLS = {
       tool_name: "purge_workspace",
       description: "Delete every workspace record",
       server_name: "workspace-assistant",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       declared: true,
       live: false,
       drift_status: "missing",
@@ -69,7 +69,7 @@ const TOOLS = {
     {
       tool_name: "probe",
       server_name: "degraded-server",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       declared: false,
       live: true,
       drift_status: "ungoverned",
@@ -432,7 +432,7 @@ describe("ServersWorkspace server retire", () => {
     // server and the namespace and still blocks the write until confirmed.
     const dialog = await screen.findByTestId("server-retire-confirm");
     expect(dialog).toHaveTextContent("workspace-assistant");
-    expect(dialog).toHaveTextContent("mcp-servers");
+    expect(dialog).toHaveTextContent("mcp-servers-org");
     expect(fetchMock.mock.calls.some((call) => (call[1] as RequestInit)?.method === "DELETE")).toBe(
       false
     );
@@ -471,7 +471,7 @@ describe("ServersWorkspace server retire", () => {
     const deleteCall = fetchMock.mock.calls.find(
       (call) => (call[1] as RequestInit)?.method === "DELETE"
     );
-    expect(String(deleteCall?.[0])).toBe("/api/ui/v1/runtime/servers/mcp-servers/workspace-assistant");
+    expect(String(deleteCall?.[0])).toBe("/api/ui/v1/runtime/servers/mcp-servers-org/workspace-assistant");
     const init = deleteCall?.[1] as RequestInit;
     expect(init.credentials).toBe("same-origin");
     expect(new Headers(init.headers).get("x-api-key")).toBeNull();
@@ -569,7 +569,7 @@ describe("ServersWorkspace server retire", () => {
 });
 
 describe("ServersWorkspace connect config, protocol inventory, and observability", () => {
-  const dashboardURL = "/grafana/d/mcp-server/mcp-server?var-namespace=mcp-servers&var-server=workspace-assistant";
+  const dashboardURL = "/grafana/d/mcp-server/mcp-server?var-namespace=mcp-servers-org&var-server=workspace-assistant";
   const RICH_SERVERS = {
     servers: [
       {
@@ -591,11 +591,11 @@ describe("ServersWorkspace connect config, protocol inventory, and observability
           authSource: "oauth",
           lastProbeTime: "2026-10-16T12:00:00Z",
           lastError: { reason: "DeploymentNotReady", message: "The previous rollout failed.", observedAt: "2026-10-16T11:00:00Z" },
-          lastSession: { id: "session-7", namespace: "mcp-servers", usedAt: "2026-10-16T11:30:00Z", toolName: "search" },
+          lastSession: { id: "session-7", namespace: "mcp-servers-org", usedAt: "2026-10-16T11:30:00Z", toolName: "search" },
           lastSessionState: "observed",
         },
         observability: {
-          namespace: "mcp-servers",
+          namespace: "mcp-servers-org",
           server: "workspace-assistant",
           prometheus: {
             queries: [
@@ -822,11 +822,11 @@ describe("ServersWorkspace connect config, protocol inventory, and observability
     expect(runtimeStatus).toHaveTextContent("session-7");
 
     const observability = await screen.findByTestId("server-detail-observability");
-    expect(within(observability).getByText("Scoped to mcp-servers/workspace-assistant")).toBeInTheDocument();
+    expect(within(observability).getByText("Scoped to mcp-servers-org/workspace-assistant")).toBeInTheDocument();
     expect(within(observability).getByRole("link", { name: "Target health" })).toHaveAttribute("href", "http://prom/query?up");
     expect(within(observability).queryByRole("link", { name: "Grafana dashboard" })).not.toBeInTheDocument();
     expect(await within(observability).findByText("server started")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/runtime/observability/logs/query?namespace=mcp-servers&server=workspace-assistant"), expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/runtime/observability/logs/query?namespace=mcp-servers-org&server=workspace-assistant"), expect.anything());
   });
 
   it("does not render Grafana or raw Prometheus query links when Grafana access is unavailable", async () => {
@@ -880,7 +880,7 @@ describe("ServersWorkspace connect config, protocol inventory, and observability
     expect(within(metrics).getByText("3")).toBeInTheDocument();
     expect(within(metrics).getByText("search")).toBeInTheDocument();
     expect(within(observability).queryByRole("link", { name: "Grafana dashboard" })).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/runtime/observability/metrics?namespace=mcp-servers&server=workspace-assistant"), expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/runtime/observability/metrics?namespace=mcp-servers-org&server=workspace-assistant"), expect.anything());
   });
 
   it("shows owner-scoped numeric metrics on the server card without exposing Grafana", async () => {
@@ -896,76 +896,21 @@ describe("ServersWorkspace connect config, protocol inventory, and observability
     expect(within(metrics).getByText("3")).toBeInTheDocument();
     expect(within(metrics).getByText("search")).toBeInTheDocument();
     expect(within(richCard).queryByTestId("server-card-grafana-link")).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/runtime/observability/metrics?namespace=mcp-servers&server=workspace-assistant"), expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/runtime/observability/metrics?namespace=mcp-servers-org&server=workspace-assistant"), expect.anything());
   });
 });
 
-describe("ServersWorkspace public-mode anonymous browsing", () => {
-  function stubPublicCatalog() {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (!url.startsWith("/api/public/v1/")) {
-        throw new Error(`unexpected authenticated fetch in public mode: ${url}`);
-      }
-      const payload = url.includes("/servers") ? SERVERS : TOOLS;
-      return { ok: true, status: 200, json: async () => payload } as unknown as Response;
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    return fetchMock;
-  }
+describe("ServersWorkspace signed-out browsing", () => {
+  it("shows the sign-in prompt in every platform mode and fetches nothing", () => {
+    for (const mode of ["org", "public"]) {
+      window.MCP_PLATFORM_MODE = mode;
+      const fetchMock = stubCatalog();
 
-  it("still shows the sign-in prompt outside public mode", () => {
-    const fetchMock = stubCatalog();
+      const { unmount } = renderWorkspace({ authenticated: false });
 
-    renderWorkspace({ authenticated: false });
-
-    expect(screen.getByTestId("catalog-signed-out")).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("browses the catalog anonymously in public mode, with no credentials and no retire action", async () => {
-    window.MCP_PLATFORM_MODE = "public";
-    const fetchMock = stubPublicCatalog();
-
-    renderWorkspace({ authenticated: false });
-
-    await screen.findByTestId("server-list");
-    expect(screen.getAllByTestId("server-card")).toHaveLength(2);
-    expect(screen.getAllByTestId("tool-row")).toHaveLength(3);
-    expect(screen.queryByTestId("server-card-retire")).not.toBeInTheDocument();
-    expect(screen.getByTestId("public-catalog-sign-in")).toBeInTheDocument();
-
-    for (const call of fetchMock.mock.calls) {
-      const init = call[1] as RequestInit | undefined;
-      expect(init?.credentials).not.toBe("same-origin");
-      expect(new Headers(init?.headers).get("x-api-key")).toBeNull();
+      expect(screen.getByTestId("catalog-signed-out")).toBeInTheDocument();
+      expect(fetchMock).not.toHaveBeenCalled();
+      unmount();
     }
-  });
-
-  it("narrows the public tool catalog when a server is selected", async () => {
-    window.MCP_PLATFORM_MODE = "public";
-    stubPublicCatalog();
-    const user = userEvent.setup();
-
-    renderWorkspace({ authenticated: false });
-    await screen.findByTestId("server-list");
-    expect(screen.getAllByTestId("tool-row")).toHaveLength(3);
-
-    const [firstCard] = screen.getAllByTestId("server-card");
-    await user.click(within(firstCard).getByTestId("server-card-select"));
-
-    expect(screen.getAllByTestId("tool-row")).toHaveLength(2);
-    expect(screen.getByTestId("tool-table")).not.toHaveTextContent("probe");
-  });
-
-  it("surfaces a load failure instead of a blank public catalog", async () => {
-    window.MCP_PLATFORM_MODE = "public";
-    const fetchMock = vi.fn(async () => ({ ok: false, status: 502, text: async () => "upstream_error" }) as unknown as Response);
-    vi.stubGlobal("fetch", fetchMock);
-
-    renderWorkspace({ authenticated: false });
-
-    // TanStack Query retries once with backoff before the error surfaces.
-    expect(await screen.findByTestId("public-catalog-error", {}, { timeout: 5000 })).toBeInTheDocument();
   });
 });

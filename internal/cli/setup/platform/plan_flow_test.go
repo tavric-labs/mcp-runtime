@@ -6,6 +6,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -116,8 +117,8 @@ func TestBuildSetupPlan_PlatformModeCatalogNamespaces(t *testing.T) {
 	if got := setupplan.CatalogNamespaceForPlatformMode(setupplan.PlatformModeOrg); got != setupplan.DefaultOrgCatalogNamespace {
 		t.Fatalf("org catalog namespace = %q, want %q", got, setupplan.DefaultOrgCatalogNamespace)
 	}
-	if got := setupplan.CatalogNamespaceForPlatformMode(setupplan.PlatformModePublic); got != setupplan.DefaultPublicCatalogNamespace {
-		t.Fatalf("public catalog namespace = %q, want %q", got, setupplan.DefaultPublicCatalogNamespace)
+	if got := setupplan.CatalogNamespacesForPlatformMode(setupplan.PlatformModePublic); !reflect.DeepEqual(got, []string{setupplan.DefaultOrgCatalogNamespace}) {
+		t.Fatalf("public-mode catalog namespaces = %v, want only %q", got, setupplan.DefaultOrgCatalogNamespace)
 	}
 
 	plan := setupplan.Build(setupplan.Input{PlatformMode: setupplan.PlatformModePublic})
@@ -1344,10 +1345,9 @@ func TestSetupPlatformWithDeps_RegistryIngressProtectedDuringPublishFailure(t *t
 }
 
 // TestSetupPlatformWithDeps_CatalogNamespace verifies setup pre-creates the
-// shared catalog namespace (mcp-servers-public / mcp-servers-org) with the
+// shared catalog namespace (mcp-servers-org) with the
 // labels the platform API expects so non-admin users can publish without the
-// API SA needing cluster-wide namespace-create RBAC. Public mode provisions
-// both catalogs with different visibility labels.
+// API SA needing cluster-wide namespace-create RBAC.
 func TestSetupPlatformWithDeps_CatalogNamespace(t *testing.T) {
 	cases := []struct {
 		mode       string
@@ -1428,11 +1428,8 @@ func TestSetupPlatformWithDeps_CatalogNamespace(t *testing.T) {
 
 			if tc.wantCalled {
 				wantCalls := 1
-				if tc.mode == setupplan.PlatformModePublic {
-					wantCalls = 2
-					if seenCatalogs[setupplan.DefaultPublicCatalogNamespace] != "public" {
-						t.Fatalf("public catalog missing or mislabeled: %v", seenCatalogs)
-					}
+				if _, ok := seenCatalogs["mcp-servers-public"]; ok {
+					t.Fatalf("mcp-servers-public must no longer be provisioned: %v", seenCatalogs)
 				}
 				if calls != wantCalls {
 					t.Fatalf("expected %d catalog namespaces, got %d", wantCalls, calls)

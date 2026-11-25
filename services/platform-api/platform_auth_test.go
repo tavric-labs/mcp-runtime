@@ -5,6 +5,9 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/passport/passporttest"
 )
 
 type fakePasswordUserEnsurer struct {
@@ -81,13 +84,14 @@ func TestOpenPlatformStoreWithRetryRetriesUntilSuccess(t *testing.T) {
 		platformStoreConnectAttemptTimeout = originalAttemptTimeout
 	})
 
+	retrySigner, retryVerifier := passporttest.NewKeys(t)
 	calls := 0
-	store, err := openPlatformStoreWithRetry(context.Background(), "postgres://example", []byte("secret"), func(context.Context, string, []byte) (*platformStore, error) {
+	store, err := openPlatformStoreWithRetry(context.Background(), "postgres://example", retrySigner, retryVerifier, func(context.Context, string, passport.Signer, passport.Verifier) (*platformStore, error) {
 		calls++
 		if calls == 1 {
 			return nil, errors.New("postgres not ready")
 		}
-		return newTestPlatformStore([]byte("secret")), nil
+		return newTestPlatformStore(retrySigner, retryVerifier), nil
 	})
 	if err != nil {
 		t.Fatalf("openPlatformStoreWithRetry() error = %v", err)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/passport/passporttest"
 )
 
 type exchangeUIPrincipal struct {
@@ -29,9 +30,9 @@ func (p *exchangeUIPrincipal) PrincipalForUserID(context.Context, string) (passp
 
 func TestUISessionProxyUsesRealAudienceExchangeAndCSRF(t *testing.T) {
 	t.Setenv("UI_PUBLIC_ORIGIN", "http://ui.example")
-	secret := []byte("ui-exchange-secret")
+	signer, verifier := passporttest.NewKeys(t)
 	resolver := &exchangeUIPrincipal{}
-	platformAuth := passport.Authenticator{Secret: secret, Audience: passport.AudiencePlatform, Principals: resolver}
+	platformAuth := passport.Authenticator{Verifier: verifier, Signer: signer, Audience: passport.AudiencePlatform, Principals: resolver}
 	mux := http.NewServeMux()
 	for _, target := range []string{passport.AudienceRuntime, passport.AudienceAnalytics} {
 		mux.Handle(passport.ExchangePath(target), passport.ExchangeHandler{Auth: platformAuth, Target: target})
@@ -41,10 +42,10 @@ func TestUISessionProxyUsesRealAudienceExchangeAndCSRF(t *testing.T) {
 	var capturedRuntime atomic.Value
 	var calls atomic.Int32
 	backend := func(target string) *httptest.Server {
-		auth := passport.Authenticator{Secret: secret, Audience: target, Principals: resolver}
+		auth := passport.Authenticator{Verifier: verifier, Audience: target, Principals: resolver}
 		server := httptest.NewServer(auth.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			calls.Add(1)
-			claims, err := passport.Verify(secret, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), target)
+			claims, err := verifier.Verify(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), target)
 			if err != nil || len(claims.Audience) != 1 || claims.ExpiresAt.Sub(claims.IssuedAt.Time) > time.Minute {
 				t.Error("invalid upstream audience or expiry")
 			}
@@ -68,7 +69,7 @@ func TestUISessionProxyUsesRealAudienceExchangeAndCSRF(t *testing.T) {
 	analyticsBase, _ := url.Parse(analytics.URL)
 	store := newUISessionStore(time.Now)
 	proxy := newSessionProxyWithUpstreams(platformBase, runtimeBase, analyticsBase, store)
-	source, err := passport.Sign(secret, passport.Principal{Subject: "ui-user", Role: passport.RoleAdmin}, 15*time.Minute, []string{passport.AudiencePlatform})
+	source, err := passport.Sign(signer, passport.Principal{Subject: "ui-user", Role: passport.RoleAdmin}, 15*time.Minute, []string{passport.AudiencePlatform})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +119,7 @@ func TestUISessionProxyUsesRealAudienceExchangeAndCSRF(t *testing.T) {
 	}
 	// A source bearer cannot authenticate directly to either split backend.
 	for _, target := range []string{passport.AudienceRuntime, passport.AudienceAnalytics} {
-		auth := passport.Authenticator{Secret: secret, Audience: target}
+		auth := passport.Authenticator{Verifier: verifier, Audience: target}
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer "+source)
 		if _, ok, _ := auth.AuthenticateRequest(req); ok {
@@ -126,7 +127,7 @@ func TestUISessionProxyUsesRealAudienceExchangeAndCSRF(t *testing.T) {
 		}
 	}
 	for _, target := range []string{passport.AudiencePlatform, passport.AudienceAnalytics} {
-		auth := passport.Authenticator{Secret: secret, Audience: target}
+		auth := passport.Authenticator{Verifier: verifier, Audience: target}
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", capturedRuntime.Load().(string))
 		if _, ok, _ := auth.AuthenticateRequest(req); ok {

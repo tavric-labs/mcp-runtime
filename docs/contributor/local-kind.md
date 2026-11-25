@@ -380,8 +380,8 @@ curl -sS -b /tmp/mcp-test-user-cookie.txt \
 ```
 
 In default org mode, signed-in users see `mcp-servers-org` and their authorized
-team namespaces. `--platform-mode public` adds the public preview catalog in
-`mcp-servers-public`, while anonymous users cannot read org or team catalogs.
+team namespaces. `--platform-mode public` is the hosted profile with the same
+catalogs; anonymous users cannot read any catalog.
 
 For a reproducible tenant-isolation exercise, follow
 [Module 3: Multi-team setup](../learn/03-multi-team-access.md), which creates its
@@ -416,8 +416,9 @@ not delete shared analytics or registry credentials as part of server cleanup.
 ## Optional: bundled mcp-auth integration fixture
 
 The bundled authorization server is opt-in and separate from MCP application
-deployment. Setup pulls `princekrroshan01/mcp-auth-server:0.7.1` from Docker
-Hub by default. Production deployments additionally require HTTPS
+deployment. Setup pulls the MCP Auth image pinned in
+`config/release/mcp-auth/Dockerfile` from Docker Hub by default. Production
+deployments additionally require HTTPS
 issuer/resource URLs, a provider connector, signing-key Secret, and TLS
 Secret; test mode may use the local issuer:
 
@@ -440,6 +441,15 @@ that standalone mode bypasses those gateway features. E2E uses distinct
 `-gateway` and `-standalone` server names so the deployment modes are visible
 in routes and cluster resources. To run the Go process without server auth,
 omit the OAuth settings.
+
+`--test-mode` is also lenient about network policy, because the cluster is
+disposable. Team and organization MCP servers may reach any destination (the
+namespace default-deny policy gains an allow-all egress rule), so a server can call
+a third-party API without `--pod-egress-cidrs`, and MCP Auth accepts traffic on port
+8080 from every namespace, so a server can fetch its JWKS and exchange tokens
+in-cluster. Neither is ever enabled outside `--test-mode`: a normal install keeps the
+default-deny egress and the ingress-controller-only MCP Auth policy. Re-run `setup
+--test-mode` after upgrading to apply it to existing namespaces.
 
 In `--test-mode` the authorization server is configured with the Go example
 resource, so one deployment issues a token for the protected fixture.

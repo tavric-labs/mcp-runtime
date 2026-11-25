@@ -40,7 +40,7 @@ The API uses this principal to authorize control-plane actions.
 
 | Actor | Allowed actions | Why |
 |---|---|---|
-| Anonymous caller | Health, login, OIDC exchange, and explicitly public catalog reads | These routes are public by design |
+| Anonymous caller | Health, login, and OIDC exchange | These routes are public by design |
 | Authenticated user | Read visible teams, namespaces, servers, and deployments, plus team-scoped analytics on `GET /api/v1/user/analytics/usage` | Visibility is scoped by the principal's namespaces and teams |
 | Server owner | Change their server and administer its grants and sessions | The server carries the owner's platform user label |
 | Team owner | Manage team members and administer servers and access resources in the team's namespace | Team-owner membership grants administrative authority within that team |
@@ -292,6 +292,89 @@ Managed agent IDs are created with `mcp-runtime agent create <team-slug>
 grant or session. The directory page and `mcp-runtime agent list|get|rename|
 deactivate|reactivate` expose the same records. IDs are generated once and
 never reused; do not invent an agent ID for a new managed subject.
+
+### Resources, prompts and skills
+
+The gateway evaluates `resources/list`, `resources/templates/list`,
+`resources/read`, `resources/subscribe`, `resources/unsubscribe`,
+`resources/directory/read`, `prompts/list`, `prompts/get`, `skills/list`,
+`skills/get`, `subscriptions/listen` and `tasks/get|update|cancel`, `events/list|poll|stream|subscribe` against grants
+and sessions, like tool calls. Both protocol generations are covered:
+`resources/subscribe` (2025-11-25 and earlier) and `subscriptions/listen`
+(2026-07-28) are gated the same way. A caller needs an
+identity, a live session where sessions are required, and an active matching
+grant. Without one the call is denied with `missing_identity`, `session_*` or
+`no_matching_grant`. Other methods (`initialize`, `ping`, `tools/list`,
+`ping`, `logging/setLevel`, `server/discover`, notifications) are not evaluated.
+
+`primitiveRules` narrow a grant. Each rule names a `kind` (`resource`,
+`prompt` or `skill`), a `pattern` and a `decision`. A pattern is an exact
+resource URI, prompt name or skill URI (the `uri` a `skills/get` request
+carries); a trailing `*` makes it a prefix.
+
+```yaml
+spec:
+  primitiveRules:
+    - {kind: resource, pattern: "file:///docs/*", decision: allow}
+    - {kind: resource, pattern: "file:///docs/secret.md", decision: deny}
+    - {kind: prompt, pattern: review, decision: allow}
+```
+
+- A deny rule that matches always wins (`primitive_denied`).
+- A grant with no rule of a kind allows every item of that kind, like an
+  empty `toolRules`. Once it has a rule of that kind, only items matched by an
+  allow rule pass; everything else is `primitive_not_granted`.
+- `subscriptions/listen` needs an active matching grant, and every URI in
+  `notifications.resourceSubscriptions` must pass the resource rules, so one
+  disallowed URI rejects the whole stream.
+- `completion/complete` is authorized as reading the item it completes: a
+  `ref/prompt` as `prompts/get` and a `ref/resource` as `resources/read`, so a
+  completion cannot reveal a prompt or resource the grant denies. A missing or
+  unknown `ref` is denied with `primitive_target_missing`.
+- `tasks/*` need an active matching grant. The gateway does not yet bind a task
+  ID to the caller that created it; do not rely on task IDs being secret.
+- Listing methods need any active matching grant. They are not filtered per
+  item, so a server that lists names it considers sensitive should not be
+  shared with that grant.
+- A read with no `uri` or `name` is denied with `primitive_target_missing`.
+- Trust level and side-effect checks apply to tools only.
+- Header-delegated servers have no grants, so they are not gated.
+
+Requests that carry an `Mcp-Method` header, or an `Mcp-Name` header on
+`tools/call`, `resources/read` and `prompts/get`, must match the body the gateway
+authorizes. A mismatch is rejected with `400 header_mismatch` before anything
+reaches the server. Requests without those headers (earlier protocol revisions)
+are unaffected, and `=?base64?...?=` values are decoded before comparing.
+
+A policy that uses `primitiveRules` is stamped schema version `v8`. A gateway
+that predates it rejects the document instead of ignoring the rules.
+
+### Protocol extensions and MCP Apps
+
+The gateway keeps a registry of extension methods (`services/mcp-gateway/extensions.go`).
+Skills (`skills/list`, `skills/get`, `resources/directory/read`), Tasks
+(`tasks/get`, `tasks/update`, `tasks/cancel`) and Events (`events/list`,
+`events/poll`, `events/stream`, `events/subscribe`) are registered as grant-gated
+and get fixed metric labels. The gateway gates the Events request only: a webhook
+registered with `events/subscribe` is called by the server later, outside the
+gateway. OAuth Client Credentials and Enterprise-Managed Authorization add no RPC
+method (they are OAuth grants at the authorization server) and Server Cards are an
+HTTP discovery document, so none of the three needs gateway method handling. Extension capabilities (`capabilities.extensions` in
+`initialize` and `server/discover`) and `_meta` keys are forwarded unchanged for
+both the `initialize` and the `2026-07-28` stateless styles. A method that is
+neither core nor registered is forwarded without grant evaluation and counted as
+`other`.
+
+MCP Apps adds no gateway method. An app's `ui://` HTML is read with
+`resources/read`, so scope it with a resource rule such as
+`{kind: resource, pattern: "ui://dashboard/*", decision: allow}`. A call made by an
+app reaches the gateway as a normal `tools/call` from the host and is checked
+against the same identity, session, grant, trust and side-effect rules; a tool the
+grant does not allow is denied even when `_meta.ui` is present. The app's
+Content-Security-Policy and permissions (`_meta.ui.csp`, `_meta.ui.permissions`)
+are enforced by the host, not the gateway. Extension identifiers are tracked in
+[#977](https://github.com/tavric-labs/mcp-runtime/issues/977); confirm each against
+the extension's own page before relying on it.
 
 ## Session: active delegated consent
 

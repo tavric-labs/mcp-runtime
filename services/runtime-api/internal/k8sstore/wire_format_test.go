@@ -18,10 +18,10 @@ import (
 const grantInput = `{
   "apiVersion": "mcpruntime.org/v1alpha1",
   "kind": "MCPAccessGrant",
-  "metadata": {"name": "g1", "namespace": "mcp-servers", "creationTimestamp": "2026-10-27T10:00:00+05:30", "labels": {"a": "b"}},
+  "metadata": {"name": "g1", "namespace": "mcp-servers-org", "creationTimestamp": "2026-10-27T10:00:00+05:30", "labels": {"a": "b"}},
   "spec": {
     "mode": "enforce",
-    "serverRef": {"name": "srv", "namespace": "mcp-servers"},
+    "serverRef": {"name": "srv", "namespace": "mcp-servers-org"},
     "subject": {"humanID": "h1", "teamID": "t1"},
     "maxTrust": "medium",
     "allowedSideEffects": ["read"],
@@ -35,18 +35,18 @@ const grantInput = `{
   ]}
 }`
 
-const grantWant = `{"kind":"MCPAccessGrant","apiVersion":"mcpruntime.org/v1alpha1","metadata":{"name":"g1","namespace":"mcp-servers","creationTimestamp":"2026-10-27T04:30:00Z","labels":{"a":"b"}},"spec":{"mode":"enforce","serverRef":{"name":"srv","namespace":"mcp-servers"},"subject":{"humanID":"h1","teamID":"t1"},"maxTrust":"medium","allowedSideEffects":["read"],"policyVersion":"v1","expiresAt":"2026-10-27T04:30:00Z","toolRules":[{"name":"echo","decision":"deny"}]},"status":{"phase":"Active","conditions":[{"type":"Ready","status":"True","observedGeneration":3,"lastTransitionTime":"2026-10-27T10:00:00Z","reason":"Ok","message":"fine"},{"type":"Stale","status":"False","lastTransitionTime":null,"reason":"None","message":""}]}}`
+const grantWant = `{"kind":"MCPAccessGrant","apiVersion":"mcpruntime.org/v1alpha1","metadata":{"name":"g1","namespace":"mcp-servers-org","creationTimestamp":"2026-10-27T04:30:00Z","labels":{"a":"b"}},"spec":{"mode":"enforce","serverRef":{"name":"srv","namespace":"mcp-servers-org"},"subject":{"humanID":"h1","teamID":"t1"},"maxTrust":"medium","allowedSideEffects":["read"],"policyVersion":"v1","expiresAt":"2026-10-27T04:30:00Z","toolRules":[{"name":"echo","decision":"deny"}]},"status":{"phase":"Active","conditions":[{"type":"Ready","status":"True","observedGeneration":3,"lastTransitionTime":"2026-10-27T10:00:00Z","reason":"Ok","message":"fine"},{"type":"Stale","status":"False","lastTransitionTime":null,"reason":"None","message":""}]}}`
 
 const sessionInput = `{
   "apiVersion": "mcpruntime.org/v1alpha1",
   "kind": "MCPAgentSession",
-  "metadata": {"name": "s1", "namespace": "mcp-servers", "creationTimestamp": "2026-10-27T10:00:00Z", "annotations": {"mcpruntime.org/server-uid": "u1"}},
+  "metadata": {"name": "s1", "namespace": "mcp-servers-org", "creationTimestamp": "2026-10-27T10:00:00Z", "annotations": {"mcpruntime.org/server-uid": "u1"}},
   "spec": {"serverRef": {"name": "srv"}, "subject": {"humanID": "h1", "agentID": "a1"}, "consentedTrust": "low", "revoked": true,
            "upstreamTokenSecretRef": {"name": "sec", "key": "k"}, "policyVersion": "v1"},
   "status": {"phase": "Revoked"}
 }`
 
-const sessionWant = `{"kind":"MCPAgentSession","apiVersion":"mcpruntime.org/v1alpha1","metadata":{"name":"s1","namespace":"mcp-servers","creationTimestamp":"2026-10-27T10:00:00Z","annotations":{"mcpruntime.org/server-uid":"u1"}},"spec":{"serverRef":{"name":"srv"},"subject":{"humanID":"h1","agentID":"a1"},"consentedTrust":"low","revoked":true,"upstreamTokenSecretRef":{"name":"sec","key":"k"},"policyVersion":"v1"},"status":{"phase":"Revoked"}}`
+const sessionWant = `{"kind":"MCPAgentSession","apiVersion":"mcpruntime.org/v1alpha1","metadata":{"name":"s1","namespace":"mcp-servers-org","creationTimestamp":"2026-10-27T10:00:00Z","annotations":{"mcpruntime.org/server-uid":"u1"}},"spec":{"serverRef":{"name":"srv"},"subject":{"humanID":"h1","agentID":"a1"},"consentedTrust":"low","revoked":true,"upstreamTokenSecretRef":{"name":"sec","key":"k"},"policyVersion":"v1"},"status":{"phase":"Revoked"}}`
 
 func jsonOf(t *testing.T, v any) string {
 	t.Helper()
@@ -137,7 +137,7 @@ func TestWireFormatSummaries(t *testing.T) {
 	if err := json.Unmarshal([]byte(grantInput), &grant); err != nil {
 		t.Fatal(err)
 	}
-	const wantGrantSummary = `{"mode":"enforce","name":"g1","namespace":"mcp-servers","serverRef":{"name":"srv","namespace":"mcp-servers"},"subject":{"humanID":"h1","teamID":"t1"},"maxTrust":"medium","allowedSideEffects":["read"],"expiresAt":"2026-10-27T04:30:00Z","disabled":false,"age":"2026-10-27T10:00:00Z"}`
+	const wantGrantSummary = `{"mode":"enforce","name":"g1","namespace":"mcp-servers-org","serverRef":{"name":"srv","namespace":"mcp-servers-org"},"subject":{"humanID":"h1","teamID":"t1"},"maxTrust":"medium","allowedSideEffects":["read"],"expiresAt":"2026-10-27T04:30:00Z","disabled":false,"age":"2026-10-27T10:00:00Z"}`
 	if got := jsonOf(t, ToGrantSummary(grant)); got != wantGrantSummary {
 		t.Fatalf("grant summary changed:\n got  %s\n want %s", got, wantGrantSummary)
 	}
@@ -146,7 +146,7 @@ func TestWireFormatSummaries(t *testing.T) {
 	if err := json.Unmarshal([]byte(sessionInput), &session); err != nil {
 		t.Fatal(err)
 	}
-	const wantSessionSummary = `{"name":"s1","namespace":"mcp-servers","serverRef":{"name":"srv"},"subject":{"humanID":"h1","agentID":"a1"},"consentedTrust":"low","revoked":true,"age":"2026-10-27T15:30:00Z","policyVersion":"v1","serverUID":"u1"}`
+	const wantSessionSummary = `{"name":"s1","namespace":"mcp-servers-org","serverRef":{"name":"srv"},"subject":{"humanID":"h1","agentID":"a1"},"consentedTrust":"low","revoked":true,"age":"2026-10-27T15:30:00Z","policyVersion":"v1","serverUID":"u1"}`
 	if got := jsonOf(t, ToSessionSummary(session)); got != wantSessionSummary {
 		t.Fatalf("session summary changed:\n got  %s\n want %s", got, wantSessionSummary)
 	}

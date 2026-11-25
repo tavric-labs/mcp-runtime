@@ -33,6 +33,7 @@ import (
 	setupplan "mcp-runtime/internal/cli/setup/plan"
 	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/kubeworkload"
+	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/topology"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -775,12 +776,8 @@ func initializeKafkaTopicsWithKubectl(kubectl core.KubectlRunner, images Analyti
 
 func applyCatalogNamespaceForMode(platformMode string) error {
 	for _, namespace := range setupplan.CatalogNamespacesForPlatformMode(platformMode) {
-		scope := setupplan.PlatformModeOrg
-		if namespace == setupplan.DefaultPublicCatalogNamespace {
-			scope = setupplan.PlatformModePublic
-		}
 		core.Info(fmt.Sprintf("Applying platform catalog namespace %s", namespace))
-		if err := ensureNamespaceWithLabels(namespace, catalogNamespaceLabels(scope)); err != nil {
+		if err := ensureNamespaceWithLabels(namespace, catalogNamespaceLabels(setupplan.PlatformModeOrg)); err != nil {
 			return err
 		}
 	}
@@ -1084,6 +1081,11 @@ func applyPodEgressManifestValues(content string) (string, error) {
 	}
 	content = replacePodEgressValue(content, "MCP_POD_EGRESS_CIDRS", joinPrefixes(allows))
 	content = replacePodEgressValue(content, "MCP_POD_EGRESS_EXCEPT_CIDRS", joinPrefixes(except))
+	// --test-mode is a throwaway cluster: let servers reach any destination, such
+	// as a third-party API or the in-cluster auth server. Never set otherwise.
+	if os.Getenv("MCP_RUNTIME_TEST_MODE") == "1" {
+		content = replacePodEgressValue(content, "MCP_POD_EGRESS_ALLOW_ALL", "true")
+	}
 	return content, nil
 }
 
@@ -1455,13 +1457,9 @@ func renderAnalyticsSecretManifestWithReader(readSecret analyticsSecretValueRead
 			postgresDB,
 		)
 	}
-	jwtNamespace, jwtSecretName, err := ownedCredential("JWT_SECRET")
+	jwtSigningKey, jwtVerifyKeys, err := platformTokenKeyPair(readSecret)
 	if err != nil {
 		return "", err
-	}
-	jwtSecret, err := existingSecretDataValueOrRandomWithReader(readSecret, jwtNamespace, jwtSecretName, "JWT_SECRET", 32)
-	if err != nil {
-		return "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("failed to read analytics secrets: %v", err))
 	}
 	tokenNamespace, tokenSecret, err := ownedCredential("INTERNAL_AUTH_TOKEN")
 	if err != nil {
@@ -1572,7 +1570,8 @@ func renderAnalyticsSecretManifestWithReader(readSecret analyticsSecretValueRead
 		"POSTGRES_PASSWORD":       postgresPassword,
 		"POSTGRES_DB":             postgresDB,
 		"POSTGRES_DSN":            postgresDSN,
-		"JWT_SECRET":              jwtSecret,
+		"JWT_SIGNING_KEY":         jwtSigningKey,
+		"JWT_VERIFY_KEY":          jwtVerifyKeys,
 		"INTERNAL_AUTH_TOKEN":     internalAuthToken,
 		"OAUTH_PRIVATE_KEY":       oauthPrivateKey,
 		"GRAFANA_ADMIN_USER":      "admin",
@@ -1978,6 +1977,44 @@ func existingSecretDataValueClientGo(namespace, name, key string) (string, error
 		return "", core.WrapWithBase(core.ErrSetupReadSecretKeyFailed, err, fmt.Sprintf("read secret %s/%s key %s: %v", namespace, name, key, err))
 	}
 	return value, nil
+}
+
+// platformTokenKeyPair returns the PEM signing key for platform-api and the
+// PEM verification key set for every service. An existing pair is kept, so a
+// re-run of setup never invalidates issued tokens; a missing one is generated.
+// The verification set is extended with the signing key's public key when it is
+// absent and keeps older public keys until an operator removes them. A key that
+// cannot be parsed is an error: setup never overwrites credentials it cannot
+// read.
+func platformTokenKeyPair(readSecret analyticsSecretValueReader) (signingKey, verifyKeys string, err error) {
+	signNamespace, signSecret, err := ownedCredential("JWT_SIGNING_KEY")
+	if err != nil {
+		return "", "", err
+	}
+	verifyNamespace, verifySecret, err := ownedCredential("JWT_VERIFY_KEY")
+	if err != nil {
+		return "", "", err
+	}
+	signingKey, err = readSecret(signNamespace, signSecret, "JWT_SIGNING_KEY")
+	if err != nil {
+		return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("failed to read analytics secrets: %v", err))
+	}
+	existingVerify, err := readSecret(verifyNamespace, verifySecret, "JWT_VERIFY_KEY")
+	if err != nil {
+		return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("failed to read analytics secrets: %v", err))
+	}
+	// Local test mode may carry the shipped placeholder; replace it with a real key.
+	if isKnownPlaceholder(signingKey) {
+		signingKey, existingVerify = "", ""
+	}
+	if strings.TrimSpace(signingKey) == "" {
+		existingVerify = "" // a verification set without its signing key is not carried over
+	}
+	signing, verify, err := passport.EnsureKeyPair([]byte(signingKey), []byte(existingVerify))
+	if err != nil {
+		return "", "", core.WrapWithBase(core.ErrRenderSecretManifestFailed, err, fmt.Sprintf("invalid JWT signing credentials: %v", err))
+	}
+	return string(signing), string(verify), nil
 }
 
 func existingSecretDataValueOrRandomWithReader(readSecret analyticsSecretValueReader, namespace, name, key string, size int) (string, error) {

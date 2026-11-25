@@ -100,7 +100,7 @@ run_parse_enroll_output() {
   : >"${scoped}/client.crt"
   : >"${scoped}/client.key"
   local out got
-  out="$(printf 'issued spiffe://example/ns/mcp-servers/session/s1 (expires 2099-01-01T00:00:00Z)\nsaved certificate files in %s\nuse --tls-client-cert %s/client.crt\n' "${scoped}" "${scoped}")"
+  out="$(printf 'issued spiffe://example/ns/mcp-servers-org/session/s1 (expires 2099-01-01T00:00:00Z)\nsaved certificate files in %s\nuse --tls-client-cert %s/client.crt\n' "${scoped}" "${scoped}")"
   got="$(parse_adapter_enroll_credential_dir "${out}")"
   if [[ "${got}" != "${scoped}" ]]; then
     echo "[fail] parse-enroll: got ${got:-<empty>}; want ${scoped}" >&2

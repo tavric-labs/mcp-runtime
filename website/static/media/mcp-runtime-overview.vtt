@@ -1,0 +1,48 @@
+WEBVTT
+
+00:00:00.350 --> 00:00:01.920
+Agents can call your tools.
+
+00:00:02.275 --> 00:00:04.785
+But who decides which ones,
+and for how long?
+
+00:00:07.650 --> 00:00:09.980
+That is what MCP Runtime does.
+
+00:00:10.275 --> 00:00:12.985
+It is a control plane for MCP servers.
+
+00:00:13.395 --> 00:00:14.845
+Set it up with one command.
+
+00:00:15.230 --> 00:00:16.280
+Deploy a server.
+
+00:00:16.660 --> 00:00:19.390
+Then give an agent a grant,
+with a time limit.
+
+00:00:22.217 --> 00:00:23.387
+Open the console.
+
+00:00:23.747 --> 00:00:25.577
+Here are your servers and their tools.
+
+00:00:25.942 --> 00:00:27.512
+Here are the grants and sessions.
+
+00:00:27.947 --> 00:00:31.917
+And here, every call the gateway checked,
+including the denied ones.
+
+00:00:34.750 --> 00:00:35.860
+Your infrastructure.
+
+00:00:36.265 --> 00:00:37.075
+Your rules.
+
+00:00:37.475 --> 00:00:40.645
+Open source,
+with a hosted preview you can try today.
+

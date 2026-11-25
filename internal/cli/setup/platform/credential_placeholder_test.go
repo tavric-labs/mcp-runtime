@@ -27,7 +27,7 @@ func TestRenderRejectsPreservedPlaceholderCredentials(t *testing.T) {
 		"UI_API_KEY":                " ChangeMe ",
 		"GRAFANA_ADMIN_PASSWORD":    placeholderValue,
 		"POSTGRES_PASSWORD":         placeholderValue,
-		"JWT_SECRET":                placeholderValue,
+		"JWT_SIGNING_KEY":           placeholderValue,
 		"INTERNAL_AUTH_TOKEN":       placeholderValue,
 		"UI_SESSION_ENCRYPTION_KEY": placeholderValue,
 		"PLATFORM_ADMIN_PASSWORD":   placeholderValue,
@@ -72,7 +72,7 @@ func TestRenderPreservesValidExistingCredentials(t *testing.T) {
 	placeholderEnv(t, "")
 	values := map[string]string{
 		"API_KEYS":          "api-key-a,api-key-b",
-		"JWT_SECRET":        "keep-this-jwt-secret",
+		"UI_API_KEY":        "keep-this-ui-key",
 		"POSTGRES_PASSWORD": "keep-this-pg-password",
 		"POSTGRES_DSN":      "postgres://mcp_runtime:keep-this-pg-password@mcp-postgres:5432/mcp_runtime",
 		// A value that merely contains the placeholder text is not the placeholder.
@@ -83,7 +83,7 @@ func TestRenderPreservesValidExistingCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	data := secretStringDataFromManifest(t, manifest)
-	for _, key := range []string{"JWT_SECRET", "POSTGRES_PASSWORD", "POSTGRES_DSN", "INTERNAL_AUTH_TOKEN"} {
+	for _, key := range []string{"UI_API_KEY", "POSTGRES_PASSWORD", "POSTGRES_DSN", "INTERNAL_AUTH_TOKEN"} {
 		if data[key] != values[key] {
 			t.Fatalf("%s was rotated or altered", key)
 		}
@@ -95,11 +95,11 @@ func TestRenderPreservesValidExistingCredentials(t *testing.T) {
 
 func TestRenderTestModeExemptsPlaceholderCredentials(t *testing.T) {
 	placeholderEnv(t, "1")
-	manifest, err := renderAnalyticsSecretManifestWithReader(readerWith(map[string]string{"JWT_SECRET": placeholderValue}))
+	manifest, err := renderAnalyticsSecretManifestWithReader(readerWith(map[string]string{"INTERNAL_AUTH_TOKEN": placeholderValue}))
 	if err != nil {
 		t.Fatalf("test mode must keep working: %v", err)
 	}
-	if secretStringDataFromManifest(t, manifest)["JWT_SECRET"] != placeholderValue {
+	if secretStringDataFromManifest(t, manifest)["INTERNAL_AUTH_TOKEN"] != placeholderValue {
 		t.Fatal("test mode must preserve the existing value untouched")
 	}
 }

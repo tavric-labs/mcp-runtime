@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -122,12 +123,25 @@ func (r *MCPServerReconciler) mtlsBackendSecretsReady(ctx context.Context, mcpSe
 // traefikProxySPIFFEID is the identity the ingress presents to the gateway over
 // the re-encrypted hop. The gateway pins this via TRUSTED_PROXY_SPIFFE_ID so a
 // non-ingress holder of an identity-CA cert cannot impersonate the ingress.
-func (r *MCPServerReconciler) traefikProxySPIFFEID(mcpServer *mcpv1alpha1.MCPServer) string {
-	trustDomain := strings.TrimSpace(r.AdapterTrustDomain)
-	if trustDomain == "" {
-		return ""
+//
+// It returns "" with no error only when no trust domain is configured (mTLS is
+// off). A configured but invalid trust domain, namespace or service account is
+// an error, never "", so callers cannot mistake it for "no pin" and run the
+// gateway without one.
+func (r *MCPServerReconciler) traefikProxySPIFFEID(_ *mcpv1alpha1.MCPServer) (string, error) {
+	raw := strings.TrimSpace(r.AdapterTrustDomain)
+	if raw == "" {
+		return "", nil
 	}
-	return fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, r.ingressControllerNamespace(), r.ingressControllerServiceAccount())
+	trustDomain, err := spiffeid.TrustDomainFromString(raw)
+	if err != nil {
+		return "", fmt.Errorf("ingress SPIFFE ID: %w", err)
+	}
+	id, err := spiffeid.FromSegments(trustDomain, "ns", r.ingressControllerNamespace(), "sa", r.ingressControllerServiceAccount())
+	if err != nil {
+		return "", fmt.Errorf("ingress SPIFFE ID: %w", err)
+	}
+	return id.String(), nil
 }
 
 func (r *MCPServerReconciler) ingressControllerNamespace() string {
@@ -198,7 +212,10 @@ func (r *MCPServerReconciler) reconcileGatewayCertificate(ctx context.Context, m
 	})
 	certificate.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(mcpServer, mcpv1alpha1.GroupVersion.WithKind("MCPServer"))})
 
-	return r.applyUnstructured(ctx, certificate)
+	if err := r.applyUnstructured(ctx, certificate); err != nil {
+		return err
+	}
+	return r.reconcileIssuedTLSSecretOwner(ctx, mcpServer, certificate.GetName())
 }
 
 // applyUnstructured idempotently reconciles an unstructured object (cert-manager
@@ -250,7 +267,10 @@ func (r *MCPServerReconciler) reconcileTraefikClientCertificate(ctx context.Cont
 	if issuer == "" {
 		return fmt.Errorf("adapter certificate validation requires MCP_MTLS_CLUSTER_ISSUER on the operator")
 	}
-	spiffeID := r.traefikProxySPIFFEID(mcpServer)
+	spiffeID, err := r.traefikProxySPIFFEID(mcpServer)
+	if err != nil {
+		return err
+	}
 	if spiffeID == "" {
 		return fmt.Errorf("adapter certificate validation requires MCP_TRUST_DOMAIN on the operator")
 	}
@@ -271,7 +291,46 @@ func (r *MCPServerReconciler) reconcileTraefikClientCertificate(ctx context.Cont
 		"mcpruntime.org/server":        mcpServer.Name,
 	})
 	cert.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(mcpServer, mcpv1alpha1.GroupVersion.WithKind("MCPServer"))})
-	return r.applyUnstructured(ctx, cert)
+	if err := r.applyUnstructured(ctx, cert); err != nil {
+		return err
+	}
+	return r.reconcileIssuedTLSSecretOwner(ctx, mcpServer, cert.GetName())
+}
+
+// cert-manager retains issued Secrets by default when their Certificate is
+// deleted. Link only this server's issued credentials to its lifecycle without
+// changing certificate material or the cluster-wide cert-manager policy.
+func (r *MCPServerReconciler) reconcileIssuedTLSSecretOwner(ctx context.Context, server *mcpv1alpha1.MCPServer, certificateName string) error {
+	var secret corev1.Secret
+	if err := r.Get(ctx, types.NamespacedName{Namespace: server.Namespace, Name: certificateName}, &secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil // Certificate issuance is asynchronous; readiness requeues.
+		}
+		return err
+	}
+	// A deterministic name alone is not ownership evidence. Do not adopt a
+	// user-provided Secret or a credential from another issuer/Certificate.
+	if secret.Type != corev1.SecretTypeTLS ||
+		secret.Annotations["cert-manager.io/certificate-name"] != certificateName ||
+		secret.Annotations["cert-manager.io/issuer-kind"] != "ClusterIssuer" ||
+		secret.Annotations["cert-manager.io/issuer-name"] != strings.TrimSpace(r.MTLSClusterIssuer) {
+		return nil
+	}
+	for _, owner := range secret.OwnerReferences {
+		if owner.Kind != "MCPServer" || owner.APIVersion != mcpv1alpha1.GroupVersion.String() {
+			continue
+		}
+		if owner.UID == server.UID && owner.Name == server.Name {
+			return nil
+		}
+		return fmt.Errorf("issued TLS Secret %s/%s belongs to another MCPServer", server.Namespace, secret.Name)
+	}
+	// A non-controller owner preserves cert-manager's own controller reference
+	// when its owner-ref setting is enabled. ResourceVersion fences replacement.
+	if err := controllerutil.SetOwnerReference(server, &secret, r.Scheme); err != nil {
+		return err
+	}
+	return r.Update(ctx, &secret)
 }
 
 // reconcileMTLSTrustBundle materializes the identity CA bundle as a Secret in

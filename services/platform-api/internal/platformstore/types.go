@@ -6,7 +6,6 @@ import (
 
 	"mcp-runtime/pkg/apikit"
 	"mcp-runtime/pkg/passport"
-	"mcp-runtime/pkg/topology"
 )
 
 const (
@@ -28,8 +27,6 @@ const (
 )
 
 const (
-	// SharedCatalogNamespace is the legacy shared MCP server catalog namespace.
-	SharedCatalogNamespace = topology.MCPServersNamespace
 	// TeamNamespacePrefix is prepended to normalized team slugs for managed namespaces.
 	TeamNamespacePrefix = "mcp-team-"
 	// TeamRoleOwner grants team administration privileges.
@@ -44,8 +41,9 @@ const (
 
 // Store owns platform identity, API key, team, namespace, and audit persistence.
 type Store struct {
-	db        *sql.DB
-	jwtSecret []byte
+	db       *sql.DB
+	signer   passport.Signer
+	verifier passport.Verifier
 }
 
 // NewStoreWithDB binds a Store to an existing database. Tests use it to observe

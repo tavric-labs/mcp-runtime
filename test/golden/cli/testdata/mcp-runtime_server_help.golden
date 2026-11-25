@@ -23,6 +23,7 @@ Available Commands:
   create         Create an MCP server
   delete         Delete an MCP server
   deploy         Deploy an MCP server through the platform API
+  egress         Approve or revoke a server's external egress
   export         Export an MCP server manifest
   generate       Generate MCPServer manifests from .mcp metadata
   get            Get MCP server details

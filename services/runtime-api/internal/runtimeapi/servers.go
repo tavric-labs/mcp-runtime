@@ -150,6 +150,15 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 		writeAPIError(w, http.StatusBadRequest, "name and spec.image are required")
 		return
 	}
+	if req.Spec.Egress != nil {
+		if err := mcpaccess.ValidateServerEgress(req.Spec.Egress.Hosts, req.Spec.Egress.Ports); err != nil {
+			writeAPIError(w, http.StatusBadRequest, "spec."+err.Error())
+			return
+		}
+		for i, host := range req.Spec.Egress.Hosts {
+			req.Spec.Egress.Hosts[i] = mcpaccess.NormalizeEgressHost(host)
+		}
+	}
 	scope, err := topology.NormalizeScope(req.Scope)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
@@ -158,10 +167,6 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 	namespace, err := s.scopedNamespaceForServerApply(r.Context(), req.Namespace, scope)
 	if err != nil {
 		writeAPIError(w, http.StatusForbidden, err.Error())
-		return
-	}
-	if p.Role != roleAdmin && namespace == sharedCatalogNamespace && !isModeCatalogNamespace(namespace) {
-		writeAPIError(w, http.StatusForbidden, "shared catalog namespace is read-only for team users")
 		return
 	}
 	if p.Role != roleAdmin && !principalCanPublishNamespace(p, namespace) {
@@ -285,6 +290,12 @@ func (s *RuntimeServer) handleRuntimeServerApply(w http.ResponseWriter, r *http.
 	}
 	if userID := p.UserID(); userID != "" {
 		annotations[platformLastPushByAnnotation] = userID
+	}
+	// Egress approval belongs to an administrator and is bound to the approved
+	// declaration. The request cannot supply it; it survives a redeploy only
+	// when spec.egress is exactly what was approved.
+	if egressApprovalStillValid(current, req.Spec.Egress) {
+		annotations[mcpaccess.EgressApprovedAnnotation] = "true"
 	}
 
 	server := &mcpv1alpha1.MCPServer{
@@ -505,7 +516,7 @@ func (s *RuntimeServer) scopedNamespaceForServerApply(ctx context.Context, reque
 		return "", err
 	}
 	switch scope {
-	case topology.ScopePublic, topology.ScopeOrg:
+	case topology.ScopeOrg:
 		return scopedModeCatalogNamespaceForApply(p, requested, scope)
 	case topology.ScopeTenant:
 		return scopedTenantNamespaceForApply(p, requested)
@@ -544,7 +555,7 @@ func scopedTenantNamespaceForApply(p principal, requested string) (string, error
 	if requested == "" {
 		return "", errors.New("tenant scope requires team membership")
 	}
-	if isModeCatalogNamespace(requested) || requested == sharedCatalogNamespace {
+	if isModeCatalogNamespace(requested) {
 		return "", errors.New("tenant scope requires a team namespace")
 	}
 	if _, ok := p.TeamForNamespace(requested); !ok {
@@ -724,8 +735,22 @@ func (s *RuntimeServer) handleRuntimeServerDelete(w http.ResponseWriter, r *http
 	image := ""
 	if current != nil {
 		image = current.Spec.Image
-		patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"uid": current.UID, "resourceVersion": current.ResourceVersion, "annotations": map[string]string{mcpaccess.ServerRetiringAnnotation: "true"}}})
-		if _, err := s.k8sClients.Dynamic.Resource(controlplane.MCPServerGVR).Namespace(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		// The operator rewrites a settling server's status, which can invalidate
+		// the resourceVersion precondition between the read and the patch.
+		// Re-read and retry a bounded number of times before giving up.
+		for attempt := 1; ; attempt++ {
+			patch, _ := json.Marshal(map[string]any{"metadata": map[string]any{"uid": current.UID, "resourceVersion": current.ResourceVersion, "annotations": map[string]string{mcpaccess.ServerRetiringAnnotation: "true"}}})
+			_, err = s.k8sClients.Dynamic.Resource(controlplane.MCPServerGVR).Namespace(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
+			if err == nil {
+				break
+			}
+			if apierrors.IsConflict(err) && attempt < 5 {
+				if latest, getErr := control.GetServer(ctx, namespace, name); getErr == nil && latest != nil {
+					current = latest
+					continue
+				}
+			}
+			log.Printf("runtime servers: mark retirement for %s/%s failed: %v", namespace, name, err)
 			s.writeAudit(r.Context(), serverPublishAuditEvent(r, p, "server_retire", "error", name, namespace, image, err.Error()))
 			writeAPIError(w, http.StatusInternalServerError, "failed to mark server retirement; retry retirement")
 			return
@@ -928,4 +953,16 @@ func firstForwardedValue(value string) string {
 		value = value[:idx]
 	}
 	return strings.TrimSpace(value)
+}
+
+// egressApprovalStillValid reports whether the current server carries an admin
+// egress approval for exactly the declaration being applied.
+func egressApprovalStillValid(current *mcpv1alpha1.MCPServer, next *mcpv1alpha1.EgressConfig) bool {
+	if current == nil || next == nil || current.Spec.Egress == nil {
+		return false
+	}
+	if current.Annotations[mcpaccess.EgressApprovedAnnotation] != "true" {
+		return false
+	}
+	return mcpaccess.ServerEgressEqual(current.Spec.Egress.Hosts, current.Spec.Egress.Ports, next.Hosts, next.Ports)
 }

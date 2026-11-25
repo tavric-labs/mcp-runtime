@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="1920" height="800" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif">
+  <title>Why MCP Runtime binds a SPIFFE identity to a session and a grant</title>
+  <desc>A human starts a platform session. The session names the SPIFFE ID in the agent's certificate and carries the grants. Revoking the session ends the identity.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowred" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="960" height="400" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
+  <text x="480" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">The session is the unit of identity. The grant is the unit of permission.</text>
+
+  <!-- Human -->
+  <rect x="30" y="80" width="210" height="96" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+  <text x="135" y="116" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">Human / team member</text>
+  <text x="135" y="140" text-anchor="middle" font-size="13" fill="#475569">authorizes the work</text>
+  <text x="135" y="158" text-anchor="middle" font-size="13" fill="#475569">for one agent, one server</text>
+
+  <!-- Session -->
+  <rect x="375" y="80" width="210" height="96" rx="10" fill="#e0f2fe" stroke="#0369a1" stroke-width="2.5"/>
+  <text x="480" y="112" text-anchor="middle" font-size="17" font-weight="700" fill="#0c4a6e">Platform session</text>
+  <text x="480" y="136" text-anchor="middle" font-size="13" fill="#0c4a6e">human + agent + team</text>
+  <text x="480" y="154" text-anchor="middle" font-size="13" fill="#0c4a6e">expiry · revocable · in platform-api</text>
+
+  <!-- Certificate -->
+  <rect x="705" y="80" width="225" height="96" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+  <text x="817" y="112" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">X.509 certificate</text>
+  <text x="817" y="136" text-anchor="middle" font-size="12" fill="#475569" font-family="Menlo, Consolas, monospace">spiffe://td/ns/team-a/</text>
+  <text x="817" y="153" text-anchor="middle" font-size="12" fill="#475569" font-family="Menlo, Consolas, monospace">session/adapter-1f3a…</text>
+  <text x="817" y="170" text-anchor="middle" font-size="12" fill="#475569">one URI SAN · at most 24h</text>
+
+  <!-- Grants -->
+  <rect x="375" y="250" width="210" height="96" rx="10" fill="#ecfdf5" stroke="#047857" stroke-width="2"/>
+  <text x="480" y="282" text-anchor="middle" font-size="17" font-weight="700" fill="#064e3b">Grants</text>
+  <text x="480" y="306" text-anchor="middle" font-size="13" fill="#064e3b">which server and which tools</text>
+  <text x="480" y="324" text-anchor="middle" font-size="13" fill="#064e3b">trust level, side-effect limits</text>
+
+  <!-- Arrows -->
+  <line x1="240" y1="128" x2="373" y2="128" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="306" y="118" text-anchor="middle" font-size="13" fill="#334155">starts</text>
+  <line x1="585" y1="128" x2="703" y2="128" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="644" y="118" text-anchor="middle" font-size="13" fill="#334155">names</text>
+  <line x1="480" y1="176" x2="480" y2="248" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="494" y="217" font-size="13" fill="#334155">carries</text>
+
+  <!-- Left note -->
+  <rect x="30" y="250" width="290" height="96" rx="10" fill="#fff7ed" stroke="#c2410c" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="175" y="280" text-anchor="middle" font-size="14" font-weight="700" fill="#7c2d12">Not a durable agent identity</text>
+  <text x="175" y="303" text-anchor="middle" font-size="13" fill="#7c2d12">The same agent tomorrow gets a</text>
+  <text x="175" y="321" text-anchor="middle" font-size="13" fill="#7c2d12">new session and a new certificate.</text>
+
+  <!-- Right note: revoke -->
+  <rect x="640" y="250" width="290" height="96" rx="10" fill="#fef2f2" stroke="#b91c1c" stroke-width="1.5"/>
+  <text x="785" y="280" text-anchor="middle" font-size="14" font-weight="700" fill="#7f1d1d">Revoke or expire the session</text>
+  <text x="785" y="303" text-anchor="middle" font-size="13" fill="#7f1d1d">and the identity stops working,</text>
+  <text x="785" y="321" text-anchor="middle" font-size="13" fill="#7f1d1d">even if the certificate is still valid.</text>
+  <line x1="640" y1="298" x2="587" y2="298" stroke="#b91c1c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowred)"/>
+
+  <text x="480" y="382" text-anchor="middle" font-size="13" fill="#64748b">SPIFFE says who is calling. The session says on whose behalf. The grant says what is allowed.</text>
+</svg>

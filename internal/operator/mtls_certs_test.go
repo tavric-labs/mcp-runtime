@@ -17,7 +17,7 @@ import (
 
 func mtlsServer() *mcpv1alpha1.MCPServer {
 	return &mcpv1alpha1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "secure-server", Namespace: "mcp-servers"},
+		ObjectMeta: metav1.ObjectMeta{Name: "secure-server", Namespace: "mcp-servers-org"},
 		Spec: mcpv1alpha1.MCPServerSpec{
 			Image:       "example.com/secure-server",
 			ServicePort: 80,
@@ -30,13 +30,50 @@ func mtlsServer() *mcpv1alpha1.MCPServer {
 func TestTraefikProxySPIFFEID(t *testing.T) {
 	r := MCPServerReconciler{
 		GatewayProxyImage: "example.com/mcp-gateway:test", AdapterTrustDomain: "example.org"}
-	if got := r.traefikProxySPIFFEID(mtlsServer()); got != "spiffe://example.org/ns/traefik/sa/traefik" {
-		t.Fatalf("traefikProxySPIFFEID = %q", got)
+	got, err := r.traefikProxySPIFFEID(mtlsServer())
+	if err != nil || got != "spiffe://example.org/ns/traefik/sa/traefik" {
+		t.Fatalf("traefikProxySPIFFEID = (%q, %v)", got, err)
 	}
 	emptyReconciler := MCPServerReconciler{
 		GatewayProxyImage: "example.com/mcp-gateway:test"}
-	if got := emptyReconciler.traefikProxySPIFFEID(mtlsServer()); got != "" {
-		t.Fatalf("traefikProxySPIFFEID without trust domain = %q, want empty", got)
+	got, err = emptyReconciler.traefikProxySPIFFEID(mtlsServer())
+	if err != nil || got != "" {
+		t.Fatalf("traefikProxySPIFFEID without trust domain = (%q, %v), want empty and no error", got, err)
+	}
+}
+
+// An invalid identity must be an error, never an empty string: callers treat
+// "" as "no mTLS configured" and would silently drop the gateway's ingress pin.
+func TestTraefikProxySPIFFEIDRejectsInvalidInputs(t *testing.T) {
+	cases := map[string]MCPServerReconciler{
+		"uppercase trust domain": {AdapterTrustDomain: "Example.org"},
+		"trust domain with path": {AdapterTrustDomain: "example.org/evil"},
+		"namespace with slash":   {AdapterTrustDomain: "example.org", IngressControllerNamespace: "traefik/x"},
+		"service account space":  {AdapterTrustDomain: "example.org", IngressControllerServiceAccount: "trae fik"},
+	}
+	for name, r := range cases {
+		t.Run(name, func(t *testing.T) {
+			if got, err := r.traefikProxySPIFFEID(mtlsServer()); err == nil {
+				t.Fatalf("traefikProxySPIFFEID = %q, want error", got)
+			}
+		})
+	}
+}
+
+func TestInvalidTrustDomainFailsGatewayAndCertificateReconcile(t *testing.T) {
+	r := MCPServerReconciler{
+		GatewayProxyImage: "example.com/mcp-gateway:test", AdapterCertificatesEnabled: true,
+		AdapterTrustDomain: "Example.org", MTLSClusterIssuer: "mcp-runtime-ca"}
+	if _, err := r.buildGatewayContainer(mtlsServer()); err == nil {
+		t.Fatal("buildGatewayContainer with an invalid trust domain succeeded; the ingress pin would be dropped")
+	}
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("scheme: %v", err)
+	}
+	r.Client = fake.NewClientBuilder().WithScheme(scheme).Build()
+	if err := r.reconcileTraefikClientCertificate(context.Background(), mtlsServer()); err == nil {
+		t.Fatal("reconcileTraefikClientCertificate with an invalid trust domain succeeded")
 	}
 }
 
@@ -74,10 +111,10 @@ func TestReconcileMTLSTrustBundle(t *testing.T) {
 	if err := mcpv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("scheme: %v", err)
 	}
-	bundleKey := types.NamespacedName{Name: "secure-server-mtls-ca", Namespace: "mcp-servers"}
+	bundleKey := types.NamespacedName{Name: "secure-server-mtls-ca", Namespace: "mcp-servers-org"}
 	gatewaySecret := func() *corev1.Secret {
 		return &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: "secure-server-gateway-mtls", Namespace: "mcp-servers"},
+			ObjectMeta: metav1.ObjectMeta{Name: "secure-server-gateway-mtls", Namespace: "mcp-servers-org"},
 			Data:       map[string][]byte{"ca.crt": []byte("CA-PEM"), "tls.crt": []byte("LEAF"), "tls.key": []byte("KEY")},
 		}
 	}

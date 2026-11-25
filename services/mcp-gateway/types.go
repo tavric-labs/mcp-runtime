@@ -43,7 +43,9 @@ type analyticsEvent struct {
 }
 
 type gatewayServer struct {
-	proxy                  http.Handler
+	proxy http.Handler
+	// uploadProxy serves declared public paths; nil disables them.
+	uploadProxy            http.Handler
 	metrics                *gatewayMetrics
 	analyticsURL           string
 	apiKey                 string
@@ -98,6 +100,10 @@ type statusRecorder struct {
 	status int
 	bytes  int
 }
+
+// Unwrap lets http.ResponseController reach the underlying writer, so a handler
+// can set per-request read and write deadlines (public-path uploads need this).
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 const (
 	maxRPCBodyBytes      = 1 << 20

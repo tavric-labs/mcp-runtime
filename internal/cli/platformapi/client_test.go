@@ -73,7 +73,7 @@ func TestApplyAccessFromYAMLFile_MultiDocument(t *testing.T) {
 kind: MCPAccessGrant
 metadata:
   name: grant-a
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   mode: monitor
   serverRef:
@@ -93,7 +93,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAgentSession
 metadata:
   name: session-a
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: demo
@@ -132,7 +132,7 @@ func TestGetRuntimeServer(t *testing.T) {
 			if r.Header.Get("x-api-key") != "token-1" {
 				t.Fatalf("x-api-key = %q, want token-1", r.Header.Get("x-api-key"))
 			}
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"server":{"name":"demo","namespace":"mcp-team-acme","runtimeStatus":{"connectionState":"ready","lastSessionState":"none"}}}`))}, nil
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"server":{"name":"demo","namespace":"mcp-team-acme","runtimeStatus":{"connectionState":"ready","lastSessionState":"none"},"egress":{"hosts":["www.googleapis.com"],"ports":[443],"approved":true}}}`))}, nil
 		})},
 	}
 
@@ -142,6 +142,9 @@ func TestGetRuntimeServer(t *testing.T) {
 	}
 	if server.Name != "demo" || server.RuntimeStatus.ConnectionState != "ready" || server.RuntimeStatus.LastSessionState != "none" {
 		t.Fatalf("server = %#v, want runtime status decoded", server)
+	}
+	if server.Egress == nil || !server.Egress.Approved || len(server.Egress.Hosts) != 1 || server.Egress.Hosts[0] != "www.googleapis.com" || len(server.Egress.Ports) != 1 || server.Egress.Ports[0] != 443 {
+		t.Fatalf("server.Egress = %#v, want decoded egress details", server.Egress)
 	}
 }
 
@@ -495,7 +498,7 @@ func TestPlatformClientAccessPatchRoutes(t *testing.T) {
 	httpClient := &http.Client{
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			switch {
-			case r.Method == http.MethodPatch && r.URL.Path == "/api/v1/runtime/grants/mcp-servers/grant-a":
+			case r.Method == http.MethodPatch && r.URL.Path == "/api/v1/runtime/grants/mcp-servers-org/grant-a":
 				body, _ := io.ReadAll(r.Body)
 				var payload map[string]any
 				_ = json.Unmarshal(body, &payload)
@@ -503,7 +506,7 @@ func TestPlatformClientAccessPatchRoutes(t *testing.T) {
 					t.Fatalf("grant patch payload = %#v", payload)
 				}
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"success":true}`))}, nil
-			case r.Method == http.MethodPatch && r.URL.Path == "/api/v1/runtime/sessions/mcp-servers/session-a":
+			case r.Method == http.MethodPatch && r.URL.Path == "/api/v1/runtime/sessions/mcp-servers-org/session-a":
 				body, _ := io.ReadAll(r.Body)
 				var payload map[string]any
 				_ = json.Unmarshal(body, &payload)
@@ -523,10 +526,10 @@ func TestPlatformClientAccessPatchRoutes(t *testing.T) {
 		http:      httpClient,
 		apiPrefix: "/api/v1",
 	}
-	if err := client.PatchGrant(context.Background(), "mcp-servers", "grant-a", true); err != nil {
+	if err := client.PatchGrant(context.Background(), "mcp-servers-org", "grant-a", true); err != nil {
 		t.Fatalf("PatchGrant() error = %v", err)
 	}
-	if err := client.PatchSession(context.Background(), "mcp-servers", "session-a", true); err != nil {
+	if err := client.PatchSession(context.Background(), "mcp-servers-org", "session-a", true); err != nil {
 		t.Fatalf("PatchSession() error = %v", err)
 	}
 }
@@ -546,10 +549,10 @@ func TestPlatformClientAccessPatchRoutesRejectNon2xx(t *testing.T) {
 		http:      httpClient,
 		apiPrefix: "/api/v1",
 	}
-	if err := client.PatchGrant(context.Background(), "mcp-servers", "grant-a", true); err == nil {
+	if err := client.PatchGrant(context.Background(), "mcp-servers-org", "grant-a", true); err == nil {
 		t.Fatal("PatchGrant() error = nil, want non-2xx failure")
 	}
-	if err := client.PatchSession(context.Background(), "mcp-servers", "session-a", true); err == nil {
+	if err := client.PatchSession(context.Background(), "mcp-servers-org", "session-a", true); err == nil {
 		t.Fatal("PatchSession() error = nil, want non-2xx failure")
 	}
 }

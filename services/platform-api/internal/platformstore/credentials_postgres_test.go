@@ -74,7 +74,7 @@ func TestPostgresCredentialBrokerAPIIsolationRotationRevocationAndAudit(t *testi
 	}}
 	// Exercise real signed human authentication for management, with live
 	// directory refresh rather than synthetic namespace/role headers.
-	auth := passport.Authenticator{Secret: s.jwtSecret, Audience: passport.AudiencePlatform, Principals: s}
+	auth := passport.Authenticator{Verifier: s.verifier, Audience: passport.AudiencePlatform, Principals: s}
 	management := auth.Middleware(http.HandlerFunc(h.Management))
 	call := func(user User, method, path string, value any) *httptest.ResponseRecorder {
 		t.Helper()

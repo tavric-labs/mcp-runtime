@@ -303,7 +303,6 @@ mcp-runtime server push \
 
 # Other scopes
 mcp-runtime server push --image ... --scope org      # org-wide catalog
-mcp-runtime server push --image ... --scope public   # anonymous catalog
 ```
 
 `server push` requires platform credentials. Use an `https://` API base URL.
@@ -365,7 +364,7 @@ mcp-runtime server policy inspect workspace-demo --namespace mcp-team-acme
 ### Inspect and manage
 
 `server list` requires no filter. It lists servers visible to the signed-in user:
-public and organization catalogs where enabled, the personal namespace, and
+the organization catalog, the personal namespace, and
 the user's teams. Admins see all servers. The output includes each server's
 namespace to distinguish servers with the same name.
 
@@ -390,7 +389,7 @@ running. Credential values and request payloads are never included.
 
 In explicit direct Kubernetes mode, use
 `server list --use-kube --namespace mcp-team-acme`. This requires operator
-Kubernetes access, defaults to `mcp-servers` when no namespace is supplied, and
+Kubernetes access, defaults to `mcp-servers-org` when no namespace is supplied, and
 does not support `--team`.
 
 ```bash
@@ -603,6 +602,12 @@ targets, requires its human identity to match the OAuth subject. Governance
 identity headers are not supported.
 
 The platform issues certificates only when an enabled `MCPAccessGrant` matches the server, signed-in user, and agent. Apply the grant first with `access grant apply`.
+
+`adapter enroll` and automatic `adapter proxy` enrollment request low session
+trust by default. Pass `--requested-trust medium|high` (or set
+`MCP_RUNTIME_ADAPTER_REQUESTED_TRUST`) when the intended tool needs it. The
+platform caps the request at the applicable grant's maximum trust; the CLI
+never infers higher consent from a grant.
 
 Before creating a session, `adapter enroll` checks the operator's existing
 adapter-certificate choice, matching operator/API issuer and trust domain, issuer
@@ -832,7 +837,7 @@ mcp-runtime setup --test-mode --test-multi-replica             # normal replica 
 | `--registry-mode` | `auto` | Uses a provisioned registry config when present, otherwise the bundled registry |
 | `--registry-type` | `docker` | Harbor is not available yet |
 | `--registry-storage` | `20Gi` | Bundled registry PVC request, set before first creation. Must be positive. Reruns reject shrinking an existing claim before applying registry resources |
-| `--platform-mode` | `org` | Modes: `org` or `public`. Org supports org/team publishing; public additionally supports public publishing and anonymous public-catalog reads |
+| `--platform-mode` | `org` | Modes: `org` or `public`. Org supports org/team publishing; public is the hosted, internet-facing profile with the same catalogs and scopes, and requires browser login configuration on TLS installs |
 | `--pod-egress-cidrs` | empty | Comma-separated destinations team servers may reach on TCP 443. Empty adds no rule. `0.0.0.0/0` is rejected |
 | `--pod-egress-except-cidrs` | empty | Pod and service CIDRs kept out of `--pod-egress-cidrs`. Required for a private destination |
 | `--storage-mode` | `dynamic` | Use `hostpath` for single-node k3s/minikube/kind with no provisioner |
@@ -1043,13 +1048,34 @@ platform-api and UI. Missing mode-dependent manifest entries become config-only
 entries, preserving their images. Namespace selection comes from the target
 cluster's shared configuration, never the workstation environment. Existing
 namespaces must already be managed catalogs with the requested scope; update
-refuses to expose an organization/team namespace as public. Catalog namespaces
+refuses to adopt an existing namespace that is not a managed org catalog. The former `mcp-servers-public` namespace is no longer managed and can be deleted by the operator. Catalog namespaces
 are additive and retained on rollback or a later mode change. `--only` skips
 ConfigMaps and catalog preparation and cannot be combined with `--platform-mode`.
 
-update never modifies Secrets, PVCs, cert-manager
-Issuers/Certificates, Services, or Ingresses, other RBAC, or other Deployment
-settings, and never deletes or recreates workloads. mcp-auth and cert-manager
+When a platform-api, runtime-api or analytics-api rollout is planned, update first
+makes sure the platform token key pair exists. It keeps an existing
+`JWT_SIGNING_KEY` and `JWT_VERIFY_KEY`, generates a signing key when none exists,
+adds its public key to the verification set, and writes `JWT_SIGNING_KEY` only to
+platform-api's credentials Secret and `JWT_VERIFY_KEY` to the platform-api,
+runtime-api and analytics-api Secrets, verifiers before platform-api. Existing
+verification keys and other Secret keys, including a legacy `JWT_SECRET`, are
+never removed, and a signing key that cannot be parsed stops the update before
+any change. platform-api rolls after runtime-api and analytics-api. `--dry-run`
+reports the provisioning without writing and never prints key material.
+
+The same rollouts wire the key env from those Secrets, as the release declares in
+`config/release/wiring.yaml`: platform-api gets `JWT_SIGNING_KEY` and runtime-api
+and analytics-api get `JWT_VERIFY_KEY`, each a `secretKeyRef` to the service's own
+credentials Secret, and the retired `JWT_SECRET` env is removed from the three
+Deployments. Setup renders the same references from `k8s/`, and a test keeps the
+two in step. A failed rollout restores the previous env, including `JWT_SECRET`,
+so the prior release still starts. Other env is untouched. Release wiring may
+declare `secretEnv` (Secret references) and `removeEnv` (retired variables);
+`--dry-run` lists these as wiring drift.
+
+Apart from those two keys, update never modifies Secrets, PVCs, cert-manager
+Issuers/Certificates, Services, or Ingresses, other RBAC, or Deployment
+settings other than the wiring a release declares, and never deletes or recreates workloads. mcp-auth and cert-manager
 are skipped unless selected with `--include-auth`, `--include-cert-manager`, or
 `--only`.
 
@@ -1152,7 +1178,7 @@ mcp-runtime cluster cert apply
 mcp-runtime cluster cert wait --timeout 10m
 
 mcp-runtime cluster doctor                                   # pre-setup readiness
-mcp-runtime cluster identity status --server mcp-servers-public/example-server # workload issuer/route mTLS health
+mcp-runtime cluster identity status --server mcp-servers-org/example-server # workload issuer/route mTLS health
 KUBECONFIG=~/.kube/config mcp-runtime cluster diagnostics    # post-setup diagnostic
 
 # Repair operator RBAC from this release after an image-only update.
@@ -1199,6 +1225,17 @@ See [registry authentication](internals/registry-auth.md) for prerequisites,
 read-only node credential rotation, and recovery after a partial activation.
 
 ## Optional MCP Auth credential gateway
+
+For a server that signs people in with OAuth and calls a provider as them, not
+through the gateway's header form, use `mcp-runtime cluster mcp-auth resource apply`
+instead; see [Give one resource its own provider login and token](mcp-oauth.md#give-one-resource-its-own-provider-login-and-token).
+The two coexist in the same MCP Auth wiring, and re-applying either keeps the
+other's entries.
+
+`gateway apply`, `cluster mcp-auth resource apply` and `cluster mcp-auth connector apply`
+refuse, before writing anything (also under `--dry-run`), a change that would leave a
+login method naming a connector the connectors ConfigMap does not define, because MCP
+Auth exits at startup in that state. The error names the method and the connector.
 
 `mcp-runtime gateway apply` installs the credential gateway as its
 own workload next to MCP Auth, and wires MCP Auth to it. The workload is one shared

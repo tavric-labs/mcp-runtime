@@ -16,6 +16,7 @@ import (
 
 	"mcp-runtime/internal/blueprint"
 	"mcp-runtime/internal/cli/core"
+	"mcp-runtime/pkg/access/specvalidation"
 	"mcp-runtime/pkg/policy"
 )
 
@@ -225,6 +226,11 @@ type grantYAML struct {
 			Decision      string `yaml:"decision"`
 			RequiredTrust string `yaml:"requiredTrust"`
 		} `yaml:"toolRules"`
+		PrimitiveRules []struct {
+			Kind     string `yaml:"kind"`
+			Pattern  string `yaml:"pattern"`
+			Decision string `yaml:"decision"`
+		} `yaml:"primitiveRules"`
 	} `yaml:"spec"`
 }
 
@@ -283,6 +289,22 @@ func validateGrantFile(path string, cfg *blueprint.RegistryFile) ([]validateIssu
 				hint:    "Valid values: read, write, destructive",
 			})
 		}
+	}
+
+	// Resource, prompt and skill rules do not depend on the server metadata, so
+	// they are checked before the server lookup can return early.
+	primitives := make([]specvalidation.PrimitiveRule, 0, len(grant.Spec.PrimitiveRules))
+	for _, r := range grant.Spec.PrimitiveRules {
+		primitives = append(primitives, specvalidation.PrimitiveRule{
+			Kind: strings.TrimSpace(r.Kind), Pattern: strings.TrimSpace(r.Pattern), Decision: strings.TrimSpace(r.Decision),
+		})
+	}
+	for _, message := range specvalidation.ValidatePrimitiveRules(primitives).Messages() {
+		issues = append(issues, validateIssue{
+			fatal:   true,
+			message: fmt.Sprintf("grant %q: %s", grantName, message),
+			hint:    "primitiveRules scope resources, prompts and skills: kind is resource, prompt or skill; pattern is exact or ends in *; decision is allow or deny",
+		})
 	}
 
 	// Find the matching server in metadata.

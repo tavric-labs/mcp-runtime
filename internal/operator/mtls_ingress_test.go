@@ -221,7 +221,7 @@ func TestReconcileMTLSIngressNeverSetsPerRouteSecretName(t *testing.T) {
 	objs := append([]client.Object{server}, mtlsBackendSecretObjects(server)...)
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 	r := MCPServerReconciler{
-		GatewayProxyImage: "example.com/mcp-gateway:test", Client: c, Scheme: scheme, DefaultIngressTLSSecret: "platform-host-tls", DefaultIngressTLSSecretNamespace: "mcp-servers", AdapterCertificatesEnabled: true, AdapterTrustDomain: "example.org", MTLSClusterIssuer: "mcp-runtime-ca"}
+		GatewayProxyImage: "example.com/mcp-gateway:test", Client: c, Scheme: scheme, DefaultIngressTLSSecret: "platform-host-tls", DefaultIngressTLSSecretNamespace: "mcp-servers-org", AdapterCertificatesEnabled: true, AdapterTrustDomain: "example.org", MTLSClusterIssuer: "mcp-runtime-ca"}
 	if err := r.reconcileMTLSIngress(context.Background(), server); err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
@@ -302,16 +302,16 @@ func TestReconcileDefaultClientAuthTLSOption(t *testing.T) {
 func TestReconcileDefaultTLSStore(t *testing.T) {
 	scheme := traefikScheme(t)
 	server := mtlsServer()
-	key := types.NamespacedName{Name: "default", Namespace: "mcp-servers"}
+	key := types.NamespacedName{Name: "default", Namespace: "mcp-servers-org"}
 
 	t.Run("creates a single default store in the configured namespace", func(t *testing.T) {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(server).Build()
 		r := MCPServerReconciler{
-			GatewayProxyImage: "example.com/mcp-gateway:test", Client: c, Scheme: scheme, DefaultIngressTLSSecret: "platform-host-tls", DefaultIngressTLSSecretNamespace: "mcp-servers", AdapterCertificatesEnabled: true, AdapterTrustDomain: "example.org", MTLSClusterIssuer: "mcp-runtime-ca"}
+			GatewayProxyImage: "example.com/mcp-gateway:test", Client: c, Scheme: scheme, DefaultIngressTLSSecret: "platform-host-tls", DefaultIngressTLSSecretNamespace: "mcp-servers-org", AdapterCertificatesEnabled: true, AdapterTrustDomain: "example.org", MTLSClusterIssuer: "mcp-runtime-ca"}
 		if err := r.reconcileDefaultTLSStore(context.Background()); err != nil {
 			t.Fatalf("reconcile: %v", err)
 		}
-		store := getCR(t, c, tlsStoreGVK, "default", "mcp-servers")
+		store := getCR(t, c, tlsStoreGVK, "default", "mcp-servers-org")
 		if sn, _, _ := unstructured.NestedString(store.Object, "spec", "defaultCertificate", "secretName"); sn != "platform-host-tls" {
 			t.Fatalf("defaultCertificate.secretName = %q, want platform-host-tls", sn)
 		}

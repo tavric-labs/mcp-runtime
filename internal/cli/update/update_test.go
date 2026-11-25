@@ -61,7 +61,7 @@ func installed(version string) []runtime.Object {
 		}
 		return deployment(ns, name, container, fmt.Sprintf("%s/%s:%s", reg, repo, version), nil)
 	}
-	return []runtime.Object{
+	return append([]runtime.Object{
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "mcp-runtime"}},
 		deployment("mcp-runtime", platformrelease.OperatorDeployment, "manager", reg+"/mcp-runtime-operator:"+version, nil,
 			corev1.EnvVar{Name: "MCP_GATEWAY_PROXY_IMAGE", Value: reg + "/mcp-gateway:" + version},
@@ -73,7 +73,7 @@ func installed(version string) []runtime.Object {
 		platform("mcp-processor", "processor", "mcp-processor"),
 		platform("mcp-ui", "ui", "mcp-ui"),
 		deployment("mcp-platform", "mcp-auth-server", "auth-server", "docker.io/princekrroshan01/mcp-auth-server:v1.0.0", nil),
-	}
+	}, legacySecrets()...)
 }
 
 func manifest(t *testing.T, version string, mutate ...func(*platformrelease.Manifest)) *platformrelease.Manifest {
@@ -488,7 +488,7 @@ func TestApplyPartialFailureRollsBack(t *testing.T) {
 	}
 	failed := false
 	waiter := func(_ context.Context, _, name string, _ time.Duration) error {
-		if name == "mcp-runtime-api" && !failed {
+		if name == "mcp-platform-api" && !failed {
 			failed = true
 			return errors.New("ImagePullBackOff")
 		}
@@ -502,7 +502,7 @@ func TestApplyPartialFailureRollsBack(t *testing.T) {
 	for _, w := range res.Workloads {
 		status[w.Deployment] = w.Status
 	}
-	if status[platformrelease.OperatorDeployment] != StatusRolledBack || status["mcp-platform-api"] != StatusRolledBack || status["mcp-runtime-api"] != StatusRolledBack {
+	if status[platformrelease.OperatorDeployment] != StatusRolledBack || status["mcp-platform-api"] != StatusRolledBack || status["mcp-runtime-api"] != StatusRolledBack || status["mcp-analytics-api"] != StatusRolledBack {
 		t.Fatalf("status = %v", status)
 	}
 	if status["mcp-ui"] != StatusNotAttempted {
@@ -516,9 +516,9 @@ func TestApplyPartialFailureRollsBack(t *testing.T) {
 	if envValue(op.Spec.Template.Spec.Containers[0].Env, "MCP_GATEWAY_PROXY_IMAGE") != reg+"/mcp-gateway:v0.4.0" {
 		t.Fatal("gateway proxy env not restored")
 	}
-	// Rollback order is reverse: runtime-api, platform-api, operator.
+	// platform-api rolls after the verifiers; rollback order is the reverse.
 	got := patchedDeployments(cs)
-	want := []string{platformrelease.OperatorDeployment, "mcp-platform-api", "mcp-runtime-api", "mcp-runtime-api", "mcp-platform-api", platformrelease.OperatorDeployment}
+	want := []string{platformrelease.OperatorDeployment, "mcp-runtime-api", "mcp-analytics-api", "mcp-platform-api", "mcp-platform-api", "mcp-analytics-api", "mcp-runtime-api", platformrelease.OperatorDeployment}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("patch order = %v", got)
 	}

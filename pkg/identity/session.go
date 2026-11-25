@@ -2,46 +2,53 @@ package identity
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
+
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-// SessionSPIFFEID returns the canonical session-bound SPIFFE URI:
+const (
+	namespaceSegment = "ns"
+	sessionSegment   = "session"
+)
+
+// SessionSPIFFEID returns the canonical session-bound SPIFFE ID:
 // spiffe://<trustDomain>/ns/<namespace>/session/<session>.
-func SessionSPIFFEID(trustDomain, namespace, session string) string {
-	trustDomain = strings.TrimSpace(trustDomain)
-	namespace = strings.TrimSpace(namespace)
-	session = strings.TrimSpace(session)
-	return fmt.Sprintf("spiffe://%s/ns/%s/session/%s", trustDomain, url.PathEscape(namespace), url.PathEscape(session))
+//
+// The ID is built and validated by go-spiffe, so every component must be a
+// valid SPIFFE value: the trust domain is lowercase and the namespace and
+// session use only letters, digits, '.', '-' and '_'. Kubernetes namespace
+// names and platform session names already satisfy this. Anything else is an
+// error rather than being escaped.
+func SessionSPIFFEID(trustDomain, namespace, session string) (string, error) {
+	td, err := spiffeid.TrustDomainFromString(strings.TrimSpace(trustDomain))
+	if err != nil {
+		return "", fmt.Errorf("session SPIFFE ID: %w", err)
+	}
+	id, err := spiffeid.FromSegments(td, namespaceSegment, strings.TrimSpace(namespace), sessionSegment, strings.TrimSpace(session))
+	if err != nil {
+		return "", fmt.Errorf("session SPIFFE ID: %w", err)
+	}
+	return id.String(), nil
 }
 
 // ParseSessionSPIFFE parses a session-bound SPIFFE ID of the form
-// spiffe://<trustDomain>/ns/<namespace>/session/<sessionID>. It is deliberately
-// strict and fails closed on any deviation (wrong scheme, trust domain, or path).
+// spiffe://<trustDomain>/ns/<namespace>/session/<sessionID>. It fails closed
+// on any deviation: go-spiffe rejects malformed IDs (wrong scheme, query,
+// fragment, port, userinfo, empty or dot segments, escapes), and the trust
+// domain and path shape must match exactly.
 func ParseSessionSPIFFE(raw, trustDomain string) (namespace, sessionID string, ok bool) {
-	uri, err := url.Parse(raw)
-	if err != nil || uri == nil {
+	td, err := spiffeid.TrustDomainFromString(strings.TrimSpace(trustDomain))
+	if err != nil {
 		return "", "", false
 	}
-	if !strings.EqualFold(uri.Scheme, "spiffe") || !strings.EqualFold(uri.Host, strings.TrimSpace(trustDomain)) {
+	id, err := spiffeid.FromString(raw)
+	if err != nil || !id.MemberOf(td) {
 		return "", "", false
 	}
-	// SPIFFE IDs must not carry query parameters or fragments; reject them to
-	// avoid parameter-injection bypasses.
-	if uri.RawQuery != "" || uri.Fragment != "" {
+	parts := strings.Split(strings.TrimPrefix(id.Path(), "/"), "/")
+	if len(parts) != 4 || parts[0] != namespaceSegment || parts[2] != sessionSegment {
 		return "", "", false
 	}
-	parts := strings.Split(strings.Trim(uri.EscapedPath(), "/"), "/")
-	if len(parts) != 4 || parts[0] != "ns" || parts[2] != "session" {
-		return "", "", false
-	}
-	namespace, err = url.PathUnescape(parts[1])
-	if err != nil || strings.TrimSpace(namespace) == "" {
-		return "", "", false
-	}
-	sessionID, err = url.PathUnescape(parts[3])
-	if err != nil || strings.TrimSpace(sessionID) == "" {
-		return "", "", false
-	}
-	return namespace, sessionID, true
+	return parts[1], parts[3], true
 }

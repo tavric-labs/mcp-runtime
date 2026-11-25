@@ -86,11 +86,11 @@ spec:
                   name: mcp-runtime-api-credentials
                   key: ADMIN_API_KEYS
                   optional: true
-            - name: JWT_SECRET
+            - name: JWT_VERIFY_KEY
               valueFrom:
                 secretKeyRef:
                   name: mcp-runtime-api-credentials
-                  key: JWT_SECRET
+                  key: JWT_VERIFY_KEY
             - name: INTERNAL_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -102,6 +102,8 @@ spec:
               value: "" # MCP_POD_EGRESS_CIDRS
             - name: MCP_POD_EGRESS_EXCEPT_CIDRS
               value: "" # MCP_POD_EGRESS_EXCEPT_CIDRS
+            - name: MCP_POD_EGRESS_ALLOW_ALL
+              value: "" # MCP_POD_EGRESS_ALLOW_ALL
             - name: MCP_REGISTRY_PUSH_TEMP_DIR
               value: /tmp
             - name: POD_IP
@@ -114,9 +116,11 @@ spec:
           resources:
             requests:
               cpu: 50m
+              ephemeral-storage: 256Mi
               memory: 128Mi
             limits:
               cpu: "1"
+              ephemeral-storage: 3Gi
               memory: 512Mi
           readinessProbe:
             httpGet:
@@ -132,4 +136,7 @@ spec:
             periodSeconds: 20
       volumes:
         - name: runtime-api-tmp
-          emptyDir: {}
+          # Spools registry push uploads: MCP_REGISTRY_PUSH_MAX_CONCURRENT (4)
+          # x 512 MiB archive cap = 2Gi.
+          emptyDir:
+            sizeLimit: 2Gi

@@ -22,12 +22,12 @@ that value and uses `/mcp` when running locally without it.
 ## Build, publish, and deploy
 
 Prerequisites: Docker, the built `./bin/mcp-runtime` CLI, a saved platform login
-with public publishing/deployment permissions, a public-mode platform, and an available server name.
+with org publishing/deployment permissions, and an available server name.
 Run from the repository root. These commands publish an image and create one
 MCP server on the platform selected by your saved login.
-The checked-in image publishes into the public catalog. Organization and team
-publishing use `--scope org` and `--scope tenant`, respectively; choose the
-matching metadata scope and repository prefix before building.
+The checked-in image publishes into the org catalog. Team publishing uses
+`--scope tenant`; choose the matching metadata scope and repository prefix
+before building.
 
 ```bash
 ./bin/mcp-runtime auth status
@@ -43,16 +43,16 @@ SNOOP_TAG="snoop-$(date -u +%Y%m%d%H%M%S)"
 
 # Use the exact image repository printed by build.
 ./bin/mcp-runtime server push \
-  --image "registry.mcpruntime.org/public/test-mcpsnoop:$SNOOP_TAG" \
-  --scope public
+  --image "registry.mcpruntime.org/org/test-mcpsnoop:$SNOOP_TAG" \
+  --scope org
 
 ./bin/mcp-runtime server deploy test-mcpsnoop \
   --metadata-dir examples/test-mcpsnoop/.mcp \
-  --scope public
+  --scope org
 
-./bin/mcp-runtime server get test-mcpsnoop --namespace mcp-servers-public
+./bin/mcp-runtime server get test-mcpsnoop --namespace mcp-servers-org
 ./bin/mcp-runtime server connect-config test-mcpsnoop \
-  --namespace mcp-servers-public --client json
+  --namespace mcp-servers-org --client json
 ```
 
 `server init` originally generated the checked-in metadata; keep its default
@@ -62,7 +62,7 @@ existing demo deployment after rebuilding and pushing, add `--update` to
 `server deploy`. Delete only this demo when finished:
 
 ```bash
-./bin/mcp-runtime server delete test-mcpsnoop --namespace mcp-servers-public
+./bin/mcp-runtime server delete test-mcpsnoop --namespace mcp-servers-org
 ```
 
 ## Watch requests and responses
@@ -128,10 +128,10 @@ of telemetry. On a platform with the collector configured, copy the response
 trace ID into Grafana → Explore → Tempo → Trace ID. For matching Loki logs:
 
 ```logql
-{namespace="mcp-servers-public"} |= "trace_id=YOUR_TRACE_ID"
+{namespace="mcp-servers-org"} |= "trace_id=YOUR_TRACE_ID"
 ```
 
-The **MCP Server** dashboard accepts namespace `mcp-servers-public` and server
+The **MCP Server** dashboard accepts namespace `mcp-servers-org` and server
 `test-mcpsnoop`; its tool latency exemplars link metrics to sampled traces.
 Grafana access follows the platform's observability permissions. MCPSnoop's
 capture/session IDs identify its own records and are not the gateway trace ID.

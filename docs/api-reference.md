@@ -81,6 +81,7 @@ flowchart LR
 - Every listed `tools[]` entry must declare `sideEffect`. A tool called at runtime that the server never declared has no side effect to check, so the gateway fails closed with `403 tool_side_effect_unknown`.
 - Canary rollouts require positive `canaryReplicas` strictly less than total replicas.
 - An unset `auth.audience` is derived from the canonical public MCP URL. An explicit audience must be an absolute URI without a fragment. `auth.issuerURL` is defaulted from the configured bundled issuer when available; otherwise it is required with the gateway enabled.
+- **Public paths (`auth.publicPaths`)** are off by default. A server lists up to eight path prefixes, as the MCP server sees them (after the gateway strips its public prefix), for features such as single-use signed upload URLs where the server authenticates by a secret in the path. Only `POST` under a declared prefix skips gateway authentication and authorization, and the path must have a segment after the prefix. Each prefix sets `maxBodyBytes` (at most 4 GiB) and `maxDurationSeconds` (at most 3600): the gateway enforces a required `Content-Length` within the cap, a per-request deadline that replaces the 15s read and 30s upstream limits, and no retries. It strips `Authorization`, the configured token header, `Cookie` and the verified-identity header before forwarding, and audits every such request with the path secret replaced by `{redacted}`. The `/mcp` endpoint, tool calls and every other path keep the full bearer and policy pipeline. Rendered policies that use it require schema version `v7`, so an older gateway rejects the document instead of ignoring the field. It does not apply to `auth.mode: header`. The gateway does not know what a prefix is for; the server must verify the secret itself, bind it to one caller, and expire it. Ingress body-size and timeout limits are separate: raise them for the route with `spec.ingressAnnotations`.
 
 ### Status
 
@@ -93,7 +94,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPServer
 metadata:
   name: payments
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   teamID: 7d0a0b8f-7c25-4761-a632-3cf0108e31d6
   description: Payments MCP server for invoice lookup and refund workflows.
@@ -151,8 +152,7 @@ See [Multi-team isolation](teams-and-access.md).
 
 The platform API enforces the namespace boundary for access writes. Grants and
 sessions must live in the same namespace as their `serverRef`; non-admin
-callers cannot write access resources into the shared `mcp-servers` catalog
-namespace and can only operate in namespaces authorized on their principal.
+callers can only operate in namespaces authorized on their principal.
 Team namespace server writes default and validate `spec.teamID` against the
 authenticated principal namespace. Grant/session writes default missing
 `subject.teamID` from the referenced server team, while preserving an explicit
@@ -194,7 +194,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAccessGrant
 metadata:
   name: payments-ops-agent
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   mode: enforce
   serverRef:
@@ -230,7 +230,7 @@ apiVersion: mcpruntime.org/v1alpha1
 kind: MCPAgentSession
 metadata:
   name: sess-8f1b9d
-  namespace: mcp-servers
+  namespace: mcp-servers-org
 spec:
   serverRef:
     name: payments
@@ -323,8 +323,9 @@ over the public HTTPS issuer.
 ## Authentication API
 
 These routes are served by the split API services (`platform-api`, `runtime-api`, `analytics-api`) at `/api/v1/*`. Platform identity routes require the
-Postgres-backed platform store (`POSTGRES_DSN` or `DATABASE_URL`) and
-`JWT_SECRET`.
+Postgres-backed platform store (`POSTGRES_DSN` or `DATABASE_URL`) and the
+ES256 signing key (`JWT_SIGNING_KEY`). runtime-api and analytics-api need only
+the public verification key (`JWT_VERIFY_KEY`).
 
 ```text
 POST /api/v1/auth/signup
@@ -417,7 +418,7 @@ facets, and top request groups. Each request group includes its server,
 namespace/team, MCP JSON-RPC method, tool, policy decision/version, HTTP
 failures, p95 latency, last-seen time, and latest trace ID when available.
 Query: `limit` (1-50, default 10), `window_days` (1-365, default 30), or
-`window_hours` (1-8760, which overrides days), `scope` (`public`, `org`, or
+`window_hours` (1-8760, which overrides days), `scope` (`org` or
 `tenant`), `namespace`, `team_id`, `server`, `rpc_method` (for example
 `tools/call` or `tools/list`), `tool_name`, `decision`, `policy_version`, and
 `http_status` (`2xx`, `4xx`, or `5xx`). Scope, namespace and team filters are
@@ -432,8 +433,7 @@ buckets filled as zero. Only recorded gateway events are included.
 `/api/v1/user/analytics/usage` is available to normal platform users. It returns
 the same analytics shape, but the API enforces scope before querying
 ClickHouse: non-admin callers can see only events from team namespaces they
-belong to, and the shared `mcp-servers` catalog is excluded from user
-analytics. Query: `window_days`, `limit`, `namespace`, `server`, `decision`,
+belong to. Query: `window_days`, `limit`, `namespace`, `server`, `decision`,
 and `tool_name`. Passing `namespace` narrows the result only when the caller
 owns that namespace or belongs to that team.
 
@@ -441,17 +441,14 @@ owns that namespace or belongs to that team.
 
 Manage access grants, sessions, and view runtime state. All `/api/v1/runtime/*`
 routes require an authenticated platform bearer token or `x-api-key`; requests
-without authentication receive `401`, with one exception: in public platform
-mode (`--platform-mode public`), anonymous `GET /api/v1/runtime/servers` and
-`GET /api/v1/runtime/tools` are served as the synthetic `public_catalog`
-principal, which can read only the public catalog namespace. `POST` requests create the Kubernetes CRs
+without authentication receive `401` in every platform mode. `POST` requests create the Kubernetes CRs
 that the operator renders into the gateway policy ConfigMap. Server redeploys
 must opt in with `update: true`; grants and sessions remain create-or-update.
 
 For `POST /api/v1/runtime/grants` and admin-only direct `POST /api/v1/runtime/sessions`, the API resolves `serverRef` to an `MCPServer` in the cluster. If that server does not exist, the call returns `400` with an `unknown serverRef` message. The server lookup is **not** in the same transaction as the grant/session write, so a concurrent delete can leave a stale reference (same as `kubectl apply`). Kubernetes apply errors are surfaced with the status the API server would use, when available. Non-admin grant mutations and session item mutations require the caller to be the server owner or a team owner for the server namespace; normal adapter flows use `POST /api/v1/runtime/adapter/sessions`.
 
 ```text
-GET  /api/v1/runtime/servers              # List MCP catalog entries (anonymous: public catalog only, public mode)
+GET  /api/v1/runtime/servers              # List MCP catalog entries
 GET  /api/v1/runtime/tools                # Tool inventory rows across visible servers
 GET  /api/v1/runtime/servers/{namespace}/{name} # Get one MCPServer catalog entry
 POST /api/v1/runtime/servers              # Create MCPServer; set update=true to redeploy an existing one
@@ -510,33 +507,25 @@ CLI/UI and APIs, including their directory and ownership checks. A missing
 platform session backend fails rather than falling back to Kubernetes.
 
 For non-admin users, runtime scope depends on `PLATFORM_MODE` / setup
-`--platform-mode` (`org` or `public`). In the default `org` mode,
+`--platform-mode` (`org` or `public`). In both modes,
 signed-in users can use the org catalog namespace and their team namespaces.
-In `public` mode, anonymous users can list the `mcp-servers-public` catalog,
-while signed-in users can publish to the public and org catalogs and their team
-namespaces. Admin callers can inspect any
+Admin callers can inspect any
 namespace. Passing `namespace=<name>` narrows the list to an authorized
 namespace for the active mode. `POST /api/v1/runtime/servers` also accepts
-`scope: "tenant" | "org" | "public"` in the JSON body. `scope: "public"`
-requires public platform mode and resolves the active public catalog namespace;
+`scope: "tenant" | "org"` in the JSON body; any other value, including the
+removed `"public"`, is rejected with an error listing `tenant` and `org`.
 `scope: "org"` works in both modes and resolves the active org catalog namespace;
 `scope: "tenant"` uses the caller's team namespace unless the request passes an
 authorized team `namespace`. If an `MCPServer` with the same name already
 exists in the target namespace, the API returns `409` unless the request body
 sets `update: true`.
 
-Anonymous `GET /api/v1/runtime/servers` in public mode has no login, defaults
-`namespace` to the public catalog namespace, and returns `403 forbidden
-namespace` for any other namespace; it never lists organization, team or
-other namespaces and cannot publish or modify. Each entry uses the same
-summary shape as authenticated callers: `name`, `namespace`, `uid`, `image`,
+Each server entry in the list has this summary shape: `name`, `namespace`, `uid`, `image`,
 `imageTag`, `description`, `ready`, `status`, `message`, `conditions`,
 `labels`, `endpoint`, `authMode`, `authHeaders` (names only), `gatewayEnabled`,
 `servicePort`, `generation`, declared `tools`, `prompts`, `resources` and
 `tasks`, `runtimeStatus`, `liveInventory`, and `access_json` (a ready-to-paste
-client connect snippet). Treat those fields as public in public mode: do not
-put anything in server labels, descriptions or images that should stay
-private. Authenticated callers instead see the namespaces they own or belong to
+client connect snippet). Authenticated callers see the namespaces they own or belong to
 plus the shared catalog namespaces for the active mode, and admins see all
 namespaces. The response also carries `publish_policy`.
 
@@ -550,7 +539,10 @@ Server list/get responses keep CRD `tools`, `prompts`, `mcpResources`, and
 `tasks` as governance metadata and add `liveInventory` from the running MCP
 server when runtime-api's short-TTL gateway probe has completed. On a cold
 cache miss or probe failure, `liveInventory` is `null` and
-`liveInventoryError` contains a short reason. The Servers workspace combines
+`liveInventoryError` contains a short reason. When the server advertises protocol
+extensions in `capabilities.extensions`, `liveInventory.extensions` maps each
+identifier (for example `io.modelcontextprotocol/skills`) to its settings
+unchanged; the field is omitted when none are advertised. The Servers workspace combines
 declared and probed prompts and
 resources by name, then shows their descriptions, prompt arguments, resource
 URIs, media types, and labels in expandable server details. Tasks use declared
@@ -570,8 +562,8 @@ identify the human principal that should own the `MCPAgentSession`.
 ```json
 {
   "name": "payments-ops-agent",
-  "namespace": "mcp-servers",
-  "serverRef": {"name": "payments", "namespace": "mcp-servers"},
+  "namespace": "mcp-servers-org",
+  "serverRef": {"name": "payments", "namespace": "mcp-servers-org"},
   "subject": {"humanID": "user-123", "agentID": "agt_01arz3ndektsv4rrffq69g5fav"},
   "maxTrust": "high",
   "allowedSideEffects": ["read", "destructive"],
@@ -588,8 +580,8 @@ identify the human principal that should own the `MCPAgentSession`.
 ```json
 {
   "name": "sess-8f1b9d",
-  "namespace": "mcp-servers",
-  "serverRef": {"name": "payments", "namespace": "mcp-servers"},
+  "namespace": "mcp-servers-org",
+  "serverRef": {"name": "payments", "namespace": "mcp-servers-org"},
   "subject": {"humanID": "user-123", "agentID": "agt_01arz3ndektsv4rrffq69g5fav"},
   "consentedTrust": "medium",
   "policyVersion": "v1",
@@ -646,10 +638,9 @@ Bearer token) keep global registry access. Normal user API keys and platform
 Bearer tokens are accepted only for repository paths scoped to the caller's
 team slug or team namespace, such as `/v2/acme/demo/...` or
 `/v2/mcp-team-acme/demo/...`.
-In `public` mode, signed-in users may also write `/v2/public/...` (or the
-configured public catalog namespace). In `org` mode, signed-in users may write
-`/v2/org/...` (or the configured org catalog namespace). Anonymous requests and
-catalog requests for inactive modes are rejected.
+In both modes, signed-in users may write `/v2/org/...` (or the configured org
+catalog namespace). Anonymous requests and the removed `/v2/public/...` alias
+are rejected.
 
 Deployment apply body:
 

@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 # Staging E2E runner that executes ON the disposable VM.
 #
-# SAFETY: this installs and uninstalls k3s, prunes every Docker image and wipes
+# SAFETY: this installs and uninstalls k3s, prunes unused Docker images and wipes
 # kubelet/CNI state on the machine it runs on. It refuses to start unless
 # test/e2e/lib/staging.sh proves this machine is the disposable VM: the E2E
 # hostnames end in the disposable suffix, none of them (and none of this
@@ -33,6 +33,8 @@ source "${ROOT_DIR}/test/e2e/lib/staging.sh"
 source "${ROOT_DIR}/test/e2e/lib/cluster-wait.sh"
 # shellcheck source=test/e2e/lib/k3s-installer.sh
 source "${ROOT_DIR}/test/e2e/lib/k3s-installer.sh"
+# shellcheck source=test/e2e/lib/staging-vm-clean.sh
+source "${ROOT_DIR}/test/e2e/lib/staging-vm-clean.sh"
 # shellcheck source=test/e2e/lib/staging-issuer.sh
 source "${ROOT_DIR}/test/e2e/lib/staging-issuer.sh"
 # shellcheck source=test/e2e/lib/platform-snapshot.sh
@@ -124,7 +126,7 @@ export MCP_TLS_BACKUP_DIR="${BACKUP_DIR}/platform-runtime"
 # has no GHCR write credential, so publishing remains the QA runner's job.
 export E2E_IMAGE_CACHE="${E2E_IMAGE_CACHE:-1}"
 export E2E_GHCR_PUSH="${E2E_GHCR_PUSH:-0}"
-export E2E_IMAGE_CACHE_REGISTRY="${E2E_IMAGE_CACHE_REGISTRY:-ghcr.io/mcp-runtime/mcp-runtime}"
+export E2E_IMAGE_CACHE_REGISTRY="${E2E_IMAGE_CACHE_REGISTRY:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-tavric-labs}/mcp-runtime}"
 export BIN PLATFORM_URL MCP_URL REGISTRY_HOST AUTH_URL WORK_DIR RUN_ID ROOT_DIR
 
 # kubelet resolves names through the node's resolver, not CoreDNS, so it cannot
@@ -245,14 +247,32 @@ install_go_toolchain() {
   rm -f "${WORK_DIR}/go.tar.gz"
 }
 
+stage_go_dependencies() {
+  # Manual runs retain their normal dependency/toolchain discovery. Actions
+  # supplies verified public inputs after its disposable-target guard.
+  [[ -n "${E2E_GO_DEPS_ARCHIVE:-}" ]] || return 0
+  local inputs="${WORK_DIR}/go-inputs"
+  bash "${ROOT_DIR}/hack/ci/staging-go-deps.sh" unpack "${E2E_GO_DEPS_ARCHIVE}" "${inputs}" || return 1
+  export GOMODCACHE="${inputs}/modules" GOTOOLCHAIN=local
+  PATH="${inputs}/toolchain/bin:${PATH}"
+  export PATH
+  staging_state_set GOMODCACHE "${GOMODCACHE}"
+  staging_state_set GOTOOLCHAIN "${GOTOOLCHAIN}"
+}
+
 # Ubuntu ships an old distro Go on PATH while a current toolchain often sits
 # unused under /usr/local/go. go.mod pins a far newer release, and Go only
 # learned to fetch toolchains on demand in 1.21, so the distro binary rejects
 # the go directive outright. Put the newest usable toolchain first on PATH,
 # installing one if needed, then build the CLI.
 stage_go_toolchain() {
+  stage_go_dependencies || return 1
   local candidate version rank best="" best_rank=0 best_version=""
-  for candidate in /usr/local/go/bin/go /usr/lib/go-*/bin/go "$(command -v go 2>/dev/null || true)"; do
+  local candidates=(/usr/local/go/bin/go /usr/lib/go-*/bin/go "$(command -v go 2>/dev/null || true)")
+  if [[ -n "${E2E_GO_DEPS_ARCHIVE:-}" ]]; then
+    candidates=("${WORK_DIR}/go-inputs/toolchain/bin/go")
+  fi
+  for candidate in "${candidates[@]}"; do
     [[ -n "${candidate}" && -x "${candidate}" ]] || continue
     version="$(GOTOOLCHAIN=local "${candidate}" env GOVERSION 2>/dev/null || true)"
     [[ -n "${version}" ]] || continue
@@ -328,6 +348,9 @@ capture_k3s_start_failure() {
 
 stage_k3s() {
   if [[ ! -f "${KUBECONFIG}" ]]; then
+    # A previous cell's uninstall can leave k3s containerd shims running, which
+    # makes the new service fail to start.
+    staging_clean_k3s_leftovers || fail "stale k3s processes/mounts remain from an earlier cell; see diagnostics/vm-resources.txt"
     log "installing k3s on the disposable VM"
     local installer="${WORK_DIR}/k3s-install.sh"
     staging_download_k3s_installer "${installer}" || fail "could not download the k3s installer from either official source"
@@ -496,8 +519,10 @@ teardown_vm() {
   if [[ -x /usr/local/bin/k3s-uninstall.sh ]]; then
     /usr/local/bin/k3s-uninstall.sh >"${ARTIFACT_DIR}/k3s-uninstall.log" 2>&1 || true
   fi
+  staging_clean_k3s_leftovers || log "stale k3s shims or mounts remain after uninstall; see diagnostics/vm-resources.txt"
   rm -rf /etc/rancher /var/lib/rancher /var/lib/kubelet /var/lib/cni /etc/cni /run/k3s /run/flannel "${WORK_DIR}"
   rm -rf /var/tmp/mcp-runtime-e2e-* /tmp/mcp-runtime-e2e.tgz
+  rm -f /tmp/mcp-runtime-e2e-go-deps.tgz /tmp/mcp-runtime-e2e-go-deps.tgz.sha256
   rm -f "${ROOT_DIR}"/mcp-img-*.tar
   # Setup builds a service image per component and nothing reclaimed them, so
   # successive runs filled the disk until the kubelet evicted pods under
@@ -513,6 +538,22 @@ teardown_vm() {
   df -h / | awk 'NR==2 {print "free after cleanup: " $4 " (" $5 " used)"}'
 }
 
+# Disk, memory and k3s process state, so a dirty-VM failure is diagnosable.
+staging_vm_resources() {
+  echo "## df"
+  df -h / /var/lib/rancher /var/lib/docker /var/tmp 2>&1 || true
+  echo "## free"
+  free -m 2>&1 || true
+  echo "## k3s containerd shims (k8s.io namespace, /run/k3s socket)"
+  staging_k3s_shim_pids 2>&1 || true
+  echo "## k3s/kubelet mounts"
+  awk '$2 ~ "^/run/k3s" || $2 ~ "^/var/lib/kubelet" || $2 ~ "^/var/lib/rancher/k3s" { print $2 }' /proc/mounts 2>&1 || true
+  echo "## k3s processes"
+  staging_process_table | grep -E 'k3s|containerd-shim' 2>&1 || true
+  echo "## systemctl status k3s"
+  systemctl status k3s --no-pager 2>&1 || true
+}
+
 cleanup() {
   local status=$?
   set +e
@@ -520,7 +561,8 @@ cleanup() {
     STAGING_ABORTED=0 staging_run_stage collect-diagnostics soft "diagnostics collection failed; the cluster API may be down" \
       staging_collect_diagnostics "${ARTIFACT_DIR}/diagnostics"
   fi
-  { df -h /; free -m; } >"${ARTIFACT_DIR}/diagnostics/vm-resources.txt" 2>&1
+  mkdir -p "${ARTIFACT_DIR}/diagnostics"
+  staging_vm_resources >"${ARTIFACT_DIR}/diagnostics/vm-resources.txt" 2>&1
   if staging_flag_enabled "${E2E_CLEANUP:-1}"; then
     STAGING_ABORTED=0
     staging_run_stage snapshot soft "the platform snapshot could not be captured; the next run may issue fresh certificates" backup_platform_runtime
@@ -549,6 +591,7 @@ trap cleanup EXIT
 : "${E2E_ACME_EMAIL:?set E2E_ACME_EMAIL in ${BACKUP_DIR}/e2e.env}"
 log "options: acme-staging=${E2E_ACME_STAGING:-1} fresh-certificate=${E2E_FRESH_CERTIFICATE:-0} multitenancy=${E2E_RUN_MULTITENANCY:-1} mcp-auth=${E2E_WITH_MCP_AUTH:-0} mtls-issuer=${E2E_MTLS_CLUSTER_ISSUER:-<none>} adapter-certificates=${MCP_ADAPTER_CERTIFICATES:-false} trust-domain=${MCP_TRUST_DOMAIN:-<none>}"
 
+staging_run_stage disk-guard critical "the VM has too little free disk for a cell; free space (see the error) and re-run" staging_disk_guard
 staging_run_stage dependencies critical "a VM package install failed (apt/dnf lock or network)" install_dependencies
 staging_run_stage staging-roots critical "could not fetch/install the Let's Encrypt staging roots; image pulls would fail x509 verification" stage_staging_roots
 staging_run_stage k3s critical "k3s did not install or the node never became Ready" stage_k3s

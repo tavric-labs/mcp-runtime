@@ -104,7 +104,7 @@ tokens.
 
 The adapter:
 
-1. Requests an `MCPAgentSession` that is authorized by the matching grant.
+1. Requests a platform session that is authorized by the matching grant.
 2. Generates the private key and CSR locally.
 3. Sends the CSR to the platform certificate endpoint.
 4. Receives the signed leaf certificate and CA bundle.
@@ -116,7 +116,7 @@ The private key never leaves the adapter process.
 
 ### Certificate identity and OAuth tokens
 
-The adapter certificate identifies one `MCPAgentSession`; it does not identify
+The adapter certificate identifies one platform session; it does not identify
 an individual MCP protocol session or contain an OAuth token. The certificate
 is presented during the HTTPS handshake. The local MCP client sends its OAuth
 bearer on each HTTP request, and the proxy forwards that request's
@@ -140,7 +140,7 @@ sequenceDiagram
     A->>P: Enroll certificate for the session
     P-->>A: Signed certificate and CA bundle
     A->>T: Establish HTTPS and present certificate in TLS handshake
-    Note over A,T: The certificate represents one MCPAgentSession
+    Note over A,T: The certificate represents one platform session
     C1->>A: MCP request + bearer token A
     A->>T: Forward request + token A on authenticated connection
     T->>G: Request + verified certificate identity + token A
@@ -223,7 +223,7 @@ still a separate per-request credential.
 
 The adapter creates a private key and a PKCS#10 CSR containing the expected
 session SPIFFE URI. The platform validates the CSR against the issued
-`MCPAgentSession`, signs it with the configured workload issuer, and returns:
+platform session, signs it with the configured workload issuer, and returns:
 
 - the signed client certificate;
 - the CA certificate chain required to verify platform TLS certificates;
@@ -231,7 +231,8 @@ session SPIFFE URI. The platform validates the CSR against the issued
 
 The CA bundle does not receive or sign the CSR itself. The platform certificate
 endpoint submits the validated request to the configured issuer and returns the
-issuer's chain as the bundle.
+issuer's chain as the bundle. See [SPIFFE agent identity](spiffe-agent-identity.md)
+for the full identity lifecycle.
 
 ## macOS background adapter and companion
 
@@ -601,7 +602,8 @@ per-IngressRoute `secretName` (Traefik resolves `secretName` only in the
 IngressRoute's own tenant namespace, where the shared platform host certificate
 does not exist). Configure the operator with `MCP_DEFAULT_INGRESS_TLS_SECRET`
 (the host certificate Secret) and `MCP_DEFAULT_INGRESS_TLS_SECRET_NAMESPACE` (a
-Traefik-watched namespace holding that Secret); the operator then reconciles the
+Traefik-watched namespace holding that Secret; use `mcp-platform`, which also holds
+the `mcp-adapter-client-ca` trust bundle); the operator then reconciles the
 one `default` TLSStore there. When unset, Traefik falls back to its built-in
 default certificate.
 
@@ -666,6 +668,14 @@ certificate before the current certificate expires and drains idle
 connections so subsequent requests renegotiate with it. Long-running adapters
 keep working without restarts. To reuse `enroll` output instead of in-memory
 enrollment, pass the `--tls-client-cert`/`-key`/`-ca-bundle` files.
+
+Sessions request low trust by default, even when the grant permits higher
+trust. For a tool that requires medium or high trust, explicitly pass
+`--requested-trust medium` or `--requested-trust high` to `adapter enroll` or
+the enrolling `adapter proxy`. `MCP_RUNTIME_ADAPTER_REQUESTED_TRUST` supplies
+the same optional default. The platform still caps consent at the selected
+grant's ceiling; a larger grant alone does not elevate a session. Automatic
+certificate renewal preserves the explicit request.
 
 Adapters authenticate with the session-bound certificate; grant and session
 policy authorize that identity. On OAuth-enabled targets they also forward the

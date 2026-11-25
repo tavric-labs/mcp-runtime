@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"mcp-platform-api/auth"
+	"mcp-runtime/pkg/passport"
 )
 
 var oidcLoginHook func(context.Context, *apiServer, string) (platformUser, error)
@@ -24,11 +25,9 @@ const defaultDevAdminPassword = auth.DefaultDevAdminPassword
 
 func platformDSNFromEnv() string { return auth.PlatformDSNFromEnv() }
 
-func jwtSecretFromEnv() ([]byte, error) { return auth.JWTSecretFromEnv() }
-
 func runPlatformAdminBootstrap(ctx context.Context) error {
-	return auth.RunPlatformAdminBootstrap(ctx, func(ctx context.Context, dsn string, jwtSecret []byte) (auth.PasswordUserEnsurer, error) {
-		return newPlatformStore(ctx, dsn, jwtSecret)
+	return auth.RunPlatformAdminBootstrap(ctx, func(ctx context.Context, dsn string, signer passport.Signer, verifier passport.Verifier) (auth.PasswordUserEnsurer, error) {
+		return newPlatformStore(ctx, dsn, signer, verifier)
 	})
 }
 

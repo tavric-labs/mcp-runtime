@@ -436,6 +436,21 @@ func installGateway(ctx context.Context, c kubernetes.Interface, in gatewayInsta
 	if in.image == "" {
 		return nil, errors.New("--gateway-image is required: the operator does not declare MCP_GATEWAY_PROXY_IMAGE")
 	}
+	oldWiring, err := c.CoreV1().ConfigMaps(mcpAuthNamespace).Get(ctx, authgateway.WiringName, metav1.GetOptions{})
+	wiringExists := err == nil
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	}
+	if wiringExists && !ownedByRuntime(oldWiring.ObjectMeta) {
+		return nil, errors.New("the gateway wiring ConfigMap exists without Runtime ownership")
+	}
+	finalFiles, err := gatewayWiringFiles(oldWiring, wiringExists, in)
+	if err != nil {
+		return nil, err
+	}
+	if err := requireLoginConnectors(finalFiles["resource-logins.json"], mergedConnectors); err != nil {
+		return nil, err
+	}
 	report := &installReport{image: in.image}
 	if in.dryRun {
 		report.notes = append(report.notes,
@@ -701,33 +716,41 @@ func waitForGateway(ctx context.Context, c kubernetes.Interface, timeout time.Du
 // environment, allowed resources) so it restarts when any of that changed. The
 // returned hash covers only public data: URLs, ids and public keys.
 func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInstall, connectors *corev1.ConfigMap, merged string) (string, error) {
+	old, err := c.CoreV1().ConfigMaps(mcpAuthNamespace).Get(ctx, authgateway.WiringName, metav1.GetOptions{})
+	exists := err == nil
+	if err != nil && !apierrors.IsNotFound(err) {
+		return "", err
+	}
+	if exists && !ownedByRuntime(old.ObjectMeta) {
+		return "", errors.New("the gateway wiring ConfigMap exists without Runtime ownership")
+	}
+	files, err := gatewayWiringFiles(old, exists, in)
+	if err != nil {
+		return "", err
+	}
+
 	sum := sha256.New()
-	names := make([]string, 0, len(in.wiring.Files))
-	for name := range in.wiring.Files {
+	names := make([]string, 0, len(files))
+	for name := range files {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		sum.Write([]byte(name + "\x00" + in.wiring.Files[name] + "\x00"))
+		sum.Write([]byte(name + "\x00" + files[name] + "\x00"))
 	}
 	sum.Write([]byte(merged))
 	hash := hex.EncodeToString(sum.Sum(nil))
 
-	cm := &corev1.ConfigMap{ObjectMeta: gatewayMeta(authgateway.WiringName), Data: in.wiring.Files}
-	if old, err := c.CoreV1().ConfigMaps(mcpAuthNamespace).Get(ctx, cm.Name, metav1.GetOptions{}); err == nil {
-		if !ownedByRuntime(old.ObjectMeta) {
-			return "", errors.New("the gateway wiring ConfigMap exists without Runtime ownership")
-		}
-		old.Data = in.wiring.Files
+	if exists {
+		old.Data = files
 		if _, err = c.CoreV1().ConfigMaps(mcpAuthNamespace).Update(ctx, old, metav1.UpdateOptions{}); err != nil {
 			return "", err
 		}
-	} else if apierrors.IsNotFound(err) {
+	} else {
+		cm := &corev1.ConfigMap{ObjectMeta: gatewayMeta(authgateway.WiringName), Data: files}
 		if _, err = c.CoreV1().ConfigMaps(mcpAuthNamespace).Create(ctx, cm, metav1.CreateOptions{}); err != nil {
 			return "", err
 		}
-	} else {
-		return "", err
 	}
 	if connectors.Data["connectors.json"] != merged {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -744,7 +767,7 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 		}
 	}
 
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current, err := c.AppsV1().Deployments(mcpAuthNamespace).Get(ctx, authDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -762,15 +785,7 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 		current.Annotations[authgateway.ResourceAnnotation] = string(encoded)
 
 		envs := current.Spec.Template.Spec.Containers[0].Env
-		set := func(name, value string) {
-			for i := range envs {
-				if envs[i].Name == name {
-					envs[i].Value, envs[i].ValueFrom = value, nil
-					return
-				}
-			}
-			envs = append(envs, corev1.EnvVar{Name: name, Value: value})
-		}
+		set := func(name, value string) { envs = setPlainEnv(envs, name, value) }
 		resources, scopes := map[string]bool{}, map[string][]string{}
 		for _, v := range envs {
 			if v.Name == "MCP_AUTH_RESOURCES" {
@@ -805,32 +820,7 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 		set("MCP_AUTH_RESOURCE_LOGINS_FILE", authgateway.ResourceLoginsFile)
 		current.Spec.Template.Spec.Containers[0].Env = envs
 
-		volume := corev1.Volume{Name: "gateway-wiring", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: authgateway.WiringName}, DefaultMode: mode0444()}}}
-		volumes := current.Spec.Template.Spec.Volumes[:0]
-		found := false
-		for _, v := range current.Spec.Template.Spec.Volumes {
-			if v.Name == volume.Name {
-				v, found = volume, true
-			}
-			volumes = append(volumes, v)
-		}
-		if !found {
-			volumes = append(volumes, volume)
-		}
-		current.Spec.Template.Spec.Volumes = volumes
-		mount := corev1.VolumeMount{Name: volume.Name, MountPath: authgateway.WiringMountPath, ReadOnly: true}
-		mounts := current.Spec.Template.Spec.Containers[0].VolumeMounts[:0]
-		found = false
-		for _, m := range current.Spec.Template.Spec.Containers[0].VolumeMounts {
-			if m.Name == mount.Name {
-				m, found = mount, true
-			}
-			mounts = append(mounts, m)
-		}
-		if !found {
-			mounts = append(mounts, mount)
-		}
-		current.Spec.Template.Spec.Containers[0].VolumeMounts = mounts
+		ensureWiringMount(current)
 		if current.Spec.Template.Annotations == nil {
 			current.Spec.Template.Annotations = map[string]string{}
 		}
@@ -839,6 +829,91 @@ func applyAuthWiring(ctx context.Context, c kubernetes.Interface, in gatewayInst
 		return err
 	})
 	return hash, err
+}
+
+// gatewayWiringFiles is the final content of the shared wiring ConfigMap after a
+// gateway apply: the generated files plus the clients file and every login
+// method the gateway does not own, taken from the existing ConfigMap.
+func gatewayWiringFiles(old *corev1.ConfigMap, exists bool, in gatewayInstall) (map[string]string, error) {
+	files := make(map[string]string, len(in.wiring.Files)+1)
+	for name, content := range in.wiring.Files {
+		files[name] = content
+	}
+	if exists {
+		// The ConfigMap is shared with the resource command: keep the clients
+		// file and every login method the gateway does not own.
+		if clients, ok := old.Data[authgateway.ResourceClientsKey]; ok {
+			files[authgateway.ResourceClientsKey] = clients
+		}
+		kept, err := authgateway.PreserveForeignLogins(old.Data["resource-logins.json"], files["resource-logins.json"])
+		if err != nil {
+			return nil, err
+		}
+		files["resource-logins.json"] = kept
+	}
+	return files, nil
+}
+
+// requireLoginConnectors refuses a change that would leave a login method naming
+// a connector the connectors file does not define: mcp-auth exits at startup in
+// that state. Callers pass the final content of both files, before writing either.
+func requireLoginConnectors(logins, connectors string) error {
+	missing, err := authgateway.MissingLoginConnectors(logins, connectors)
+	if err != nil {
+		return err
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	reasons := make([]string, len(missing))
+	for i, m := range missing {
+		reasons[i] = m.String()
+	}
+	return fmt.Errorf("refusing to apply, nothing was changed: %s; MCP Auth would exit at startup. Add the missing connector with `cluster mcp-auth connector apply`, or restore gateway connectors with `cluster gateway apply`", strings.Join(reasons, "; "))
+}
+
+// setPlainEnv sets a plain (non secret-backed) environment variable, replacing
+// an existing value or adding it.
+func setPlainEnv(envs []corev1.EnvVar, name, value string) []corev1.EnvVar {
+	for i := range envs {
+		if envs[i].Name == name {
+			envs[i].Value, envs[i].ValueFrom = value, nil
+			return envs
+		}
+	}
+	return append(envs, corev1.EnvVar{Name: name, Value: value})
+}
+
+// ensureWiringMount makes the mcp-auth Deployment mount the shared wiring
+// ConfigMap read-only at authgateway.WiringMountPath. The credential gateway and
+// the resource command both rely on it, so the volume and mount are identical.
+func ensureWiringMount(current *appsv1.Deployment) {
+	volume := corev1.Volume{Name: "gateway-wiring", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: authgateway.WiringName}, DefaultMode: mode0444()}}}
+	volumes := current.Spec.Template.Spec.Volumes[:0]
+	found := false
+	for _, v := range current.Spec.Template.Spec.Volumes {
+		if v.Name == volume.Name {
+			v, found = volume, true
+		}
+		volumes = append(volumes, v)
+	}
+	if !found {
+		volumes = append(volumes, volume)
+	}
+	current.Spec.Template.Spec.Volumes = volumes
+	mount := corev1.VolumeMount{Name: volume.Name, MountPath: authgateway.WiringMountPath, ReadOnly: true}
+	mounts := current.Spec.Template.Spec.Containers[0].VolumeMounts[:0]
+	found = false
+	for _, m := range current.Spec.Template.Spec.Containers[0].VolumeMounts {
+		if m.Name == mount.Name {
+			m, found = mount, true
+		}
+		mounts = append(mounts, m)
+	}
+	if !found {
+		mounts = append(mounts, mount)
+	}
+	current.Spec.Template.Spec.Containers[0].VolumeMounts = mounts
 }
 
 func protocolTCP() *corev1.Protocol           { v := corev1.ProtocolTCP; return &v }

@@ -5,14 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/MicahParks/keyfunc"
-	"github.com/golang-jwt/jwt/v4"
+
+	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/passport/passporttest"
 )
 
 func TestHandleOIDCLoginSuccess(t *testing.T) {
@@ -30,8 +31,9 @@ func TestHandleOIDCLoginSuccess(t *testing.T) {
 	}
 	defer func() { oidcLoginHook = previousHook }()
 
+	loginSigner, loginVerifier := passporttest.NewKeys(t)
 	server := &apiServer{
-		platform:     newTestPlatformStore([]byte("test-secret")),
+		platform:     newTestPlatformStore(loginSigner, loginVerifier),
 		jwks:         &keyfunc.JWKS{},
 		oidcIssuer:   "https://issuer.example",
 		oidcAudience: "client-id",
@@ -69,17 +71,11 @@ func TestHandleOIDCLoginSuccess(t *testing.T) {
 		t.Fatalf("user payload = %+v", payload.User)
 	}
 
-	parsed, err := jwt.Parse(payload.AccessToken, func(t *jwt.Token) (any, error) {
-		return []byte("test-secret"), nil
-	})
-	if err != nil || !parsed.Valid {
+	verified, err := loginVerifier.Verify(payload.AccessToken, passport.AudiencePlatform)
+	if err != nil {
 		t.Fatalf("platform token parse failed: %v", err)
 	}
-	claims, ok := parsed.Claims.(jwt.MapClaims)
-	if !ok {
-		t.Fatal("missing jwt claims")
-	}
-	if got := strings.TrimSpace(fmt.Sprint(claims["sub"])); got != "user-123" {
+	if got := strings.TrimSpace(verified.Subject); got != "user-123" {
 		t.Fatalf("subject claim = %q, want user-123", got)
 	}
 }
@@ -100,7 +96,7 @@ func TestHandleOIDCLoginRequiresPlatformStore(t *testing.T) {
 
 func TestHandleOIDCLoginRequiresOIDCConfig(t *testing.T) {
 	server := &apiServer{
-		platform: newTestPlatformStore([]byte("test-secret")),
+		platform: newTestPlatformStore(passporttest.NewKeys(t)),
 	}
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/oidc", strings.NewReader(`{"id_token":"google-id-token"}`))
@@ -112,7 +108,7 @@ func TestHandleOIDCLoginRequiresOIDCConfig(t *testing.T) {
 
 func TestHandleOIDCLoginMissingToken(t *testing.T) {
 	server := &apiServer{
-		platform:     newTestPlatformStore([]byte("test-secret")),
+		platform:     newTestPlatformStore(passporttest.NewKeys(t)),
 		jwks:         &keyfunc.JWKS{},
 		oidcIssuer:   "https://issuer.example",
 		oidcAudience: "client-id",
@@ -133,7 +129,7 @@ func TestHandleOIDCLoginInternalError(t *testing.T) {
 	defer func() { oidcLoginHook = previousHook }()
 
 	server := &apiServer{
-		platform:     newTestPlatformStore([]byte("test-secret")),
+		platform:     newTestPlatformStore(passporttest.NewKeys(t)),
 		jwks:         &keyfunc.JWKS{},
 		oidcIssuer:   "https://issuer.example",
 		oidcAudience: "client-id",
@@ -154,7 +150,7 @@ func TestHandleOIDCLoginInvalidOIDCToken(t *testing.T) {
 	defer func() { oidcLoginHook = previousHook }()
 
 	server := &apiServer{
-		platform:     newTestPlatformStore([]byte("test-secret")),
+		platform:     newTestPlatformStore(passporttest.NewKeys(t)),
 		jwks:         &keyfunc.JWKS{},
 		oidcIssuer:   "https://issuer.example",
 		oidcAudience: "client-id",

@@ -134,7 +134,7 @@ func TestSecurityHeadersAllowConfiguredExternalAssets(t *testing.T) {
 	}
 }
 
-func TestCatalogNamespacesForModeScopesPublicEnvToPublicMode(t *testing.T) {
+func TestCatalogNamespacesForModeIgnoresRemovedPublicEnv(t *testing.T) {
 	t.Setenv("PLATFORM_PUBLIC_NAMESPACES", "mcp-servers-public,preview-extra")
 
 	org := catalogNamespacesForMode("org")
@@ -143,8 +143,8 @@ func TestCatalogNamespacesForModeScopesPublicEnvToPublicMode(t *testing.T) {
 	}
 
 	public := catalogNamespacesForMode("public")
-	if strings.Join(public, ",") != "mcp-servers-public,preview-extra" {
-		t.Fatalf("public namespaces = %v, want [mcp-servers-public preview-extra]", public)
+	if strings.Join(public, ",") != "mcp-servers-org" {
+		t.Fatalf("public-mode namespaces = %v, want [mcp-servers-org]", public)
 	}
 }
 

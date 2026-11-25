@@ -26,6 +26,9 @@ const (
 	inspectionContentType
 	inspectionMalformed
 	inspectionMissingMethod
+	// inspectionHeaderMismatch is an Mcp-Method or Mcp-Name header that disagrees
+	// with the body the gateway authorizes.
+	inspectionHeaderMismatch
 )
 
 // inspectionClass is the one classification every consumer branches on. It is
@@ -56,6 +59,14 @@ type rpcInspection struct {
 	toolName policypkg.ToolName
 	kind     RPCMessageKind
 	problem  inspectionProblem
+	// target is the resource URI or prompt/skill name of a primitive request.
+	target string
+	// listenTargets are the resource URIs a subscriptions/listen request opts into.
+	listenTargets []string
+	// completionAs is the read method a completion/complete request is
+	// authorized as: prompts/get, resources/read, or "resources/read" with an
+	// empty target when the reference is missing or unknown (fails closed).
+	completionAs string
 	// Raw JSON is private dispatch data for idempotency hashing, never audit data.
 	paramsRaw json.RawMessage
 	idRaw     json.RawMessage
@@ -85,16 +96,44 @@ func (r rpcInspection) Class() inspectionClass {
 func (r rpcInspection) Method() string       { return string(r.method) }
 func (r rpcInspection) ToolName() string     { return string(r.toolName) }
 func (r rpcInspection) Kind() RPCMessageKind { return r.kind }
-func (r rpcInspection) IsToolCall() bool     { return r.Class() == classToolCall }
-func (r rpcInspection) Indeterminate() bool  { return r.Class() == classInvalid }
+
+// Target is the resource URI, prompt name or skill URI a request addresses, or "".
+func (r rpcInspection) Target() string { return r.target }
+
+// Targets are every resource URI a request addresses: the single target, or the
+// URIs a subscriptions/listen request opts into.
+func (r rpcInspection) Targets() []string {
+	if r.listenTargets != nil {
+		return r.listenTargets
+	}
+	if r.target != "" {
+		return []string{r.target}
+	}
+	return nil
+}
+func (r rpcInspection) IsToolCall() bool    { return r.Class() == classToolCall }
+func (r rpcInspection) Indeterminate() bool { return r.Class() == classInvalid }
 
 // RequiresAuthorization reports whether grant and session evaluation applies:
-// tool calls, and invalid input, which is evaluated only to be denied. Other
-// RPC and non-RPC traffic intentionally bypasses it.
+// tool calls, resource/prompt/skill access, and invalid input, which is
+// evaluated only to be denied. Other RPC and non-RPC traffic intentionally
+// bypasses it.
+// AuthMethod is the method policy evaluates. A completion request reveals the
+// prompt or resource it completes, so it is authorized as reading that item.
+func (r rpcInspection) AuthMethod() string {
+	if r.method == "completion/complete" {
+		return r.completionAs
+	}
+	return string(r.method)
+}
+
 func (r rpcInspection) RequiresAuthorization() bool {
 	switch r.Class() {
 	case classToolCall, classInvalid:
 		return true
+	case classOtherRPC:
+		// Resource, prompt and skill access is evaluated against grants.
+		return policypkg.IsPrimitiveMethod(r.AuthMethod())
 	default:
 		return false
 	}
@@ -110,6 +149,9 @@ func (r rpcInspection) IsRPCAttempt() bool {
 }
 
 func (r rpcInspection) FailureReason() string {
+	if r.problem == inspectionHeaderMismatch {
+		return "header_mismatch"
+	}
 	if r.Indeterminate() {
 		return "rpc_inspection_failed"
 	}

@@ -32,7 +32,7 @@ func TestValidateTeamNamespaceReserved(t *testing.T) {
 		wantErr   bool
 	}{
 		{name: "team namespace", namespace: "mcp-team-core", wantErr: false},
-		{name: "shared reserved", namespace: sharedCatalogNamespace, wantErr: true},
+		{name: "org catalog reserved", namespace: "mcp-servers-org", wantErr: true},
 		{name: "kube reserved", namespace: "kube-system", wantErr: true},
 		{name: "platform reserved", namespace: "mcp-platform", wantErr: true},
 		{name: "observability reserved", namespace: "mcp-observability", wantErr: true},

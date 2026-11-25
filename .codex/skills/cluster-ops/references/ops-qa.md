@@ -120,15 +120,15 @@ creating a duplicate `mcp-e2e` cluster.
 
 ```bash
 # Apply an MCPServer change and watch it converge.
-kubectl get mcpservers -n mcp-servers -o wide
-kubectl describe mcpserver -n mcp-servers oauth-example-go-2025-11-25-gateway | sed -n '/Status:/,$p'
+kubectl get mcpservers -n mcp-servers-org -o wide
+kubectl describe mcpserver -n mcp-servers-org oauth-example-go-2025-11-25-gateway | sed -n '/Status:/,$p'
 
 # Force a reconcile and confirm Ready / phase transition.
-kubectl annotate mcpserver -n mcp-servers oauth-example-go-2025-11-25-gateway \
+kubectl annotate mcpserver -n mcp-servers-org oauth-example-go-2025-11-25-gateway \
   qa.mcpruntime.org/reconcile-ping="$(date +%s)" --overwrite
 kubectl wait --for=condition=Ready=true mcpserver/oauth-example-go-2025-11-25-gateway \
-  -n mcp-servers --timeout=120s \
-  || kubectl describe mcpserver -n mcp-servers oauth-example-go-2025-11-25-gateway
+  -n mcp-servers-org --timeout=120s \
+  || kubectl describe mcpserver -n mcp-servers-org oauth-example-go-2025-11-25-gateway
 
 # Operator log scan for reconcile errors (last 10m).
 kubectl logs -n mcp-runtime deploy/mcp-runtime-operator-controller-manager \
@@ -140,7 +140,7 @@ governance objects:
 
 ```bash
 kubectl apply -f /tmp/workspace-assistant-access.yaml
-./bin/mcp-runtime server policy inspect oauth-example-go-2025-11-25-gateway --namespace mcp-servers \
+./bin/mcp-runtime server policy inspect oauth-example-go-2025-11-25-gateway --namespace mcp-servers-org \
   | grep -q local-session || echo "FAIL: policy missing session"
 ```
 
@@ -150,17 +150,17 @@ Real-cluster CLI behavior (the unit golden suite covers help text — this is
 about behavior).
 
 ```bash
-./bin/mcp-runtime server status --namespace mcp-servers
-./bin/mcp-runtime server logs oauth-example-go-2025-11-25-gateway --namespace mcp-servers \
+./bin/mcp-runtime server status --namespace mcp-servers-org
+./bin/mcp-runtime server logs oauth-example-go-2025-11-25-gateway --namespace mcp-servers-org \
   --since 5m | head -40
-./bin/mcp-runtime server policy inspect oauth-example-go-2025-11-25-gateway --namespace mcp-servers \
+./bin/mcp-runtime server policy inspect oauth-example-go-2025-11-25-gateway --namespace mcp-servers-org \
   | head -40
 ./bin/mcp-runtime ops events | head -20
 ./bin/mcp-runtime ops logs api --since 5m | tail -40
 
 # Negative path: error UX should route through internal/cli/core/errors.go.
 ./bin/mcp-runtime server status --namespace bogus 2>&1 | head -5
-./bin/mcp-runtime server logs nonexistent --namespace mcp-servers 2>&1 | head -5
+./bin/mcp-runtime server logs nonexistent --namespace mcp-servers-org 2>&1 | head -5
 ```
 
 After setup, confirm `daemonset/promtail` remains ready in
@@ -284,7 +284,7 @@ kubectl -n mcp-platform scale deploy/mcp-runtime-api --replicas=0
 kubectl apply -f /tmp/workspace-assistant-access.yaml
 kubectl -n mcp-platform scale deploy/mcp-runtime-api --replicas=1
 kubectl -n mcp-platform rollout status deploy/mcp-runtime-api --timeout=90s
-./bin/mcp-runtime server policy inspect oauth-example-go-2025-11-25-gateway --namespace mcp-servers \
+./bin/mcp-runtime server policy inspect oauth-example-go-2025-11-25-gateway --namespace mcp-servers-org \
   | grep -q local-session
 ```
 

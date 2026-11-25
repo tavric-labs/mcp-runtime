@@ -829,3 +829,39 @@ func testPolicyWithGrant() *Document {
 		},
 	}
 }
+
+func TestAuthorizeNoMatchingGrantReportsConsideredGrants(t *testing.T) {
+	t.Parallel()
+
+	policy := testPolicyWithGrant()
+	policy.Grants = append(policy.Grants, Grant{Name: "second", HumanID: "human-2"})
+	decision := Authorize(policy, Request{
+		Identity:  Identity{HumanID: "not-granted"},
+		RPCMethod: "tools/call",
+		ToolName:  "upper",
+	}, time.Time{})
+
+	if decision.Allowed || decision.Reason != "no_matching_grant" || decision.Status != http.StatusForbidden {
+		t.Fatalf("decision = %#v, want 403 no_matching_grant", decision)
+	}
+	if decision.ConsideredGrantCount != 2 {
+		t.Fatalf("ConsideredGrantCount = %d, want 2", decision.ConsideredGrantCount)
+	}
+	if want := policy.Grants[0].Name + "," + "second"; decision.ConsideredGrantNames != want {
+		t.Fatalf("ConsideredGrantNames = %q, want %q", decision.ConsideredGrantNames, want)
+	}
+}
+
+func TestAuthorizeOtherDenialsDoNotReportConsideredGrants(t *testing.T) {
+	t.Parallel()
+
+	policy := testPolicyWithGrant()
+	decision := Authorize(policy, Request{
+		Identity:  Identity{},
+		RPCMethod: "tools/call",
+		ToolName:  "upper",
+	}, time.Time{})
+	if decision.Allowed || decision.Reason != "missing_identity" || decision.ConsideredGrantCount != 0 || decision.ConsideredGrantNames != "" {
+		t.Fatalf("decision = %#v, want a non-grant-match denial without considered-grant fields", decision)
+	}
+}

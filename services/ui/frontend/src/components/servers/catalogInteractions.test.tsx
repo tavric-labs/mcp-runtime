@@ -14,7 +14,7 @@ const ADMIN: AuthStatus = {
 // Redesign behaviour: scoped search semantics, filter dependencies, pagination,
 // and inspector focus handling.
 
-const NAMESPACES = { namespaces: [{ namespace: "mcp-servers" }, { namespace: "mcp-shared" }] };
+const NAMESPACES = { namespaces: [{ namespace: "mcp-servers-org" }, { namespace: "mcp-shared" }] };
 
 const SERVERS = {
   servers: [
@@ -22,7 +22,7 @@ const SERVERS = {
       name: "workspace-assistant",
       authMode: "oauth",
       gatewayEnabled: true,
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       ready: "1/1",
       status: "Ready",
       description: "Workspace helper",
@@ -40,7 +40,7 @@ const SERVERS = {
     {
       name: "billing-bridge",
       gatewayEnabled: false,
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       ready: "0/1",
       status: "Pending",
       description: "Invoices and refunds",
@@ -53,7 +53,7 @@ function tool(index: number, server: string) {
     tool_name: `tool_${String(index).padStart(2, "0")}`,
     description: `Tool number ${index}`,
     server_name: server,
-    namespace: "mcp-servers",
+    namespace: "mcp-servers-org",
     declared: true,
     live: true,
     drift_status: "declared",
@@ -70,7 +70,7 @@ const MANY_TOOLS = {
       tool_name: "refund_invoice",
       description: "Issues a refund",
       server_name: "billing-bridge",
-      namespace: "mcp-servers",
+      namespace: "mcp-servers-org",
       declared: true,
       live: false,
       drift_status: "missing",
@@ -87,7 +87,7 @@ function stubCatalog() {
     const payload = url.includes("/runtime/namespaces")
       ? NAMESPACES
       : url.includes("/runtime/servers/")
-        ? { server: { ...SERVERS.servers.find((server) => url.endsWith(`/${server.namespace}/${server.name}`)), runtimeStatus: { transport: "streamable-http", connectionState: "ready", authSource: "oauth", lastProbeTime: "2026-10-16T12:00:00Z", lastError: { reason: "DeploymentNotReady", message: "A previous rollout failed.", observedAt: "2026-10-16T11:00:00Z" }, lastSession: { id: "session-7", namespace: "mcp-servers", usedAt: "2026-10-16T11:30:00Z", toolName: "lookup" }, lastSessionState: "observed" } } }
+        ? { server: { ...SERVERS.servers.find((server) => url.endsWith(`/${server.namespace}/${server.name}`)), runtimeStatus: { transport: "streamable-http", connectionState: "ready", authSource: "oauth", lastProbeTime: "2026-10-16T12:00:00Z", lastError: { reason: "DeploymentNotReady", message: "A previous rollout failed.", observedAt: "2026-10-16T11:00:00Z" }, lastSession: { id: "session-7", namespace: "mcp-servers-org", usedAt: "2026-10-16T11:30:00Z", toolName: "lookup" }, lastSessionState: "observed" } } }
         : url.includes("/runtime/servers")
         ? SERVERS
         : MANY_TOOLS;
@@ -194,7 +194,7 @@ describe("filter dependencies", () => {
     await screen.findByTestId("server-list");
 
     const cards = screen.getAllByTestId("server-card");
-    const billing = cards.find((card) => card.dataset.serverKey === "mcp-servers/billing-bridge");
+    const billing = cards.find((card) => card.dataset.serverKey === "mcp-servers-org/billing-bridge");
     await user.click(within(billing as HTMLElement).getByTestId("server-card-select"));
     expect(screen.getAllByTestId("tool-row")).toHaveLength(1);
 
@@ -303,10 +303,10 @@ describe("server inspector", () => {
     await screen.findByTestId("server-list");
 
     const cards = screen.getAllByTestId("server-card");
-    const oauthCard = cards.find((card) => card.dataset.serverKey === "mcp-servers/workspace-assistant");
+    const oauthCard = cards.find((card) => card.dataset.serverKey === "mcp-servers-org/workspace-assistant");
     expect(within(oauthCard as HTMLElement).getByText("OAuth")).toBeInTheDocument();
 
-    const unknownCard = cards.find((card) => card.dataset.serverKey === "mcp-servers/billing-bridge");
+    const unknownCard = cards.find((card) => card.dataset.serverKey === "mcp-servers-org/billing-bridge");
     expect(within(unknownCard as HTMLElement).queryByText(/OAuth/)).not.toBeInTheDocument();
 
     await user.click(within(oauthCard as HTMLElement).getByTestId("server-card-details"));
@@ -355,7 +355,7 @@ describe("server inspector", () => {
     await screen.findByTestId("server-list");
 
     const cards = screen.getAllByTestId("server-card");
-    const plain = cards.find((card) => card.dataset.serverKey === "mcp-servers/billing-bridge");
+    const plain = cards.find((card) => card.dataset.serverKey === "mcp-servers-org/billing-bridge");
     await user.click(within(plain as HTMLElement).getByTestId("server-card-details"));
 
     expect(await screen.findByTestId("server-detail-no-config")).toBeInTheDocument();

@@ -14,7 +14,7 @@ import (
 
 func delegatedPolicy(headers []string, presence string, rules ...policypkg.DelegatedToolRule) *policypkg.Document {
 	doc := &policypkg.Document{
-		Server: policypkg.Server{Name: "pilot", Namespace: "mcp-servers"},
+		Server: policypkg.Server{Name: "pilot", Namespace: "mcp-servers-org"},
 		Auth: &policypkg.Auth{
 			Mode:               "header",
 			Headers:            headers,

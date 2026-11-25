@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"mcp-runtime/pkg/topology"
@@ -16,6 +17,11 @@ import (
 	"mcp-runtime/internal/cli/registry/config"
 	"mcp-runtime/internal/cli/setup/assetpath"
 	setupplan "mcp-runtime/internal/cli/setup/plan"
+	"mcp-runtime/pkg/authgateway"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // mcpAuthInternalIssuerURLForCluster returns the in-cluster address gateway
@@ -38,6 +44,42 @@ func DefaultMCPAuthIssuerURL() string {
 	}
 	return "https://auth." + domain + "/mcp-auth"
 }
+
+// withoutMCPAuthDataClaim removes the mcp-auth-server-data PersistentVolumeClaim
+// document from the manifest and keeps every other document as written.
+func withoutMCPAuthDataClaim(manifest string) string {
+	documents := strings.Split(manifest, "\n---\n")
+	kept := documents[:0]
+	for _, document := range documents {
+		if strings.Contains(document, "kind: PersistentVolumeClaim") && strings.Contains(document, "name: mcp-auth-server-data") {
+			continue
+		}
+		kept = append(kept, document)
+	}
+	return strings.Join(kept, "\n---\n")
+}
+
+// mcpAuthTestModeIngressPolicy is added next to the strict ingress policy in test
+// mode. NetworkPolicies are additive, so together they accept port 8080 from any
+// source. The strict policy exists to make a forwarded-proto header trustworthy,
+// and test mode sets MCP_AUTH_TRUST_PROXY_TLS=false, so on a throwaway cluster
+// servers may reach MCP Auth directly for JWKS and token exchange.
+const mcpAuthTestModeIngressPolicy = `apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-auth-server-test-mode-ingress
+  namespace: mcp-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: mcp-auth-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080
+`
 
 // secretKeyPattern is the character set Kubernetes accepts for Secret data
 // keys. Connector files supply these names, so they are validated before they
@@ -148,6 +190,14 @@ func deployMCPAuthServer(opts mcpAuthServerOptions, deps SetupDeps) error {
 
 	if strings.TrimSpace(connectorsFile) != "" {
 		connectorJSON, secretValues, err := readMCPAuthConnector(connectorsFile, connector)
+		if err != nil {
+			return err
+		}
+		clients, err := platformKubernetesClients()
+		if err != nil {
+			return err
+		}
+		connectorJSON, err = connectorsPreservingOwned(context.Background(), clients.Clientset, connectorJSON)
 		if err != nil {
 			return err
 		}
@@ -318,6 +368,12 @@ func renderMCPAuthServerManifest(raw string, opts mcpAuthServerOptions) (string,
 		store = "memory"
 		databaseURL = "/tmp/mcp-auth.db"
 		dataVolume = "emptyDir: {}"
+		// Nothing mounts the claim in test mode; left in place it stays Pending
+		// and fails setup's PVC verification.
+		manifest = withoutMCPAuthDataClaim(manifest)
+	}
+	if opts.TestMode {
+		manifest = strings.TrimRight(manifest, "\n") + "\n---\n" + mcpAuthTestModeIngressPolicy
 	}
 	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_STORE_VALUE", store)
 	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_DATABASE_URL_VALUE", databaseURL)
@@ -334,14 +390,15 @@ func renderMCPAuthServerManifest(raw string, opts mcpAuthServerOptions) (string,
 		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_SIGNING_KEY_VOLUME_MOUNT_BLOCK", "")
 		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_SIGNING_KEY_POD_VOLUME_BLOCK", "")
 	}
-	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_HOST_VALUE", parsedIssuer.Host)
+	// An Ingress host rule is a DNS name, so it carries no port even when the issuer does.
+	manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_HOST_VALUE", parsedIssuer.Hostname())
 	// The placeholder owns its whole line, so the block carries its own
 	// indentation and test mode removes the line rather than leaving a stray
 	// indented blank inside the Ingress spec.
 	if opts.TestMode {
 		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_TLS_BLOCK\n", "")
 	} else {
-		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_TLS_BLOCK", "  tls:\n    - hosts: ["+strconv.Quote(parsedIssuer.Host)+"]\n      secretName: "+opts.TLSSecret)
+		manifest = strings.ReplaceAll(manifest, "MCP_AUTH_INGRESS_TLS_BLOCK", "  tls:\n    - hosts: ["+strconv.Quote(parsedIssuer.Hostname())+"]\n      secretName: "+opts.TLSSecret)
 	}
 
 	if strings.TrimSpace(opts.ConnectorsFile) != "" {
@@ -420,6 +477,27 @@ func mcpAuthResourceURLs(configured []string, issuer string, testMode bool) ([]s
 		seen[resource] = true
 	}
 	return resources, nil
+}
+
+// connectorsPreservingOwned adds the gateway-login-* and resource-login-*
+// entries of the live connectors ConfigMap to the rendered main connector, as
+// `cluster mcp-auth connector apply` does. Setup replaces the whole file; without
+// this a re-run drops entries that `gateway apply` and `resource apply` own while
+// their login methods remain, and mcp-auth exits at startup. A fresh install
+// (no ConfigMap) renders the file unchanged.
+func connectorsPreservingOwned(ctx context.Context, client kubernetes.Interface, rendered []byte) ([]byte, error) {
+	existing, err := client.CoreV1().ConfigMaps("mcp-platform").Get(ctx, "mcp-auth-connectors", metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return rendered, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read the live mcp-auth connectors: %w", err)
+	}
+	merged, err := authgateway.PreserveOwnedConnectors(existing.Data["connectors.json"], string(rendered))
+	if err != nil {
+		return nil, fmt.Errorf("keep the owned mcp-auth connectors: %w", err)
+	}
+	return []byte(merged), nil
 }
 
 func renderMCPAuthConnectorConfigMap(connectorJSON []byte) string {

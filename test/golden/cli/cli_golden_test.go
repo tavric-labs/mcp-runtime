@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sync"
 	"testing"
@@ -105,8 +106,11 @@ func TestCLIHelpGoldens(t *testing.T) {
 		{name: "cluster_help", args: []string{"cluster", "--help"}, golden: "mcp-runtime_cluster_help.golden"},
 		{name: "gateway_help", args: []string{"gateway", "--help"}, golden: "mcp-runtime_gateway_help.golden"},
 		{name: "gateway_apply_help", args: []string{"gateway", "apply", "--help"}, golden: "mcp-runtime_gateway_apply_help.golden"},
-		{name: "cluster_mcp_auth_connector_help", args: []string{"cluster", "mcp-auth-connector", "--help"}, golden: "mcp-runtime_cluster_mcp_auth_connector_help.golden"},
-		{name: "cluster_mcp_auth_connector_apply_help", args: []string{"cluster", "mcp-auth-connector", "apply", "--help"}, golden: "mcp-runtime_cluster_mcp_auth_connector_apply_help.golden"},
+		{name: "cluster_mcp_auth_help", args: []string{"cluster", "mcp-auth", "--help"}, golden: "mcp-runtime_cluster_mcp_auth_help.golden"},
+		{name: "cluster_mcp_auth_connector_help", args: []string{"cluster", "mcp-auth", "connector", "--help"}, golden: "mcp-runtime_cluster_mcp_auth_connector_help.golden"},
+		{name: "cluster_mcp_auth_connector_apply_help", args: []string{"cluster", "mcp-auth", "connector", "apply", "--help"}, golden: "mcp-runtime_cluster_mcp_auth_connector_apply_help.golden"},
+		{name: "cluster_mcp_auth_resource_help", args: []string{"cluster", "mcp-auth", "resource", "--help"}, golden: "mcp-runtime_cluster_mcp_auth_resource_help.golden"},
+		{name: "cluster_mcp_auth_resource_apply_help", args: []string{"cluster", "mcp-auth", "resource", "apply", "--help"}, golden: "mcp-runtime_cluster_mcp_auth_resource_apply_help.golden"},
 		{name: "cluster_operator_rbac_help", args: []string{"cluster", "operator-rbac", "--help"}, golden: "mcp-runtime_cluster_operator_rbac_help.golden"},
 		{name: "cluster_operator_rbac_apply_help", args: []string{"cluster", "operator-rbac", "apply", "--help"}, golden: "mcp-runtime_cluster_operator_rbac_apply_help.golden"},
 		{name: "cluster_init_help", args: []string{"cluster", "init", "--help"}, golden: "mcp-runtime_cluster_init_help.golden"},
@@ -126,7 +130,7 @@ func TestCLIHelpGoldens(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			got := runCLI(t, tc.args...)
+			got := normalizePinnedMCPAuth(runCLI(t, tc.args...))
 			goldenPath := filepath.Join(testdataDir(t), tc.golden)
 
 			if *update {
@@ -145,6 +149,14 @@ func TestCLIHelpGoldens(t *testing.T) {
 			}
 		})
 	}
+}
+
+// pinnedMCPAuth matches the default MCP Auth image tag, which Dependabot bumps in
+// config/release/mcp-auth/Dockerfile; goldens must not change with it.
+var pinnedMCPAuth = regexp.MustCompile(`mcp-auth-server:\d+\.\d+\.\d+`)
+
+func normalizePinnedMCPAuth(out []byte) []byte {
+	return pinnedMCPAuth.ReplaceAll(out, []byte("mcp-auth-server:<pinned>"))
 }
 
 func runCLI(t *testing.T, args ...string) []byte {

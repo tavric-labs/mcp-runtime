@@ -9,6 +9,7 @@ import (
 	"mcp-runtime-api/internal/runtimeapi"
 	"mcp-runtime/pkg/openapi"
 	"mcp-runtime/pkg/passport"
+	"mcp-runtime/pkg/passport/passporttest"
 )
 
 func TestOpenAPISpecLoads(t *testing.T) {
@@ -58,11 +59,12 @@ func TestRuntimeServersUnauthorizedMatchesOpenAPISpec(t *testing.T) {
 		t.Fatalf("Load(openAPISpec) error = %v", err)
 	}
 
+	_, verifier := passporttest.NewKeys(t)
 	mux := http.NewServeMux()
 	(&server{
 		runtime: &runtimeapi.RuntimeServer{},
 		authentic: passport.Authenticator{
-			Secret:   []byte("test-secret"),
+			Verifier: verifier,
 			Audience: passport.AudienceRuntime,
 		},
 	}).registerRoutes(mux)

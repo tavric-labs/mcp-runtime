@@ -20,7 +20,7 @@ const MEMBERS: Record<string, unknown> = {
 
 const EMPTY_DRAFT: GrantDraft = {
   name: "picker-test",
-  namespace: "mcp-servers",
+  namespace: "mcp-servers-org",
   server: "demo",
   humanID: "",
   agentID: "",
@@ -32,7 +32,7 @@ const EMPTY_DRAFT: GrantDraft = {
 
 const EMPTY_SESSION: SessionDraft = {
   name: "picker-session",
-  namespace: "mcp-servers",
+  namespace: "mcp-servers-org",
   server: "demo",
   humanID: "",
   agentID: "",
@@ -115,8 +115,8 @@ function FormHarness({ onSubmit = vi.fn() }: { onSubmit?: (draft: GrantDraft) =>
     <AppProviders>
       <GrantForm
         draft={draft}
-        servers={[{ name: "demo", namespace: "mcp-servers", team_id: "team-acme", ready: "1/1", status: "Ready" }]}
-        namespaces={["mcp-servers"]}
+        servers={[{ name: "demo", namespace: "mcp-servers-org", team_id: "team-acme", ready: "1/1", status: "Ready" }]}
+        namespaces={["mcp-servers-org"]}
         busy={false}
         submitError=""
         onChange={setDraft}
@@ -133,8 +133,8 @@ function SessionFormHarness({ onSubmit = vi.fn() }: { onSubmit?: (draft: Session
     <AppProviders>
       <SessionForm
         draft={draft}
-        servers={[{ name: "demo", namespace: "mcp-servers", team_id: "team-acme", ready: "1/1", status: "Ready" }]}
-        namespaces={["mcp-servers"]}
+        servers={[{ name: "demo", namespace: "mcp-servers-org", team_id: "team-acme", ready: "1/1", status: "Ready" }]}
+        namespaces={["mcp-servers-org"]}
         busy={false}
         submitError=""
         onChange={setDraft}

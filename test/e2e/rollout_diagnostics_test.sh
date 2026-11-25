@@ -34,16 +34,16 @@ if args[:2] == ["config", "current-context"]:
 elif args[:2] == ["get", "mcpserver"] and "jsonpath={.status." in " ".join(args):
     print("false" if ".status.phase" not in " ".join(args) else "Failed")
 elif args[:2] == ["get", "mcpserver"]:
-    print(json.dumps({"kind":"MCPServer", "metadata":{"name":"demo","namespace":"mcp-servers","generation":4},
+    print(json.dumps({"kind":"MCPServer", "metadata":{"name":"demo","namespace":"mcp-servers-org","generation":4},
       "status":{"phase":"Failed","observedGeneration":4,"deploymentReady":False,
       "conditions":[{"type":"DeploymentReady","status":"False","reason":"ReconcileError",
       "message":"forbidden: cannot list EndpointSlices", "observedGeneration":4}]}}))
 elif args[:1] == ["get"] and args[1] in ("deployment,replicaset,pod", "deployment,statefulset,daemonset,replicaset,pod"):
     print(json.dumps({"kind":"List","items":[
-      {"kind":"Deployment","metadata":{"name":"demo","namespace":"mcp-servers","generation":4},
+      {"kind":"Deployment","metadata":{"name":"demo","namespace":"mcp-servers-org","generation":4},
        "spec":{"replicas":1,"template":{"spec":{"containers":[{"env":[{"name":"PASSWORD","value":"never-upload-this-secret"}]}]}}},
        "status":{"readyReplicas":0,"updatedReplicas":0,"conditions":[{"type":"Available","status":"False","reason":"MinimumReplicasUnavailable"}]}},
-      {"kind":"Pod","metadata":{"name":"demo-abc","namespace":"mcp-servers"},
+      {"kind":"Pod","metadata":{"name":"demo-abc","namespace":"mcp-servers-org"},
        "status":{"phase":"Pending","containerStatuses":[{"name":"app","ready":False,"restartCount":3,
        "state":{"waiting":{"reason":"ImagePullBackOff","message":"retrying image pull"}}}]}}
     ]}))
@@ -57,7 +57,7 @@ elif args[:2] == ["get", "pods"] and args[-2:] == ["-o", "name"]:
     pods = {
         "mcp-platform": ["mcp-platform-api-0", "mcp-runtime-api-1", "mcp-ui-0"],
         "mcp-observability": ["mcp-analytics-api-0", "mcp-ingest-0", "clickhouse-0"],
-        "mcp-servers": ["server-%02d" % n for n in range(45)],
+        "mcp-servers-org": ["server-%02d" % n for n in range(45)],
     }
     namespace = args[args.index("-n") + 1]
     if namespace not in pods:
@@ -90,7 +90,7 @@ chmod +x "${TMP}/bin/sleep" "${TMP}/bin/kubectl"
 source "${ROOT}/test/e2e/lib/rollout-diagnostics.sh"
 
 set +e
-wait_for_named_server_ready demo mcp-servers 1 2>"${TMP}/wait.stderr"
+wait_for_named_server_ready demo mcp-servers-org 1 2>"${TMP}/wait.stderr"
 wait_status=$?
 set -e
 [[ "${wait_status}" -eq 1 ]]
@@ -131,7 +131,7 @@ PY
 # API/RBAC outages are represented as explicit collection gaps and do not
 # replace the original wait failure.
 export FAKE_RBAC_GAP=1
-e2e_collect_rollout_diagnostics mcp-servers deployment demo demo
+e2e_collect_rollout_diagnostics mcp-servers-org deployment demo demo
 grep -F 'collection_gap: warning-events unavailable (kubectl exit 1)' "${diag_dir}/demo-warning-events.json" >/dev/null
 
 
@@ -160,9 +160,9 @@ grep -F 'nil pointer dereference' "${pod_logs}/mcp-platform/mcp-runtime-api-1.pr
 # A namespace that is absent is recorded, and does not stop the others.
 grep -F 'collection_gap: pod-names unavailable' "${pod_logs}/registry/_pods.txt" >/dev/null
 # Collection is bounded per namespace.
-server_logs="$(find "${pod_logs}/mcp-servers" -name 'server-*.log' ! -name '*.previous.log' | wc -l | tr -d ' ')"
+server_logs="$(find "${pod_logs}/mcp-servers-org" -name 'server-*.log' ! -name '*.previous.log' | wc -l | tr -d ' ')"
 [[ "${server_logs}" -eq 30 ]]
-grep -F 'more pods were not collected' "${pod_logs}/mcp-servers/_pods.txt" >/dev/null
+grep -F 'more pods were not collected' "${pod_logs}/mcp-servers-org/_pods.txt" >/dev/null
 # A slow or unavailable API server cannot stall cleanup: collection stops at
 # the time budget and says so.
 budget_dir="${TMP}/budget"

@@ -223,7 +223,7 @@ func checkMCPServersImagePullSecrets(kubectl core.KubectlRunner, namespace strin
 	cmd, err := kubectl.CommandArgs([]string{"get", "serviceaccount", kubeworkload.DefaultServiceAccountName, "-n", namespace, "-o", "jsonpath={range .imagePullSecrets[*]}{.name}{\"\\n\"}{end}"})
 	if err != nil {
 		return DoctorCheck{
-			Name:   "mcp-servers imagePullSecrets",
+			Name:   "server namespace imagePullSecrets",
 			OK:     false,
 			Detail: fmt.Sprintf("kubectl error: %v", err),
 			Remedy: fmt.Sprintf("check serviceaccount %s in %s", kubeworkload.DefaultServiceAccountName, namespace),
@@ -233,13 +233,13 @@ func checkMCPServersImagePullSecrets(kubectl core.KubectlRunner, namespace strin
 	if execErr != nil {
 		if isKubectlNotFound(execErr) || isKubectlNotFoundOutput(string(out)) {
 			return DoctorCheck{
-				Name:   "mcp-servers imagePullSecrets",
+				Name:   "server namespace imagePullSecrets",
 				OK:     true,
 				Detail: fmt.Sprintf("serviceaccount %s not provisioned yet (created on first managed server deploy)", kubeworkload.DefaultServiceAccountName),
 			}
 		}
 		return DoctorCheck{
-			Name:   "mcp-servers imagePullSecrets",
+			Name:   "server namespace imagePullSecrets",
 			OK:     false,
 			Detail: fmt.Sprintf("failed reading serviceaccount %s imagePullSecrets", kubeworkload.DefaultServiceAccountName),
 			Remedy: fmt.Sprintf("inspect `kubectl -n %s get sa %s -o yaml`", namespace, kubeworkload.DefaultServiceAccountName),
@@ -248,7 +248,7 @@ func checkMCPServersImagePullSecrets(kubectl core.KubectlRunner, namespace strin
 	raw := strings.TrimSpace(string(out))
 	if raw == "" {
 		return DoctorCheck{
-			Name:   "mcp-servers imagePullSecrets",
+			Name:   "server namespace imagePullSecrets",
 			OK:     true,
 			Detail: fmt.Sprintf("no imagePullSecrets configured on serviceaccount %s", kubeworkload.DefaultServiceAccountName),
 		}
@@ -261,7 +261,7 @@ func checkMCPServersImagePullSecrets(kubectl core.KubectlRunner, namespace strin
 		}
 		if _, getErr := readKubectlOutput(kubectl, []string{"get", "secret", n, "-n", namespace, "-o", "jsonpath={.metadata.name}"}); getErr != nil {
 			return DoctorCheck{
-				Name:   "mcp-servers imagePullSecrets",
+				Name:   "server namespace imagePullSecrets",
 				OK:     false,
 				Detail: fmt.Sprintf("referenced imagePullSecret %s is missing", n),
 				Remedy: fmt.Sprintf("create secret %s in namespace %s or update serviceaccount", n, namespace),
@@ -269,7 +269,7 @@ func checkMCPServersImagePullSecrets(kubectl core.KubectlRunner, namespace strin
 		}
 	}
 	return DoctorCheck{
-		Name:   "mcp-servers imagePullSecrets",
+		Name:   "server namespace imagePullSecrets",
 		OK:     true,
 		Detail: fmt.Sprintf("%d imagePullSecrets present", len(names)),
 	}
@@ -291,7 +291,7 @@ func checkMCPServersImagePullSmoke(kubectl core.KubectlRunner, namespace string)
 	})
 	if cmdErr != nil {
 		return DoctorCheck{
-			Name:   "mcp-servers image pull smoke",
+			Name:   "server namespace image pull smoke",
 			OK:     false,
 			Detail: fmt.Sprintf("kubectl error: %v", cmdErr),
 			Remedy: "check kubectl setup",
@@ -300,7 +300,7 @@ func checkMCPServersImagePullSmoke(kubectl core.KubectlRunner, namespace string)
 	createOut, err := createCmd.CombinedOutput()
 	if err != nil {
 		return DoctorCheck{
-			Name:   "mcp-servers image pull smoke",
+			Name:   "server namespace image pull smoke",
 			OK:     false,
 			Detail: fmt.Sprintf("failed creating smoke pod: %v: %s", err, strings.TrimSpace(string(createOut))),
 			Remedy: "check pull credentials, registry reachability, and image existence",
@@ -313,14 +313,14 @@ func checkMCPServersImagePullSmoke(kubectl core.KubectlRunner, namespace string)
 			detail += "; " + firstMatchingSnippet(describe, "Events:", "Failed", "ErrImagePull", "ImagePullBackOff", "Back-off")
 		}
 		return DoctorCheck{
-			Name:   "mcp-servers image pull smoke",
+			Name:   "server namespace image pull smoke",
 			OK:     false,
 			Detail: detail,
-			Remedy: "inspect pod events: `kubectl -n mcp-servers describe pod " + podName + "`",
+			Remedy: "inspect pod events: `kubectl -n " + namespace + " describe pod " + podName + "`",
 		}
 	}
 	return DoctorCheck{
-		Name:   "mcp-servers image pull smoke",
+		Name:   "server namespace image pull smoke",
 		OK:     true,
 		Detail: fmt.Sprintf("pull/ready succeeded using image %s (%s)", image, imageSource),
 	}

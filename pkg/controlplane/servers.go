@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mcp-runtime/pkg/access"
 	"mcp-runtime/pkg/topology"
 	"strings"
 
@@ -314,6 +315,23 @@ func ServerInfoFromMCPServer(mcpServer mcpv1alpha1.MCPServer, deploymentStatus S
 		Resources:          inventoryItemsOrEmpty(mcpServer.Spec.MCPResources),
 		Tasks:              inventoryItemsOrEmpty(mcpServer.Spec.Tasks),
 		RuntimeStatus:      serverRuntimeStatus(mcpServer, status),
+		Egress:             serverEgressInfo(mcpServer),
+	}
+}
+
+func serverEgressInfo(server mcpv1alpha1.MCPServer) *ServerEgressInfo {
+	egress := server.Spec.Egress
+	if egress == nil {
+		return nil
+	}
+	ports := append([]int32(nil), egress.Ports...)
+	if len(ports) == 0 {
+		ports = []int32{access.DefaultServerEgressPort}
+	}
+	return &ServerEgressInfo{
+		Hosts:    append([]string(nil), egress.Hosts...),
+		Ports:    ports,
+		Approved: server.Annotations[access.EgressApprovedAnnotation] == "true",
 	}
 }
 

@@ -75,3 +75,27 @@ func TestMCPAuthConnectorApplyKeepsCredentialGatewayConnectors(t *testing.T) {
 		t.Fatalf("repeat apply = %v, %v; want unchanged", changed, err)
 	}
 }
+
+func TestMCPAuthConnectorApplyKeepsResourceConnectors(t *testing.T) {
+	const resource = `{"issuer":"https://idp.example.com/oauth","client_id":"example-client-id","client_secret_env":"EXAMPLE_IDP_CLIENT_SECRET"}`
+	old := `{"keycloak":{"client_id":"old"},"` + authgateway.ResourceConnectorPrefix + `example-api":` + resource + `}`
+	next := `{"keycloak":{"client_id":"mcp-auth","client_secret_env":"KEYCLOAK_CLIENT_SECRET"}}`
+	client := fake.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: mcpAuthConnectorName, Namespace: mcpAuthNamespace},
+		Data:       map[string]string{"connectors.json": old},
+	})
+	if changed, err := applyMCPAuthConnector(context.Background(), client, next, false); err != nil || !changed {
+		t.Fatalf("apply = %v, %v; want update", changed, err)
+	}
+	after, err := client.CoreV1().ConfigMaps(mcpAuthNamespace).Get(context.Background(), mcpAuthConnectorName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(after.Data["connectors.json"]), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["keycloak"] == nil || string(doc[authgateway.ResourceConnectorPrefix+"example-api"]) != resource {
+		t.Fatalf("updating the main connector dropped a resource connector, so MCP Auth would fail to start: %s", after.Data["connectors.json"])
+	}
+}
