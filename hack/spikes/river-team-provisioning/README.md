@@ -70,5 +70,3 @@ It does **not** solve correctness against the outside world. Protections our wor
   `client-go` directly rather than `ensureTeamNamespace` (no PSS labels, NetworkPolicy, Traefik watch).
 - Adoption would add a module dependency and `river_*` tables to the platform-api DB, plus River's
   own migrations in our upgrade path (`rivermigrate`); `lib/pq` in platform-api would need to move to pgx.
-- Per `hack/README.md` rules this directory is not in the script catalogue; delete it or catalogue it
-  before merging anything.
