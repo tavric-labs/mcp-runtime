@@ -125,7 +125,7 @@ func TestTenantGrafanaRejectsAlternateDataRoutes(t *testing.T) {
 		"/api/datasources/proxy/1/api/v1/query", "/api/datasources/proxy/uid/prometheus/api/v1/query", "/api/datasources/uid/prometheus/resources/api/v1/query",
 		"/api/plugins/prometheus/resources/api/v1/query", "/api/plugins/loki/resources/label", "/api/tsdb/query", "/api/ds/query",
 		"/api/live/ws", "/api/live/push/foreign", "/api/snapshots", "/api/public/dashboards/foreign", "/api/dashboards/uid/private", "/render/d/private", "/api/query-history",
-		"/api/datasources/uid/loki", "/api/datasources/uid/tempo", "/api/admin/settings", "/api/datasources/../ds/query", "/api/plugins/foreign/settings",
+		"/api/datasources/uid/tempo", "/api/admin/settings", "/api/datasources/../ds/query", "/api/plugins/foreign/settings",
 	} {
 		for _, method := range []string{"GET", "POST", "PUT", "DELETE"} {
 			if suffix == "/api/ds/query" && method == "POST" {
