@@ -7,6 +7,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,6 +29,12 @@ func (r *MCPServerReconciler) reconcileIngress(ctx context.Context, mcpServer *m
 		// The adapter-certificate path places the gateway behind TLS, so create
 		// its IngressRoute before removing the plain HTTP Ingress.
 		if err := r.reconcileMTLSIngress(ctx, mcpServer); err != nil {
+			return err
+		}
+		if err := r.Get(ctx, types.NamespacedName{Name: mcpServer.Name, Namespace: mcpServer.Namespace}, ingress); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
 			return err
 		}
 		if err := r.Delete(ctx, ingress); err != nil && !apierrors.IsNotFound(err) {

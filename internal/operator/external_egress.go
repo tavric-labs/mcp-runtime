@@ -203,8 +203,9 @@ func (r *MCPServerReconciler) setExternalEgressCondition(ctx context.Context, mc
 		logger.V(1).Info("Skipping ExternalEgressReady condition update", "error", err.Error())
 		return
 	}
+	observedGeneration := mcpServer.Generation
 	existing := meta.FindStatusCondition(latest.Status.Conditions, ExternalEgressReadyCondition)
-	if existing != nil && existing.Status == status && existing.Reason == reason && existing.Message == message && existing.ObservedGeneration == latest.Generation {
+	if existing != nil && existing.Status == status && existing.Reason == reason && existing.Message == message && existing.ObservedGeneration == observedGeneration {
 		return
 	}
 	if !ready && r.Recorder != nil && (existing == nil || existing.Status != status || existing.Reason != reason) {
@@ -215,7 +216,7 @@ func (r *MCPServerReconciler) setExternalEgressCondition(ctx context.Context, mc
 		Status:             status,
 		Reason:             reason,
 		Message:            message,
-		ObservedGeneration: latest.Generation,
+		ObservedGeneration: observedGeneration,
 	})
 	if err := r.Status().Update(ctx, latest); err != nil {
 		logger.V(1).Info("ExternalEgressReady condition update failed; retrying on next reconcile", "error", err.Error())

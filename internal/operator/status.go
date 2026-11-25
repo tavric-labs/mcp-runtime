@@ -171,13 +171,15 @@ func (r *MCPServerReconciler) updateStatus(ctx context.Context, mcpServer *mcpv1
 	// ingress defaults the stored spec may not spell out.
 	latest.Status.URL = mcpServer.CanonicalResourceURL(r.publicURLOptions())
 
-	// Update all conditions using the centralized helper
-	SetCondition(&latest.Status.Conditions, DeploymentReady, readiness.Deployment, phase, message, latest.Generation)
-	SetCondition(&latest.Status.Conditions, ServiceReady, readiness.Service, phase, message, latest.Generation)
-	SetCondition(&latest.Status.Conditions, IngressReady, readiness.Ingress, phase, message, latest.Generation)
-	SetCondition(&latest.Status.Conditions, GatewayReady, readiness.Gateway, phase, message, latest.Generation)
-	SetCondition(&latest.Status.Conditions, PolicyReady, readiness.Policy, phase, message, latest.Generation)
-	SetCondition(&latest.Status.Conditions, CanaryReady, readiness.Canary, phase, message, latest.Generation)
+	// Stamp the reconciled generation rather than latest.Generation so a
+	// concurrent spec edit does not get marked as already observed.
+	observedGeneration := mcpServer.Generation
+	SetCondition(&latest.Status.Conditions, DeploymentReady, readiness.Deployment, phase, message, observedGeneration)
+	SetCondition(&latest.Status.Conditions, ServiceReady, readiness.Service, phase, message, observedGeneration)
+	SetCondition(&latest.Status.Conditions, IngressReady, readiness.Ingress, phase, message, observedGeneration)
+	SetCondition(&latest.Status.Conditions, GatewayReady, readiness.Gateway, phase, message, observedGeneration)
+	SetCondition(&latest.Status.Conditions, PolicyReady, readiness.Policy, phase, message, observedGeneration)
+	SetCondition(&latest.Status.Conditions, CanaryReady, readiness.Canary, phase, message, observedGeneration)
 
 	// Use Status().Update() which only updates the status subresource
 	if err := r.Status().Update(ctx, latest); err != nil {

@@ -166,20 +166,17 @@ func (r *MCPServerReconciler) ingressControllerPodLabels() map[string]string {
 }
 
 func (r *MCPServerReconciler) reconcileGatewayCertificate(ctx context.Context, mcpServer *mcpv1alpha1.MCPServer) error {
+	if !r.usesAdapterCertificates(mcpServer) {
+		if err := r.deleteUnstructured(ctx, certificateGVK, gatewayTLSSecretName(mcpServer), mcpServer.Namespace); err != nil {
+			return err
+		}
+		return r.deleteSecretIfExists(ctx, gatewayTLSSecretName(mcpServer), mcpServer.Namespace)
+	}
+
 	certificate := &unstructured.Unstructured{}
 	certificate.SetGroupVersionKind(certificateGVK)
 	certificate.SetName(gatewayTLSSecretName(mcpServer))
 	certificate.SetNamespace(mcpServer.Namespace)
-
-	if !r.usesAdapterCertificates(mcpServer) {
-		if err := r.Delete(ctx, certificate); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-			return err
-		}
-		if err := r.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: gatewayTLSSecretName(mcpServer), Namespace: mcpServer.Namespace}}); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		return nil
-	}
 	issuer := strings.TrimSpace(r.MTLSClusterIssuer)
 	if issuer == "" {
 		return fmt.Errorf("adapter certificate validation requires MCP_MTLS_CLUSTER_ISSUER on the operator")
@@ -232,14 +229,35 @@ func (r *MCPServerReconciler) applyUnstructured(ctx context.Context, obj *unstru
 		&client.ApplyOptions{FieldManager: operatorFieldManager, Force: &force})
 }
 
-// deleteUnstructured removes an object by GVK/name/namespace, tolerating absent
-// objects and missing CRDs (so cleanup works even when Traefik CRDs are absent).
+// deleteUnstructured removes an object by GVK/name/namespace when it exists,
+// tolerating absent objects and missing CRDs (so cleanup works even when
+// Traefik or cert-manager CRDs are absent).
 func (r *MCPServerReconciler) deleteUnstructured(ctx context.Context, gvk schema.GroupVersionKind, name, namespace string) error {
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(gvk)
-	obj.SetName(name)
-	obj.SetNamespace(namespace)
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return nil
+		}
+		return err
+	}
 	if err := r.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+		return err
+	}
+	return nil
+}
+
+// deleteSecretIfExists removes a Secret when it exists, avoiding uncached
+// DELETE requests on steady-state reconciles when cleanup is a no-op.
+func (r *MCPServerReconciler) deleteSecretIfExists(ctx context.Context, name, namespace string) error {
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if err := r.Delete(ctx, secret); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	return nil
@@ -250,19 +268,17 @@ func (r *MCPServerReconciler) deleteUnstructured(ctx context.Context, gvk schema
 // identity CA as user and gateway certificates and carries the pinned ingress
 // SPIFFE identity (see traefikProxySPIFFEID).
 func (r *MCPServerReconciler) reconcileTraefikClientCertificate(ctx context.Context, mcpServer *mcpv1alpha1.MCPServer) error {
+	if !r.usesAdapterCertificates(mcpServer) {
+		if err := r.deleteUnstructured(ctx, certificateGVK, traefikClientCertSecretName(mcpServer), mcpServer.Namespace); err != nil {
+			return err
+		}
+		return r.deleteSecretIfExists(ctx, traefikClientCertSecretName(mcpServer), mcpServer.Namespace)
+	}
+
 	cert := &unstructured.Unstructured{}
 	cert.SetGroupVersionKind(certificateGVK)
 	cert.SetName(traefikClientCertSecretName(mcpServer))
 	cert.SetNamespace(mcpServer.Namespace)
-	if !r.usesAdapterCertificates(mcpServer) {
-		if err := r.Delete(ctx, cert); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-			return err
-		}
-		if err := r.Delete(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: traefikClientCertSecretName(mcpServer), Namespace: mcpServer.Namespace}}); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		return nil
-	}
 	issuer := strings.TrimSpace(r.MTLSClusterIssuer)
 	if issuer == "" {
 		return fmt.Errorf("adapter certificate validation requires MCP_MTLS_CLUSTER_ISSUER on the operator")
@@ -344,17 +360,15 @@ func (r *MCPServerReconciler) reconcileIssuedTLSSecretOwner(ctx context.Context,
 // been issued yet, the bundle is skipped and a later reconcile (driven by
 // Deployment/ingress readiness waiting on the gateway TLS Secret) materializes it.
 func (r *MCPServerReconciler) reconcileMTLSTrustBundle(ctx context.Context, mcpServer *mcpv1alpha1.MCPServer) error {
+	if !r.usesAdapterCertificates(mcpServer) {
+		return r.deleteSecretIfExists(ctx, mtlsTrustBundleSecretName(mcpServer), mcpServer.Namespace)
+	}
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mtlsTrustBundleSecretName(mcpServer),
 			Namespace: mcpServer.Namespace,
 		},
-	}
-	if !r.usesAdapterCertificates(mcpServer) {
-		if err := r.Delete(ctx, secret); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		return nil
 	}
 
 	var gwSecret corev1.Secret

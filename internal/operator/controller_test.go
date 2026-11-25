@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +18,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 	"mcp-runtime/pkg/policy"
@@ -1110,6 +1112,111 @@ func TestUpdateStatus(t *testing.T) {
 		}
 		assertEqual(t, "status.url", updated.Status.URL, "https://mcp.example.com/buddy/mcp")
 	})
+}
+
+func TestReconcilePreservesObservedGenerationAcrossConcurrentSpecBump(t *testing.T) {
+	scheme := runtime.NewScheme()
+	for _, add := range []func(*runtime.Scheme) error{
+		mcpv1alpha1.AddToScheme,
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		networkingv1.AddToScheme,
+		discoveryv1.AddToScheme,
+	} {
+		if err := add(scheme); err != nil {
+			t.Fatalf("failed to add scheme: %v", err)
+		}
+	}
+
+	const (
+		reconciledGeneration int64 = 1
+		bumpedGeneration     int64 = 2
+	)
+	server := &mcpv1alpha1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "gen-server",
+			Namespace:  "team",
+			Generation: reconciledGeneration,
+		},
+		Spec: mcpv1alpha1.MCPServerSpec{
+			Image:            "example.com/server:v1",
+			Port:             8080,
+			ServicePort:      80,
+			PublicPathPrefix: "gen-server",
+			IngressHost:      "mcp.example.com",
+			Gateway:          &mcpv1alpha1.GatewayConfig{Enabled: mcpv1alpha1.BoolPtr(false)},
+			Egress:           &mcpv1alpha1.EgressConfig{Hosts: []string{"api.example.com"}},
+		},
+	}
+
+	bumped := false
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&mcpv1alpha1.MCPServer{}).
+		WithObjects(server).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if err := cl.Get(ctx, key, obj, opts...); err != nil {
+					return err
+				}
+				if got, ok := obj.(*mcpv1alpha1.MCPServer); ok && !bumped && key.Name == server.Name && key.Namespace == server.Namespace {
+					bumped = true
+					next := got.DeepCopy()
+					next.Spec.Image = "example.com/server:v2"
+					next.Generation = bumpedGeneration
+					if err := cl.Update(ctx, next); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		}).
+		Build()
+
+	r := &MCPServerReconciler{
+		Client:            c,
+		Scheme:            scheme,
+		GatewayProxyImage: "example.com/mcp-gateway:test",
+	}
+
+	key := types.NamespacedName{Name: server.Name, Namespace: server.Namespace}
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key}); err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+	if !bumped {
+		t.Fatal("expected interceptor to bump MCPServer generation during reconcile")
+	}
+
+	updated := &mcpv1alpha1.MCPServer{}
+	if err := c.Get(context.Background(), key, updated); err != nil {
+		t.Fatalf("failed to fetch updated MCPServer: %v", err)
+	}
+	assertEqual(t, "stored generation", updated.Generation, bumpedGeneration)
+
+	wantTypes := map[string]bool{
+		string(DeploymentReady):      false,
+		string(ServiceReady):         false,
+		string(IngressReady):         false,
+		string(GatewayReady):         false,
+		string(PolicyReady):          false,
+		string(CanaryReady):          false,
+		TraefikEgressReadyCondition:  false,
+		ExternalEgressReadyCondition: false,
+	}
+	for _, cond := range updated.Status.Conditions {
+		if _, tracked := wantTypes[cond.Type]; tracked {
+			wantTypes[cond.Type] = true
+		}
+		if cond.ObservedGeneration != reconciledGeneration {
+			t.Errorf("condition %s ObservedGeneration = %d, want %d (must not stamp bumped generation %d)",
+				cond.Type, cond.ObservedGeneration, reconciledGeneration, bumpedGeneration)
+		}
+	}
+	for condType, seen := range wantTypes {
+		if !seen {
+			t.Errorf("expected condition %s to be written during reconcile", condType)
+		}
+	}
 }
 
 func TestDeterminePhase(t *testing.T) {
