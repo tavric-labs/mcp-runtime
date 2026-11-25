@@ -56,6 +56,8 @@ type rpcInspection struct {
 	toolName policypkg.ToolName
 	kind     RPCMessageKind
 	problem  inspectionProblem
+	// target is the resource URI or prompt/skill name of a primitive request.
+	target string
 	// Raw JSON is private dispatch data for idempotency hashing, never audit data.
 	paramsRaw json.RawMessage
 	idRaw     json.RawMessage
@@ -85,8 +87,11 @@ func (r rpcInspection) Class() inspectionClass {
 func (r rpcInspection) Method() string       { return string(r.method) }
 func (r rpcInspection) ToolName() string     { return string(r.toolName) }
 func (r rpcInspection) Kind() RPCMessageKind { return r.kind }
-func (r rpcInspection) IsToolCall() bool     { return r.Class() == classToolCall }
-func (r rpcInspection) Indeterminate() bool  { return r.Class() == classInvalid }
+
+// Target is the resource URI or prompt/skill name a request addresses, or "".
+func (r rpcInspection) Target() string      { return r.target }
+func (r rpcInspection) IsToolCall() bool    { return r.Class() == classToolCall }
+func (r rpcInspection) Indeterminate() bool { return r.Class() == classInvalid }
 
 // RequiresAuthorization reports whether grant and session evaluation applies:
 // tool calls, and invalid input, which is evaluated only to be denied. Other

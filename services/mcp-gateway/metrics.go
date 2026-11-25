@@ -338,11 +338,17 @@ func metricRPCMethod(method string) string {
 		"tools/list",
 		"tools/call",
 		"resources/list",
+		"resources/templates/list",
 		"resources/read",
+		"resources/directory/read",
 		"resources/subscribe",
 		"resources/unsubscribe",
 		"prompts/list",
 		"prompts/get",
+		"skills/list",
+		"skills/get",
+		"notifications/cancelled",
+		"notifications/progress",
 		"completion/complete",
 		"logging/setLevel":
 		return strings.TrimSpace(method)

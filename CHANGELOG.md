@@ -7,6 +7,14 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Changed
+
+- The gateway's request metrics now label `resources/templates/list`, `resources/directory/read`,
+  `skills/list`, `skills/get`, `notifications/cancelled` and `notifications/progress` instead of
+  counting them as `other`, and the request inspector records the resource URI or prompt/skill
+  name a request addresses (not yet audited or authorized). First step of
+  [#544](https://github.com/tavric-labs/mcp-runtime/issues/544).
+
 ## [0.21.0] - 2026-11-23
 
 ### Added

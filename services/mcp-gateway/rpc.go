@@ -18,6 +18,46 @@ type toolParams struct {
 	Name string `json:"name"`
 }
 
+type targetParams struct {
+	Name string `json:"name"`
+	URI  string `json:"uri"`
+}
+
+// primitiveTarget returns the resource URI or prompt/skill name a request
+// addresses. It is empty for every other method, so a stray field on an
+// unrelated request never becomes an audited target.
+func primitiveTarget(method string, params json.RawMessage) string {
+	var byURI bool
+	switch method {
+	case "resources/read", "resources/subscribe", "resources/unsubscribe", "resources/directory/read":
+		byURI = true
+	case "prompts/get", "skills/get":
+	default:
+		return ""
+	}
+	var p targetParams
+	if len(params) == 0 || json.Unmarshal(params, &p) != nil {
+		// A wrongly typed sibling field must not hide a valid target.
+		var raw map[string]json.RawMessage
+		if json.Unmarshal(params, &raw) != nil {
+			return ""
+		}
+		key := "name"
+		if byURI {
+			key = "uri"
+		}
+		var v string
+		if json.Unmarshal(raw[key], &v) != nil {
+			return ""
+		}
+		return v
+	}
+	if byURI {
+		return p.URI
+	}
+	return p.Name
+}
+
 func inspectRPCRequest(r *http.Request) rpcInspection {
 	if r.Method != http.MethodPost {
 		return rpcInspection{}
@@ -82,5 +122,6 @@ func inspectRPCBody(body []byte) rpcInspection {
 	}
 	inspection := inspectedRPC(req.Method, toolName, kind)
 	inspection.paramsRaw, inspection.idRaw = req.Params, req.ID
+	inspection.target = primitiveTarget(req.Method, req.Params)
 	return inspection
 }
