@@ -7,6 +7,8 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-25
+
 ### Added
 
 - Grants accept `primitiveRules` to allow or deny MCP resources (by URI), prompts (by name)
@@ -33,6 +35,13 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
+- **Upgrade:** no fresh setup, data migration or restore is needed; apply it with
+  `mcp-runtime update --to v0.22.0`. Before updating, list the agents and teams that read
+  resources, prompts or skills and confirm each has an active grant on that server, because
+  after the update a caller with no active matching grant is denied those reads
+  (`access explain` covers tool calls only for now). Roll back with the previous release's
+  `mcp-runtime update`; a policy that uses `primitiveRules` is rejected by an older gateway
+  (schema `v8`), so remove the rules from a grant before rolling back.
 - **Breaking:** the gateway now evaluates `resources/*`, `prompts/*`, `skills/*`,
   `subscriptions/listen`, `tasks/*` and `events/*` requests against grants and sessions. Previously any
   authenticated caller could read any resource or prompt a server exposed. Callers with no
@@ -1034,7 +1043,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.0...v0.19.0
