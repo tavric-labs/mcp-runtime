@@ -1,0 +1,36 @@
+version: v1
+servers:
+    - name: example-mcp-app-python-gateway
+      description: Sample MCP App (dashboard UI) and skill served through the Runtime gateway.
+      image: registry.mcpruntime.org/example-mcp-app-python
+      imageTag: latest
+      route: /example-mcp-app-python-gateway/mcp
+      publicPathPrefix: example-mcp-app-python-gateway
+      port: 8088
+      scope: tenant
+      tools:
+        - name: show_dashboard
+          description: Open the metrics dashboard (an MCP App).
+          requiredTrust: low
+          sideEffect: read
+        - name: refresh_metrics
+          description: Return the current counters; called by the dashboard UI.
+          requiredTrust: low
+          sideEffect: read
+        - name: reset_counters
+          description: Reset the counters. Not allowed by the sample grant.
+          requiredTrust: low
+          sideEffect: write
+      mcpResources:
+        - name: dashboard
+          description: ui://dashboard/main.html, the MCP App HTML.
+        - name: metrics-summary-skill
+          description: skill://metrics-summary/SKILL.md, a skill file.
+      auth: {}
+      policy:
+        mode: allow-list
+        defaultDecision: deny
+      session:
+        required: true
+      gateway:
+        enabled: true

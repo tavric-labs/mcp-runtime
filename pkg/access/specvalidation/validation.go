@@ -63,6 +63,15 @@ func (r Result) FirstError() error {
 	}
 	return errors.New(r[0].message)
 }
+
+// Messages returns the human-readable text of each violation.
+func (r Result) Messages() []string {
+	out := make([]string, 0, len(r))
+	for _, v := range r {
+		out = append(out, v.message)
+	}
+	return out
+}
 func (r *Result) add(e *field.Error, message string) { *r = append(*r, violation{e, message}) }
 func ValidTrust(value string) bool                   { return value == "low" || value == "medium" || value == "high" }
 func ValidSideEffect(value string) bool {
@@ -169,31 +178,7 @@ func ValidateGrant(spec Grant, boundary Boundary, now time.Time) Result {
 		}
 		names[rule.Name] = struct{}{}
 	}
-	type primitiveKey struct{ kind, pattern string }
-	primitives := make(map[primitiveKey]struct{}, len(spec.PrimitiveRules))
-	for i, rule := range spec.PrimitiveRules {
-		p := path.Child("primitiveRules").Index(i)
-		switch rule.Kind {
-		case "resource", "prompt", "skill":
-		default:
-			out.add(field.NotSupported(p.Child("kind"), rule.Kind, []string{"resource", "prompt", "skill"}), fmt.Sprintf("primitiveRules[%d].kind must be resource, prompt, or skill", i))
-		}
-		if strings.TrimSpace(rule.Pattern) == "" {
-			out.add(field.Required(p.Child("pattern"), "primitive rule pattern is required"), fmt.Sprintf("primitiveRules[%d].pattern is required", i))
-			continue
-		}
-		if star := strings.Index(rule.Pattern, "*"); star >= 0 && star != len(rule.Pattern)-1 {
-			out.add(field.Invalid(p.Child("pattern"), rule.Pattern, "* is allowed only as a trailing wildcard"), fmt.Sprintf("primitiveRules[%d].pattern may use * only at the end", i))
-		}
-		if strings.TrimSpace(rule.Decision) == "" || !ValidDecision(rule.Decision) {
-			out.add(field.NotSupported(p.Child("decision"), rule.Decision, []string{"allow", "deny"}), fmt.Sprintf("primitiveRules[%d].decision must be allow or deny", i))
-		}
-		key := primitiveKey{rule.Kind, rule.Pattern}
-		if _, ok := primitives[key]; ok {
-			out.add(field.Duplicate(p.Child("pattern"), rule.Pattern), fmt.Sprintf("primitiveRules[%d] is a duplicate", i))
-		}
-		primitives[key] = struct{}{}
-	}
+	validatePrimitiveRules(&out, path, spec.PrimitiveRules)
 	return out
 }
 
@@ -217,4 +202,41 @@ func ValidateSession(spec Session, boundary Boundary) Result {
 		}
 	}
 	return out
+}
+
+// ValidatePrimitiveRules checks resource, prompt and skill rules. It is shared by
+// admission, platform apply and `server validate`, so every entry point agrees on
+// what a valid rule is.
+func ValidatePrimitiveRules(rules []PrimitiveRule) Result {
+	var out Result
+	validatePrimitiveRules(&out, field.NewPath("spec"), rules)
+	return out
+}
+
+func validatePrimitiveRules(out *Result, path *field.Path, rules []PrimitiveRule) {
+	type primitiveKey struct{ kind, pattern string }
+	primitives := make(map[primitiveKey]struct{}, len(rules))
+	for i, rule := range rules {
+		p := path.Child("primitiveRules").Index(i)
+		switch rule.Kind {
+		case "resource", "prompt", "skill":
+		default:
+			out.add(field.NotSupported(p.Child("kind"), rule.Kind, []string{"resource", "prompt", "skill"}), fmt.Sprintf("primitiveRules[%d].kind must be resource, prompt, or skill", i))
+		}
+		if strings.TrimSpace(rule.Pattern) == "" {
+			out.add(field.Required(p.Child("pattern"), "primitive rule pattern is required"), fmt.Sprintf("primitiveRules[%d].pattern is required", i))
+			continue
+		}
+		if star := strings.Index(rule.Pattern, "*"); star >= 0 && star != len(rule.Pattern)-1 {
+			out.add(field.Invalid(p.Child("pattern"), rule.Pattern, "* is allowed only as a trailing wildcard"), fmt.Sprintf("primitiveRules[%d].pattern may use * only as a trailing wildcard", i))
+		}
+		if strings.TrimSpace(rule.Decision) == "" || !ValidDecision(rule.Decision) {
+			out.add(field.NotSupported(p.Child("decision"), rule.Decision, []string{"allow", "deny"}), fmt.Sprintf("primitiveRules[%d].decision must be allow or deny", i))
+		}
+		key := primitiveKey{rule.Kind, rule.Pattern}
+		if _, ok := primitives[key]; ok {
+			out.add(field.Duplicate(p.Child("pattern"), rule.Pattern), fmt.Sprintf("primitiveRules[%d] is a duplicate", i))
+		}
+		primitives[key] = struct{}{}
+	}
 }
