@@ -161,6 +161,7 @@ func (s *AccessService) handleRuntimeGrantApply(w http.ResponseWriter, r *http.R
 			Disabled:           disabled,
 			ExpiresAt:          req.ExpiresAt,
 			ToolRules:          req.ToolRules,
+			PrimitiveRules:     req.PrimitiveRules,
 		},
 	}
 	applied, err := s.accessMgr.ApplyGrant(ctx, grant)

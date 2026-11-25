@@ -33,6 +33,57 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   policies (runtime-api to Tempo on TCP 3200); `update` refuses scoped policy changes until the
   migration is complete.
 
+## [0.22.0] - 2026-11-25
+
+### Added
+
+- Grants accept `primitiveRules` to allow or deny MCP resources (by URI), prompts (by name)
+  and skills (by URI), with an exact or trailing-`*` pattern. The policy schema moves to `v8`
+  when they are used, so an older gateway rejects the document rather than ignoring the rules.
+  [#544](https://github.com/tavric-labs/mcp-runtime/issues/544)
+- A gateway extension registry (Skills, Tasks, MCP Apps) that drives metric labels and is
+  tested against the policy's gated methods, with tests that `ui://` resources follow
+  resource rules, app-originated tool calls are authorized like any tool call, and
+  extension capabilities and `_meta` reach the server unchanged
+  ([#977](https://github.com/tavric-labs/mcp-runtime/issues/977)).
+- `examples/example-mcp-app-python`: a sample MCP App (dashboard UI, an app-callable tool, a
+  write tool the sample grant denies) plus a skill served as resources, with metadata, a
+  grant using `primitiveRules`, a session and offline tests. Rendering in an external MCP
+  Apps host is not verified yet.
+- Server inventory records the protocol extensions a server advertises:
+  `liveInventory.extensions` maps each identifier (for example
+  `io.modelcontextprotocol/skills`) to its settings. The console does not show it yet.
+- The sample serves the Skills methods (`skills/list`, `skills/get`,
+  `resources/directory/read`) with manifest digests and declares the extension; its dashboard
+  speaks the MCP Apps view protocol.
+- `server validate --grant-file` checks `primitiveRules` (kind, pattern, decision,
+  duplicates), using the same validation as admission and platform apply.
+
+### Changed
+
+- **Upgrade:** no fresh setup, data migration or restore is needed; apply it with
+  `mcp-runtime update --to v0.22.0`. Before updating, list the agents and teams that read
+  resources, prompts or skills and confirm each has an active grant on that server, because
+  after the update a caller with no active matching grant is denied those reads
+  (`access explain` covers tool calls only for now). Roll back with the previous release's
+  `mcp-runtime update`; a policy that uses `primitiveRules` is rejected by an older gateway
+  (schema `v8`), so remove the rules from a grant before rolling back.
+- **Breaking:** the gateway now evaluates `resources/*`, `prompts/*`, `skills/*`,
+  `subscriptions/listen`, `tasks/*` and `events/*` requests against grants and sessions. Previously any
+  authenticated caller could read any resource or prompt a server exposed. Callers with no
+  active matching grant now get `no_matching_grant` (or `missing_identity` / `session_*`).
+  Existing grants without `primitiveRules` keep allowing every resource, prompt and skill,
+  so grants only need editing to restrict them. Servers with header-delegated auth are
+  unchanged.
+- **Breaking:** `completion/complete` is authorized as reading the prompt or resource it
+  completes, so it needs a matching grant and cannot reveal an item the grant denies.
+- The gateway rejects a request whose `Mcp-Method` header, or `Mcp-Name` header on
+  `tools/call`, `resources/read` and `prompts/get`, disagrees with the body, with
+  `400 header_mismatch`. Clients that send neither header are unaffected.
+- Request metrics label `resources/templates/list`, `resources/directory/read`, `skills/list`,
+  `skills/get`, `server/discover`, `subscriptions/listen`, `tasks/*`, `events/*`, `notifications/cancelled`
+  and `notifications/progress` instead of counting them as `other`.
+
 ## [0.21.0] - 2026-11-23
 
 ### Added
@@ -1018,7 +1069,8 @@ upgrade from 0.4.x; see the migration note under **Changed**.
 
 - Targeted platform updates through `mcp-runtime update`, including embedded CRD updates and `--build` to build/push missing component images before rollout ([#491](https://github.com/mcp-runtime/mcp-runtime/pull/491)).
 
-[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/tavric-labs/mcp-runtime/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/tavric-labs/mcp-runtime/compare/v0.18.0...v0.19.0

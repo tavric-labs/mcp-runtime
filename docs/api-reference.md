@@ -540,7 +540,10 @@ Server list/get responses keep CRD `tools`, `prompts`, `mcpResources`, and
 `tasks` as governance metadata and add `liveInventory` from the running MCP
 server when runtime-api's short-TTL gateway probe has completed. On a cold
 cache miss or probe failure, `liveInventory` is `null` and
-`liveInventoryError` contains a short reason. The Servers workspace combines
+`liveInventoryError` contains a short reason. When the server advertises protocol
+extensions in `capabilities.extensions`, `liveInventory.extensions` maps each
+identifier (for example `io.modelcontextprotocol/skills`) to its settings
+unchanged; the field is omitted when none are advertised. The Servers workspace combines
 declared and probed prompts and
 resources by name, then shows their descriptions, prompt arguments, resource
 URIs, media types, and labels in expandable server details. Tasks use declared

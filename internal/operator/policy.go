@@ -297,6 +297,13 @@ func (r *MCPServerReconciler) renderGatewayPolicy(ctx context.Context, mcpServer
 				RequiredTrust: string(defaultTrust(rule.RequiredTrust)),
 			})
 		}
+		for _, rule := range grant.Spec.PrimitiveRules {
+			rendered.PrimitiveRules = append(rendered.PrimitiveRules, policy.PrimitiveRule{
+				Kind:     rule.Kind,
+				Pattern:  rule.Pattern,
+				Decision: string(defaultDecision(rule.Decision)),
+			})
+		}
 		doc.Grants = append(doc.Grants, rendered)
 	}
 

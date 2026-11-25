@@ -338,15 +338,23 @@ func metricRPCMethod(method string) string {
 		"tools/list",
 		"tools/call",
 		"resources/list",
+		"resources/templates/list",
 		"resources/read",
 		"resources/subscribe",
 		"resources/unsubscribe",
 		"prompts/list",
 		"prompts/get",
+		"server/discover",
+		"subscriptions/listen",
+		"notifications/cancelled",
+		"notifications/progress",
 		"completion/complete",
 		"logging/setLevel":
 		return strings.TrimSpace(method)
 	default:
+		if _, ok := extensionMethodLabels[strings.TrimSpace(method)]; ok {
+			return strings.TrimSpace(method)
+		}
 		return "other"
 	}
 }
