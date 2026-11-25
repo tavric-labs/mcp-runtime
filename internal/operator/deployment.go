@@ -565,7 +565,7 @@ func (r *MCPServerReconciler) buildGatewayContainer(mcpServer *mcpv1alpha1.MCPSe
 	if endpoint := strings.TrimSpace(r.GatewayOTLPEndpoint); endpoint != "" {
 		envVars = append(envVars,
 			corev1.EnvVar{Name: "OTEL_SERVICE_NAME", Value: mcpServer.Name + "-gateway"},
-			corev1.EnvVar{Name: "OTEL_RESOURCE_ATTRIBUTES", Value: "service.namespace=" + mcpServer.Namespace},
+			corev1.EnvVar{Name: "OTEL_RESOURCE_ATTRIBUTES", Value: telemetryResourceAttributes(mcpServer)},
 			corev1.EnvVar{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: endpoint},
 		)
 	}
@@ -821,6 +821,17 @@ func (r *MCPServerReconciler) buildImagePullSecrets(mcpServer *mcpv1alpha1.MCPSe
 	return []corev1.LocalObjectReference{{Name: secretName}}
 }
 
+// telemetryResourceAttributes identifies the workload on every exported span.
+// The server UID is immutable and unique per instance, unlike name and
+// namespace, which can be reused after a delete; tenant trace isolation keys on it.
+func telemetryResourceAttributes(mcpServer *mcpv1alpha1.MCPServer) string {
+	attributes := "service.namespace=" + mcpServer.Namespace
+	if uid := string(mcpServer.UID); uid != "" {
+		attributes += ",mcp.server.uid=" + uid
+	}
+	return attributes
+}
+
 // buildServerEnvVars derives the upstream route and OAuth validation settings.
 // Gateway-fronted OAuth apps receive the same issuer and public audience as
 // standalone apps: the gateway forwards the validated bearer, and upstreams
@@ -835,7 +846,7 @@ func (r *MCPServerReconciler) buildServerEnvVars(mcpServer *mcpv1alpha1.MCPServe
 		for _, derived := range []corev1.EnvVar{
 			{Name: "OTEL_SERVICE_NAME", Value: mcpServer.Name + "-server"},
 			{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: endpoint},
-			{Name: "OTEL_RESOURCE_ATTRIBUTES", Value: "service.namespace=" + mcpServer.Namespace},
+			{Name: "OTEL_RESOURCE_ATTRIBUTES", Value: telemetryResourceAttributes(mcpServer)},
 		} {
 			found := false
 			for _, current := range result {

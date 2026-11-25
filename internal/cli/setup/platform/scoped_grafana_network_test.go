@@ -130,7 +130,8 @@ func TestUnknownCNISetupDoesNotEnableTenantGrafana(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, action := range clients.Clientset.(*fake.Clientset).Actions() {
-		if action.GetVerb() != "get" {
+		// Reads only: the k3s check lists nodes, and nothing may be written.
+		if verb := action.GetVerb(); verb != "get" && verb != "list" {
 			t.Fatalf("unknown CNI enabled or mutated Grafana: %v", action)
 		}
 	}

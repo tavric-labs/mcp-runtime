@@ -347,7 +347,7 @@ func (s *RuntimeServer) HandleRuntimeObservabilityLogs(w http.ResponseWriter, r 
 		return
 	}
 
-	query := fmt.Sprintf(`{namespace=%s,app=%s,server_uid=%s}`, promQLString(target.Namespace), promQLString(target.Name), promQLString(string(target.UID)))
+	query := observabilityLogSelector(target.Namespace, target.Name, string(target.UID))
 	queryURL, err := lokiQueryURL(lokiAPIBaseURL(), query)
 	if err != nil {
 		log.Printf("observability loki proxy configuration error: %v", err)
