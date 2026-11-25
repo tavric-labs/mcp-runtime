@@ -22,6 +22,14 @@ const grafanaProxyPrefix = "/runtime/observability/grafana"
 // expression must subsequently equal a server-generated query byte for byte.
 var grafanaTargetSelector = regexp.MustCompile(`namespace="([a-z0-9][a-z0-9.-]*)",server="([a-z0-9][a-z0-9.-]*)",server_uid="([a-zA-Z0-9-]+)"`)
 
+// Loki streams are labelled namespace, app and server_uid. The whole expression
+// must equal observabilityLogSelector byte for byte; this only extracts the
+// identity to authorize.
+var grafanaLokiSelector = regexp.MustCompile(`^\{namespace="([a-z0-9][a-z0-9.-]*)",app="([a-z0-9][a-z0-9.-]*)",server_uid="([a-zA-Z0-9-]+)"\}$`)
+
+// maxTenantLokiLines bounds how many log lines one tenant query can return.
+const maxTenantLokiLines = 500
+
 type grafanaDataSource struct {
 	UID  string `json:"uid"`
 	Type string `json:"type"`
@@ -39,6 +47,10 @@ type grafanaQuery struct {
 	LegendFormat  string            `json:"legendFormat,omitempty"`
 	IntervalMS    int64             `json:"intervalMs"`
 	MaxDataPoints int64             `json:"maxDataPoints"`
+	// Loki only. Prometheus queries drop these, so a tenant cannot smuggle them in.
+	QueryType string `json:"queryType,omitempty"`
+	MaxLines  int64  `json:"maxLines,omitempty"`
+	Direction string `json:"direction,omitempty"`
 }
 
 type grafanaQueryRequest struct {
@@ -166,6 +178,7 @@ func tenantGrafanaReadPath(suffix string) bool {
 		"/api/frontend/settings", "/api/user", "/api/user/preferences", "/api/user/orgs",
 		"/api/org", "/api/org/preferences", "/api/access-control/user/permissions",
 		"/api/datasources", "/api/datasources/uid/prometheus", "/api/plugins/prometheus/settings",
+		"/api/datasources/uid/loki",
 		"/api/search", "/api/annotations", "/api/health":
 		return true
 	}
@@ -217,6 +230,26 @@ func (s *RuntimeServer) handleTenantGrafanaAuxiliary(w http.ResponseWriter, r *h
 			return true
 		}
 	}
+	if r.Method == http.MethodGet {
+		const lokiResources = "/api/datasources/uid/loki/resources/"
+		if strings.HasPrefix(suffix, lokiResources) {
+			rest := strings.TrimPrefix(suffix, lokiResources)
+			switch {
+			case rest == "labels" || rest == "detected_labels":
+				writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": []any{}})
+				return true
+			case strings.HasPrefix(rest, "label/") && strings.HasSuffix(rest, "/values") && !strings.Contains(strings.TrimSuffix(strings.TrimPrefix(rest, "label/"), "/values"), "/"):
+				writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": []any{}})
+				return true
+			case rest == "index/stats":
+				writeJSON(w, http.StatusOK, map[string]any{"streams": 0, "chunks": 0, "bytes": 0, "entries": 0})
+				return true
+			case rest == "index/volume":
+				writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": map[string]any{"resultType": "vector", "result": []any{}}})
+				return true
+			}
+		}
+	}
 	if suffix == "/api/datasources/uid/prometheus/resources/api/v1/labels" && (r.Method == http.MethodGet || r.Method == http.MethodPost) {
 		writeJSON(w, http.StatusOK, map[string]any{"status": "success", "data": []any{}})
 		return true
@@ -241,12 +274,21 @@ func (s *RuntimeServer) authorizeGrafanaQueries(r *http.Request, payload *grafan
 	refs := make(map[string]bool)
 	for i := range payload.Queries {
 		query := &payload.Queries[i]
-		if query.Datasource.UID != "prometheus" || query.Datasource.Type != "prometheus" ||
-			query.RefID == "" || len(query.RefID) > 64 || refs[query.RefID] ||
-			query.Format != "" && query.Format != "time_series" && query.Format != "table" {
+		if query.RefID == "" || len(query.RefID) > 64 || refs[query.RefID] {
 			return deny
 		}
 		refs[query.RefID] = true
+		if query.Datasource.UID == "loki" {
+			if err := s.authorizeLokiQuery(r, query); err != nil {
+				return deny
+			}
+			continue
+		}
+		if query.Datasource.UID != "prometheus" || query.Datasource.Type != "prometheus" ||
+			query.Format != "" && query.Format != "time_series" && query.Format != "table" {
+			return deny
+		}
+		query.QueryType, query.MaxLines, query.Direction = "", 0, ""
 		match := grafanaTargetSelector.FindStringSubmatch(query.Expr)
 		if len(match) != 4 {
 			return deny
@@ -274,6 +316,51 @@ func (s *RuntimeServer) authorizeGrafanaQueries(r *http.Request, payload *grafan
 		query.LegendFormat = ""
 	}
 	return nil
+}
+
+// authorizeLokiQuery admits one fixed log query for a server the caller may
+// observe. The expression must equal the server-generated selector exactly, so
+// no matcher, pipeline, line filter, metric function or second selector can be
+// added, and Loki's single shared tenant never answers an unscoped query.
+func (s *RuntimeServer) authorizeLokiQuery(r *http.Request, query *grafanaQuery) error {
+	deny := observabilityRequestError{status: http.StatusForbidden, message: "only fixed queries for observable servers are available in Grafana"}
+	if query.Datasource.Type != "loki" || query.Format != "" ||
+		query.QueryType != "" && query.QueryType != "range" ||
+		query.Direction != "" && query.Direction != "backward" && query.Direction != "forward" {
+		return deny
+	}
+	match := grafanaLokiSelector.FindStringSubmatch(query.Expr)
+	if len(match) != 4 {
+		return deny
+	}
+	targetRequest := r.Clone(r.Context())
+	targetURL := *r.URL
+	targetURL.RawQuery = url.Values{"namespace": {match[1]}, "server": {match[2]}}.Encode()
+	targetRequest.URL = &targetURL
+	_, target, err := s.authorizedObservabilityTarget(targetRequest)
+	if err != nil || query.Expr != observabilityLogSelector(target.Namespace, target.Name, string(target.UID)) {
+		return deny
+	}
+	// Rebuild from the accepted fields only: nothing else the caller sent survives.
+	maxLines := query.MaxLines
+	if maxLines <= 0 {
+		maxLines = observabilityLogLimit
+	}
+	direction := query.Direction
+	if direction == "" {
+		direction = "backward"
+	}
+	*query = grafanaQuery{
+		RefID: query.RefID, Datasource: grafanaDataSource{UID: "loki", Type: "loki"}, Expr: query.Expr,
+		QueryType: "range", Range: true, MaxLines: min(maxLines, maxTenantLokiLines), Direction: direction,
+	}
+	return nil
+}
+
+// observabilityLogSelector is the only LogQL a tenant can run: one server's
+// streams, identified by namespace, name and immutable UID.
+func observabilityLogSelector(namespace, name, uid string) string {
+	return fmt.Sprintf(`{namespace=%s,app=%s,server_uid=%s}`, promQLString(namespace), promQLString(name), promQLString(uid))
 }
 
 func grafanaScopedAccessEnabled() bool {

@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -63,8 +64,10 @@ func verifyScopedTelemetryPolicy() error {
 
 // Do not infer enforcement from the existence of NetworkPolicy resources or
 // Kubernetes distribution. In particular, kindnet accepts policies but does not
-// enforce them. Only this explicit supported Cilium configuration is enabled;
-// unknown providers stay on the existing admin-only path without an auth proxy.
+// enforce them. Only an explicit supported provider is enabled: a fully ready
+// Cilium with Kubernetes NetworkPolicy turned on, or k3s's embedded network
+// policy controller proven by every node's recorded start arguments. Unknown
+// providers stay on the existing admin-only path without an auth proxy.
 func scopedGrafanaPolicyCapability() (bool, string) {
 	clients, err := platformKubernetesClients()
 	if err != nil {
@@ -72,11 +75,14 @@ func scopedGrafanaPolicyCapability() (bool, string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if supported, reason := ciliumPolicyCapability(ctx, clients.Clientset); !supported {
+	if supported, reason := networkPolicyCapability(ctx, clients.Clientset); !supported {
 		return false, reason
 	}
 	if err := rejectAdditionalTelemetryPolicies(ctx, clients.Clientset); err != nil {
 		return false, err.Error()
+	}
+	if !ciliumInstalled(ctx, clients.Clientset) {
+		return true, "k3s embedded network policy controller enforces Kubernetes NetworkPolicy"
 	}
 	// Native Cilium rules are additive to Kubernetes rules too. This initial
 	// supported mode refuses existing custom rules instead of guessing how
@@ -95,6 +101,75 @@ func scopedGrafanaPolicyCapability() (bool, string) {
 		}
 	}
 	return true, "ready Cilium explicitly enforces Kubernetes NetworkPolicy"
+}
+
+// networkPolicyCapability reports whether the cluster positively enforces
+// Kubernetes NetworkPolicy. kindnet is refused first. When Cilium is installed
+// its own rules decide, and k3s evidence never rescues an unready Cilium.
+func networkPolicyCapability(ctx context.Context, cs kubernetes.Interface) (bool, string) {
+	if cs == nil {
+		return false, "cannot verify NetworkPolicy enforcement"
+	}
+	if ciliumInstalled(ctx, cs) {
+		return ciliumPolicyCapability(ctx, cs)
+	}
+	kindnet, err := cs.AppsV1().DaemonSets("kube-system").Get(ctx, "kindnet", metav1.GetOptions{})
+	if err == nil && kindnet.Status.DesiredNumberScheduled > 0 {
+		return false, "Kind kindnet does not enforce NetworkPolicy"
+	}
+	if err != nil && !apierrors.IsNotFound(err) {
+		return false, "cannot inspect the cluster network provider"
+	}
+	return k3sPolicyCapability(ctx, cs)
+}
+
+func ciliumInstalled(ctx context.Context, cs kubernetes.Interface) bool {
+	_, err := cs.CoreV1().ConfigMaps("kube-system").Get(ctx, "cilium-config", metav1.GetOptions{})
+	return err == nil
+}
+
+// k3sPolicyCapability accepts k3s only on positive evidence. k3s enforces
+// NetworkPolicy with an embedded controller that has no object to inspect, but
+// it records each node's start arguments in the k3s.io/node-args annotation.
+// Every node must carry it, none may disable the controller, and none may
+// replace flannel with another CNI (whose policy behavior is unknown here).
+// Settings made some other way are invisible, so this proves intent, not
+// traffic: run the network boundary test on the cluster before relying on it.
+func k3sPolicyCapability(ctx context.Context, cs kubernetes.Interface) (bool, string) {
+	nodes, err := cs.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, "cannot inspect the cluster nodes"
+	}
+	if len(nodes.Items) == 0 {
+		return false, "network provider is not a supported verified NetworkPolicy provider"
+	}
+	for _, node := range nodes.Items {
+		raw, ok := node.Annotations["k3s.io/node-args"]
+		if !ok {
+			return false, "node " + node.Name + " is not a k3s node, so NetworkPolicy enforcement cannot be verified"
+		}
+		var args []string
+		if err := json.Unmarshal([]byte(raw), &args); err != nil {
+			return false, "cannot read k3s start arguments on node " + node.Name
+		}
+		for i, arg := range args {
+			name, value, hasValue := strings.Cut(arg, "=")
+			switch name {
+			case "--disable-network-policy":
+				if !hasValue || !strings.EqualFold(strings.TrimSpace(value), "false") {
+					return false, "k3s node " + node.Name + " disables the embedded network policy controller"
+				}
+			case "--flannel-backend":
+				if !hasValue && i+1 < len(args) {
+					value = args[i+1]
+				}
+				if strings.EqualFold(strings.TrimSpace(value), "none") {
+					return false, "k3s node " + node.Name + " replaces flannel with another CNI, whose NetworkPolicy behavior is not verified"
+				}
+			}
+		}
+	}
+	return true, "k3s embedded network policy controller is enabled on every node"
 }
 
 func rejectAdditionalTelemetryPolicies(ctx context.Context, cs kubernetes.Interface) error {

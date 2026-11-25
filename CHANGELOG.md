@@ -7,6 +7,32 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Added
+
+- Grafana single sign-on now works on k3s. Setup accepts k3s's embedded network policy
+  controller as a supported enforcing provider (alongside Cilium) when every node's
+  `k3s.io/node-args` shows it enabled and flannel in place, so an administrator signs in once
+  through the platform and no longer needs a separate Grafana login. Nodes without the
+  annotation, with `--disable-network-policy`, or with `--flannel-backend=none` stay on the
+  admin-only path. This is configured intent, not a traffic test: run the network boundary
+  check on the cluster first.
+- Tenants can read their own server's container logs in Grafana: the **MCP Server** dashboard
+  has a **Container logs** panel that sends one fixed query,
+  `{namespace,app,server_uid}`, built and enforced by runtime-api (500 lines at most). Any
+  other LogQL, and every Tempo query, is still rejected.
+- `GET /api/v1/runtime/observability/traces` returns a server's recent traces, or one trace
+  with `trace_id`, filtered to spans that carry that server's UID, so one caller's trace
+  never shows another server's spans. The console does not render it yet.
+
+### Changed
+
+- **Operational:** the operator now sets `mcp.server.uid` in `OTEL_RESOURCE_ATTRIBUTES` on the
+  server and gateway containers. This changes their pod specs, so every managed MCP server
+  restarts once when the operator is updated; traces for a server are empty until its pod has
+  restarted. Scoped installs must also refresh setup to apply the updated telemetry network
+  policies (runtime-api to Tempo on TCP 3200); `update` refuses scoped policy changes until the
+  migration is complete.
+
 ## [0.22.0] - 2026-11-25
 
 ### Added

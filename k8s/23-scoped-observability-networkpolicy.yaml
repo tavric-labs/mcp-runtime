@@ -25,6 +25,7 @@ spec:
         - {protocol: TCP, port: 3000}
         - {protocol: TCP, port: 9090}
         - {protocol: TCP, port: 3100}
+        - {protocol: TCP, port: 3200}
     - from:
         - podSelector:
             matchLabels:
