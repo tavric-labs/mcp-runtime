@@ -27,6 +27,18 @@ type ToolRule struct {
 	RequiredTrust TrustLevel     `json:"requiredTrust,omitempty"`
 }
 
+// PrimitiveRule scopes access to MCP resources, prompts or skills. A grant with
+// no rule of a kind allows every item of that kind.
+// +kubebuilder:object:generate=true
+type PrimitiveRule struct {
+	// +kubebuilder:validation:Enum=resource;prompt;skill
+	Kind string `json:"kind"`
+	// Pattern is a resource URI, prompt name or skill name. A trailing "*" makes
+	// it a prefix.
+	Pattern  string         `json:"pattern"`
+	Decision PolicyDecision `json:"decision"`
+}
+
 // MCPAccessGrantSpec defines who can use which MCP server and with what trust ceiling.
 // +kubebuilder:object:generate=true
 type MCPAccessGrantSpec struct {
@@ -43,6 +55,8 @@ type MCPAccessGrantSpec struct {
 	Disabled           bool             `json:"disabled,omitempty"`
 	ExpiresAt          *metav1.Time     `json:"expiresAt,omitempty"`
 	ToolRules          []ToolRule       `json:"toolRules,omitempty"`
+	// PrimitiveRules scope resource, prompt and skill access.
+	PrimitiveRules []PrimitiveRule `json:"primitiveRules,omitempty"`
 }
 
 // GrantMode defines whether access restrictions are enforced or only observed.

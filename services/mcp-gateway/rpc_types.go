@@ -94,12 +94,16 @@ func (r rpcInspection) IsToolCall() bool    { return r.Class() == classToolCall 
 func (r rpcInspection) Indeterminate() bool { return r.Class() == classInvalid }
 
 // RequiresAuthorization reports whether grant and session evaluation applies:
-// tool calls, and invalid input, which is evaluated only to be denied. Other
-// RPC and non-RPC traffic intentionally bypasses it.
+// tool calls, resource/prompt/skill access, and invalid input, which is
+// evaluated only to be denied. Other RPC and non-RPC traffic intentionally
+// bypasses it.
 func (r rpcInspection) RequiresAuthorization() bool {
 	switch r.Class() {
 	case classToolCall, classInvalid:
 		return true
+	case classOtherRPC:
+		// Resource, prompt and skill access is evaluated against grants.
+		return policypkg.IsPrimitiveMethod(string(r.method))
 	default:
 		return false
 	}

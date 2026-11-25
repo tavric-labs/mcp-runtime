@@ -20,6 +20,8 @@ type Request struct {
 	Identity  Identity
 	RPCMethod string
 	ToolName  ToolName
+	// Target is the resource URI or prompt/skill name of a primitive request.
+	Target string
 	// Session is the binding resolved from the synchronized platform store.
 	// It is request-scoped and never changes the immutable policy document.
 	Session *Binding
@@ -149,6 +151,9 @@ func authorize(policy *Document, request Request, now time.Time) Decision {
 		PolicyVersion: policyVersionOrDefault(policy, ""),
 	}
 	if !IsToolCallMethod(request.RPCMethod) {
+		if IsPrimitiveMethod(request.RPCMethod) && !policyModeObserve(policy) {
+			return authorizePrimitive(policy, request, now)
+		}
 		return decision
 	}
 	_, _, decision.RiskLevel = resolvePolicyToolMetadata(policy, request.ToolName)
@@ -157,42 +162,15 @@ func authorize(policy *Document, request Request, now time.Time) Decision {
 	}
 
 	identity := request.Identity
-	if identity.HumanID == "" && identity.AgentID == "" && identity.TeamID == "" {
-		return Deny(http.StatusUnauthorized, "missing_identity", policyVersionOrDefault(policy, ""))
-	}
-	if sessionRequired(policy) && identity.SessionID == "" {
-		return Deny(http.StatusUnauthorized, "missing_session", policyVersionOrDefault(policy, ""))
-	}
 	if now.IsZero() {
 		now = time.Now()
 	}
-
-	session, sessionFound := findPolicySession(policy, request)
-	if sessionRequired(policy) {
-		if !sessionFound {
-			return Deny(http.StatusUnauthorized, "session_not_found", policyVersionOrDefault(policy, ""))
-		}
-		if session.Revoked {
-			denied := Deny(http.StatusUnauthorized, "session_revoked", ChoosePolicyVersion(session.PolicyVersion, policyVersionOrDefault(policy, "")))
-			denied.MatchedSession = string(session.Name)
-			denied.MatchedSessionNamespace = string(session.Namespace)
-			return denied
-		}
-		if isExpiredAt(session.ExpiresAt, now) {
-			denied := Deny(http.StatusUnauthorized, "session_expired", ChoosePolicyVersion(session.PolicyVersion, policyVersionOrDefault(policy, "")))
-			denied.MatchedSession = string(session.Name)
-			denied.MatchedSessionNamespace = string(session.Namespace)
-			return denied
-		}
-	} else if identity.SessionID == "" || !sessionFound || session.Revoked || isExpiredAt(session.ExpiresAt, now) {
-		session = Binding{}
-		sessionFound = false
+	caller, denied := resolveCaller(policy, request, now)
+	if denied != nil {
+		return *denied
 	}
-	matchedSession, matchedSessionNamespace := "", ""
-	if sessionFound {
-		matchedSession = string(session.Name)
-		matchedSessionNamespace = string(session.Namespace)
-	}
+	session, sessionFound := caller.session, caller.found
+	matchedSession, matchedSessionNamespace := caller.name, caller.namespace
 
 	requiredTrust, requiredSideEffect, riskLevel := resolvePolicyToolMetadata(policy, request.ToolName)
 	matchingGrants := matchingPolicyGrants(policy, identity)
@@ -545,4 +523,143 @@ func consideredGrants(policy *Document) (int, string) {
 		names = append(names, string(grant.Name))
 	}
 	return len(policy.Grants), strings.Join(names, ",")
+}
+
+func ptrDecision(d Decision) *Decision { return &d }
+
+type resolvedCaller struct {
+	session         Binding
+	found           bool
+	name, namespace string
+}
+
+// resolveCaller applies the identity and session gates shared by every
+// grant-evaluated method: tool calls and resource, prompt and skill access.
+// now must be non-zero.
+func resolveCaller(policy *Document, request Request, now time.Time) (resolvedCaller, *Decision) {
+	identity := request.Identity
+	if identity.HumanID == "" && identity.AgentID == "" && identity.TeamID == "" {
+		return resolvedCaller{}, ptrDecision(Deny(http.StatusUnauthorized, "missing_identity", policyVersionOrDefault(policy, "")))
+	}
+	if sessionRequired(policy) && identity.SessionID == "" {
+		return resolvedCaller{}, ptrDecision(Deny(http.StatusUnauthorized, "missing_session", policyVersionOrDefault(policy, "")))
+	}
+	session, sessionFound := findPolicySession(policy, request)
+	if sessionRequired(policy) {
+		if !sessionFound {
+			return resolvedCaller{}, ptrDecision(Deny(http.StatusUnauthorized, "session_not_found", policyVersionOrDefault(policy, "")))
+		}
+		if session.Revoked {
+			denied := Deny(http.StatusUnauthorized, "session_revoked", ChoosePolicyVersion(session.PolicyVersion, policyVersionOrDefault(policy, "")))
+			denied.MatchedSession = string(session.Name)
+			denied.MatchedSessionNamespace = string(session.Namespace)
+			return resolvedCaller{}, &denied
+		}
+		if isExpiredAt(session.ExpiresAt, now) {
+			denied := Deny(http.StatusUnauthorized, "session_expired", ChoosePolicyVersion(session.PolicyVersion, policyVersionOrDefault(policy, "")))
+			denied.MatchedSession = string(session.Name)
+			denied.MatchedSessionNamespace = string(session.Namespace)
+			return resolvedCaller{}, &denied
+		}
+	} else if identity.SessionID == "" || !sessionFound || session.Revoked || isExpiredAt(session.ExpiresAt, now) {
+		session = Binding{}
+		sessionFound = false
+	}
+	caller := resolvedCaller{session: session, found: sessionFound}
+	if sessionFound {
+		caller.name, caller.namespace = string(session.Name), string(session.Namespace)
+	}
+	return caller, nil
+}
+
+// authorizePrimitive evaluates resource, prompt and skill methods. Listing needs
+// any active matching grant. Reading an item also needs every matching rule of
+// that kind to agree: a deny rule wins, and a grant that scopes the kind allows
+// only what its allow rules match. Trust and side-effect checks are tool-only.
+func authorizePrimitive(policy *Document, request Request, now time.Time) Decision {
+	if now.IsZero() {
+		now = time.Now()
+	}
+	version := policyVersionOrDefault(policy, "")
+	kind, targeted, _ := PrimitiveMethod(request.RPCMethod)
+	caller, denied := resolveCaller(policy, request, now)
+	if denied != nil {
+		return *denied
+	}
+	withSession := func(d Decision) Decision {
+		d.MatchedSession, d.MatchedSessionNamespace = caller.name, caller.namespace
+		return d
+	}
+	if targeted && strings.TrimSpace(request.Target) == "" {
+		return withSession(Deny(http.StatusForbidden, "primitive_target_missing", version))
+	}
+	grants := matchingPolicyGrants(policy, request.Identity)
+	if len(grants) == 0 {
+		d := decideByDefault(policy, "no_matching_grant")
+		d.ConsideredGrantCount, d.ConsideredGrantNames = consideredGrants(policy)
+		return withSession(d)
+	}
+	sort.Slice(grants, func(i, j int) bool {
+		return string(grants[i].Namespace)+"\x00"+grants[i].Name < string(grants[j].Namespace)+"\x00"+grants[j].Name
+	})
+	var expired, active int
+	var allowedBy *Grant
+	for i := range grants {
+		grant := grants[i]
+		if grant.Disabled {
+			continue
+		}
+		if isExpiredAt(grant.ExpiresAt, now) {
+			expired++
+			continue
+		}
+		active++
+		if !targeted {
+			if allowedBy == nil {
+				allowedBy = &grants[i]
+			}
+			continue
+		}
+		scoped, matchedAllow := false, false
+		for _, rule := range grant.PrimitiveRules {
+			if rule.Kind != kind {
+				continue
+			}
+			scoped = true
+			if !primitivePatternMatches(rule.Pattern, request.Target) {
+				continue
+			}
+			if strings.EqualFold(rule.Decision, "deny") {
+				d := Deny(http.StatusForbidden, "primitive_denied", ChoosePolicyVersion(grant.PolicyVersion, version))
+				d.MatchedGrant, d.MatchedGrantNamespace = grant.Name, string(grant.Namespace)
+				return withSession(d)
+			}
+			matchedAllow = true
+		}
+		if (!scoped || matchedAllow) && allowedBy == nil {
+			allowedBy = &grants[i]
+		}
+	}
+	if allowedBy == nil {
+		reason := "primitive_not_granted"
+		if expired > 0 && active == 0 {
+			reason = "grant_expired"
+		}
+		return withSession(decideByDefault(policy, reason))
+	}
+	return withSession(Decision{
+		Allowed: true, Status: http.StatusOK, Reason: "allowed",
+		PolicyVersion:         ChoosePolicyVersion(allowedBy.PolicyVersion, version),
+		MatchedGrant:          allowedBy.Name,
+		MatchedGrantNamespace: string(allowedBy.Namespace),
+	})
+}
+
+// primitivePatternMatches reports an exact match, or a prefix match when the
+// pattern ends in "*".
+func primitivePatternMatches(pattern, target string) bool {
+	if prefix, ok := strings.CutSuffix(pattern, "*"); ok {
+		return strings.HasPrefix(target, prefix)
+	}
+	return pattern == target
 }

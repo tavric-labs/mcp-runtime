@@ -293,6 +293,43 @@ grant or session. The directory page and `mcp-runtime agent list|get|rename|
 deactivate|reactivate` expose the same records. IDs are generated once and
 never reused; do not invent an agent ID for a new managed subject.
 
+### Resources, prompts and skills
+
+The gateway evaluates `resources/list`, `resources/templates/list`,
+`resources/read`, `resources/subscribe`, `resources/unsubscribe`,
+`resources/directory/read`, `prompts/list`, `prompts/get`, `skills/list` and
+`skills/get` against grants and sessions, like tool calls. A caller needs an
+identity, a live session where sessions are required, and an active matching
+grant. Without one the call is denied with `missing_identity`, `session_*` or
+`no_matching_grant`. Other methods (`initialize`, `ping`, `tools/list`,
+`completion/complete`, notifications) are not evaluated.
+
+`primitiveRules` narrow a grant. Each rule names a `kind` (`resource`,
+`prompt` or `skill`), a `pattern` and a `decision`. A pattern is an exact
+resource URI, prompt name or skill name; a trailing `*` makes it a prefix.
+
+```yaml
+spec:
+  primitiveRules:
+    - {kind: resource, pattern: "file:///docs/*", decision: allow}
+    - {kind: resource, pattern: "file:///docs/secret.md", decision: deny}
+    - {kind: prompt, pattern: review, decision: allow}
+```
+
+- A deny rule that matches always wins (`primitive_denied`).
+- A grant with no rule of a kind allows every item of that kind, like an
+  empty `toolRules`. Once it has a rule of that kind, only items matched by an
+  allow rule pass; everything else is `primitive_not_granted`.
+- Listing methods need any active matching grant. They are not filtered per
+  item, so a server that lists names it considers sensitive should not be
+  shared with that grant.
+- A read with no `uri` or `name` is denied with `primitive_target_missing`.
+- Trust level and side-effect checks apply to tools only.
+- Header-delegated servers have no grants, so they are not gated.
+
+A policy that uses `primitiveRules` is stamped schema version `v8`. A gateway
+that predates it rejects the document instead of ignoring the rules.
+
 ## Session: active delegated consent
 
 A platform session, represented by `MCPAgentSession` YAML for CLI input, answers:

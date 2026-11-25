@@ -24,6 +24,9 @@ func (r *MCPAccessGrant) validate() error {
 	for _, rule := range r.Spec.ToolRules {
 		spec.ToolRules = append(spec.ToolRules, specvalidation.ToolRule{Name: rule.Name, Decision: string(rule.Decision), RequiredTrust: string(rule.RequiredTrust)})
 	}
+	for _, rule := range r.Spec.PrimitiveRules {
+		spec.PrimitiveRules = append(spec.PrimitiveRules, specvalidation.PrimitiveRule{Kind: rule.Kind, Pattern: rule.Pattern, Decision: string(rule.Decision)})
+	}
 	issues := specvalidation.ValidateGrant(spec, specvalidation.Admission, time.Time{}).FieldErrors()
 	if len(issues) == 0 {
 		return nil

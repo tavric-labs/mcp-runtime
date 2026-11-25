@@ -14,6 +14,33 @@ func IsToolCallMethod(method string) bool {
 	}
 }
 
+// PrimitiveMethod classifies the MCP methods that read resources, prompts and
+// skills. targeted is false for list methods, which name no single item.
+func PrimitiveMethod(method string) (kind string, targeted, ok bool) {
+	switch method {
+	case "resources/read", "resources/subscribe", "resources/unsubscribe", "resources/directory/read":
+		return PrimitiveResource, true, true
+	case "resources/list", "resources/templates/list":
+		return PrimitiveResource, false, true
+	case "prompts/get":
+		return PrimitivePrompt, true, true
+	case "prompts/list":
+		return PrimitivePrompt, false, true
+	case "skills/get":
+		return PrimitiveSkill, true, true
+	case "skills/list":
+		return PrimitiveSkill, false, true
+	default:
+		return "", false, false
+	}
+}
+
+// IsPrimitiveMethod reports whether a method reads a resource, prompt or skill.
+func IsPrimitiveMethod(method string) bool {
+	_, _, ok := PrimitiveMethod(method)
+	return ok
+}
+
 // FirstNonEmpty returns the first non-empty string from the provided values.
 func FirstNonEmpty(values ...string) string {
 	for _, value := range values {

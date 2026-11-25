@@ -23,6 +23,7 @@ const (
 
 type Subject struct{ HumanID, AgentID, TeamID string }
 type ToolRule struct{ Name, Decision, RequiredTrust string }
+type PrimitiveRule struct{ Kind, Pattern, Decision string }
 type SecretKeyRef struct{ Name, Key string }
 type Grant struct {
 	ServerName         string
@@ -32,6 +33,7 @@ type Grant struct {
 	ExpiresAt          *time.Time
 	AllowedSideEffects []string
 	ToolRules          []ToolRule
+	PrimitiveRules     []PrimitiveRule
 }
 type Session struct {
 	ServerName             string
@@ -166,6 +168,31 @@ func ValidateGrant(spec Grant, boundary Boundary, now time.Time) Result {
 			}
 		}
 		names[rule.Name] = struct{}{}
+	}
+	type primitiveKey struct{ kind, pattern string }
+	primitives := make(map[primitiveKey]struct{}, len(spec.PrimitiveRules))
+	for i, rule := range spec.PrimitiveRules {
+		p := path.Child("primitiveRules").Index(i)
+		switch rule.Kind {
+		case "resource", "prompt", "skill":
+		default:
+			out.add(field.NotSupported(p.Child("kind"), rule.Kind, []string{"resource", "prompt", "skill"}), fmt.Sprintf("primitiveRules[%d].kind must be resource, prompt, or skill", i))
+		}
+		if strings.TrimSpace(rule.Pattern) == "" {
+			out.add(field.Required(p.Child("pattern"), "primitive rule pattern is required"), fmt.Sprintf("primitiveRules[%d].pattern is required", i))
+			continue
+		}
+		if star := strings.Index(rule.Pattern, "*"); star >= 0 && star != len(rule.Pattern)-1 {
+			out.add(field.Invalid(p.Child("pattern"), rule.Pattern, "* is allowed only as a trailing wildcard"), fmt.Sprintf("primitiveRules[%d].pattern may use * only at the end", i))
+		}
+		if strings.TrimSpace(rule.Decision) == "" || !ValidDecision(rule.Decision) {
+			out.add(field.NotSupported(p.Child("decision"), rule.Decision, []string{"allow", "deny"}), fmt.Sprintf("primitiveRules[%d].decision must be allow or deny", i))
+		}
+		key := primitiveKey{rule.Kind, rule.Pattern}
+		if _, ok := primitives[key]; ok {
+			out.add(field.Duplicate(p.Child("pattern"), rule.Pattern), fmt.Sprintf("primitiveRules[%d] is a duplicate", i))
+		}
+		primitives[key] = struct{}{}
 	}
 	return out
 }

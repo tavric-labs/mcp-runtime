@@ -8,7 +8,8 @@ import (
 )
 
 // authzFilter consumes a complete identity and the captured policy snapshot.
-// Non-tool traffic gets an explicit allow; tool calls evaluate grants/sessions.
+// Lifecycle traffic gets an explicit allow; tool calls and resource, prompt and
+// skill access evaluate grants/sessions.
 func (s *gatewayServer) authzFilter(in AuthenticatedRequest) (EvaluatedRequest, *FilterResponse) {
 	now := s.currentTime()
 	if !in.Caller.Usable() {
@@ -46,7 +47,7 @@ type authorizationInput struct {
 
 func authorizeRequest(in authorizationInput, now time.Time) policypkg.Decision {
 	if !in.Inspection.RequiresAuthorization() {
-		// Non-tool traffic intentionally bypasses grant/session evaluation.
+		// Lifecycle and utility traffic intentionally bypasses grant/session evaluation.
 		return policypkg.Allow(
 			"allowed",
 			policypkg.ChoosePolicyVersion(policypkg.PolicyVersion(in.Policy), in.DefaultPolicyVersion),
@@ -74,6 +75,7 @@ func authorizeRequest(in authorizationInput, now time.Time) policypkg.Decision {
 			Identity:  policyIdentity(in.Identity),
 			RPCMethod: in.Inspection.Method(),
 			ToolName:  policypkg.ToolName(in.Inspection.ToolName()),
+			Target:    in.Inspection.Target(),
 			Session:   in.Identity.Session,
 		}, now)
 	}

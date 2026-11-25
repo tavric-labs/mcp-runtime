@@ -7,7 +7,21 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ## [Unreleased]
 
+### Added
+
+- Grants accept `primitiveRules` to allow or deny MCP resources (by URI), prompts and skills
+  (by name), with an exact or trailing-`*` pattern. The policy schema moves to `v8` when they
+  are used, so an older gateway rejects the document rather than ignoring the rules.
+  [#544](https://github.com/tavric-labs/mcp-runtime/issues/544)
+
 ### Changed
+
+- **Breaking:** the gateway now evaluates `resources/*`, `prompts/*` and `skills/*` requests
+  against grants and sessions. Previously any authenticated caller could read any resource or
+  prompt a server exposed. Callers with no active matching grant now get `no_matching_grant`
+  (or `missing_identity` / `session_*`). Existing grants without `primitiveRules` keep allowing
+  every resource, prompt and skill, so grants only need editing to restrict them. Servers with
+  header-delegated auth are unchanged.
 
 - The gateway's request metrics now label `resources/templates/list`, `resources/directory/read`,
   `skills/list`, `skills/get`, `notifications/cancelled` and `notifications/progress` instead of
