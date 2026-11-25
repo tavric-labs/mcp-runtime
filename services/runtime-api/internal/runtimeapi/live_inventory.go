@@ -36,6 +36,9 @@ type liveInventory struct {
 	Tools           []liveInventoryTool     `json:"tools"`
 	Prompts         []liveInventoryPrompt   `json:"prompts"`
 	Resources       []liveInventoryResource `json:"resources"`
+	// Extensions are the protocol extensions the server advertised in
+	// capabilities.extensions, keyed by identifier, with their settings unchanged.
+	Extensions map[string]json.RawMessage `json:"extensions,omitempty"`
 }
 
 type liveInventoryTool struct {
@@ -313,6 +316,7 @@ func (p *mcpLiveInventoryProber) probe(ctx context.Context, server controlplane.
 		Tools:           decodeLiveTools(toolsRaw),
 		Prompts:         decodeLivePrompts(promptsRaw),
 		Resources:       decodeLiveResources(resourcesRaw),
+		Extensions:      extensionsFromInitializeResult(initResult),
 	}, nil
 }
 
@@ -534,6 +538,25 @@ func capabilitiesFromInitializeResult(raw json.RawMessage) liveInventoryCapabili
 		prompts:   capabilityPresent(result.Capabilities, "prompts"),
 		resources: capabilityPresent(result.Capabilities, "resources"),
 	}
+}
+
+// extensionsFromInitializeResult returns capabilities.extensions when it is an
+// object. Anything else is ignored: a malformed advertisement must not fail the
+// probe or reach the API.
+func extensionsFromInitializeResult(raw json.RawMessage) map[string]json.RawMessage {
+	var result struct {
+		Capabilities struct {
+			Extensions json.RawMessage `json:"extensions"`
+		} `json:"capabilities"`
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil
+	}
+	var extensions map[string]json.RawMessage
+	if err := json.Unmarshal(result.Capabilities.Extensions, &extensions); err != nil || len(extensions) == 0 {
+		return nil
+	}
+	return extensions
 }
 
 func capabilityPresent(capabilities map[string]json.RawMessage, name string) bool {

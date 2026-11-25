@@ -28,6 +28,7 @@ var supportedSchemaVersions = map[string]struct{}{
 	SchemaVersionSessionSync:      {},
 	SchemaVersionGrantMonitor:     {},
 	SchemaVersionPublicPaths:      {},
+	SchemaVersionPrimitiveRules:   {},
 }
 
 // SchemaVersionSessionSync requires externally synchronized sessions. Older
@@ -46,12 +47,20 @@ const SchemaVersionCredentialBroker = "v6"
 // under v7 it rejects the document and reports the reload failure instead.
 const SchemaVersionPublicPaths = "v7"
 
+// SchemaVersionPrimitiveRules is required when any grant sets primitive_rules.
+// A gateway that predates it would ignore the rules and let those reads through
+// unrestricted; under v8 it rejects the document and reports the reload failure.
+const SchemaVersionPrimitiveRules = "v8"
+
 // SchemaVersionDelegatedHeaders is required when auth.mode is header. Older
 // gateways reject the document instead of ignoring delegated header fields.
 const SchemaVersionDelegatedHeaders = "v3"
 
 // RequiredSchemaVersion returns the lowest schema version that can carry doc.
 func RequiredSchemaVersion(doc *Document) string {
+	if hasPrimitiveRules(doc) {
+		return SchemaVersionPrimitiveRules
+	}
 	if doc != nil && doc.Auth != nil && len(doc.Auth.PublicPaths) > 0 {
 		return SchemaVersionPublicPaths
 	}
@@ -96,6 +105,8 @@ func schemaRank(version string) int {
 		return 6
 	case SchemaVersionPublicPaths:
 		return 7
+	case SchemaVersionPrimitiveRules:
+		return 8
 	default:
 		return 0
 	}
@@ -218,6 +229,43 @@ type Grant struct {
 	Disabled           bool         `json:"disabled,omitempty"`
 	ExpiresAt          string       `json:"expires_at,omitempty"`
 	ToolRules          []ToolAccess `json:"tool_rules,omitempty"`
+	// PrimitiveRules scope resource, prompt and skill access. A grant with no
+	// rule of a kind allows every item of that kind, like an empty ToolRules.
+	PrimitiveRules []PrimitiveRule `json:"primitive_rules,omitempty"`
+}
+
+// Primitive kinds a PrimitiveRule can scope.
+const (
+	PrimitiveResource = "resource"
+	PrimitivePrompt   = "prompt"
+	PrimitiveSkill    = "skill"
+	// PrimitiveTask is an internal kind for the tasks extension. Tasks have no
+	// per-item rules; they need an active matching grant. It is not valid in a
+	// PrimitiveRule.
+	PrimitiveTask = "task"
+	// PrimitiveEvent is the internal kind for the events extension. Like tasks it
+	// has no per-item rules and is not valid in a PrimitiveRule.
+	PrimitiveEvent = "event"
+)
+
+// PrimitiveRule allows or denies one resource URI, prompt name or skill name.
+// Pattern is exact, or a prefix when it ends in "*".
+type PrimitiveRule struct {
+	Kind     string `json:"kind"`
+	Pattern  string `json:"pattern"`
+	Decision string `json:"decision,omitempty"`
+}
+
+func hasPrimitiveRules(doc *Document) bool {
+	if doc == nil {
+		return false
+	}
+	for _, grant := range doc.Grants {
+		if len(grant.PrimitiveRules) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func hasMonitorGrant(doc *Document) bool {

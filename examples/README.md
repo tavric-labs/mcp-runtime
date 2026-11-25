@@ -10,6 +10,7 @@ are separate platform features and do not determine this prefix.
 |---|---|---|---|
 | Go | `2025-11-25` | [`oauth-example-go-2025-11-25`](oauth-example-go-2025-11-25/) | Gateway enabled: `oauth-example-go-2025-11-25-gateway`; standalone OAuth is exercised in E2E as `oauth-example-go-2025-11-25-standalone` |
 | Python | `2025-11-25` | [`example-python-2025-11-25`](example-python-2025-11-25/) | Gateway enabled: `example-python-2025-11-25-gateway` |
+| Python (MCP App + skill) | `2025-11-25` | [`example-mcp-app-python`](example-mcp-app-python/) | Gateway enabled: `example-mcp-app-python-gateway` |
 | Rust | `2025-11-25` | [`example-rust-2025-11-25`](example-rust-2025-11-25/) | Gateway enabled: `example-rust-2025-11-25-gateway` |
 | TypeScript | `2025-06-18` | [`oauth-example-typescript-2025-06-18`](oauth-example-typescript-2025-06-18/) | Standalone server-side OAuth: `oauth-example-typescript-2025-06-18-standalone` |
 

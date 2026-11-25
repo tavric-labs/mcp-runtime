@@ -1,0 +1,32 @@
+apiVersion: mcpruntime.org/v1alpha1
+kind: MCPAccessGrant
+metadata:
+    name: example-mcp-app-agent
+    namespace: mcp-servers-org
+spec:
+    allowedSideEffects:
+        - read
+    maxTrust: low
+    policyVersion: v1
+    serverRef:
+        name: example-mcp-app-python-gateway
+        namespace: mcp-servers-org
+    subject:
+        agentID: example-agent
+        humanID: example-human
+    toolRules:
+        - decision: allow
+          name: show_dashboard
+          requiredTrust: low
+        - decision: allow
+          name: refresh_metrics
+          requiredTrust: low
+    # Only the dashboard UI and the metrics skill may be read. Any other
+    # resource, prompt or skill is denied with primitive_not_granted.
+    primitiveRules:
+        - kind: resource
+          pattern: "ui://dashboard/*"
+          decision: allow
+        - kind: resource
+          pattern: "skill://metrics-summary/*"
+          decision: allow

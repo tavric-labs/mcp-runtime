@@ -95,6 +95,35 @@ spec:
                 type: string
               policyVersion:
                 type: string
+              primitiveRules:
+                description: PrimitiveRules scope resource, prompt and skill access.
+                items:
+                  description: |-
+                    PrimitiveRule scopes access to MCP resources, prompts or skills. A grant with
+                    no rule of a kind allows every item of that kind.
+                  properties:
+                    decision:
+                      enum:
+                      - allow
+                      - deny
+                      type: string
+                    kind:
+                      enum:
+                      - resource
+                      - prompt
+                      - skill
+                      type: string
+                    pattern:
+                      description: |-
+                        Pattern is a resource URI, prompt name or skill name. A trailing "*" makes
+                        it a prefix.
+                      type: string
+                  required:
+                  - decision
+                  - kind
+                  - pattern
+                  type: object
+                type: array
               serverRef:
                 description: ServerReference identifies an MCPServer.
                 properties:

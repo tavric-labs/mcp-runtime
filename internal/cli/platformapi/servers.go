@@ -65,6 +65,9 @@ type LiveInventory struct {
 	Tools           []LiveTool     `json:"tools"`
 	Prompts         []LivePrompt   `json:"prompts"`
 	Resources       []LiveResource `json:"resources"`
+	// Extensions are the protocol extensions the server advertised, keyed by
+	// identifier, with their settings.
+	Extensions map[string]json.RawMessage `json:"extensions,omitempty"`
 }
 
 type LiveTool struct {

@@ -66,6 +66,13 @@ type ToolRule struct {
 	RequiredTrust TrustLevel     `json:"requiredTrust,omitempty"`
 }
 
+// PrimitiveRule scopes access to MCP resources, prompts or skills.
+type PrimitiveRule struct {
+	Kind     string         `json:"kind"`
+	Pattern  string         `json:"pattern"`
+	Decision PolicyDecision `json:"decision"`
+}
+
 // SecretKeyRef references a secret key.
 type SecretKeyRef struct {
 	Name string `json:"name"`
@@ -83,6 +90,7 @@ type MCPAccessGrantSpec struct {
 	Disabled           bool             `json:"disabled,omitempty"`
 	ExpiresAt          *Time            `json:"expiresAt,omitempty"`
 	ToolRules          []ToolRule       `json:"toolRules,omitempty"`
+	PrimitiveRules     []PrimitiveRule  `json:"primitiveRules,omitempty"`
 }
 
 // GrantMode controls whether a grant enforces or shadows its restrictions.
