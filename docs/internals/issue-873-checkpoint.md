@@ -6,8 +6,8 @@ Working log for turning `runtime-api` into an internal durable runtime. Not a pu
 
 The design lives in the [issue design comment](https://github.com/tavric-labs/mcp-runtime/issues/873#issuecomment-6465833216) (source audit: 2026-10-28 against commit `4fb845594f071212496aec4bd08c9d503612d6f9`; revision IDs and ownership accepted: 2026-10-29). This file is how a later session continues that design. Read it first. Update **Current phase**, the checkboxes, **Evidence**, and **Do not redo** before stopping.
 
-- **Current phase:** implementation not started; revision-ID and ownership design updated 2026-10-29
-- **Next task:** Phase 0 only. Characterization tests for the five flows below. No behavior change.
+- **Current phase:** Durable intent journals, River workers, and independent observers for teams (`#980`), access (`#981`), and workloads/staging/restarts (`#982`) are merged on `main` behind disabled-by-default opt-in flags and verified live against PostgreSQL 17 and Kind `async-team-873` (2026-11-25); throwaway River spike (`#904`) removed.
+- **Next task:** Phase 2 — cut over public management routes onto `platform-api` (characterize any uncovered legacy team handlers first, move public handlers + OpenAPI/authz/CLI goldens, and switch Ingress routes), then Phase 6 (retire public management routes on `runtime-api` and rename `runtime-api` -> `runtime`).
 - **Stop rule:** a failed Kind gate or an open decision blocks the phase. Record the failure here and stop. Do not start the next phase.
 
 ## What changes, in one pass
@@ -93,7 +93,7 @@ These are the flows phase 0 locks before anything moves.
 
 Accepted until overridden in this section:
 
-- Queue is River (https://riverqueue.com/), inserted with `InsertTx` on the same `*sql.Tx` as the resource write. River's `riverdatabasesql` driver is the one to prove against `lib/pq`. If that proof fails, stop. Do not add a custom outbox or move control-plane work onto Kafka.
+- Queue is River (https://riverqueue.com/), inserted with `InsertTx` on the same `*sql.Tx` as the resource write. Proven in product code (`github.com/riverqueue/river v0.51.0` + `riverdatabasesql` against `lib/pq` and PostgreSQL 17 across `#980`, `#981`, `#982`). Do not add a custom outbox or move control-plane work onto Kafka.
 - Runtime's database role can read and update River tables only. Domain tables stay behind platform-api internal APIs.
 - Team delete keeps today's cleanup: Traefik watches only. Namespace and user data stay.
 - Jobs carry kind, resource id, incarnation, target cluster, requested revision ID, operation id, and trace correlation. They do not carry passwords, tokens, private keys, registry credentials, or archives.
@@ -102,18 +102,18 @@ Accepted until overridden in this section:
 
 Still open. The phase that needs the answer does not start until the answer is written here:
 
-- **Phase 1 cutover.** Keep the accepted team and surface provisioning failure with a retry, instead of deleting the team. Needs an explicit yes before `handleRuntimeTeamCreate` changes. Until then the handler stays synchronous.
-- **HTTP and wait.** Per endpoint: keep 200, or use 201 with pending status, or 202 for an operation. What `--wait` and `--no-wait` wait for. Team create is 200 today, so this is an API decision.
-- **Phase 3 staging.** Install-supported persistent volume versus object storage. Retention, capacity, and what happens when two publications target one mutable tag. A per-Pod filesystem, `emptyDir`, or a path inside a Secret does not count as durable.
-- **Phase 5 grants.** How a disabled or deleted grant becomes a deny on already-serving gateways. Queuing deletion of a custom resource is not an immediate deny. Separate committed authority, projection applied, and propagation verified.
-- **Budgets.** Retry cap, jitter, max delay, observation freshness, and per-tenant queue limits. Fill these from the phase 1 Kind measurements, not from River's defaults alone.
+- **Phase 1/2 public cutover.** Keep the accepted team and surface provisioning failure with a retry, instead of deleting the team. The durable `team_intent` journal is merged behind `PLATFORM_TEAM_INTENT_JOURNAL=true` (`#980`), while the public `handleRuntimeTeamCreate` handler stays synchronous until explicit approval for Phase 2 cutover.
+- **HTTP and wait.** Per endpoint: keep 200, or use 201 with pending status, or 202 for an operation. What `--wait` and `--no-wait` wait for. Team create is 200 today, so this is an API decision needed for Phase 2 cutover.
+- **Phase 3 staging.** `pkg/registrystaging/` durable filesystem-backed staging store and publication intent journal/worker are merged behind `PLATFORM_WORKLOAD_INTENT_JOURNAL=true` (`#982`). Install-supported shared persistent volume vs object storage deployment policy, retention/capacity, and mutable-tag rule remain to be locked before public registry cutover. A per-Pod filesystem, `emptyDir`, or a path inside a Secret does not count as durable.
+- **Phase 5 grants.** Durable grant intent and observer semantics are merged (`#981`): synchronous `RevocationCommitted` stays separate from `ProjectionApplied` and `PropagationVerified`, and unknown/absent serving gateways report `NoServingGatewayReplicas` / `propagation_verified=false`. Live serving-gateway deny propagation during replica churn remains to be verified on Kind before cutover.
+- **Budgets.** Retry cap, jitter, max delay, observation freshness, and per-tenant queue limits. Tune from live Kind/staging measurements before enabling intent journals by default.
 - **Rename** waits for phase 6. Module `mcp-runtime-api`, image, Deployment, NetworkPolicy, RBAC, and docs move together, after no caller still uses the public management routes.
 
 ## Phases
 
 ### Phase 0 — Characterize
 
-- [ ] Not started
+- [ ] Partially covered (legacy public handlers are still live; existing tests cover `DeactivateAgent`, `ServerRetirement`, and `RegistryPush`, while `TeamCreate`/`TeamDelete` characterization remains before Phase 2 public cutover)
 - No behavior change. Kind is not required.
 - Subagent A: team create rollback and team delete. Subagent B: agent deactivate, server retirement order, registry push local tar. Parent runs the tests.
 
@@ -121,9 +121,9 @@ Lock these outcomes on the current code:
 
 - [ ] Namespace provisioning failure deletes the team and returns 500. If that delete also fails, the handler still returns 500 and both calls happened.
 - [ ] Team delete returns 204 after the platform delete even when Traefik watch removal fails. The namespace object is not deleted.
-- [ ] Deactivate revokes only sessions for that agent and team, writes one audit per revoked session, and does not un-revoke on reactivate.
-- [ ] Retirement order stays: retiring marker, session and grant fence, owned credential cleanup, UID-conditional custom-resource delete. A shared pull secret is kept.
-- [ ] Registry push stages a local tar path and removes it when the handler returns. The test must not require a live cluster.
+- [x] Deactivate revokes only sessions for that agent and team, writes one audit per revoked session, and does not un-revoke on reactivate (`agents_test.go` `TestDeactivateAgentRevokesOnlyMatchingSessionsAndAuditsEach`).
+- [x] Retirement order stays: retiring marker, session and grant fence, owned credential cleanup, UID-conditional custom-resource delete. A shared pull secret is kept (`server_retirement_test.go`).
+- [x] Registry push stages a local tar path and removes it when the handler returns. The test must not require a live cluster (`registry_push_admission_test.go`, `registry_push_test.go`).
 
 Gate command, from the repo root, after `export KUBECONFIG=$(mktemp)`:
 
@@ -131,45 +131,40 @@ Gate command, from the repo root, after `export KUBECONFIG=$(mktemp)`:
 
 Also run any new platform-store test the agent-deactivate characterization needs. Record the exact test names in **Evidence**.
 
-### Phase 1 — Team spike
+### Phase 1 — Team durable intent, worker, and observer
 
-- [ ] Blocked on phase 0 and on a written yes for the team-create failure semantics
-- Two coding subagents, then one Kind pass.
-- Subagent A: pin River in `services/platform-api`, prove `InsertTx` on the `CreateTeam` transaction, add the migration role for River DDL. Subagent B: internal desired-team, receipt, and status APIs plus the reconcile worker. Parent wires two replicas and runs Kind.
+- [x] Backend journal, River worker, and independent observer merged on `main` (`#980`, `bc7d3e41`) behind opt-in flags (`PLATFORM_TEAM_INTENT_JOURNAL=true`, `RUNTIME_TEAM_INTENT_WORKER=true`, `RUNTIME_TEAM_INTENT_OBSERVER=true`); throwaway River spike (`#904`, `3eb6184b`) removed after real product verification
+- River `v0.51.0` (`riverdatabasesql`) proven on `*sql.Tx` with `lib/pq` and PostgreSQL 17.
 
-Work:
+Completed work (`#980`):
 
-- Extend the team transaction in `services/platform-api/internal/platformstore/teams.go` and `schema.go` so the team row, namespace desired status, operation row, and River job commit together or not at all.
-- Job kind `reconcile_team`. The worker loads current intent, supersedes obsolete accepted operations, skips deleted/replaced teams, and reconciles the current desired revision using the existing namespace provision path (`ensureTeamNamespace` in `services/runtime-api/internal/runtimeapi/deployments.go`) idempotently.
-- Status is separate from the job: `pending`, `ready`, or `error`, with attempt count and last error.
-- Two worker replicas. Claim safety comes from River, not a second lease table.
-- Trace: persist the request id from the API call onto the operation. A later attempt gets a new span. Do not hold the HTTP span open across retries.
+- Extended team transactions (`services/platform-api/internal/teamintent/`, `platformstore/team_intent.go`, `platforminternal/team_intents.go`) so team intent, desired revision, operation row, and River job (`team_intent_queue`) commit atomically or roll back together.
+- Worker (`services/runtime-api/internal/teamintentworker/`) enforces execution fencing, incarnation isolation, and ownership-checked namespace provisioning (`k8sprovision/namespace.go`).
+- Independent observer (`services/runtime-api/internal/teamintentobserver/`) observes cluster namespace state and reports freshness/readiness via fenced internal APIs.
 
-Kind gate, explicit `kind-*` context:
+PostgreSQL 17 + Kind gate (`async-team-873`, 2026-11-25):
 
 - [ ] Kill the API after commit and before the HTTP response. One team row, one job, idempotent client retry finds the same operation.
-- [ ] Roll the transaction back. Neither the team nor a runnable job is visible.
-- [ ] Scale runtime to zero for a while. The team stays pending, queue age increases, then one namespace appears after recovery.
+- [x] Roll the transaction back. Neither the team nor a runnable job is visible (`TestPostgresTeamIntentQueueFailureRollsBackDomainChanges` against PostgreSQL 17).
+- [x] Scale runtime to zero for a while. The team stays pending, queue age increases, then one namespace appears after recovery (verified live on Kind `async-team-873`, 2026-11-25).
 - [ ] Timeout from the Kubernetes API after a successful namespace create. Replay uses the same namespace and does not create a second one.
 - [ ] Create races delete. The old create does not recreate the namespace. Cleanup does not delete a replacement.
-- [ ] A delayed worker for a superseded revision cannot record `appliedRevisionId` for a different current revision.
+- [x] A delayed worker for a superseded revision cannot record `appliedRevisionId` for a different current revision (`TestPostgresTeamIntentFencedReceiptsAndIncarnationIsolation`, `TestPostgresTeamIntentIndependentObserverFencing` against PostgreSQL 17).
 - [ ] Request-idempotent retry returns the same revision/operation. Worker retries and drift repair retain that revision; a completed job does not suppress later repair.
 - [ ] Rollback to prior contents creates a new acceptance revision; delayed receipts for the previous acceptance cannot satisfy it.
 
-Stop if `*sql.Tx` insert with `lib/pq` fails. Record the River version and the error here. Do not start phase 2 on a broken queue.
+### Phase 2 — Platform owns directory commands (public management route cutover)
 
-### Phase 2 — Platform owns directory commands
-
-- [ ] Blocked on phase 1
+- [ ] Not started (next task; backend durable intent journals/workers/observers from `#980`, `#981`, `#982` are merged and verified)
 - Two subagents, overlapping the end of phase 1. One moves handlers and store calls. One updates OpenAPI, authz, and CLI goldens.
-- Move team, membership, agent, and namespace commands and scoped reads onto platform-api. Runtime keeps infrastructure follow-up only.
+- Move team, membership, agent, and namespace commands and scoped reads onto platform-api, and switch public Ingress management routes onto platform-api. Runtime keeps infrastructure follow-up only.
 - Preserve atomic user-plus-membership create (`CreateTeamUser`) and the agent-inactive plus session-revoke transaction. Membership removal is not account deactivation.
 - Personal workspace counts and admin counts stay separate. Anonymous catalog reads stay limited to public namespaces.
 - Gate: platform-api OpenAPI contract test, authz matrix, CLI goldens under `test/golden/cli/testdata/`, and a Kind smoke that creates a team and lists it. Record the commands in **Evidence**.
 
 ### Phase 3 — Registry recovery
 
-- [ ] Blocked until **Decisions** names the staging backend, retention, and mutable-tag rule
+- [ ] Partially implemented: durable artifact staging (`pkg/registrystaging/`), publication intent journal, and River worker (`workload_intent_queue`) merged in `#982` (`536c856c`) behind opt-in flags and covered by `TestWorkloadIntentPostgresIntegration` on PostgreSQL 17; shared PV/object-storage deployment policy, public upload route cutover, and live Kind crash/resume gate remain
 - Two subagents. One owns upload and finalize. One owns the helper identity and digest check. Use a separate Kind window from ordinary team tests so image pulls do not queue behind them.
 - Upload lifecycle is `uploading`, then `finalized`, or `aborted` / `expired`. A job is inserted only after the bytes are durable and the publication row commits. A crash before that commit leaves an unreferenced artifact for garbage collection.
 - Helper name is derived from the publication id. A crashed worker resumes that helper instead of creating another. If the registry already has the manifest, verify the digest and finish the same publication.
@@ -179,7 +174,7 @@ Stop if `*sql.Tx` insert with `lib/pq` fails. Record the River version and the e
 
 ### Phase 4 — Servers and raw deployments
 
-- [ ] Blocked until phase 1 revision-conditional receipts and execution fencing have passed on Kind
+- [ ] Partially verified: durable `MCPServer` (+ 5 ordered retirement checkpoints), raw `Deployment`/`Service`, and fixed-token `RestartOperationIntent` journals, River workers (`workload_intent_queue`), and independent observer merged in `#982` (`536c856c`) behind opt-in flags; verified on PostgreSQL 17 (`TestWorkloadIntentPostgresIntegration`) and live on Kind `async-team-873` (`MCPServer` apply + 5-step ordered retirement + CR deletion; raw `Deployment` + `Service` apply/Ready/delete); remaining Kind fault gates and public cutover remain
 - Three subagents: `ReconcileServer` (`servers.go`), raw Deployment/Service apply (`deployments.go` around the upsert path), and the status observer.
 - Platform accepts an immutable desired server revision and updates `desiredRevisionId` in one transaction with the operation and job. The worker applies the `MCPServer` custom resource with UID and resourceVersion preconditions. The operator still owns child Deployments.
 - Receipt stores `appliedRevisionId`, target UID, Kubernetes generation, and spec digest. Observer stores `observedRevisionId`, revision-tagged platform conditions and freshness. Map the platform revision to the CR identity/spec/generation; preserve operator conditions' Kubernetes `observedGeneration`.
@@ -190,7 +185,7 @@ Stop if `*sql.Tx` insert with `lib/pq` fails. Record the River version and the e
 
 ### Phase 5 — Grants and enrollment
 
-- [ ] Blocked until **Decisions** says how serving gateways observe a deny
+- [ ] Partially verified: durable `MCPAccessGrant` (distinct `RevocationCommitted` / `ProjectionApplied` / `PropagationVerified`), idempotent CSR enrollment with post-issuance authority revalidation, atomic agent deactivation + cleanup, River workers (`access_intent_queue`), and independent gateway propagation observer merged in `#981` (`e2042cfb`) behind opt-in flags; verified on PostgreSQL 17 (`TestAccessIntentPostgresIntegration`) and live on Kind `async-team-873` (`MCPAccessGrant` apply + strict `NoServingGatewayReplicas` / `propagation_verified=false` reporting + synchronous `revocation_committed=true` + CR cleanup); live gateway allow/deny + replica-churn + live CSR retry gate and public cutover remain
 - Two subagents. One for grants, one for certificate enrollment (`adapter_certificate.go`).
 - Do not put session revoke or agent deactivation authority into River. Those commits stay synchronous. A follow-up job may audit or project. A failed follow-up is not evidence that the revoke failed.
 - Grant states to keep distinct: revocation committed, projection applied, propagation verified. Unknown replicas are not counted as acknowledged.
@@ -199,7 +194,7 @@ Stop if `*sql.Tx` insert with `lib/pq` fails. Record the River version and the e
 
 ### Phase 6 — Internalize and rename
 
-- [ ] Blocked on phases 1 through 5
+- [ ] Blocked on Phase 2 public management route cutover and remaining Phases 3–5 live cutover gates
 - Two subagents. One removes public management routes and updates wiring. One renames module, image, Deployment, NetworkPolicy, and RBAC, then docs.
 - Do this only after no remaining caller uses the removed routes. Logs, metrics, Grafana, resource-history scrape, and registry byte streams keep their own bounded paths. They do not become River jobs.
 - Startup network-policy sweep stays until a replacement gate has the same evidence.
@@ -210,6 +205,17 @@ Stop if `*sql.Tx` insert with `lib/pq` fails. Record the River version and the e
 
 - 2026-10-29: documentation-only amendment accepts platform revision IDs and explains the three ownership layers. Updated the design comment and this checkpoint; source audit baseline unchanged. No implementation, unit tests, River version, Kind acceptance or production changes for this migration.
 - Verification: issue description and design comment read back exactly match the reviewed drafts. Stale platform-generation terminology, JSON revision examples, preserved source links, Markdown fences and whitespace checks passed. Kubernetes generation/resourceVersion and condition-level observedGeneration remain distinct from platform revision identity and worker fencing.
+- 2026-11-25 (merged PRs on `main`):
+  - `#904` (`3eb6184b`): throwaway River team-provisioning spike (prototype + fault-injection evidence); superseded and removed after real product verification.
+  - `#982` (`536c856c`): durable workload intents (`MCPServer` + 5 ordered retirement checkpoints, raw `Deployment`/`Service`, durable registry artifact staging `pkg/registrystaging/`, fixed-token `RestartOperationIntent`), River workers (`workload_intent_queue`), and independent observer.
+  - `#981` (`e2042cfb`): durable access intents (`MCPAccessGrant` with distinct `RevocationCommitted` / `ProjectionApplied` / `PropagationVerified`, idempotent CSR enrollment with post-issuance authority revalidation, atomic agent deactivation + cleanup), River workers (`access_intent_queue`), and independent gateway propagation observer.
+  - `#980` (`bc7d3e41`): durable team namespace intent journal (`team_intent`), River worker (`team_intent_queue`), execution fencing, incarnation isolation, and independent observer.
+- 2026-11-25 (PostgreSQL 17 integration + live Kind verification):
+  - Environment: Kind cluster `async-team-873` (`kindest/node:v1.36.4`), PostgreSQL 17 in `async-team-spike/postgres-0`, `linux/amd64` images built from `cb762a53` and ELF-verified via `test/e2e/image_architecture.py`.
+  - Real PostgreSQL 17 integration suites: all 3 passed — `TestPostgresTeamIntent*` (7/7), `TestAccessIntentPostgresIntegration`, `TestWorkloadIntentPostgresIntegration`.
+  - Live deployment: 1-replica `mcp-platform-api` (all 3 `PLATFORM_*_INTENT_JOURNAL=true`) + 2-replica `mcp-runtime-api` (all 3 workers + all 3 observers).
+  - Verified live behaviors: team create + Ready observation; scale-to-zero durable River queue + automatic recovery; `MCPServer` apply + 5-step ordered retirement + CR deletion; raw `Deployment` + `Service` apply/Ready/delete; `MCPAccessGrant` apply + strict `NoServingGatewayReplicas` / `propagation_verified=false` reporting + synchronous `revocation_committed=true` + CR cleanup; team soft-delete preserving namespace; 9/9 completed River jobs across all 3 queues (`team_intent_queue`, `access_intent_queue`, `workload_intent_queue`) with 0 stuck/failed jobs and observer leases split across both `mcp-runtime-api` replicas.
+  - Still pending: Phase 2 public management route cutover onto `platform-api` (public handlers + Ingress switch), remaining fault/gateway/upload Kind gates, and Phase 6 public route retirement + `runtime-api` -> `runtime` rename.
 
 When a phase finishes, append:
 
@@ -221,4 +227,6 @@ When a phase finishes, append:
 
 ## Do not redo
 
-The revision-ID/ownership design decision is accepted. Preserve the distinction between platform revision identity, Kubernetes version fields and worker fencing. Phase 0 characterization and all implementation gates remain unstarted.
+- The revision-ID and three-layer ownership design decision is accepted (2026-10-29). Preserve the distinction between platform revision identity, Kubernetes version fields, and worker fencing.
+- River `v0.51.0` (`riverdatabasesql`) transactional enqueue on `*sql.Tx` with `lib/pq` and PostgreSQL 17 is proven in product code; do not re-create the removed throwaway spike (`#904`).
+- Durable intent journals, fenced internal APIs, River workers, and independent observers for teams (`#980`), access (`#981`), and workloads/staging/restarts (`#982`) are already merged on `main` behind disabled-by-default opt-in flags and verified live against PostgreSQL 17 and Kind `async-team-873`. Continue from Phase 2 public management route cutover onto `platform-api`, followed by Phase 6 route retirement and rename.
