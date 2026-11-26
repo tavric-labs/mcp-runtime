@@ -6,11 +6,13 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 )
@@ -173,5 +175,59 @@ func TestReconcileBundledOAuthResourcesRejectsHTTPAudienceForHTTPSIssuer(t *test
 	}
 	if got := bundledAuthEnv(t, c)["MCP_AUTH_RESOURCES"]; got != "" {
 		t.Fatalf("MCP_AUTH_RESOURCES = %q, want no http resource on an https issuer", got)
+	}
+}
+
+func TestReconcileBundledOAuthResourcesReturnsConflictOnConcurrentImageEdit(t *testing.T) {
+	scheme := bundledOAuthScheme(t)
+	deploy := bundledAuthDeployment()
+	deploy.Spec.Template.Spec.Containers[0].Image = "example.com/mcp-auth:v1"
+
+	mutated := false
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(deploy, oauthMCPServer("buddy", "")).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Patch: func(ctx context.Context, cl client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				if d, ok := obj.(*appsv1.Deployment); ok && !mutated && d.Namespace == bundledOAuthNamespace && d.Name == bundledOAuthDeployment {
+					mutated = true
+					current := &appsv1.Deployment{}
+					key := types.NamespacedName{Name: bundledOAuthDeployment, Namespace: bundledOAuthNamespace}
+					if err := cl.Get(ctx, key, current); err != nil {
+						return err
+					}
+					current.Spec.Template.Spec.Containers[0].Image = "example.com/mcp-auth:v2"
+					if err := cl.Update(ctx, current); err != nil {
+						return err
+					}
+				}
+				return cl.Patch(ctx, obj, patch, opts...)
+			},
+		}).
+		Build()
+
+	r := MCPServerReconciler{
+		GatewayProxyImage:  "example.com/mcp-gateway:test",
+		Client:             c,
+		Scheme:             scheme,
+		OAuthIssuerURL:     testBundledIssuer,
+		DefaultIngressHost: "mcp.example.com",
+		DefaultIngressTLS:  true,
+	}
+
+	err := r.reconcileBundledOAuthResources(context.Background())
+	if !mutated {
+		t.Fatal("expected interceptor to mutate bundled auth Deployment before Patch")
+	}
+	if !apierrors.IsConflict(err) {
+		t.Fatalf("reconcileBundledOAuthResources() error = %v, want Conflict error", err)
+	}
+
+	var stored appsv1.Deployment
+	if err := c.Get(context.Background(), types.NamespacedName{Name: bundledOAuthDeployment, Namespace: bundledOAuthNamespace}, &stored); err != nil {
+		t.Fatalf("get auth deployment: %v", err)
+	}
+	if got := stored.Spec.Template.Spec.Containers[0].Image; got != "example.com/mcp-auth:v2" {
+		t.Fatalf("auth deployment image = %q, want concurrent update example.com/mcp-auth:v2 preserved", got)
 	}
 }

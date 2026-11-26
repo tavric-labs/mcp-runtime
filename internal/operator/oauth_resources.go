@@ -149,7 +149,7 @@ func (r *MCPServerReconciler) reconcileBundledOAuthResources(ctx context.Context
 	if reflect.DeepEqual(before.Spec.Template.Spec.Containers[0].Env, envs) {
 		return nil
 	}
-	return r.Patch(ctx, deployment, client.MergeFrom(before))
+	return r.Patch(ctx, deployment, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{}))
 }
 
 // audienceServedByPlatform reports whether an MCPServer's audience names the

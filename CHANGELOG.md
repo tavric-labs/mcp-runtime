@@ -45,6 +45,15 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   policies (runtime-api to Tempo on TCP 3200); `update` refuses scoped policy changes until the
   migration is complete.
 
+### Fixed
+
+- Operator reconciliation now records the reconciled `MCPServer` generation in condition
+  `observedGeneration` instead of a concurrently bumped generation, fences bundled `mcp-auth`
+  Deployment patches with optimistic locking so concurrent container edits fail with a conflict
+  instead of being overwritten, and checks for existence before deleting disabled
+  adapter-certificate resources to eliminate steady-state `DELETE` calls
+  ([#902](https://github.com/tavric-labs/mcp-runtime/issues/902)).
+
 ## [0.22.0] - 2026-11-25
 
 ### Added

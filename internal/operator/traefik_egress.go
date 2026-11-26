@@ -203,8 +203,9 @@ func (r *MCPServerReconciler) setTraefikEgressCondition(ctx context.Context, mcp
 		logger.V(1).Info("Skipping TraefikEgressReady condition update", "error", err.Error())
 		return
 	}
+	observedGeneration := mcpServer.Generation
 	existing := meta.FindStatusCondition(latest.Status.Conditions, TraefikEgressReadyCondition)
-	if existing != nil && existing.Status == status && existing.Reason == reason && existing.Message == message && existing.ObservedGeneration == latest.Generation {
+	if existing != nil && existing.Status == status && existing.Reason == reason && existing.Message == message && existing.ObservedGeneration == observedGeneration {
 		return
 	}
 	if !ready {
@@ -218,7 +219,7 @@ func (r *MCPServerReconciler) setTraefikEgressCondition(ctx context.Context, mcp
 		Status:             status,
 		Reason:             reason,
 		Message:            message,
-		ObservedGeneration: latest.Generation,
+		ObservedGeneration: observedGeneration,
 	})
 	if err := r.Status().Update(ctx, latest); err != nil {
 		logger.V(1).Info("TraefikEgressReady condition update failed; retrying on next reconcile", "error", err.Error())

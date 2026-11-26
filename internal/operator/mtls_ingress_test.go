@@ -5,7 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,8 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	mcpv1alpha1 "mcp-runtime/api/v1alpha1"
 )
@@ -364,4 +368,145 @@ func TestDeleteMTLSIngressRemovesAllResources(t *testing.T) {
 			t.Fatalf("%s/%s should be deleted, got %v", target.gvk.Kind, target.name, err)
 		}
 	}
+}
+
+func TestReconcileNonAdapterServerGatesMTLSDeletesOnExistence(t *testing.T) {
+	newScheme := func(t *testing.T) *runtime.Scheme {
+		t.Helper()
+		scheme := traefikScheme(t)
+		for _, add := range []func(*runtime.Scheme) error{appsv1.AddToScheme, discoveryv1.AddToScheme} {
+			if err := add(scheme); err != nil {
+				t.Fatalf("scheme: %v", err)
+			}
+		}
+		scheme.AddKnownTypeWithName(certificateGVK, &unstructured.Unstructured{})
+		scheme.AddKnownTypeWithName(certificateGVK.GroupVersion().WithKind(certificateGVK.Kind+"List"), &unstructured.UnstructuredList{})
+		return scheme
+	}
+
+	newNonAdapterServer := func() *mcpv1alpha1.MCPServer {
+		return &mcpv1alpha1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{Name: "plain-server", Namespace: "mcp-servers-org"},
+			Spec: mcpv1alpha1.MCPServerSpec{
+				Image:            "example.com/plain-server:v1",
+				Port:             8080,
+				ServicePort:      80,
+				PublicPathPrefix: "plain-server",
+				IngressHost:      "mcp.example.com",
+				Gateway:          &mcpv1alpha1.GatewayConfig{Enabled: mcpv1alpha1.BoolPtr(true), Port: 8091, Image: "example.com/gw:latest"},
+				Auth:             &mcpv1alpha1.AuthConfig{IssuerURL: "https://auth.example.com/mcp-auth"},
+			},
+		}
+	}
+
+	t.Run("steady-state reconcile issues zero Delete calls", func(t *testing.T) {
+		scheme := newScheme(t)
+		server := newNonAdapterServer()
+		var deleted []string
+		c := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithIndex(&mcpv1alpha1.MCPAccessGrant{}, grantTargetServerIndex, grantTargetServerKeys).
+			WithStatusSubresource(&mcpv1alpha1.MCPServer{}).
+			WithObjects(server).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Delete: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+					deleted = append(deleted, obj.GetObjectKind().GroupVersionKind().Kind+"/"+obj.GetNamespace()+"/"+obj.GetName())
+					return cl.Delete(ctx, obj, opts...)
+				},
+			}).
+			Build()
+		r := &MCPServerReconciler{
+			Client:                     c,
+			Scheme:                     scheme,
+			GatewayProxyImage:          "example.com/mcp-gateway:test",
+			AdapterCertificatesEnabled: false,
+		}
+		req := ctrl.Request{NamespacedName: types.NamespacedName{Name: server.Name, Namespace: server.Namespace}}
+
+		if _, err := r.Reconcile(context.Background(), req); err != nil {
+			t.Fatalf("first Reconcile() error = %v", err)
+		}
+		deleted = nil
+		if _, err := r.Reconcile(context.Background(), req); err != nil {
+			t.Fatalf("second Reconcile() error = %v", err)
+		}
+		if len(deleted) != 0 {
+			t.Fatalf("steady-state reconcile issued %d Delete calls (%v), want 0", len(deleted), deleted)
+		}
+	})
+
+	t.Run("deletes existing adapter-certificate resources when disabled then stops deleting", func(t *testing.T) {
+		scheme := newScheme(t)
+		server := newNonAdapterServer()
+		unstructuredTargets := []struct {
+			gvk  schema.GroupVersionKind
+			name string
+		}{
+			{certificateGVK, gatewayTLSSecretName(server)},
+			{certificateGVK, traefikClientCertSecretName(server)},
+			{ingressRouteGVK, server.Name},
+			{middlewareGVK, mtlsMiddlewareName(server)},
+			{tlsOptionGVK, mtlsTLSOptionName(server)},
+			{serversTransportGVK, mtlsServersTransportName(server)},
+			{ingressRouteTCPGVK, server.Name},
+		}
+		secretNames := []string{
+			gatewayTLSSecretName(server),
+			traefikClientCertSecretName(server),
+			mtlsTrustBundleSecretName(server),
+		}
+		objs := []client.Object{server}
+		for _, target := range unstructuredTargets {
+			objs = append(objs, crFixture(target.gvk, target.name, server.Namespace))
+		}
+		for _, name := range secretNames {
+			objs = append(objs, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: server.Namespace}})
+		}
+
+		var deleted []string
+		c := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithIndex(&mcpv1alpha1.MCPAccessGrant{}, grantTargetServerIndex, grantTargetServerKeys).
+			WithStatusSubresource(&mcpv1alpha1.MCPServer{}).
+			WithObjects(objs...).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Delete: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+					deleted = append(deleted, obj.GetObjectKind().GroupVersionKind().Kind+"/"+obj.GetNamespace()+"/"+obj.GetName())
+					return cl.Delete(ctx, obj, opts...)
+				},
+			}).
+			Build()
+		r := &MCPServerReconciler{
+			Client:                     c,
+			Scheme:                     scheme,
+			GatewayProxyImage:          "example.com/mcp-gateway:test",
+			AdapterCertificatesEnabled: false,
+		}
+		req := ctrl.Request{NamespacedName: types.NamespacedName{Name: server.Name, Namespace: server.Namespace}}
+
+		if _, err := r.Reconcile(context.Background(), req); err != nil {
+			t.Fatalf("cleanup Reconcile() error = %v", err)
+		}
+		for _, target := range unstructuredTargets {
+			obj := &unstructured.Unstructured{}
+			obj.SetGroupVersionKind(target.gvk)
+			if err := c.Get(context.Background(), types.NamespacedName{Name: target.name, Namespace: server.Namespace}, obj); !apierrors.IsNotFound(err) {
+				t.Fatalf("stale %s/%s should be deleted, got %v", target.gvk.Kind, target.name, err)
+			}
+		}
+		for _, name := range secretNames {
+			var sec corev1.Secret
+			if err := c.Get(context.Background(), types.NamespacedName{Name: name, Namespace: server.Namespace}, &sec); !apierrors.IsNotFound(err) {
+				t.Fatalf("stale Secret/%s should be deleted, got %v", name, err)
+			}
+		}
+
+		deleted = nil
+		if _, err := r.Reconcile(context.Background(), req); err != nil {
+			t.Fatalf("post-cleanup Reconcile() error = %v", err)
+		}
+		if len(deleted) != 0 {
+			t.Fatalf("post-cleanup steady-state reconcile issued %d Delete calls (%v), want 0", len(deleted), deleted)
+		}
+	})
 }
