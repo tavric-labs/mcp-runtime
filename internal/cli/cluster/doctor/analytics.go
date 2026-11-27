@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"mcp-runtime/internal/cli/core"
 	"mcp-runtime/pkg/kubeworkload"
@@ -300,8 +301,14 @@ func checkPlatformWorkloadHealth(kubectl core.KubectlRunner) DoctorCheck {
 			Status struct {
 				ContainerStatuses []struct {
 					Name         string `json:"name"`
+					Ready        bool   `json:"ready"`
 					RestartCount int32  `json:"restartCount"`
-					State        struct {
+					LastState    struct {
+						Terminated *struct {
+							FinishedAt time.Time `json:"finishedAt"`
+						} `json:"terminated"`
+					} `json:"lastState"`
+					State struct {
 						Waiting *struct {
 							Reason string `json:"reason"`
 						} `json:"waiting"`
@@ -313,6 +320,7 @@ func checkPlatformWorkloadHealth(kubectl core.KubectlRunner) DoctorCheck {
 	if err := json.Unmarshal([]byte(pods), &podList); err != nil {
 		return DoctorCheck{Name: "platform workload rollout health", OK: false, Detail: fmt.Sprintf("failed parsing platform pods: %v", err), Remedy: "rerun cluster doctor and inspect pod JSON"}
 	}
+	now := time.Now()
 	for _, pod := range podList.Items {
 		for _, container := range pod.Status.ContainerStatuses {
 			if container.State.Waiting != nil && container.State.Waiting.Reason != "" {
@@ -321,7 +329,11 @@ func checkPlatformWorkloadHealth(kubectl core.KubectlRunner) DoctorCheck {
 					failures = append(failures, fmt.Sprintf("pod/%s container/%s %s restarts=%d", pod.Metadata.Name, container.Name, reason, container.RestartCount))
 				}
 			}
-			if container.RestartCount >= 3 {
+			// RestartCount is cumulative over the Pod's lifetime. A recovered
+			// long-lived database must not fail setup forever. Retain the
+			// repeated-restart signal when recovery is recent or unproven.
+			recentRestart := container.LastState.Terminated == nil || container.LastState.Terminated.FinishedAt.IsZero() || now.Sub(container.LastState.Terminated.FinishedAt) <= 10*time.Minute
+			if container.RestartCount >= 3 && (!container.Ready || recentRestart) {
 				failures = append(failures, fmt.Sprintf("pod/%s container/%s restarts=%d", pod.Metadata.Name, container.Name, container.RestartCount))
 			}
 		}

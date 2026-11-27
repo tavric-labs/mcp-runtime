@@ -51,6 +51,13 @@ otherwise it probes the plain HTTP service. With a provisioned external
 registry, interpret bundled-registry-specific failures against your own
 registry architecture; the local workarounds may not apply.
 
+The workload check retains crash-loop and image-pull failures. A container with
+at least three lifetime restarts also fails while unready, when its last
+termination was within ten minutes, or when that timestamp is unavailable.
+A Ready container whose last termination was older than ten minutes does not
+fail solely because its cumulative restart count is high. Use observability
+metrics to investigate restart rates over a longer window.
+
 Production readiness checklist:
 
 - Choose the registry architecture: bundled registry with TLS, or a managed /
