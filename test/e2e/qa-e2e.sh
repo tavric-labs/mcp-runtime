@@ -3678,9 +3678,9 @@ publish_image_to_local_registry() {
   local target
   target="$(local_registry_target "${image}")"
 
-  ensure_local_registry_running
+  ensure_local_registry_running || return "$?"
   echo "[registry] publishing ${image} to ${target}"
-  docker tag "${image}" "${target}"
+  docker tag "${image}" "${target}" || return "$?"
   run_with_retry "docker push ${target}" docker push "${target}"
 }
 
@@ -3688,16 +3688,22 @@ build_and_publish_image() {
   local image="$1"
   local dockerfile="$2"
   local context_dir="$3"
+  local expected_arch
+  local -a architecture_args=()
 
   # Reuse only a GHCR image keyed by this checkout's content. Mutable tags in
   # the local mirror can contain code from a different checkout.
   "${PLATFORM_ROOT}/bin/e2e-image-cache" ensure \
     --image "${image}" --dockerfile "${dockerfile}" \
-    --context "${context_dir}" --root "${PLATFORM_ROOT}"
+    --context "${context_dir}" --root "${PLATFORM_ROOT}" || return "$?"
   case "${image##*/}" in
-    mcp-runtime-operator:*|mcp-gateway:*|mcp-ingest:*|mcp-processor:*|mcp-platform-api:*|mcp-runtime-api:*|mcp-analytics-api:*|mcp-ui:*|mcp-runtime-doctor-smoke:*)
+    mcp-runtime-operator:*|mcp-runtime-registry:*|mcp-gateway:*|mcp-ingest:*|mcp-processor:*|mcp-platform-api:*|mcp-runtime-api:*|mcp-analytics-api:*|mcp-ui:*|mcp-runtime-doctor-smoke:*)
+      expected_arch="$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}')" || return "$?"
+      if [[ "${image##*/}" == mcp-runtime-registry:* ]]; then
+        architecture_args=(--binary-path /bin/registry)
+      fi
       python3 "${SCRIPT_DIR}/image_architecture.py" "${image}" \
-        --expected-arch "$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}')"
+        --expected-arch "${expected_arch}" ${architecture_args[@]+"${architecture_args[@]}"} || return "$?"
       ;;
   esac
   publish_image_to_local_registry "${image}"
@@ -4106,6 +4112,10 @@ build_and_publish_images_parallel \
   "docker.io/library/mcp-analytics-api:latest" "${PLATFORM_ROOT}/services/analytics-api/Dockerfile" "${PLATFORM_ROOT}" \
   "docker.io/library/mcp-processor:latest" "${PLATFORM_ROOT}/services/processor/Dockerfile" "${PLATFORM_ROOT}" \
   "docker.io/library/mcp-ui:latest" "${PLATFORM_ROOT}/services/ui/Dockerfile" "${PLATFORM_ROOT}"
+# The bootstrap registry cannot pull its own image from the registry it is
+# about to start. Import the exact verified local build into every Kind node,
+# including warm-cluster runs that have never seen this checkout's image.
+run_logged_stage "load bootstrap registry image" load_image_into_kind "${TEST_MODE_REGISTRY_IMAGE}"
 docker image prune -f >/dev/null 2>&1 || true
 
 image_rebuilt=0

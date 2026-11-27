@@ -27,6 +27,12 @@ old volumes as an automatic migration.
 For QA E2E, `E2E_TEST_MULTI_REPLICA=1` passes the same flag to setup. Use it on
 a fresh test cluster when the scenario requires the normal replica layout.
 
+QA image preparation stops at a failed build, metadata stamp, node architecture
+lookup, architecture check, or local tag operation. Fix the first reported
+failure before retrying. Before setup, QA imports the verified bootstrap
+registry image into each Kind node, so that registry can start without pulling
+its own image from the registry it is about to provide.
+
 ### Host CPU and memory
 
 Plan for the **full platform**, including Kafka, ClickHouse,

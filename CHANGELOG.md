@@ -56,6 +56,11 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   for old lifetime restart counts. Recent repeated restarts, unknown recovery,
   crash loops, and failed rollouts still fail the operational smoke check
   ([#989](https://github.com/tavric-labs/mcp-runtime/issues/989)).
+- Kind QA E2E now stops image preparation on the original build, metadata,
+  architecture, or tag failure, and imports the verified bootstrap registry
+  image into Kind before setup. This prevents misleading later push failures
+  and registry image-pull errors during local verification
+  ([#986](https://github.com/tavric-labs/mcp-runtime/issues/986)).
 - Operator reconciliation now records the reconciled `MCPServer` generation in condition
   `observedGeneration` instead of a concurrently bumped generation, fences bundled `mcp-auth`
   Deployment patches with optimistic locking so concurrent container edits fail with a conflict

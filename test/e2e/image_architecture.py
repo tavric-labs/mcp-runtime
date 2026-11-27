@@ -23,19 +23,20 @@ def validate_elf(data: bytes, architecture: str) -> None:
         raise ValueError(f"ELF machine {machine} does not match {architecture}")
 
 
-def validate_image(image: str, expected: str | None = None) -> None:
+def validate_image(image: str, expected: str | None = None, binary_path: str | None = None) -> None:
     metadata = json.loads(subprocess.check_output(["docker", "image", "inspect", image]))[0]
     architecture = expected or metadata["Architecture"]
     if metadata["Os"] != "linux" or metadata["Architecture"] != architecture:
         raise ValueError(f"image manifest does not match linux/{architecture}")
     entrypoint = metadata["Config"].get("Entrypoint") or []
-    if not entrypoint or not entrypoint[0].startswith("/"):
+    executable = binary_path or (entrypoint[0] if entrypoint else "")
+    if not executable.startswith("/"):
         raise ValueError("platform image needs an absolute executable entrypoint")
     container = subprocess.check_output(["docker", "create", image], text=True).strip()
     try:
         with tempfile.TemporaryDirectory(prefix="mcp-image-architecture-") as directory:
             binary = Path(directory) / "executable"
-            subprocess.run(["docker", "cp", f"{container}:{entrypoint[0]}", str(binary)], check=True)
+            subprocess.run(["docker", "cp", f"{container}:{executable}", str(binary)], check=True)
             with binary.open("rb") as stream:
                 validate_elf(stream.read(64), architecture)
     finally:
@@ -47,5 +48,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("image")
     parser.add_argument("--expected-arch", choices=MACHINES)
+    parser.add_argument("--binary-path", help="Absolute ELF binary path when the image entrypoint is a shell wrapper")
     args = parser.parse_args()
-    validate_image(args.image, args.expected_arch)
+    validate_image(args.image, args.expected_arch, args.binary_path)
