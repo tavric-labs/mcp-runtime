@@ -59,12 +59,32 @@ CREATE TABLE IF NOT EXISTS team_intent.observer_lease (
 	observer_epoch bigint NOT NULL,
 	updated_at timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS team_intent.operation (
+	operation_id text PRIMARY KEY,
+	kind text NOT NULL,
+	actor_id text NOT NULL,
+	idempotency_hash text NOT NULL,
+	request_hash text NOT NULL,
+	team_id text NOT NULL,
+	revision_id text NOT NULL UNIQUE,
+	team_snapshot jsonb NOT NULL,
+	state text NOT NULL CHECK (state IN ('Pending', 'Running', 'Succeeded', 'Failed', 'Superseded')),
+	error_class text NOT NULL DEFAULT '',
+	request_id text NOT NULL DEFAULT '',
+	traceparent text NOT NULL DEFAULT '',
+	tracestate text NOT NULL DEFAULT '',
+	created_at timestamptz NOT NULL,
+	updated_at timestamptz NOT NULL,
+	UNIQUE (actor_id, kind, idempotency_hash)
+);
+CREATE INDEX IF NOT EXISTS team_operation_resource_idx ON team_intent.operation(team_id, created_at);
 CREATE SCHEMA IF NOT EXISTS team_intent_queue;
 `
 
 type reconcileJob struct {
 	TeamID      string `json:"teamId"`
 	RevisionID  string `json:"revisionId"`
+	OperationID string `json:"operationId,omitempty"`
 	RequestID   string `json:"requestId,omitempty"`
 	Traceparent string `json:"traceparent,omitempty"`
 	Tracestate  string `json:"tracestate,omitempty"`
@@ -132,6 +152,13 @@ func Open(ctx context.Context, db *sql.DB, dsn string) (*Writer, error) {
 // job using the same transaction that changes the team. The caller owns commit
 // and rollback.
 func (w *Writer) Record(ctx context.Context, tx *sql.Tx, teamID string, deleted bool) error {
+	_, err := w.RecordWithOperation(ctx, tx, teamID, deleted, "")
+	return err
+}
+
+// RecordWithOperation records the same transactional intent and queue payload,
+// optionally linking it to the public acceptance operation created by the caller.
+func (w *Writer) RecordWithOperation(ctx context.Context, tx *sql.Tx, teamID string, deleted bool, operationID string) (string, error) {
 	revisionID := uuid.NewString()
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO team_intent.team_namespace_intent (team_id, revision_id, deleted, updated_at)
@@ -141,11 +168,18 @@ func (w *Writer) Record(ctx context.Context, tx *sql.Tx, teamID string, deleted 
 			deleted = EXCLUDED.deleted,
 			updated_at = EXCLUDED.updated_at
 	`, teamID, revisionID, deleted); err != nil {
-		return fmt.Errorf("record team namespace intent: %w", err)
+		return "", fmt.Errorf("record team namespace intent: %w", err)
 	}
-	_, err := w.queue.InsertTx(ctx, tx, newReconcileJob(ctx, teamID, revisionID), &river.InsertOpts{Queue: "team_namespace"})
+	if _, err := tx.ExecContext(ctx, `
+UPDATE team_intent.operation SET state = 'Superseded', updated_at = clock_timestamp()
+WHERE team_id = $1 AND revision_id <> $2 AND state IN ('Pending', 'Running')`, teamID, revisionID); err != nil {
+		return "", fmt.Errorf("supersede prior team operations: %w", err)
+	}
+	job := newReconcileJob(ctx, teamID, revisionID)
+	job.OperationID = operationID
+	_, err := w.queue.InsertTx(ctx, tx, job, &river.InsertOpts{Queue: "team_namespace"})
 	if err != nil {
-		return fmt.Errorf("enqueue team namespace reconciliation: %w", err)
+		return "", fmt.Errorf("enqueue team namespace reconciliation: %w", err)
 	}
-	return nil
+	return revisionID, nil
 }

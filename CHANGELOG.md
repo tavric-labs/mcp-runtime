@@ -9,6 +9,11 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Added
 
+- The opt-in team intent journal supports durable acceptance operations with
+  actor-scoped request replay, immutable accepted contents, and operation/job/revision
+  correlation. Accepted operations, team records, and queue jobs commit atomically;
+  execution results remain separate from namespace health. Public HTTP 202 route
+  cutover remains tracked in [#873](https://github.com/tavric-labs/mcp-runtime/issues/873).
 - Platform API can record team creation and deletion revisions and their River
   jobs in the same PostgreSQL transaction for isolated development testing, and
   exposes internal `/internal/team-intents` read, per-team fencing, receipt,

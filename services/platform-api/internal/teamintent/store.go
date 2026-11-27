@@ -269,6 +269,11 @@ RETURNING fence_epoch`, teamID, workerID).Scan(&epoch); err != nil {
 		err = sql.ErrNoRows
 		return apikit.TeamIntentFenceResponse{}, err
 	}
+	if _, err = tx.ExecContext(ctx, `
+UPDATE team_intent.operation SET state='Running', updated_at=clock_timestamp()
+WHERE team_id=$1 AND revision_id=$2 AND state='Pending'`, teamID, item.DesiredRevisionID); err != nil {
+		return apikit.TeamIntentFenceResponse{}, err
+	}
 	if err = tx.Commit(); err != nil {
 		return apikit.TeamIntentFenceResponse{}, err
 	}
@@ -425,6 +430,9 @@ RETURNING fence_epoch, fence_holder, applied_revision_id, outcome, namespace_uid
 		return apikit.TeamNamespaceReceipt{}, err
 	}
 	if err != nil {
+		return apikit.TeamNamespaceReceipt{}, err
+	}
+	if err = updateOperationFromReceipt(ctx, tx, teamID, req); err != nil {
 		return apikit.TeamNamespaceReceipt{}, err
 	}
 	if err = tx.Commit(); err != nil {
