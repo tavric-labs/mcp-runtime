@@ -3689,6 +3689,7 @@ build_and_publish_image() {
   local dockerfile="$2"
   local context_dir="$3"
   local expected_arch
+  local -a architecture_args=()
 
   # Reuse only a GHCR image keyed by this checkout's content. Mutable tags in
   # the local mirror can contain code from a different checkout.
@@ -3698,8 +3699,11 @@ build_and_publish_image() {
   case "${image##*/}" in
     mcp-runtime-operator:*|mcp-runtime-registry:*|mcp-gateway:*|mcp-ingest:*|mcp-processor:*|mcp-platform-api:*|mcp-runtime-api:*|mcp-analytics-api:*|mcp-ui:*|mcp-runtime-doctor-smoke:*)
       expected_arch="$(kubectl get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}')" || return "$?"
+      if [[ "${image##*/}" == mcp-runtime-registry:* ]]; then
+        architecture_args=(--binary-path /bin/registry)
+      fi
       python3 "${SCRIPT_DIR}/image_architecture.py" "${image}" \
-        --expected-arch "${expected_arch}" || return "$?"
+        --expected-arch "${expected_arch}" ${architecture_args[@]+"${architecture_args[@]}"} || return "$?"
       ;;
   esac
   publish_image_to_local_registry "${image}"
