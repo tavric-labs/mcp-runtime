@@ -47,6 +47,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Fixed
 
+- Setup and cluster doctor no longer reject a Ready platform container solely
+  for old lifetime restart counts. Recent repeated restarts, unknown recovery,
+  crash loops, and failed rollouts still fail the operational smoke check
+  ([#989](https://github.com/tavric-labs/mcp-runtime/issues/989)).
 - Operator reconciliation now records the reconciled `MCPServer` generation in condition
   `observedGeneration` instead of a concurrently bumped generation, fences bundled `mcp-auth`
   Deployment patches with optimistic locking so concurrent container edits fail with a conflict

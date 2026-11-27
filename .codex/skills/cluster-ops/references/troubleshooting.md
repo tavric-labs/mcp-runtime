@@ -42,6 +42,12 @@ resource readiness. Status reports platform API failures and skips its server
 list after a failed authentication check; distinguish rejected credentials from
 DNS, network, and TLS errors before recommending a new login.
 
+Workload health distinguishes lifetime restart counts from recent recovery.
+Three or more restarts fail when the container is unready, its last termination
+was within ten minutes, or the termination timestamp is missing. A Ready
+container recovered longer ago can pass; inspect metrics for historical
+restart rates rather than recreating its Pod to clear the counter.
+
 For production incidents, inspect metrics, aggregated logs, and traces at
 `https://platform.mcpruntime.org/grafana` for a shared incident window.
 Read private credentials from `~/.mcpruntime/infra.env` without displaying
