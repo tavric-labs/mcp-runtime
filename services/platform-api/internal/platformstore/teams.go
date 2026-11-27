@@ -88,6 +88,35 @@ LIMIT 1`, namespace).Scan(&id, &userID, &email, &teamID, &teamSlug, &teamName, &
 
 // CreateTeam creates a team, its namespace record, and an owner membership.
 func (s *Store) CreateTeam(ctx context.Context, slug, name, createdByUserID string) (Team, error) {
+	team, err := newTeamRecord(slug, name)
+	if err != nil {
+		return Team{}, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Team{}, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	if err = insertTeamRows(ctx, tx, team, createdByUserID); err != nil {
+		return Team{}, err
+	}
+	if s.teamIntents != nil {
+		if err = s.teamIntents.Record(ctx, tx, team.ID, false); err != nil {
+			return Team{}, fmt.Errorf("record team creation intent: %w", err)
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return Team{}, err
+	}
+	team.CreatedAt = time.Now().UTC()
+	return team, nil
+}
+
+func newTeamRecord(slug, name string) (Team, error) {
 	slug = NormalizeTeamSlug(slug)
 	if err := ValidateTeamSlug(slug); err != nil {
 		return Team{}, err
@@ -100,53 +129,30 @@ func (s *Store) CreateTeam(ctx context.Context, slug, name, createdByUserID stri
 	if err := ValidateTeamNamespace(namespace); err != nil {
 		return Team{}, err
 	}
-	teamID := uuid.NewString()
+	return Team{ID: uuid.NewString(), Slug: slug, Name: name, Namespace: namespace}, nil
+}
 
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return Team{}, err
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	if _, err = tx.ExecContext(ctx, `
+func insertTeamRows(ctx context.Context, tx *sql.Tx, team Team, createdByUserID string) error {
+	if _, err := tx.ExecContext(ctx, `
 INSERT INTO teams (id, slug, display_name, created_by)
-VALUES ($1, $2, $3, NULLIF($4, '')::uuid)`, teamID, slug, name, strings.TrimSpace(createdByUserID)); err != nil {
-		return Team{}, err
+VALUES ($1, $2, $3, NULLIF($4, '')::uuid)`, team.ID, team.Slug, team.Name, strings.TrimSpace(createdByUserID)); err != nil {
+		return err
 	}
-	if _, err = tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, `
 INSERT INTO namespaces (id, user_id, team_id, namespace, display_name, scope)
-VALUES ($1, NULL, $2, $3, $4, $5)`, uuid.NewString(), teamID, namespace, name, NamespaceScopeTeam); err != nil {
-		return Team{}, err
+VALUES ($1, NULL, $2, $3, $4, $5)`, uuid.NewString(), team.ID, team.Namespace, team.Name, NamespaceScopeTeam); err != nil {
+		return err
 	}
 	if strings.TrimSpace(createdByUserID) != "" {
-		if _, err = tx.ExecContext(ctx, `
+		if _, err := tx.ExecContext(ctx, `
 INSERT INTO team_memberships (id, team_id, user_id, role)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (team_id, user_id) WHERE deleted_at IS NULL
-DO UPDATE SET role = EXCLUDED.role, deleted_at = NULL`, uuid.NewString(), teamID, createdByUserID, TeamRoleOwner); err != nil {
-			return Team{}, err
+DO UPDATE SET role = EXCLUDED.role, deleted_at = NULL`, uuid.NewString(), team.ID, createdByUserID, TeamRoleOwner); err != nil {
+			return err
 		}
 	}
-	if s.teamIntents != nil {
-		if err = s.teamIntents.Record(ctx, tx, teamID, false); err != nil {
-			return Team{}, fmt.Errorf("record team creation intent: %w", err)
-		}
-	}
-	if err = tx.Commit(); err != nil {
-		return Team{}, err
-	}
-
-	return Team{
-		ID:        teamID,
-		Slug:      slug,
-		Name:      name,
-		Namespace: namespace,
-		CreatedAt: time.Now().UTC(),
-	}, nil
+	return nil
 }
 
 // DeleteTeamBySlug soft-deletes a team and its derived namespace/membership records.
