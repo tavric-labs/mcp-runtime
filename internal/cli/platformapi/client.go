@@ -69,6 +69,10 @@ func HasPlatformClient() bool {
 }
 
 func (c *PlatformClient) do(ctx context.Context, method, relPath, query string, body io.Reader) (*http.Response, error) {
+	return c.doWithHeaders(ctx, method, relPath, query, body, nil)
+}
+
+func (c *PlatformClient) doWithHeaders(ctx context.Context, method, relPath, query string, body io.Reader, headers http.Header) (*http.Response, error) {
 	u, err := url.Parse(c.baseURL)
 	if err != nil {
 		return nil, err
@@ -86,6 +90,11 @@ func (c *PlatformClient) do(ctx context.Context, method, relPath, query string, 
 		return nil, err
 	}
 	c.setAuthHeaders(req)
+	for key, values := range headers {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
 	if body != nil {
 		req.Header.Set("content-type", "application/json")
 	}

@@ -20,7 +20,7 @@ async function fixture(page: Page, failUsage = false) {
         facets: { servers: ["docs-search"], methods: ["tools/call", "tools/list"], tools: ["search"], policy_versions: ["v1"] },
       } });
     }
-    if (path === "/runtime/teams") return route.fulfill({ json: { teams: [{ id: "acme", slug: "acme", name: "Acme", namespace: "team-acme" }] } });
+    if (path === "/teams") return route.fulfill({ json: { teams: [{ id: "acme", slug: "acme", name: "Acme", namespace: "team-acme" }] } });
     if (path === "/events") return route.fulfill({ json: { events: [] } });
     return route.fulfill({ json: {} });
   });

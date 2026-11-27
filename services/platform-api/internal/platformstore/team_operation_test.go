@@ -100,6 +100,38 @@ func TestPostgresTeamOperationReplayAfterStoreRestart(t *testing.T) {
 	assertTeamIntentCount(t, secondStore, `SELECT count(*) FROM team_intent_queue.river_job`, 1)
 }
 
+func TestPostgresTeamOperationDeleteCommitsAndReplaysAfterReplacement(t *testing.T) {
+	s, create := operationFixture(t)
+	accepted, err := s.AcceptTeamCreate(t.Context(), create)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := TeamDeleteAcceptanceRequest{Slug: create.Slug, ActorID: create.ActorID, IdempotencyKey: "delete-response-lost"}
+	deleted, err := s.AcceptTeamDelete(t.Context(), request)
+	if err != nil {
+		t.Fatalf("accept deletion: %v", err)
+	}
+	if deleted.Team.ID != accepted.Team.ID || deleted.Operation.Kind != "team.delete" || deleted.Operation.DesiredRevisionID == accepted.Operation.DesiredRevisionID {
+		t.Fatalf("deletion lost distinct acceptance: %+v", deleted)
+	}
+	assertTeamIntentDomainState(t, s, accepted.Team, true)
+	prior, _, err := s.GetTeamOperation(t.Context(), accepted.Operation.ID, create.ActorID)
+	if err != nil || prior.Operation.State != apikit.OperationSuperseded {
+		t.Fatalf("pending create was not superseded: %+v err=%v", prior, err)
+	}
+	create.IdempotencyKey = "replacement-create"
+	replacement, err := s.AcceptTeamCreate(t.Context(), create)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := s.AcceptTeamDelete(t.Context(), request)
+	if err != nil || !replayed.Replayed || replayed.Team.ID != deleted.Team.ID || replayed.Operation.ID != deleted.Operation.ID {
+		t.Fatalf("delete replay targeted replacement: %+v err=%v", replayed, err)
+	}
+	assertTeamIntentDomainState(t, s, replacement.Team, false)
+	assertTeamIntentCount(t, s, `SELECT count(*) FROM team_intent_queue.river_job`, 3)
+}
+
 func TestPostgresTeamOperationConcurrentReplayCreatesOneAcceptance(t *testing.T) {
 	s, request := operationFixture(t)
 	type result struct {

@@ -23,7 +23,7 @@ async function fixture(page: Page, role = "admin", teamRole = "owner", auditFail
       if (auditFails) return route.fulfill({ status: 503, json: { error: "Audit unavailable" } });
       json = { audit_logs: [{ created_at: "2026-10-25T00:00:00Z", action: "agent.create", resource: "Build agent", status: "success" }] };
     }
-    else if (path === "/runtime/teams") json = { teams: [
+    else if (path === "/teams") json = { teams: [
       { id: "t1", slug: "acme", name: "Acme", role: teamRole },
       { id: "t2", slug: "other", name: "Other team", role: "member" },
     ] };

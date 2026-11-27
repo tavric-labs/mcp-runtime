@@ -32,7 +32,7 @@ it("keeps prefixed session calls on the UI origin with CSRF and without caller c
   expect(options.headers.has("Authorization")).toBe(false);
   expect(options.headers.has("X-API-Key")).toBe(false);
   expect(apiURL("/runtime/servers")).toBe("/platform/api/ui/v1/runtime/servers");
-  expect(apiURL("/runtime/teams", "/api/v1", "POST")).toBe("/platform/api/ui/v1/runtime/teams");
+  expect(apiURL("/teams", "/api/v1", "POST")).toBe("/platform/api/ui/v1/teams");
 });
 
 describe("apiURL", () => {
@@ -65,7 +65,7 @@ describe("apiURL", () => {
     for (const path of [
       "/runtime/grants",
       "/runtime/sessions",
-      "/runtime/teams",
+      "/teams",
       "/runtime/components",
       "/admin/operations",
       "/admin/deployments",

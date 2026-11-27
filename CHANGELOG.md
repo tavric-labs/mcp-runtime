@@ -43,6 +43,14 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
 
 ### Changed
 
+- Team management begins its durable API cutover: platform-owned create/delete
+  routes return HTTP 202 operations with actor-scoped idempotency. Team creation
+  waits for execution and fresh namespace readiness by default in the CLI, with
+  `--no-wait`, JSON acceptance, and a reusable idempotency key. The console shows
+  accepted execution separately from current namespace health. Accepted teams
+  remain when infrastructure provisioning fails and retries. This breaking
+  contract is part of [#873](https://github.com/tavric-labs/mcp-runtime/issues/873);
+  the cutover requires enabled journals and supported runtime workers.
 - **Operational:** the operator now sets `mcp.server.uid` in `OTEL_RESOURCE_ATTRIBUTES` on the
   server and gateway containers. This changes their pod specs, so every managed MCP server
   restarts once when the operator is updated; traces for a server are empty until its pod has

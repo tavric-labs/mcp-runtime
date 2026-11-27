@@ -763,6 +763,20 @@ spec:
                 name: mcp-platform-api
                 port:
                   number: 8080
+          - path: /api/v1/teams
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-platform-api
+                port:
+                  number: 8080
+          - path: /api/v1/operations
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-platform-api
+                port:
+                  number: 8080
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

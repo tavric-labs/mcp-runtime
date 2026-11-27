@@ -147,8 +147,22 @@ mcp-runtime team list
 use, provide the password through stdin with `--password-stdin`; password
 values are not accepted as command-line arguments.
 
-`team create` records the team in the platform store and asks the API to ensure
-the managed namespace, quota, limit range, default deny network policy, default
+`team create` accepts the team and its namespace operation in one platform
+transaction. The CLI waits up to five minutes for execution and a fresh Ready
+namespace observation. Use `--no-wait --json` to return the accepted team and
+operation immediately, or `--idempotency-key <key>` to recover the same acceptance
+after a lost response. A wait failure does not undo the accepted team; provisioning
+continues under the runtime's retry policy. The console shows execution state
+separately from current namespace health and its last verification time.
+
+The public API uses `POST /api/v1/teams` with an `Idempotency-Key` header and
+returns HTTP 202 with `team` and `operation`. `GET /api/v1/operations/{id}` is
+scoped to the accepting actor. Reusing that actor/action/key for different input
+returns 409. `DELETE /api/v1/teams/{slug}` also accepts cleanup with HTTP 202;
+it tombstones the team and memberships while retaining the namespace and data.
+A replayed delete cannot affect a new team that later reuses the slug.
+
+The runtime ensures the managed namespace, quota, limit range, default deny network policy, default
 service account, bundled Traefik watch RBAC, and bundled Traefik namespace
 watch entry. Platform API server writes into that namespace default
 `spec.teamID` from the authenticated principal's team. Grant/session writes

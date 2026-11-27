@@ -11,7 +11,7 @@ function setup(options: { role?: "admin" | "user"; teamRole?: "owner" | "member"
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes("/user/analytics/usage")) return { ok: true, status: 200, json: async () => ({ filters: { agent_id: "agt_01arz3ndektsv4rrffq69g5fav" }, totals: { events: 0, allowed: 0, denied: 0 }, recent: [], requests: [] }) } as unknown as Response;
-    if (url.endsWith("/runtime/teams")) {
+    if (url.endsWith("/teams")) {
       return { ok: true, status: 200, json: async () => ({ teams: [{ id: "team-acme", slug: "acme", name: "Acme", namespace: "mcp-team-acme", role: options.teamRole || "owner" }, ...(options.secondTeam ? [{ id: "team-beta", slug: "beta", name: "Beta", namespace: "mcp-team-beta", role: "owner" }] : [])] }) } as unknown as Response;
     }
     if (url.endsWith("/runtime/agents/agt_01arz3ndektsv4rrffq69g5fav") && (!init?.method || init.method === "GET")) {

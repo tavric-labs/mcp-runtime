@@ -56,6 +56,8 @@ var sessionProxyRuntimePrefixes = []string{
 // unchanged; there is no exchange for the service that issues the exchange.
 var sessionProxyPlatformPrefixes = []string{
 	"/user/api-keys",
+	"/teams",
+	"/operations",
 }
 
 var sessionProxyAnalyticsPrefixes = []string{
@@ -68,6 +70,8 @@ var sessionProxyAnalyticsPrefixes = []string{
 // admitted only for the listed methods and, when Segments is non-zero, the
 // exact number of path segments after Prefix.
 var sessionProxyWriteRoutes = []sessionProxyWriteRoute{
+	{Prefix: "/teams", Methods: []string{http.MethodPost}},
+	{Prefix: "/teams/", Methods: []string{http.MethodDelete}, Segments: 1},
 	{Prefix: "/user/api-keys", Methods: []string{http.MethodPost}},
 	{Prefix: "/user/api-keys/", Methods: []string{http.MethodDelete}, Segments: 1},
 	{Prefix: "/runtime/grants/", Methods: []string{http.MethodPatch, http.MethodDelete}, Segments: 2},
@@ -294,6 +298,11 @@ func (p *SessionProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			contentType = "application/json"
 		}
 		req.Header.Set("content-type", contentType)
+		if platformTarget && strings.HasPrefix(upstreamPath, "/api/v1/teams") {
+			for _, value := range r.Header.Values("Idempotency-Key") {
+				req.Header.Add("Idempotency-Key", value)
+			}
+		}
 	}
 	copySessionProxyOriginHeaders(req, r)
 	req.Header.Set("x-mcp-source", "ui")

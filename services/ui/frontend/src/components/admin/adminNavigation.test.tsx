@@ -14,7 +14,7 @@ const CATALOG: Record<string, unknown> = {
   "/runtime/tools": { tools: [] },
   "/runtime/grants": { grants: [] },
   "/runtime/sessions": { sessions: [] },
-  "/runtime/teams": { teams: [] },
+  "/teams": { teams: [] },
   "/runtime/components": { components: [] },
   "/admin/overview/directory": { teams: 0, users: 0, agents: 0, active_sessions: 0 },
   "/admin/overview/servers": { servers: 0, failures: [] },

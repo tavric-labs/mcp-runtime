@@ -86,7 +86,7 @@ func replayKeyHash(key string) string {
 // the lifetime of tx. Hash collisions can serialize unrelated requests but
 // cannot make one actor observe another actor's acceptance.
 func (w *Writer) LookupAcceptance(ctx context.Context, tx *sql.Tx, actorID, kind, key, requestHash string) (OperationAcceptance, bool, error) {
-	if !validOperationKey(actorID, 256) || !validOperationKey(key, 128) || kind != apikit.OperationTeamCreate {
+	if !validOperationKey(actorID, 256) || !validOperationKey(key, 128) || (kind != apikit.OperationTeamCreate && kind != apikit.OperationTeamDelete) {
 		return OperationAcceptance{}, false, fmt.Errorf("%w: actor, supported action, and replay key are required", ErrInvalidInput)
 	}
 	keyHash := replayKeyHash(key)

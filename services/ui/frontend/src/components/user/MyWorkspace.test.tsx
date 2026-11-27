@@ -17,7 +17,7 @@ function stub({ role = "member", activityStatus = 200, teamsStatus = 200 } = {})
     else if (url.includes("/workspace/access")) body = { grants: [], sessions: [] };
     else if (url.includes("/user/analytics/usage")) { status = activityStatus; body = { recent: [] }; }
     else if (url.includes("/teams/acme/agents")) body = { agents: [{ id: "agent", name: "Team agent", status: "active" }] };
-    else if (url.includes("/runtime/teams")) body = { teams: [{ id: "team", slug: "acme", name: "Acme", role, namespace: "mcp-team-acme" }], members: [] };
+    else if (url.includes("/teams")) body = { teams: [{ id: "team", slug: "acme", name: "Acme", role, namespace: "mcp-team-acme" }], members: [] };
     return { ok: status < 400, status, json: async () => body, text: async () => JSON.stringify(body) } as Response;
   })); return calls;
 }
@@ -48,7 +48,7 @@ describe("My workspace", () => {
     expect(await screen.findByText("Your role: member")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Platform overview" })).toHaveAttribute("href", "#/admin/overview");
     expect(calls.some(url => url.includes("/user/analytics"))).toBe(false);
-    expect(calls.some(url => url.endsWith("/runtime/teams"))).toBe(false);
+    expect(calls.some(url => url.endsWith("/api/ui/v1/teams"))).toBe(false);
   });
   it("denies a member's direct team-management deep link", async () => {
     const calls = stub();

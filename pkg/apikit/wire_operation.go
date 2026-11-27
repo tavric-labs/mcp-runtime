@@ -19,6 +19,7 @@ type Operation struct {
 
 const (
 	OperationTeamCreate = "team.create"
+	OperationTeamDelete = "team.delete"
 
 	OperationPending    = "Pending"
 	OperationRunning    = "Running"

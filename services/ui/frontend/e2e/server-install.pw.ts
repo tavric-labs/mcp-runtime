@@ -20,7 +20,7 @@ async function catalog(page: Page, options: { signedOut?: boolean; noConfig?: bo
       : path === "/runtime/servers" ? { servers: [item] }
       : path === "/runtime/servers/team-a/example" ? { server: item }
       : path === "/runtime/server-events" ? { events: [] }
-      : path === "/runtime/teams" ? { teams: [] }
+      : path === "/teams" ? { teams: [] }
       : { tools: [] };
     return route.fulfill({ json });
   });

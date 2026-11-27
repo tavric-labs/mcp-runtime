@@ -152,7 +152,7 @@ describe("ActivityWorkspace", () => {
     expect(
       calls.some((url) => url.startsWith("/api/ui/v1/user/analytics/usage?") && url.includes("window_days=7"))
     ).toBe(true);
-    expect(calls).toContain("/api/ui/v1/runtime/teams");
+    expect(calls).toContain("/api/ui/v1/teams");
   });
 
   it("refetches when the time range changes", async () => {

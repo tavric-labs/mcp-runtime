@@ -30,7 +30,7 @@ func TestListServersTeamFilter(t *testing.T) {
 			api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("content-type", "application/json")
 				switch r.URL.Path {
-				case "/api/v1/runtime/teams/acme":
+				case "/api/v1/teams/acme":
 					teamCalls++
 					w.WriteHeader(tc.teamStatus)
 					_, _ = w.Write([]byte(tc.teamBody))

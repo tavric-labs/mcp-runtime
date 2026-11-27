@@ -1,6 +1,7 @@
 package team
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/term"
 
 	"mcp-runtime/internal/cli/core"
+	"mcp-runtime/internal/cli/platformapi"
 )
 
 // teamUserPasswordPrompt is replaceable by tests and never echoes password input.
@@ -72,15 +74,33 @@ func NewWithManager(mgr *Manager) *cobra.Command {
 	}
 
 	var name string
+	var createOptions platformapi.MutationOptions
+	var createJSON bool
 	createCmd := &cobra.Command{
 		Use:   "create [slug]",
 		Short: "Create a team and managed namespace",
+		Long:  "Accept team creation and wait up to five minutes for execution and a fresh Ready namespace observation. Use --no-wait to return the accepted operation immediately. Accepted teams remain when provisioning retries or the wait ends.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return mgr.CreateTeam(args[0], name)
+			accepted, err := mgr.CreateTeam(cmd.Context(), args[0], name, createOptions)
+			if createJSON && accepted.Operation.ID != "" {
+				if outputErr := json.NewEncoder(cmd.OutOrStdout()).Encode(accepted); outputErr != nil {
+					return outputErr
+				}
+			} else if err == nil {
+				if createOptions.NoWait {
+					core.Success(fmt.Sprintf("Accepted team %s (operation: %s)", accepted.Team.Slug, accepted.Operation.ID))
+				} else {
+					core.Success(fmt.Sprintf("Created team %s (namespace: %s; operation: %s)", accepted.Team.Slug, accepted.Team.Namespace, accepted.Operation.ID))
+				}
+			}
+			return err
 		},
 	}
 	createCmd.Flags().StringVar(&name, "name", "", "Display name for the team (defaults to slug)")
+	createCmd.Flags().BoolVar(&createOptions.NoWait, "no-wait", false, "Return the accepted operation without waiting for namespace readiness")
+	createCmd.Flags().StringVar(&createOptions.IdempotencyKey, "idempotency-key", "", "Reuse this key to recover the same acceptance after a lost response")
+	createCmd.Flags().BoolVar(&createJSON, "json", false, "Print the accepted team and operation as JSON")
 
 	var userEmail string
 	var userUsername string

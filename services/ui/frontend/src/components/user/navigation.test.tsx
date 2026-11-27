@@ -50,7 +50,7 @@ function stubApp(status: Record<string, unknown>) {
       if (url === "/auth/status") body = status;
       else if (url.includes("/user/api-keys")) body = { keys: [] };
       else if (url.includes("/user/analytics/usage")) body = EMPTY_USAGE;
-      else if (url.includes("/runtime/teams")) body = { teams: [] };
+      else if (url.includes("/teams")) body = { teams: [] };
       else if (url.includes("/runtime/namespaces")) body = { namespaces: [] };
       else if (url.includes("/runtime/servers")) body = { servers: [] };
       else if (url.includes("/runtime/tools")) body = { tools: [] };

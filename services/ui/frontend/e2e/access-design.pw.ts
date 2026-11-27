@@ -13,7 +13,7 @@ async function fixture(page: Page, role = "admin", empty = false) {
     const session = { name: "build-session", namespace: "team-acme", serverRef: { name: "docs" }, subject: { humanID: "alice@example.test", agentID: "agt_build" }, consentedTrust: "low", revoked: false };
     const json = path === "/runtime/grants" ? { grants: empty ? [] : [grant, { ...grant, name: "expired", expiresAt: "2020-01-01T00:00:00Z" }, { ...grant, name: "disabled", disabled: true }] } :
       path === "/runtime/sessions" ? { sessions: empty ? [] : [session, { ...session, name: "expired-session", expiresAt: "2020-01-01T00:00:00Z" }] } :
-      path === "/runtime/teams" ? { teams: [{ id: "acme", slug: "acme", name: "Acme", namespace: "team-acme", role: "member" }] } :
+      path === "/teams" ? { teams: [{ id: "acme", slug: "acme", name: "Acme", namespace: "team-acme", role: "member" }] } :
       path === "/runtime/namespaces" ? { namespaces: [{ namespace: "team-acme" }] } :
       path === "/runtime/servers" ? { servers: [] } : path === "/runtime/tools" ? { tools: [] } : {};
     return route.fulfill({ json });

@@ -332,12 +332,12 @@ func TestPlatformClientTeamAndServerRoutes(t *testing.T) {
 				t.Fatalf("x-api-key = %q, want token-1", r.Header.Get("x-api-key"))
 			}
 			switch {
-			case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runtime/teams":
+			case r.Method == http.MethodGet && r.URL.Path == "/api/v1/teams":
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader(`{"teams":[{"slug":"core","name":"Core","namespace":"mcp-team-core"}]}`)),
 				}, nil
-			case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runtime/teams/core":
+			case r.Method == http.MethodGet && r.URL.Path == "/api/v1/teams/core":
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader(`{"team":{"slug":"core","name":"Core","namespace":"mcp-team-core"}}`)),
@@ -347,7 +347,7 @@ func TestPlatformClientTeamAndServerRoutes(t *testing.T) {
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(strings.NewReader(`{"members":[{"team_slug":"core","team_namespace":"mcp-team-core","user_id":"user-1","email":"member@example.com","role":"member"}]}`)),
 				}, nil
-			case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runtime/teams":
+			case r.Method == http.MethodPost && r.URL.Path == "/api/v1/teams":
 				body, _ := io.ReadAll(r.Body)
 				var payload map[string]string
 				_ = json.Unmarshal(body, &payload)
@@ -355,8 +355,8 @@ func TestPlatformClientTeamAndServerRoutes(t *testing.T) {
 					t.Fatalf("create team payload = %#v", payload)
 				}
 				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(strings.NewReader(`{"team":{"slug":"core","name":"Core Team","namespace":"mcp-team-core"}}`)),
+					StatusCode: http.StatusAccepted,
+					Body:       io.NopCloser(strings.NewReader(`{"team":{"id":"team-id","slug":"core","name":"Core Team","namespace":"mcp-team-core"},"operation":{"id":"operation-id","resource_id":"team-id","desired_revision_id":"revision-id","state":"Pending"}}`)),
 				}, nil
 			case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runtime/teams/core/users":
 				body, _ := io.ReadAll(r.Body)
@@ -432,7 +432,7 @@ func TestPlatformClientTeamAndServerRoutes(t *testing.T) {
 	if _, err := client.GetTeam(context.Background(), "core"); err != nil {
 		t.Fatalf("GetTeam() error = %v", err)
 	}
-	if _, err := client.CreateTeam(context.Background(), "core", "Core Team"); err != nil {
+	if _, err := client.AcceptTeamCreate(context.Background(), "core", "Core Team", MutationOptions{NoWait: true}); err != nil {
 		t.Fatalf("CreateTeam() error = %v", err)
 	}
 	members, err := client.ListTeamMembers(context.Background(), "core")
