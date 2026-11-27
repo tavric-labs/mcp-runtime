@@ -32,6 +32,11 @@ lookup, architecture check, or local tag operation. Fix the first reported
 failure before retrying. Before setup, QA imports the verified bootstrap
 registry image into each Kind node, so that registry can start without pulling
 its own image from the registry it is about to provide.
+Reused-cluster QA cleans only its named policy, OAuth, and example fixtures.
+It does not delete team namespaces or arbitrary Pending Pods. A namespace
+prefix or Pod phase does not prove test ownership. Investigate unrelated
+readiness findings without deleting user resources; use a separate disposable
+cluster when those resources prevent an isolated acceptance run.
 
 ### Host CPU and memory
 
