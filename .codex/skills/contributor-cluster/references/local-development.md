@@ -72,3 +72,8 @@ Clear `PLATFORM_ADMIN_PASSWORD` from steady-state API env after bootstrap.
 ```
 
 Governance traffic and grants: `.codex/skills/access-governance/SKILL.md`.
+
+QA E2E imports its verified bootstrap registry image into Kind before setup.
+Build, metadata stamp, node architecture, architecture check, and tag failures
+stop image preparation at the original error. Diagnose that error before
+rerunning; later publishing must not proceed with an unverified image.
