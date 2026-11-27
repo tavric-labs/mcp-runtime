@@ -6,8 +6,8 @@ Working log for turning `runtime-api` into an internal durable runtime. Not a pu
 
 The design lives in the [issue design comment](https://github.com/tavric-labs/mcp-runtime/issues/873#issuecomment-6465833216) (source audit: 2026-10-28 against commit `4fb845594f071212496aec4bd08c9d503612d6f9`; revision IDs and ownership accepted: 2026-10-29). This file is how a later session continues that design. Read it first. Update **Current phase**, the checkboxes, **Evidence**, and **Do not redo** before stopping.
 
-- **Current phase:** Durable intent journals, River workers, and independent observers for teams (`#980`), access (`#981`), and workloads/staging/restarts (`#982`) are merged on `main` behind disabled-by-default opt-in flags and verified live against PostgreSQL 17 and Kind `async-team-873` (2026-11-25); throwaway River spike (`#904`) removed.
-- **Next task:** Phase 2 — cut over public management routes onto `platform-api` (characterize any uncovered legacy team handlers first, move public handlers + OpenAPI/authz/CLI goldens, and switch Ingress routes), then Phase 6 (retire public management routes on `runtime-api` and rename `runtime-api` -> `runtime`).
+- **Current phase:** Backend journals/workers/observers from `#980`–`#982`, operator corrections `#983`, and spike cleanup `#985` are on `main`. The missing legacy team-handler characterization is now covered offline. Public cutover remains unfinished; `#984` contains startup hardening and a separate deadline fix.
+- **Next task:** Add durable operation acceptance/idempotency and supported worker wiring, then move directory handlers, contracts, and callers to `platform-api` using the accepted HTTP 202 contract below. Complete the remaining Phase 1 and Phases 3–5 acceptance gates before Phase 6 public-route retirement and rename.
 - **Stop rule:** a failed Kind gate or an open decision blocks the phase. Record the failure here and stop. Do not start the next phase.
 
 ## What changes, in one pass
@@ -99,11 +99,11 @@ Accepted until overridden in this section:
 - Jobs carry kind, resource id, incarnation, target cluster, requested revision ID, operation id, and trace correlation. They do not carry passwords, tokens, private keys, registry credentials, or archives.
 - Platform desired state uses opaque revision IDs with immutable contents and a transactional current pointer, as specified above. No numeric platform generation is required. Preserve Kubernetes version fields and separate execution fencing.
 - The operator is not folded into the runtime reconcile loop. Share only a small helper if a later phase shows a real one.
+- **Public cutover contract (owner accepted 2026-11-27):** asynchronous acceptance returns HTTP **202** with an operation response. CLI mutations wait by default and provide `--no-wait`. Retain accepted teams when provisioning fails and surface retryable provisioning status instead of deleting the accepted team. Operation completion records a bounded execution result; resource readiness remains an independent observation. This approves the public cutover behavior, not production deployment or a reference-platform reset.
 
 Still open. The phase that needs the answer does not start until the answer is written here:
 
-- **Phase 1/2 public cutover.** Keep the accepted team and surface provisioning failure with a retry, instead of deleting the team. The durable `team_intent` journal is merged behind `PLATFORM_TEAM_INTENT_JOURNAL=true` (`#980`), while the public `handleRuntimeTeamCreate` handler stays synchronous until explicit approval for Phase 2 cutover.
-- **HTTP and wait.** Per endpoint: keep 200, or use 201 with pending status, or 202 for an operation. What `--wait` and `--no-wait` wait for. Team create is 200 today, so this is an API decision needed for Phase 2 cutover.
+- **Readiness/wait details.** HTTP 202, operation responses, default CLI waiting, and `--no-wait` are accepted above. Define each command's readiness predicate and terminal-error behavior explicitly in its API/CLI contract tests; do not equate a completed job with a Ready resource.
 - **Phase 3 staging.** `pkg/registrystaging/` durable filesystem-backed staging store and publication intent journal/worker are merged behind `PLATFORM_WORKLOAD_INTENT_JOURNAL=true` (`#982`). Install-supported shared persistent volume vs object storage deployment policy, retention/capacity, and mutable-tag rule remain to be locked before public registry cutover. A per-Pod filesystem, `emptyDir`, or a path inside a Secret does not count as durable.
 - **Phase 5 grants.** Durable grant intent and observer semantics are merged (`#981`): synchronous `RevocationCommitted` stays separate from `ProjectionApplied` and `PropagationVerified`, and unknown/absent serving gateways report `NoServingGatewayReplicas` / `propagation_verified=false`. Live serving-gateway deny propagation during replica churn remains to be verified on Kind before cutover.
 - **Budgets.** Retry cap, jitter, max delay, observation freshness, and per-tenant queue limits. Tune from live Kind/staging measurements before enabling intent journals by default.
@@ -113,21 +113,21 @@ Still open. The phase that needs the answer does not start until the answer is w
 
 ### Phase 0 — Characterize
 
-- [ ] Partially covered (legacy public handlers are still live; existing tests cover `DeactivateAgent`, `ServerRetirement`, and `RegistryPush`, while `TeamCreate`/`TeamDelete` characterization remains before Phase 2 public cutover)
+- [x] Offline legacy behavior covered: team create/delete characterization added alongside the existing agent deactivation, retirement, and registry-push tests. Live migration gates remain separate.
 - No behavior change. Kind is not required.
 - Subagent A: team create rollback and team delete. Subagent B: agent deactivate, server retirement order, registry push local tar. Parent runs the tests.
 
 Lock these outcomes on the current code:
 
-- [ ] Namespace provisioning failure deletes the team and returns 500. If that delete also fails, the handler still returns 500 and both calls happened.
-- [ ] Team delete returns 204 after the platform delete even when Traefik watch removal fails. The namespace object is not deleted.
+- [x] Namespace provisioning failure attempts to delete the team and returns 500. If that delete also fails, the handler still returns 500 and both calls happened (`TestTeamCreateRollsBackIdentityAfterNamespaceProvisioningFailure`).
+- [x] Team delete returns 204 after the platform delete even when Traefik watch removal fails. The namespace object is not deleted (`TestTeamDeleteKeepsNamespaceAndReturnsNoContentWhenWatchCleanupFails`).
 - [x] Deactivate revokes only sessions for that agent and team, writes one audit per revoked session, and does not un-revoke on reactivate (`agents_test.go` `TestDeactivateAgentRevokesOnlyMatchingSessionsAndAuditsEach`).
 - [x] Retirement order stays: retiring marker, session and grant fence, owned credential cleanup, UID-conditional custom-resource delete. A shared pull secret is kept (`server_retirement_test.go`).
 - [x] Registry push stages a local tar path and removes it when the handler returns. The test must not require a live cluster (`registry_push_admission_test.go`, `registry_push_test.go`).
 
 Gate command, from the repo root, after `export KUBECONFIG=$(mktemp)`:
 
-`go test -count=1 ./services/runtime-api/internal/runtimeapi/ -run 'TeamCreate|TeamDelete|DeactivateAgent|Retirement|RegistryPush'`
+`hack/ci/go-test.sh services/runtime-api -count=1 -race ./internal/runtimeapi -run 'TeamCreate|TeamDelete|DeactivateAgent|Retirement|RegistryPush'`
 
 Also run any new platform-store test the agent-deactivate characterization needs. Record the exact test names in **Evidence**.
 
@@ -138,7 +138,7 @@ Also run any new platform-store test the agent-deactivate characterization needs
 
 Completed work (`#980`):
 
-- Extended team transactions (`services/platform-api/internal/teamintent/`, `platformstore/team_intent.go`, `platforminternal/team_intents.go`) so team intent, desired revision, operation row, and River job (`team_intent_queue`) commit atomically or roll back together.
+- Extended team transactions (`services/platform-api/internal/teamintent/`, `platformstore/team_intent.go`, `platforminternal/team_intents.go`) so team intent, its current desired revision, and the River job (`team_intent_queue`) commit atomically or roll back together. A public operation record and request-idempotency contract are still needed; the existing queue row is not that operation API.
 - Worker (`services/runtime-api/internal/teamintentworker/`) enforces execution fencing, incarnation isolation, and ownership-checked namespace provisioning (`k8sprovision/namespace.go`).
 - Independent observer (`services/runtime-api/internal/teamintentobserver/`) observes cluster namespace state and reports freshness/readiness via fenced internal APIs.
 
@@ -201,9 +201,27 @@ PostgreSQL 17 + Kind gate (`async-team-873`, 2026-11-25):
 - Changelog entry under `Unreleased`, plus the fresh-setup note if the release is a breaking `0.x` minor. This work does not authorize a reset of the hosted reference platform.
 - Gate: fresh Kind install, login, team, server, grant, session, one allowed call, one denied call. Record the kubeconfig path and the commands here.
 
+## Remaining PR slices — source audit 2026-11-27
+
+Baseline: `main` at `67a88cfa`; open startup PR `#984` (rebased by merging current `main`). Existing unit/fake-client tests do not count as the unchecked live fault gates.
+
+| Slice | Existing evidence | Remaining implementation / gate |
+|---|---|---|
+| Legacy handler characterization | Team create rollback and best-effort delete now have public-handler tests; existing agent/retirement/registry tests remain | Preserve these contracts in pure-move commits; make the accepted async behavior change separately |
+| Operation acceptance and request replay | `teamintent/writer.go` writes a current desired row and River job; workload/access writers also persist current intent | Atomic public operation records, immutable accepted contents, actor-scoped idempotent replay/conflict handling, authorized operation inspection, and CLI wait/no-wait contracts |
+| Drift repair and retry administration | Team observer detects drift; worker replay and retry-policy tests exist | Supported same-revision repair scheduling and terminal retry inspection, without continuously resetting retry budgets; crash-after-write and completed-job repair acceptance |
+| Supported worker deployment | Workers and observers are opt-in in `services/runtime-api/main.go` | Setup/update wiring, dedicated queue-only database privileges and Secret references, bounded database egress, and readiness; do not reuse the platform domain database credential for runtime workers |
+| Public directory ownership | `platform-api/routes.go` still lacks team/agent public routes; runtime handlers still provision inline | Platform-owned authorized team/membership/agent/namespace APIs, OpenAPI and consumer contracts, scoped UI/CLI changes, and Ingress cutover with the accepted 202 contract |
+| Durable publication | `pkg/registrystaging` and publication writer/worker exist | Install-supported shared storage, retention/capacity and mutable-tag decisions, public upload/finalize route cutover, and uploader/API/helper crash-resume acceptance |
+| Workload lifecycle | Server/deployment/restart writer and fake-client worker tests exist | Public handoff and status reads, destination-side stale-writer/UID protection and repair evidence, health-only degradation after apply, and real retirement/restart recovery gates |
+| Access and enrollment | Grant journaling, receipt fencing, observer and CSR replay unit tests exist | Public authority/handoff cutover and live allow/deny/churn acceptance. The real access worker starts without a `CSRProvider`, so first CSR submission still needs a durable validated-CSR handoff and certificate delivery; a deterministic CR name alone does not complete enrollment |
+| Operations and recovery | Request/trace correlation is carried by job args and receipts | Queue age/depth/retry/failure instrumentation, actionable terminal operation state, measured budgets, and restore/epoch-fencing rehearsal |
+| Internalization and rename | Public runtime routes and `mcp-runtime-api` module/image/Deployment remain | Remove management callers/routes after the cutovers; preserve bounded live read/stream paths; rename module/image/wiring/RBAC/docs together and rehearse installation/recovery |
+
 ## Evidence
 
 - 2026-10-29: documentation-only amendment accepts platform revision IDs and explains the three ownership layers. Updated the design comment and this checkpoint; source audit baseline unchanged. No implementation, unit tests, River version, Kind acceptance or production changes for this migration.
+- 2026-11-27: current `main` and open PRs re-audited at `67a88cfa`; owner accepted HTTP 202 operation responses with default CLI waiting and `--no-wait`. `TestTeamCreateRollsBackIdentityAfterNamespaceProvisioningFailure` (including cleanup failure) and `TestTeamDeleteKeepsNamespaceAndReturnsNoContentWhenWatchCleanupFails` passed with `-race`, fake Kubernetes, and isolated kubeconfig. No public behavior or deployment changed in this characterization slice. The later local full-platform build attempt stopped before setup on a base-image content fetch error; it is not new live acceptance evidence.
 - Verification: issue description and design comment read back exactly match the reviewed drafts. Stale platform-generation terminology, JSON revision examples, preserved source links, Markdown fences and whitespace checks passed. Kubernetes generation/resourceVersion and condition-level observedGeneration remain distinct from platform revision identity and worker fencing.
 - 2026-11-25 (merged PRs on `main`):
   - `#904` (`3eb6184b`): throwaway River team-provisioning spike (prototype + fault-injection evidence); superseded and removed after real product verification.
