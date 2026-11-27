@@ -124,10 +124,8 @@ func deployRegistryClientGo(logger *zap.Logger, namespace string, port int, regi
 	if logger != nil {
 		logger.Info("Waiting for registry to be ready")
 	}
-	if err := k8sclient.WaitForDeploymentAvailable(context.Background(), clients, namespace, "registry", 5*time.Minute); err != nil {
-		if logger != nil {
-			logger.Warn("Registry deployment may still be in progress", zap.Error(err))
-		}
+	if err := k8sclient.WaitForDeploymentRolledOut(context.Background(), clients, namespace, "registry", 5*time.Minute); err != nil {
+		return fmt.Errorf("registry rollout must complete before publishing images: %w", err)
 	}
 	if logger != nil {
 		logger.Info("Registry deployed successfully")
