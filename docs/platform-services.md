@@ -749,6 +749,20 @@ membership. Soft deletion records a new revision and job in the same
 transaction as the tombstones. Each job includes the team and revision IDs,
 plus the request ID and W3C trace context when available.
 
+The journal also supports durable team-create acceptance operations for the
+HTTP 202 cutover tracked in #873. An authenticated actor's replay key identifies
+one normalized request: retries return the same team, operation, and revision;
+reusing the key for different input is a conflict. The accepted team contents
+remain available after later intent changes. Operation, revision, and River job
+IDs are distinct, and all acceptance records commit with the team and queue job
+or roll back together. Only a hash of the replay key is stored.
+
+Worker fencing and receipts advance operation execution state. A successful
+operation means that the bounded projection step was applied; namespace health
+still comes from the independent observer. Raw backend diagnostics and replay
+keys are excluded from operation responses. This is the acceptance foundation;
+public team routes remain synchronous until their separate route cutover.
+
 The Runtime API continues synchronous namespace provisioning and Traefik
 cleanup by default. In isolated development or disposable clusters, opt-in
 background components on `mcp-runtime-api` can exercise durable reconciliation

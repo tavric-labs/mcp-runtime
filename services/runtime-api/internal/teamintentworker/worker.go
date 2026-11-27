@@ -35,6 +35,7 @@ const (
 type ReconcileJobArgs struct {
 	TeamID      string `json:"teamId"`
 	RevisionID  string `json:"revisionId"`
+	OperationID string `json:"operationId,omitempty"`
 	RequestID   string `json:"requestId,omitempty"`
 	Traceparent string `json:"traceparent,omitempty"`
 	Tracestate  string `json:"tracestate,omitempty"`
@@ -336,6 +337,9 @@ func startLinkedWorkerSpan(ctx context.Context, job *river.Job[ReconcileJobArgs]
 			attribute.Int("river.attempt", job.Attempt),
 			attribute.String("request.id", job.Args.RequestID),
 		),
+	}
+	if operationID := strings.TrimSpace(job.Args.OperationID); operationID != "" {
+		opts = append(opts, trace.WithAttributes(attribute.String("operation.id", operationID)))
 	}
 	if tp := strings.TrimSpace(job.Args.Traceparent); tp != "" {
 		carrier := propagation.MapCarrier{"traceparent": tp}
