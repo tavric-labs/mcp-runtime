@@ -77,3 +77,7 @@ QA E2E imports its verified bootstrap registry image into Kind before setup.
 Build, metadata stamp, node architecture, architecture check, and tag failures
 stop image preparation at the original error. Diagnose that error before
 rerunning; later publishing must not proceed with an unverified image.
+On reused clusters, QA preserves team namespaces and unrelated Pending Pods.
+Only the script's named policy/OAuth/example fixtures are cleanup targets.
+Do not infer fixture ownership from `mcp-team-*` or Pod phase. Investigate
+unrelated readiness failures or select a separate disposable cluster.

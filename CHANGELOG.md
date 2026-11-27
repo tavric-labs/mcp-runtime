@@ -61,6 +61,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   image into Kind before setup. This prevents misleading later push failures
   and registry image-pull errors during local verification
   ([#986](https://github.com/tavric-labs/mcp-runtime/issues/986)).
+- Reused Kind QA no longer deletes every `mcp-team-*` namespace or arbitrary
+  Pending Pods while preparing diagnostics. Cleanup stays limited to its named
+  fixtures, preserving unrelated teams and their data
+  ([#994](https://github.com/tavric-labs/mcp-runtime/issues/994)).
 - Operator reconciliation now records the reconciled `MCPServer` generation in condition
   `observedGeneration` instead of a concurrently bumped generation, fences bundled `mcp-auth`
   Deployment patches with optimistic locking so concurrent container edits fail with a conflict

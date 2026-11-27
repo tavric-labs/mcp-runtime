@@ -4232,16 +4232,9 @@ if cache_mode_enabled; then
   kubectl delete pod -n mcp-servers-org -l "app=${PYTHON_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
   kubectl delete pod -n mcp-servers-org -l "app=${RUST_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
   kubectl delete pod -n mcp-servers-org -l "app=${GO_EXAMPLE_SERVER_NAME}" --ignore-not-found --wait=false >/dev/null
-  stale_team_namespaces=()
-  while IFS= read -r ns; do
-    stale_team_namespaces+=("${ns#namespace/}")
-  done < <(kubectl get namespace -o name 2>/dev/null | grep '^namespace/mcp-team-' || true)
-  if [[ "${#stale_team_namespaces[@]}" -gt 0 ]]; then
-    echo "[cache] deleting stale team namespaces before cluster doctor"
-    kubectl delete namespace "${stale_team_namespaces[@]}" --ignore-not-found --wait=false >/dev/null
-  fi
-  echo "[cache] deleting stale pending mcp-servers-org pods before cluster doctor"
-  kubectl delete pod -n mcp-servers-org --field-selector=status.phase=Pending --ignore-not-found --wait=false >/dev/null
+  # Namespace prefixes and Pending status do not establish fixture ownership.
+  # Preserve unrelated teams, namespace data, and workloads on reused clusters.
+  # The named policy/OAuth/example fixtures above are the cleanup scope.
   echo "[cache] refreshing operator e2e environment before cluster doctor"
   kubectl set env deploy/mcp-runtime-operator-controller-manager -n mcp-runtime \
     "MCP_INGRESS_READINESS_MODE=${MCP_INGRESS_READINESS_MODE}" \
