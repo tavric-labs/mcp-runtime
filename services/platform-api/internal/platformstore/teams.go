@@ -179,14 +179,8 @@ func (s *Store) DeleteTeamBySlug(ctx context.Context, slug string) error {
 		}
 	}()
 
-	if _, err = tx.ExecContext(ctx, `UPDATE team_memberships SET deleted_at = now() WHERE team_id = $1 AND deleted_at IS NULL`, team.ID); err != nil {
-		return err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE namespaces SET deleted_at = now() WHERE team_id = $1 AND deleted_at IS NULL`, team.ID); err != nil {
-		return err
-	}
 	var deleted sql.Result
-	if deleted, err = tx.ExecContext(ctx, `UPDATE teams SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, team.ID); err != nil {
+	if deleted, err = deleteTeamRows(ctx, tx, team.ID); err != nil {
 		return err
 	}
 	if s.teamIntents != nil {
@@ -205,6 +199,16 @@ func (s *Store) DeleteTeamBySlug(ctx context.Context, slug string) error {
 		return err
 	}
 	return nil
+}
+
+func deleteTeamRows(ctx context.Context, tx *sql.Tx, teamID string) (sql.Result, error) {
+	if _, err := tx.ExecContext(ctx, `UPDATE team_memberships SET deleted_at = now() WHERE team_id = $1 AND deleted_at IS NULL`, teamID); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE namespaces SET deleted_at = now() WHERE team_id = $1 AND deleted_at IS NULL`, teamID); err != nil {
+		return nil, err
+	}
+	return tx.ExecContext(ctx, `UPDATE teams SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, teamID)
 }
 
 // ListTeams returns all non-deleted platform teams.
