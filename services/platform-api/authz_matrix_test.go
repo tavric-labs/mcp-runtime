@@ -87,6 +87,9 @@ func TestAuthzMatrixCoversRegisteredRoutes(t *testing.T) {
 	rows = authzmatrix.Filter(rows, "platform-api")
 
 	required := []string{
+		"/api/v1/teams",
+		"/api/v1/teams/",
+		"/api/v1/operations/",
 		"/health",
 		"/api/v1/registry/authz",
 		"/api/v1/auth/login",

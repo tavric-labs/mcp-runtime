@@ -47,22 +47,17 @@ func (m *Manager) ListTeams() error {
 	return nil
 }
 
-func (m *Manager) CreateTeam(slug, name string) error {
+func (m *Manager) CreateTeam(ctx context.Context, slug, name string, options platformapi.MutationOptions) (platformapi.TeamAcceptance, error) {
 	client, err := platformapi.NewPlatformClient()
 	if err != nil {
-		return err
+		return platformapi.TeamAcceptance{}, err
 	}
 	slug = strings.TrimSpace(slug)
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = slug
 	}
-	team, err := client.CreateTeam(context.Background(), slug, name)
-	if err != nil {
-		return err
-	}
-	core.Success(fmt.Sprintf("Created team %s (namespace: %s)", team.Slug, team.Namespace))
-	return nil
+	return client.AcceptTeamCreate(ctx, slug, name, options)
 }
 
 func (m *Manager) ListTeamUsers(slug string) error {

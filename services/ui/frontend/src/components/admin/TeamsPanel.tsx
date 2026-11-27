@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { AsyncSection } from "./AsyncSection";
 import { TeamAgentsPanel } from "./TeamAgentsPanel";
+import { TeamNamespaceStatus } from "./TeamNamespaceStatus";
 import { StatusBadge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../ui/ConfirmDialog";
 import { CopyButton } from "../../ui/CopyButton";
+import { OperationStatus } from "../../ui/OperationStatus";
 import { DataTable, buildColumns } from "../../ui/DataTable";
 import { SelectField, TextField } from "../../ui/Field";
 import { Icon } from "../../ui/Icon";
@@ -16,7 +18,7 @@ import { EmptyState, ErrorState, LoadingState } from "../../ui/States";
 import { useAdminReload, useTeamMembers, useTeams } from "../../hooks/useAdminData";
 import { createTeam, createTeamUser, removeTeamMember, setTeamMemberRole } from "../../api/admin";
 import { APIRequestError } from "../../api/client";
-import type { TeamMembership, TeamRecord } from "../../api/types";
+import type { TeamMembership, TeamRecord, Operation } from "../../api/types";
 
 type TeamsPanelProps = { onSignIn: () => void; managedTeams?: TeamRecord[]; initialTeam?: string };
 
@@ -34,7 +36,8 @@ export function TeamsPanel({ onSignIn, managedTeams, initialTeam }: TeamsPanelPr
   const [userConflict, setUserConflict] = useState(false);
   const [notice, setNotice] = useState("");
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
-  const [teamForm, setTeamForm] = useState<{ slug: string; name: string } | null>(null);
+  const [teamForm, setTeamForm] = useState<{ slug: string; name: string; idempotencyKey: string } | null>(null);
+  const [operation, setOperation] = useState<Operation | null>(null);
   const [userForm, setUserForm] = useState<{ email: string; password: string; role: string; existing?: boolean; userID?: string } | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -95,8 +98,9 @@ export function TeamsPanel({ onSignIn, managedTeams, initialTeam }: TeamsPanelPr
       return;
     }
     const slug = teamForm.slug.trim();
-    void runAction("create-team", `Team "${teamForm.name.trim()}" created.`, async () => {
-      await createTeam(slug, teamForm.name.trim());
+    void runAction("create-team", `Team "${teamForm.name.trim()}" accepted.`, async () => {
+      const accepted = await createTeam(slug, teamForm.name.trim(), teamForm.idempotencyKey);
+      setOperation(accepted.operation);
       setTeamForm(null);
       setSelectedSlug(slug);
     });
@@ -301,7 +305,7 @@ export function TeamsPanel({ onSignIn, managedTeams, initialTeam }: TeamsPanelPr
               data-testid="team-create-toggle"
               onClick={() => {
                 setFormErrors({});
-                setTeamForm((current) => (current ? null : { slug: "", name: "" }));
+                setTeamForm((current) => (current ? null : { slug: "", name: "", idempotencyKey: crypto.randomUUID() }));
               }}
             >
               New team
@@ -316,6 +320,7 @@ export function TeamsPanel({ onSignIn, managedTeams, initialTeam }: TeamsPanelPr
           <span className="notice-body">{notice}</span>
         </p>
       ) : null}
+      {operation ? <OperationStatus operation={operation} /> : null}
       {error && !userForm ? (
         <p className="notice notice-danger" role="alert" data-testid="teams-action-error">
           <Icon name="alert" />
@@ -394,6 +399,7 @@ export function TeamsPanel({ onSignIn, managedTeams, initialTeam }: TeamsPanelPr
           <div><dt>Namespace</dt><dd>{selectedTeam.namespace || "Not recorded"}</dd></div>
           <div><dt>Created</dt><dd>{selectedTeam.created_at ? formatTimestamp(selectedTeam.created_at) : "Not recorded"}</dd></div>
         </dl>
+        <TeamNamespaceStatus team={selectedTeam} />
         <MetricGrid label="Selected team membership" metrics={[
           { label: "Members", value: membersQuery.isSuccess ? members.length : undefined, hint: "Includes owners" },
           { label: "Owners", value: membersQuery.isSuccess ? members.filter(member => member.role === "owner").length : undefined },

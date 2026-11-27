@@ -725,6 +725,10 @@ MCP_PLATFORM_API_PROFILE=admin mcp-runtime team list
 
 MCP_PLATFORM_API_PROFILE=admin mcp-runtime team create acme --name "Acme Corp"
 
+# Return durable acceptance immediately, or reuse a key after a lost response.
+MCP_PLATFORM_API_PROFILE=admin mcp-runtime team create acme-async --name "Acme Async" \
+  --no-wait --json --idempotency-key acme-async-create-request
+
 MCP_PLATFORM_API_PROFILE=admin mcp-runtime team user create acme \
   --email alice@acme.com --role owner
 

@@ -441,7 +441,7 @@ it("keeps failed grant totals unavailable while session totals remain visible", 
 });
 
 it("shows owner row actions after team permissions load", async () => {
-  stubAccessApi({ "/runtime/teams": { body: { teams: [{ id: "acme", slug: "acme", namespace: "mcp-team-acme", role: "owner" }] } } });
+  stubAccessApi({ "/teams": { body: { teams: [{ id: "acme", slug: "acme", namespace: "mcp-team-acme", role: "owner" }] } } });
   renderAccess(TENANT);
   await screen.findByTestId("grants-table");
   expect(await screen.findByLabelText("Actions for grant acme-readonly")).toBeInTheDocument();

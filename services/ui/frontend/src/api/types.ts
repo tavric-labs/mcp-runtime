@@ -371,6 +371,20 @@ export type TeamRecord = {
   role?: "owner" | "member";
 };
 
+export type Operation = {
+  id: string;
+  kind: string;
+  resource_id: string;
+  desired_revision_id: string;
+  state: "Pending" | "Running" | "Succeeded" | "Failed" | "Superseded";
+  error_class?: string;
+  request_id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type TeamAcceptance = { team: TeamRecord; operation: Operation };
+
 export type AgentDetail = {
   agent: AgentRecord;
   grants: GrantSummary[];

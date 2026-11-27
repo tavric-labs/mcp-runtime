@@ -3,6 +3,92 @@ info:
   title: MCP Runtime Platform API
   version: 1.0.0
 paths:
+  /api/v1/teams:
+    x-audience: platform
+    get:
+      summary: List the caller's teams, or all teams for an administrator
+      security: [{UserAPIKey: []}, {PlatformBearer: []}]
+      responses:
+        "200": {description: Visible teams, content: {application/json: {schema: {type: object, required: [teams], properties: {teams: {type: array, items: {$ref: "#/components/schemas/DirectoryTeam"}}}}}}}
+        "401": {$ref: "#/components/responses/DirectoryUnauthorized"}
+        "503": {$ref: "#/components/responses/DirectoryUnavailable"}
+    post:
+      summary: Accept team creation and namespace reconciliation
+      description: Administrator only. Team, owner membership, desired namespace revision, operation and River job commit atomically. Accepted teams remain while infrastructure reconciliation retries. Reusing the same actor/action/key with changed normalized input is a conflict. No Kubernetes call occurs during acceptance.
+      security: [{UserAPIKey: []}, {PlatformBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [slug]
+              properties:
+                slug: {type: string}
+                name: {type: string}
+      responses:
+        "202": {$ref: "#/components/responses/TeamAccepted"}
+        "400": {description: Invalid input or replay key}
+        "401": {$ref: "#/components/responses/DirectoryUnauthorized"}
+        "403": {description: Administrator and stable authenticated actor required}
+        "409": {description: Team already exists or replay key input conflicts}
+        "500": {description: Acceptance failed and rolled back}
+        "503": {$ref: "#/components/responses/DirectoryUnavailable"}
+  /api/v1/teams/{slug}:
+    x-audience: platform
+    parameters:
+      - {name: slug, in: path, required: true, schema: {type: string}}
+    get:
+      summary: Read an authorized team and its independently observed namespace status
+      description: Team members and administrators only. Ready requires the current desired, applied and observed revision and namespace UID to match. Observations older than ninety seconds report Unknown. Operation completion does not imply current health.
+      security: [{UserAPIKey: []}, {PlatformBearer: []}]
+      responses:
+        "200":
+          description: Team and current status; status is null when no intent is recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [team, status]
+                properties:
+                  team: {$ref: "#/components/schemas/DirectoryTeam"}
+                  status: {oneOf: [{$ref: "#/components/schemas/ResourceStatus"}, {type: "null"}]}
+        "401": {$ref: "#/components/responses/DirectoryUnauthorized"}
+        "403": {description: Team membership required}
+        "404": {description: Team not found}
+        "503": {$ref: "#/components/responses/DirectoryUnavailable"}
+    delete:
+      summary: Accept team deletion and infrastructure watch cleanup
+      description: Administrator only. Tombstones directory rows and records cleanup in one transaction. Namespace and user data remain. Replaying an accepted delete returns its original operation even after another team reuses the slug; it never deletes the replacement team.
+      security: [{UserAPIKey: []}, {PlatformBearer: []}]
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "202": {$ref: "#/components/responses/TeamAccepted"}
+        "400": {description: Invalid slug or replay key}
+        "401": {$ref: "#/components/responses/DirectoryUnauthorized"}
+        "403": {description: Administrator required}
+        "404": {description: Team not found}
+        "409": {description: Replay key input conflict}
+        "500": {description: Acceptance failed and rolled back}
+        "503": {$ref: "#/components/responses/DirectoryUnavailable"}
+  /api/v1/operations/{id}:
+    x-audience: platform
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    get:
+      summary: Read the authenticated actor's accepted operation
+      description: Returns the immutable accepted resource and bounded execution state. A different actor receives 404, including another administrator. Succeeded is separate from current resource health; Failed and Superseded are terminal for this acceptance.
+      security: [{UserAPIKey: []}, {PlatformBearer: []}]
+      responses:
+        "200": {description: Accepted operation and original team representation, content: {application/json: {schema: {$ref: "#/components/schemas/TeamAcceptance"}}}}
+        "401": {$ref: "#/components/responses/DirectoryUnauthorized"}
+        "403": {description: Stable authenticated actor required}
+        "404": {description: Operation not found in actor scope}
+        "503": {$ref: "#/components/responses/DirectoryUnavailable"}
   /api/v1/credentials/{namespace}/{kind}:
     x-audience: platform
     parameters:
@@ -2281,6 +2367,26 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
       security: [{"GatewayToken": []}]
 components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 128, pattern: '^[!-~]+$'}
+      description: Opaque replay key scoped to authenticated actor and action. Reuse the same key after a lost response; different input conflicts.
+  responses:
+    DirectoryUnauthorized:
+      description: Authentication required
+      content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}
+    DirectoryUnavailable:
+      description: Durable directory is not configured or unavailable
+      content: {application/json: {schema: {$ref: "#/components/schemas/ErrorEnvelope"}}}
+    TeamAccepted:
+      description: Durable acceptance; reconciliation can continue after the response
+      headers:
+        Location: {schema: {type: string}, description: Actor-scoped operation URL}
+        Retry-After: {schema: {type: string}, description: Suggested polling interval in seconds}
+      content: {application/json: {schema: {$ref: "#/components/schemas/TeamAcceptance"}}}
   securitySchemes:
     PlatformBearer: {type: http, scheme: bearer, description: Current platform-audience human access token}
     UserAPIKey: {type: apiKey, in: header, name: X-Api-Key}
@@ -2288,6 +2394,49 @@ components:
     ControlPlaneToken: {type: http, scheme: bearer, description: Shared internal token for trusted control-plane services}
     GatewayToken: {type: http, scheme: bearer, description: Pod-bound projected service-account token with mcp-runtime-gateway audience}
   schemas:
+    DirectoryTeam:
+      type: object
+      required: [id, slug, name, namespace]
+      properties:
+        id: {type: string}
+        slug: {type: string}
+        name: {type: string}
+        namespace: {type: string}
+        created_at: {type: string, format: date-time}
+        role: {type: string}
+    Operation:
+      type: object
+      additionalProperties: false
+      required: [id, kind, resource_id, namespace, desired_revision_id, state, created_at, updated_at]
+      properties:
+        id: {type: string}
+        kind: {type: string, enum: [team.create, team.delete]}
+        resource_id: {type: string}
+        namespace: {type: string}
+        desired_revision_id: {type: string}
+        state: {type: string, enum: [Pending, Running, Succeeded, Failed, Superseded]}
+        error_class: {type: string, enum: [transient, ownership_conflict, invalid_config, exhausted]}
+        request_id: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    TeamAcceptance:
+      type: object
+      additionalProperties: false
+      required: [team, operation]
+      properties:
+        team: {$ref: "#/components/schemas/DirectoryTeam"}
+        operation: {$ref: "#/components/schemas/Operation"}
+    ResourceStatus:
+      type: object
+      additionalProperties: false
+      required: [health, reason]
+      properties:
+        desired_revision_id: {type: string}
+        applied_revision_id: {type: string}
+        observed_revision_id: {type: string}
+        health: {type: string, enum: [Pending, Progressing, Ready, Degraded, Deleted, Unknown]}
+        reason: {type: string}
+        last_verified_at: {type: string, format: date-time}
     CredentialSource:
       type: object
       additionalProperties: false

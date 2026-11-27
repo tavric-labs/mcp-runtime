@@ -1130,7 +1130,7 @@ func TestDeployServerWaitsForReadyStatus(t *testing.T) {
 	apiCalls := 0
 	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runtime/teams/core":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/teams/core":
 			w.Header().Set("content-type", "application/json")
 			_, _ = w.Write([]byte(`{"team":{"slug":"core","name":"Core","namespace":"mcp-team-core"}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runtime/servers":
@@ -1345,7 +1345,7 @@ func TestDeployServerFailsWhenServerDoesNotBecomeReady(t *testing.T) {
 	t.Setenv("MCP_RUNTIME_CONFIG_DIR", t.TempDir())
 	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runtime/teams/core":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/teams/core":
 			w.Header().Set("content-type", "application/json")
 			_, _ = w.Write([]byte(`{"team":{"slug":"core","name":"Core","namespace":"mcp-team-core"}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runtime/servers":

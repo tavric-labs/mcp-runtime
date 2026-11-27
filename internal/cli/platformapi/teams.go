@@ -66,7 +66,7 @@ type namespacesResponse struct {
 }
 
 func (c *PlatformClient) ListTeams(ctx context.Context) ([]Team, error) {
-	resp, err := c.do(ctx, http.MethodGet, "/runtime/teams", "", nil)
+	resp, err := c.do(ctx, http.MethodGet, "/teams", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -86,36 +86,8 @@ func (c *PlatformClient) ListTeams(ctx context.Context) ([]Team, error) {
 }
 
 func (c *PlatformClient) GetTeam(ctx context.Context, slug string) (Team, error) {
-	rel := "/runtime/teams/" + url.PathEscape(strings.TrimSpace(slug))
+	rel := "/teams/" + url.PathEscape(strings.TrimSpace(slug))
 	resp, err := c.do(ctx, http.MethodGet, rel, "", nil)
-	if err != nil {
-		return Team{}, err
-	}
-	defer resp.Body.Close()
-	b, err := readBody(resp.Body)
-	if err != nil {
-		return Team{}, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return Team{}, httpAPIError(resp.StatusCode, b)
-	}
-	var out teamResponse
-	if err := json.Unmarshal(b, &out); err != nil {
-		return Team{}, err
-	}
-	return out.Team, nil
-}
-
-func (c *PlatformClient) CreateTeam(ctx context.Context, slug, name string) (Team, error) {
-	payload := map[string]string{
-		"slug": strings.TrimSpace(slug),
-		"name": strings.TrimSpace(name),
-	}
-	js, err := json.Marshal(payload)
-	if err != nil {
-		return Team{}, err
-	}
-	resp, err := c.do(ctx, http.MethodPost, "/runtime/teams", "", bytes.NewReader(js))
 	if err != nil {
 		return Team{}, err
 	}

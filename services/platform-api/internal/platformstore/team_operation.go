@@ -3,6 +3,7 @@ package platformstore
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -21,6 +22,76 @@ type TeamCreateAcceptanceRequest struct {
 	CreatedByUserID string
 	ActorID         string
 	IdempotencyKey  string
+}
+
+// TeamDeleteAcceptanceRequest scopes deletion retries to their original actor
+// and acceptance, even if the slug is later reused by another team incarnation.
+type TeamDeleteAcceptanceRequest struct {
+	Slug           string
+	ActorID        string
+	IdempotencyKey string
+}
+
+// AcceptTeamDelete atomically tombstones the directory rows and queues watch
+// cleanup. The namespace and its data are retained by the runtime reconciler.
+func (s *Store) AcceptTeamDelete(ctx context.Context, request TeamDeleteAcceptanceRequest) (TeamOperationAcceptance, error) {
+	if s == nil || s.teamIntents == nil {
+		return TeamOperationAcceptance{}, teamintent.ErrDisabled
+	}
+	slug := NormalizeTeamSlug(request.Slug)
+	if err := ValidateTeamSlug(slug); err != nil {
+		return TeamOperationAcceptance{}, err
+	}
+	digest := sha256.Sum256([]byte(slug))
+	requestHash := hex.EncodeToString(digest[:])
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return TeamOperationAcceptance{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	existing, found, err := s.teamIntents.LookupAcceptance(ctx, tx, request.ActorID, apikit.OperationTeamDelete, request.IdempotencyKey, requestHash)
+	if err != nil {
+		return TeamOperationAcceptance{}, err
+	}
+	if found {
+		return TeamOperationAcceptance{Team: Team(existing.Team), Operation: existing.Operation, Replayed: true}, nil
+	}
+	var team Team
+	if err := tx.QueryRowContext(ctx, `
+SELECT t.id, t.slug, t.display_name, COALESCE(n.namespace, ''), t.created_at
+FROM teams t LEFT JOIN namespaces n ON n.team_id=t.id AND n.deleted_at IS NULL AND COALESCE(n.scope,'team')='team'
+WHERE t.slug=$1 AND t.deleted_at IS NULL`, slug).Scan(&team.ID, &team.Slug, &team.Name, &team.Namespace, &team.CreatedAt); err != nil {
+		return TeamOperationAcceptance{}, err
+	}
+	team.CreatedAt = team.CreatedAt.UTC()
+	deleted, err := deleteTeamRows(ctx, tx, team.ID)
+	if err != nil {
+		return TeamOperationAcceptance{}, err
+	}
+	affected, err := deleted.RowsAffected()
+	if err != nil {
+		return TeamOperationAcceptance{}, err
+	}
+	if affected == 0 {
+		return TeamOperationAcceptance{}, sql.ErrNoRows
+	}
+	operationID := uuid.NewString()
+	revisionID, err := s.teamIntents.RecordWithOperation(ctx, tx, team.ID, true, operationID)
+	if err != nil {
+		return TeamOperationAcceptance{}, fmt.Errorf("record accepted team deletion: %w", err)
+	}
+	accepted, err := s.teamIntents.RecordAcceptance(ctx, tx, teamintent.OperationRequest{
+		ID: operationID, RevisionID: revisionID, ActorID: request.ActorID,
+		Kind: apikit.OperationTeamDelete, IdempotencyKey: request.IdempotencyKey,
+		RequestHash: requestHash, Team: apikit.Team(team),
+	})
+	if err != nil {
+		return TeamOperationAcceptance{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return TeamOperationAcceptance{}, err
+	}
+	return TeamOperationAcceptance{Team: Team(accepted.Team), Operation: accepted.Operation}, nil
 }
 
 // TeamOperationAcceptance preserves the accepted resource and operation across

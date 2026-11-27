@@ -80,5 +80,5 @@ export async function readAgentUsage(agentID: string, hours: number): Promise<Us
 }
 
 export async function listTeams(): Promise<TeamMembership[]> {
-  return asArray<TeamMembership>(await fetchJSON("/runtime/teams"), "teams");
+  return asArray<TeamMembership>(await fetchJSON("/teams"), "teams");
 }

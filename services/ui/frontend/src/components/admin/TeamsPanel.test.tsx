@@ -70,6 +70,35 @@ afterEach(() => {
 });
 
 describe("TeamsPanel", () => {
+  it("shows an accepted Pending operation rather than claiming namespace readiness", async () => {
+    const user = userEvent.setup();
+    const { fetchMock } = stubTeams();
+    const read = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (init?.method === "POST") {
+        expect(url).toBe("/api/ui/v1/teams");
+        expect(new Headers(init.headers).get("Idempotency-Key")).toBeTruthy();
+        return { ok: true, status: 202, json: async () => ({ team: { id: "new-team", slug: "new-team", name: "New team", namespace: "mcp-team-new-team" }, operation: { id: "accepted-operation", state: "Pending" } }) } as Response;
+      }
+      if (url.endsWith("/operations/accepted-operation")) {
+        return { ok: true, status: 200, json: async () => ({ operation: { id: "accepted-operation", state: "Pending" } }) } as Response;
+      }
+      return read(input, init);
+    });
+    renderTeams();
+    await screen.findByTestId("team-members-table");
+    await user.click(screen.getByTestId("team-create-toggle"));
+    const form = await screen.findByTestId("team-create-form");
+    await user.type(within(form).getByTestId("team-slug"), "new-team");
+    await user.type(within(form).getByTestId("team-name"), "New team");
+    await user.click(within(form).getByRole("button", { name: "Create team" }));
+    expect(await screen.findByTestId("teams-action-notice")).toHaveTextContent("accepted");
+    expect(await screen.findByTestId("operation-status")).toHaveTextContent("Pending");
+    expect(screen.getByTestId("operation-status")).toHaveTextContent("accepted-operation");
+    expect(screen.getByTestId("teams-action-notice")).not.toHaveTextContent("created.");
+  });
+
   it("selects the first team and shows only its members", async () => {
     stubTeams();
 
@@ -204,6 +233,20 @@ describe("team account errors and existing users", () => {
 
 
 describe("team overview", () => {
+  it("shows current namespace health independently from accepted execution", async () => {
+    const { fetchMock } = stubTeams();
+    const read = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input).endsWith("/teams/acme")) return { ok: true, status: 200, json: async () => ({ team: TEAMS.teams[0], status: { desired_revision_id: "revision-a", applied_revision_id: "revision-a", observed_revision_id: "revision-a", health: "Degraded", reason: "NamespaceMissing", last_verified_at: "2026-11-27T00:00:00Z" } }) } as Response;
+      return read(input, init);
+    });
+    renderTeams();
+    const health = await screen.findByTestId("team-namespace-status");
+    await waitFor(() => expect(health).toHaveTextContent("Degraded"));
+    expect(health).toHaveTextContent("NamespaceMissing");
+    expect(health).toHaveTextContent("Last verified");
+  });
+
   it("shows membership totals and associated agents for the selected team", async () => {
     stubTeams();
     renderTeams();

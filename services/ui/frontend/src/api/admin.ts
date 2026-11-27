@@ -11,6 +11,7 @@ import type {
   ImageActivity,
   SessionSummary,
   TeamRecord,
+  TeamAcceptance,
   UserActivity,
   UsageResponse,
   UsageFilterParams,
@@ -46,7 +47,7 @@ export async function listSessions(namespace?: string): Promise<SessionSummary[]
 }
 
 export async function listTeams(): Promise<TeamRecord[]> {
-  return asArray<TeamRecord>(await fetchJSON("/runtime/teams"), "teams");
+  return asArray<TeamRecord>(await fetchJSON("/teams"), "teams");
 }
 
 export async function listComponents(): Promise<ComponentStatus[]> {
@@ -121,12 +122,19 @@ export async function createSession(input: {
   await fetchJSON("/runtime/sessions", jsonBody({ ...input, policyVersion: "" }));
 }
 
-export async function createTeam(slug: string, name: string): Promise<void> {
-  await fetchJSON("/runtime/teams", jsonBody({ slug, name }));
+export async function createTeam(slug: string, name: string, idempotencyKey: string): Promise<TeamAcceptance> {
+  const request = jsonBody({ slug, name });
+  const headers = new Headers(request.headers);
+  headers.set("Idempotency-Key", idempotencyKey);
+  const accepted = await fetchJSON("/teams", { ...request, headers }) as TeamAcceptance;
+  if (!accepted?.team?.id || !accepted?.operation?.id) {
+    throw new Error("Team acceptance response is incomplete. Retry this form to recover the accepted operation.");
+  }
+  return accepted;
 }
 
-export async function deleteTeam(slug: string): Promise<void> {
-  await fetchJSON(`/runtime/teams/${segment(slug)}`, { method: "DELETE" });
+export async function deleteTeam(slug: string, idempotencyKey: string): Promise<TeamAcceptance> {
+  return await fetchJSON(`/teams/${segment(slug)}`, { method: "DELETE", headers: { "Idempotency-Key": idempotencyKey } }) as TeamAcceptance;
 }
 
 export async function listTeamMembers(slug: string): Promise<import("./types").TeamMembership[]> {

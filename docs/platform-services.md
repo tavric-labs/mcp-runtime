@@ -760,8 +760,15 @@ or roll back together. Only a hash of the replay key is stored.
 Worker fencing and receipts advance operation execution state. A successful
 operation means that the bounded projection step was applied; namespace health
 still comes from the independent observer. Raw backend diagnostics and replay
-keys are excluded from operation responses. This is the acceptance foundation;
-public team routes remain synchronous until their separate route cutover.
+keys are excluded from operation responses. Public `POST /api/v1/teams` and
+`DELETE /api/v1/teams/{slug}` return HTTP 202 with an actor-scoped operation;
+the client supplies an `Idempotency-Key`. `GET /api/v1/operations/{id}` returns
+that acceptance, and `GET /api/v1/teams/{slug}` returns independent namespace
+health. Ready requires matching desired, applied and observed revisions and
+namespace UID; observations older than 90 seconds report Unknown. The CLI waits
+up to five minutes by default and supports `--no-wait`, `--json`, and
+`--idempotency-key` for team creation. The console preserves its replay key while
+retrying a form and shows execution separately from namespace health.
 
 The Runtime API continues synchronous namespace provisioning and Traefik
 cleanup by default. In isolated development or disposable clusters, opt-in

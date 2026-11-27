@@ -45,7 +45,7 @@ const PAYLOADS: Record<string, unknown> = {
       },
     ],
   },
-  "/runtime/teams": {
+  "/teams": {
     teams: [{ id: "t-1", slug: "verify", name: "Verify Team", namespace: "mcp-team-verify" }],
   },
   "/runtime/components": {

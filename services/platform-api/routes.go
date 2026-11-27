@@ -5,6 +5,7 @@ import (
 
 	"mcp-platform-api/admin"
 	"mcp-platform-api/identity"
+	"mcp-platform-api/internal/directoryapi"
 	"mcp-platform-api/internal/platforminternal"
 	"mcp-platform-api/internal/sessionapi"
 	"mcp-platform-api/registry"
@@ -79,6 +80,14 @@ type platformRoutes struct {
 }
 
 func (pr platformRoutes) register() {
+	var directory directoryapi.Store
+	if pr.platform != nil {
+		directory = pr.platform
+	}
+	directoryHandler := directoryapi.Handler{Store: directory}
+	pr.mount("/teams", pr.auth(http.HandlerFunc(directoryHandler.Teams)))
+	pr.mount("/teams/", pr.auth(http.HandlerFunc(directoryHandler.Team)))
+	pr.mount("/operations/", pr.auth(http.HandlerFunc(directoryHandler.Operation)))
 	pr.mount("/auth/signup", http.HandlerFunc(pr.handleSignup))
 	pr.mount("/users", pr.adminOnly(http.HandlerFunc(pr.handleUsers)))
 	pr.mount("/users/", pr.adminOnly(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

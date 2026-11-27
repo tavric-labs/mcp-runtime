@@ -143,7 +143,7 @@ function stubAdminApi(overrides: Record<string, { status?: number; body?: unknow
       ? GRANTS
       : url.includes("/runtime/sessions")
         ? SESSIONS
-        : url.includes("/runtime/teams")
+        : url.includes("/teams")
           ? TEAMS
           : url.includes("/runtime/components")
             ? COMPONENTS

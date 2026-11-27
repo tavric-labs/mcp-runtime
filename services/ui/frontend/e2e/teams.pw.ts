@@ -14,7 +14,7 @@ async function fixture(page: Page, role = "admin", failMembers = false) {
     const path = url.pathname.replace("/api/ui/v1", "");
     reads.push(path);
     let json: unknown = {};
-    if (path === "/runtime/teams" || path === "/runtime/workspace/teams") json = { teams };
+    if (path === "/teams" || path === "/runtime/workspace/teams") json = { teams };
     else if (path === "/runtime/teams/acme/members") {
       if (failMembers) return route.fulfill({ status: 503, json: { message: "members unavailable" } });
       json = { members: [{ user_id: "u-1", email: "alice@example.com", role: "owner" }] };
@@ -67,7 +67,7 @@ test("non-admin direct navigation performs no team-management reads", async ({ p
   await page.goto("/#/admin/teams");
   await expect(page.getByRole("heading", { name: "Servers", exact: true })).toBeVisible();
   await expect(page.getByTestId("team-overview")).toHaveCount(0);
-  expect(reads.filter(path => path.startsWith("/runtime/teams"))).toEqual([]);
+  expect(reads.filter(path => path.startsWith("/teams"))).toEqual([]);
 });
 
 

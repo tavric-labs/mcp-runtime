@@ -13,7 +13,7 @@ async function fixture(page: Page, partial = false) {
     const url = new URL(route.request().url());
     const path = url.pathname.replace("/api/ui/v1", "");
     let json: unknown = {};
-    if (path === "/runtime/teams") json = { teams: [{ id: "B", slug: "b", name: "B", namespace: "team-b", role: "owner" }] };
+    if (path === "/teams") json = { teams: [{ id: "B", slug: "b", name: "B", namespace: "team-b", role: "owner" }] };
     else if (path === "/runtime/teams/b/agents") json = { agents: [agent()] };
     else if (path === "/runtime/agents/agt-b") json = { agent: agent(), grants: [grant], sessions: [session()], can_manage: true };
     else if (path === "/user/analytics/usage") json = { filters: { agent_id: url.searchParams.get("agent_id") }, totals: { events: 0, allowed: 0, denied: 0 }, requests: [], recent: [] };
@@ -116,7 +116,7 @@ test("gateway audit opens exact grant and session deep links", async ({ page }) 
 test("resource owner creates a time-bound grant for a known foreign team's active agent", async ({ page }) => {
   await fixture(page);
   await page.route("**/auth/status", (route) => route.fulfill({ json: { authenticated: true, principal: { role: "user", subject: "owner-a", namespace: "team-a" } } }));
-  await page.route("**/api/ui/v1/runtime/teams", (route) => route.fulfill({ json: { teams: [{ id: "A", slug: "a", name: "Team A", namespace: "team-a", role: "owner" }] } }));
+  await page.route("**/api/ui/v1/teams", (route) => route.fulfill({ json: { teams: [{ id: "A", slug: "a", name: "Team A", namespace: "team-a", role: "owner" }] } }));
   await page.route("**/api/ui/v1/runtime/delegation-recipients?**", (route) => route.fulfill({ json: { team: { id: "B", slug: "b", name: "Team B" }, agents: [{ id: "agt-b", name: "B Agent", status: "active", team_id: "B", team_slug: "b" }], members: [{ user_id: "alice" }] } }));
   let submitted: Record<string, unknown> | undefined;
   await page.route("**/api/ui/v1/runtime/grants", async (route) => {

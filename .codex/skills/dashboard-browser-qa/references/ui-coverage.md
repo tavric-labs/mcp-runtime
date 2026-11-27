@@ -27,6 +27,15 @@ Break membership and agent reads independently, retry, and check unknown counts,
 creator fallback IDs, Agent detail links, owner/member denial and 390px bounds.
 Staging's workspace browser checks team counts and screenshots for owner/admin.
 
+Team creation uses `/teams` on platform-api and returns HTTP 202. Verify the
+form reports acceptance with a Pending/Running operation while runtime is down,
+then displays terminal execution separately from namespace health and last
+verification time. Retry a lost response using the same form/replay key; do not
+create a second team. Wrong-actor operation reads must return 404. Cookie-backed
+writes still need CSRF, and the proxy must preserve the replay key and platform
+token audience. Existing nested membership/agent routes stay scoped during the
+remaining directory migration.
+
 Use this reference for `full-ui` audits, for `git-range` audits where the diff
 touches a listed page, or when a finding requires detailed UI reproduction.
 For smoke checks, cover only dashboard load, one successful login, one protected

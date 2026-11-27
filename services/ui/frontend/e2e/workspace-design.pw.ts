@@ -12,7 +12,7 @@ async function fixture(page: Page) {
     const path = url.pathname.replace("/api/ui/v1", "");
     reads.push(path);
     let json: unknown = {};
-    if (path === "/runtime/workspace/teams" || path === "/runtime/teams") json = { teams: [team] };
+    if (path === "/runtime/workspace/teams" || path === "/teams") json = { teams: [team] };
     else if (path === "/runtime/teams/acme/agents") json = { agents: [agent] };
     else if (path === `/runtime/agents/${agent.id}`) json = { agent, grants: [], sessions: [], can_manage: true, certificates: { recorded: 0, recent: [], since: "2026-10-18T00:00:00Z", until: "2026-10-25T00:00:00Z" } };
     else if (path === "/runtime/workspace/servers") json = { servers: [{ namespace: "team-acme", name: "docs", status: "Ready", can_manage: true }], deployment_attribution: "unavailable" };

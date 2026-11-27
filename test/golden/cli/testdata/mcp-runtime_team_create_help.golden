@@ -1,0 +1,14 @@
+Accept team creation and wait up to five minutes for execution and a fresh Ready namespace observation. Use --no-wait to return the accepted operation immediately. Accepted teams remain when provisioning retries or the wait ends.
+
+Usage:
+  mcp-runtime team create [slug] [flags]
+
+Flags:
+  -h, --help                     help for create
+      --idempotency-key string   Reuse this key to recover the same acceptance after a lost response
+      --json                     Print the accepted team and operation as JSON
+      --name string              Display name for the team (defaults to slug)
+      --no-wait                  Return the accepted operation without waiting for namespace readiness
+
+Global Flags:
+      --debug   Enable debug mode with structured error logging

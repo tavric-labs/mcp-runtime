@@ -7,6 +7,7 @@ import { readRuntimeConfig, uiPath } from "./config";
 export const SESSION_PROXY_PREFIX = "/api/ui/v1";
 
 export const SESSION_PROXY_GET_PATHS = new Set([
+	"/teams",
   "/runtime/workspace/teams",
   "/runtime/workspace/servers",
   "/runtime/workspace/access",
@@ -35,7 +36,7 @@ export const SESSION_PROXY_GET_PATHS = new Set([
   "/user/analytics/usage",
 ]);
 
-const SESSION_PROXY_GET_PREFIXES = ["/runtime/teams/", "/runtime/agents/"];
+const SESSION_PROXY_GET_PREFIXES = ["/teams/", "/operations/", "/runtime/teams/", "/runtime/agents/"];
 
 export const SESSION_PROXY_WRITE_PATHS: Array<{
   path: string;
@@ -44,6 +45,8 @@ export const SESSION_PROXY_WRITE_PATHS: Array<{
   suffixes?: string[];
   suffixIndex?: number;
 }> = [
+  { path: "/teams", methods: ["POST"] },
+  { path: "/teams/", methods: ["DELETE"], segments: 1 },
   { path: "/user/api-keys", methods: ["POST"] },
   { path: "/user/api-keys/", methods: ["DELETE"], segments: 1 },
   { path: "/runtime/grants/", methods: ["PATCH", "DELETE"], segments: 2 },

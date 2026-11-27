@@ -91,8 +91,8 @@ function stubIdentityApi(options: {
         text: async () => JSON.stringify({ error: "member_lookup_failed" }),
       } as unknown as Response;
     }
-    if (options.holdTeams && url.endsWith("/runtime/teams")) await teamsGate;
-    const failed = options.failTeams && url.includes("/runtime/teams");
+    if (options.holdTeams && url.endsWith("/teams")) await teamsGate;
+    const failed = options.failTeams && url.includes("/teams");
     return {
       ok: !failed,
       status: failed ? 500 : 200,
