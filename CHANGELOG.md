@@ -62,6 +62,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   instead of being overwritten, and checks for existence before deleting disabled
   adapter-certificate resources to eliminate steady-state `DELETE` calls
   ([#902](https://github.com/tavric-labs/mcp-runtime/issues/902)).
+- Opt-in durable intent workers now enforce their startup timeout during River
+  initialization, including stalled PostgreSQL connections, while keeping
+  successfully started workers running after the startup deadline expires.
+  ([#984](https://github.com/tavric-labs/mcp-runtime/pull/984)).
 
 ## [0.22.0] - 2026-11-25
 

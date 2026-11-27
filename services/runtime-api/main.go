@@ -16,6 +16,7 @@ import (
 
 	"mcp-runtime-api/internal/accessintentobserver"
 	"mcp-runtime-api/internal/accessintentworker"
+	"mcp-runtime-api/internal/k8sstore"
 	"mcp-runtime-api/internal/platformapi"
 	"mcp-runtime-api/internal/runtimeapi"
 	"mcp-runtime-api/internal/teamintentobserver"
@@ -24,9 +25,32 @@ import (
 	"mcp-runtime-api/internal/workloadintentworker"
 	clickhousepkg "mcp-runtime/pkg/clickhouse"
 	"mcp-runtime/pkg/envcfg"
+	"mcp-runtime/pkg/k8sclient"
 	"mcp-runtime/pkg/passport"
 	"mcp-runtime/pkg/svcboot"
 )
+
+const defaultIntentStartupTimeout = 60 * time.Second
+
+var (
+	intentStartupAttemptTimeout = 15 * time.Second
+	intentStartupRetryInterval  = 2 * time.Second
+)
+
+type permanentStartupError struct {
+	err error
+}
+
+func (e permanentStartupError) Error() string { return e.err.Error() }
+func (e permanentStartupError) Unwrap() error { return e.err }
+
+type teamObserverRunner interface {
+	Run(context.Context) error
+}
+
+type workloadObserverRunner interface {
+	Run(context.Context)
+}
 
 type server struct {
 	runtime     *runtimeapi.RuntimeServer
@@ -110,29 +134,9 @@ func main() {
 		srv.runtimeInit = "kubernetes client not available"
 	}
 
-	var accessWorker *accessintentworker.Runner
-	if enabled, ok := envcfg.BoolEnv("RUNTIME_ACCESS_INTENT_WORKER"); ok && enabled {
-		dsn := strings.TrimSpace(os.Getenv("RUNTIME_ACCESS_INTENT_POSTGRES_DSN"))
-		if dsn == "" {
-			dsn = strings.TrimSpace(os.Getenv("PLATFORM_DB_DSN"))
-		}
-		if dsn == "" {
-			dsn = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-		}
-		k8s := runtimeServer.KubernetesClients()
-		if k8s == nil || k8s.Dynamic == nil {
-			log.Fatalf("RUNTIME_ACCESS_INTENT_WORKER requires Kubernetes client access")
-		}
-		accessWorker, err = accessintentworker.Start(context.Background(), accessintentworker.RunnerConfig{
-			PostgresDSN:    dsn,
-			PlatformClient: platformClient,
-			DynamicClient:  k8s.Dynamic,
-			ClusterIssuer:  strings.TrimSpace(os.Getenv("MCP_MTLS_CLUSTER_ISSUER")),
-			WorkerID:       envcfg.EnvOr("RUNTIME_ACCESS_INTENT_WORKER_ID", envcfg.EnvOr("HOSTNAME", "runtime-api-access-worker")),
-		})
-		if err != nil {
-			log.Fatalf("access intent worker startup failed: %v", err)
-		}
+	accessWorker, accessCancel, err := startOptInAccessIntentWorker(runtimeServer, platformClient)
+	if err != nil {
+		log.Fatalf("access intent worker startup failed: %v", err)
 	}
 
 	var cancelObserver context.CancelFunc
@@ -159,93 +163,19 @@ func main() {
 	mux := http.NewServeMux()
 	srv.registerRoutes(mux)
 
-	workerEnabled, err := parseOptInBool("RUNTIME_WORKLOAD_INTENT_WORKER")
+	workloadRunner, workloadCancel, err := startOptInWorkloadIntentWorker(runtimeServer, platformClient)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatalf("workload intent worker init failed: %v", err)
 	}
-	observerEnabled, err := parseOptInBool("RUNTIME_WORKLOAD_INTENT_OBSERVER")
+	workloadObserverCancel, workloadObserverDone, err := startOptInWorkloadIntentObserver(runtimeServer, platformClient)
 	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	var workloadRunner *workloadintentworker.Runner
-	var workloadObserverCancel context.CancelFunc
-	k8sClients := runtimeServer.KubernetesClients()
-
-	if workerEnabled && k8sClients != nil && platformClient.Configured() {
-		dsn := strings.TrimSpace(os.Getenv("PLATFORM_WORKLOAD_INTENT_DB_DSN"))
-		if dsn == "" {
-			dsn = strings.TrimSpace(os.Getenv("PLATFORM_DB_DSN"))
+		if workloadCancel != nil {
+			workloadCancel()
 		}
-		if dsn == "" {
-			log.Fatal("RUNTIME_WORKLOAD_INTENT_WORKER=true requires PLATFORM_WORKLOAD_INTENT_DB_DSN or PLATFORM_DB_DSN")
+		if workloadRunner != nil {
+			_ = workloadRunner.Stop(context.Background())
 		}
-		workerID := strings.TrimSpace(os.Getenv("POD_NAME"))
-		if workerID == "" {
-			workerID, _ = os.Hostname()
-		}
-		if workerID == "" {
-			workerID = "runtime-workload-worker"
-		}
-		cfg := workloadintentworker.DefaultRunnerConfig()
-		cfg.DSN = dsn
-		cfg.WorkerID = workerID
-
-		deps := workloadintentworker.Dependencies{
-			Server: workloadintentworker.NewServerWorker(
-				platformClient,
-				workloadintentworker.NewKubeServerExecutor(k8sClients.Dynamic, k8sClients.Clientset, runtimeServer.AccessManager(), platformClient),
-				workerID,
-			),
-			Deployment: workloadintentworker.NewDeploymentWorker(
-				platformClient,
-				workloadintentworker.NewKubeDeploymentExecutor(k8sClients.Clientset),
-				workerID,
-			),
-			Publication: workloadintentworker.NewImagePublicationWorker(
-				platformClient,
-				workloadintentworker.NewKubePublicationHelperRunner(
-					k8sClients.Clientset,
-					strings.TrimSpace(os.Getenv("MCP_REGISTRY_PUSH_HELPER_NAMESPACE")),
-					strings.TrimSpace(os.Getenv("MCP_REGISTRY_PUSH_SKOPEO_IMAGE")),
-					strings.TrimSpace(os.Getenv("MCP_REGISTRY_STAGING_DIR")),
-				),
-				workerID,
-			),
-			Restart: workloadintentworker.NewRestartWorker(
-				platformClient,
-				workloadintentworker.NewKubeRestartPatcher(k8sClients.Clientset),
-				workerID,
-			),
-		}
-		workloadRunner, err = workloadintentworker.NewRunner(context.Background(), cfg, deps)
-		if err != nil {
-			log.Fatalf("initialize workload intent worker: %v", err)
-		}
-		if err := workloadRunner.Start(context.Background()); err != nil {
-			log.Fatalf("start workload intent worker: %v", err)
-		}
-	}
-
-	if observerEnabled && k8sClients != nil && platformClient.Configured() {
-		observerID := strings.TrimSpace(os.Getenv("POD_NAME"))
-		if observerID == "" {
-			observerID, _ = os.Hostname()
-		}
-		if observerID == "" {
-			observerID = "runtime-workload-observer"
-		}
-		obs := workloadintentobserver.New(
-			platformClient,
-			workloadintentobserver.NewKubeClusterReader(k8sClients.Dynamic, k8sClients.Clientset),
-			workloadintentobserver.Config{
-				ClusterKey: strings.TrimSpace(os.Getenv("MCP_WORKLOAD_OBSERVER_CLUSTER_KEY")),
-				ObserverID: observerID,
-			},
-		)
-		obsCtx, cancel := context.WithCancel(context.Background())
-		workloadObserverCancel = cancel
-		go obs.Run(obsCtx)
+		log.Fatalf("workload intent observer init failed: %v", err)
 	}
 
 	if err := svcboot.Run(svcboot.Config{
@@ -268,6 +198,11 @@ func main() {
 			}
 			if workloadObserverCancel != nil {
 				workloadObserverCancel()
+				select {
+				case <-workloadObserverDone:
+				case <-ctx.Done():
+					errs = append(errs, ctx.Err())
+				}
 			}
 			if workerCancel != nil {
 				workerCancel()
@@ -277,10 +212,16 @@ func main() {
 					errs = append(errs, err)
 				}
 			}
+			if accessCancel != nil {
+				accessCancel()
+			}
 			if accessWorker != nil {
 				if err := accessWorker.Stop(ctx); err != nil {
 					errs = append(errs, err)
 				}
+			}
+			if workloadCancel != nil {
+				workloadCancel()
 			}
 			if workloadRunner != nil {
 				if err := workloadRunner.Stop(ctx); err != nil {
@@ -297,26 +238,130 @@ func main() {
 	}
 }
 
+func intentStartupTimeout() time.Duration {
+	timeout := envcfg.EnvDuration("RUNTIME_INTENT_STARTUP_TIMEOUT", defaultIntentStartupTimeout)
+	if timeout <= 0 {
+		return defaultIntentStartupTimeout
+	}
+	return timeout
+}
+
+func retryIntentStartup(ctx context.Context, timeout, interval time.Duration, label string, fn func(context.Context) error) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if timeout <= 0 {
+		timeout = defaultIntentStartupTimeout
+	}
+	if interval <= 0 {
+		interval = intentStartupRetryInterval
+	}
+	if interval <= 0 {
+		interval = 10 * time.Millisecond
+	}
+	retryCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	var lastErr error
+	for attempt := 1; ; attempt++ {
+		attemptCtx, attemptCancel := context.WithTimeout(retryCtx, intentStartupAttemptTimeout)
+		err := fn(attemptCtx)
+		attemptCancel()
+		if err == nil {
+			if attempt > 1 {
+				log.Printf("%s initialized after %d attempt(s)", label, attempt)
+			}
+			return nil
+		}
+		var perm permanentStartupError
+		if errors.As(err, &perm) {
+			return perm.err
+		}
+		lastErr = err
+		if retryCtx.Err() != nil {
+			return lastErr
+		}
+		log.Printf("%s not ready (attempt %d): %v", label, attempt, err)
+		timer := time.NewTimer(interval)
+		select {
+		case <-retryCtx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return lastErr
+		case <-timer.C:
+		}
+	}
+}
+
+// startIntentWorker bounds initialization without attaching the startup deadline
+// to the worker's lifetime after initialization succeeds.
+func startIntentWorker(ctx context.Context, start func(context.Context) error) (context.CancelFunc, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	runCtx, runCancel := context.WithCancel(context.Background())
+	stopStartupCancel := context.AfterFunc(ctx, runCancel)
+	err := start(runCtx)
+	if !stopStartupCancel() && err == nil {
+		err = ctx.Err()
+	}
+	if err != nil {
+		runCancel()
+		return nil, err
+	}
+	return runCancel, nil
+}
+
+func defaultStartTeamIntentWorker(ctx context.Context, cfg teamintentworker.RunnerConfig) (*teamintentworker.Runner, context.CancelFunc, error) {
+	runner, err := teamintentworker.NewRunner(ctx, cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	runCancel, err := startIntentWorker(ctx, runner.Start)
+	if err != nil {
+		_ = runner.Stop(context.Background())
+		return nil, nil, err
+	}
+	return runner, runCancel, nil
+}
+
 func startOptInTeamIntentWorker(runtimeServer *runtimeapi.RuntimeServer, platformClient *platformapi.Client) (*teamintentworker.Runner, context.CancelFunc, error) {
-	if strings.TrimSpace(os.Getenv("RUNTIME_TEAM_INTENT_WORKER")) != "true" {
+	provCfg, ok := runtimeServer.Deployments().TeamIntentProvisionerConfig()
+	return startOptInTeamIntentWorkerWith(provCfg, ok, platformClient, defaultStartTeamIntentWorker)
+}
+
+func startOptInTeamIntentWorkerWith(
+	provCfg runtimeapi.TeamIntentProvisionerConfig,
+	provOK bool,
+	platformClient *platformapi.Client,
+	startFn func(context.Context, teamintentworker.RunnerConfig) (*teamintentworker.Runner, context.CancelFunc, error),
+) (*teamintentworker.Runner, context.CancelFunc, error) {
+	enabled, err := parseOptInBool("RUNTIME_TEAM_INTENT_WORKER")
+	if err != nil {
+		return nil, nil, err
+	}
+	if !enabled {
 		return nil, nil, nil
 	}
-	dsn := strings.TrimSpace(os.Getenv("RUNTIME_TEAM_INTENT_QUEUE_DATABASE_URL"))
+	dsn := firstNonEmptyEnv("RUNTIME_TEAM_INTENT_QUEUE_DATABASE_URL", "PLATFORM_DB_DSN", "DATABASE_URL")
 	if dsn == "" {
-		return nil, nil, errors.New("RUNTIME_TEAM_INTENT_QUEUE_DATABASE_URL is required when RUNTIME_TEAM_INTENT_WORKER=true")
+		return nil, nil, errors.New("RUNTIME_TEAM_INTENT_QUEUE_DATABASE_URL, PLATFORM_DB_DSN, or DATABASE_URL is required when RUNTIME_TEAM_INTENT_WORKER=true")
 	}
 	if !platformClient.Configured() {
 		return nil, nil, errors.New("PLATFORM_API_URL and INTERNAL_AUTH_TOKEN are required when RUNTIME_TEAM_INTENT_WORKER=true")
 	}
-	provCfg, ok := runtimeServer.Deployments().TeamIntentProvisionerConfig()
-	if !ok {
+	if !provOK || provCfg.Client == nil {
 		return nil, nil, errors.New("kubernetes client is required when RUNTIME_TEAM_INTENT_WORKER=true")
 	}
+	if startFn == nil {
+		startFn = defaultStartTeamIntentWorker
+	}
 	workerID := envcfg.EnvOr("RUNTIME_TEAM_INTENT_WORKER_ID", defaultInstanceID("runtime-worker"))
-	initCtx, initCancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer initCancel()
-
-	runner, err := teamintentworker.NewRunner(initCtx, teamintentworker.RunnerConfig{
+	cfg := teamintentworker.RunnerConfig{
 		DatabaseURL: dsn,
 		WorkerID:    workerID,
 		Platform:    platformClient,
@@ -326,40 +371,66 @@ func startOptInTeamIntentWorker(runtimeServer *runtimeapi.RuntimeServer, platfor
 			Traefik:                  provCfg.Traefik,
 			IngressFromNamespaces:    provCfg.IngressFromNamespaces,
 		},
-	})
-	if err != nil {
-		return nil, nil, err
 	}
-	runCtx, runCancel := context.WithCancel(context.Background())
-	if err := runner.Start(runCtx); err != nil {
-		runCancel()
-		_ = runner.Stop(context.Background())
+
+	var runner *teamintentworker.Runner
+	var runCancel context.CancelFunc
+	if err := retryIntentStartup(context.Background(), intentStartupTimeout(), intentStartupRetryInterval, "team intent worker", func(attemptCtx context.Context) error {
+		r, cancel, err := startFn(attemptCtx, cfg)
+		if err != nil {
+			return err
+		}
+		runner = r
+		runCancel = cancel
+		return nil
+	}); err != nil {
 		return nil, nil, err
 	}
 	log.Printf("started opt-in team intent worker %s", workerID)
 	return runner, runCancel, nil
 }
 
+func defaultNewTeamIntentObserver(cfg teamintentobserver.Config) (teamObserverRunner, error) {
+	return teamintentobserver.New(cfg)
+}
+
 func startOptInTeamIntentObserver(runtimeServer *runtimeapi.RuntimeServer, platformClient *platformapi.Client) (context.CancelFunc, <-chan struct{}, error) {
-	if strings.TrimSpace(os.Getenv("RUNTIME_TEAM_INTENT_OBSERVER")) != "true" {
+	provCfg, ok := runtimeServer.Deployments().TeamIntentProvisionerConfig()
+	return startOptInTeamIntentObserverWith(provCfg, ok, platformClient, defaultNewTeamIntentObserver)
+}
+
+func startOptInTeamIntentObserverWith(
+	provCfg runtimeapi.TeamIntentProvisionerConfig,
+	provOK bool,
+	platformClient *platformapi.Client,
+	newObserver func(teamintentobserver.Config) (teamObserverRunner, error),
+) (context.CancelFunc, <-chan struct{}, error) {
+	enabled, err := parseOptInBool("RUNTIME_TEAM_INTENT_OBSERVER")
+	if err != nil {
+		return nil, nil, err
+	}
+	if !enabled {
 		return nil, nil, nil
 	}
 	if !platformClient.Configured() {
 		return nil, nil, errors.New("PLATFORM_API_URL and INTERNAL_AUTH_TOKEN are required when RUNTIME_TEAM_INTENT_OBSERVER=true")
 	}
-	provCfg, ok := runtimeServer.Deployments().TeamIntentProvisionerConfig()
-	if !ok {
+	if !provOK || provCfg.Client == nil {
 		return nil, nil, errors.New("kubernetes client is required when RUNTIME_TEAM_INTENT_OBSERVER=true")
+	}
+	if newObserver == nil {
+		newObserver = defaultNewTeamIntentObserver
 	}
 	observerID := envcfg.EnvOr("RUNTIME_TEAM_INTENT_OBSERVER_ID", defaultInstanceID("runtime-observer"))
 	clusterKey := envcfg.EnvOr("RUNTIME_TEAM_INTENT_CLUSTER_KEY", "default")
 
-	observer, err := teamintentobserver.New(teamintentobserver.Config{
-		ClusterKey: clusterKey,
-		ObserverID: observerID,
-		Platform:   platformClient,
-		K8sClient:  provCfg.Client,
-		Traefik:    provCfg.Traefik,
+	observer, err := newObserver(teamintentobserver.Config{
+		ClusterKey:     clusterKey,
+		ObserverID:     observerID,
+		Platform:       platformClient,
+		K8sClient:      provCfg.Client,
+		Traefik:        provCfg.Traefik,
+		VerifyInterval: positiveEnvDuration("RUNTIME_TEAM_INTENT_OBSERVER_INTERVAL"),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -379,6 +450,254 @@ func startOptInTeamIntentObserver(runtimeServer *runtimeapi.RuntimeServer, platf
 	}()
 	log.Printf("started opt-in team intent observer %s (cluster_key=%s)", observerID, clusterKey)
 	return runCancel, done, nil
+}
+
+func defaultStartAccessIntentWorker(ctx context.Context, cfg accessintentworker.RunnerConfig) (*accessintentworker.Runner, context.CancelFunc, error) {
+	var runner *accessintentworker.Runner
+	runCancel, err := startIntentWorker(ctx, func(runCtx context.Context) error {
+		var startErr error
+		runner, startErr = accessintentworker.Start(runCtx, cfg)
+		return startErr
+	})
+	if err != nil {
+		if runner != nil {
+			_ = runner.Stop(context.Background())
+		}
+		return nil, nil, err
+	}
+	return runner, runCancel, nil
+}
+
+func startOptInAccessIntentWorker(runtimeServer *runtimeapi.RuntimeServer, platformClient *platformapi.Client) (*accessintentworker.Runner, context.CancelFunc, error) {
+	return startOptInAccessIntentWorkerWith(runtimeServer.KubernetesClients(), platformClient, defaultStartAccessIntentWorker)
+}
+
+func startOptInAccessIntentWorkerWith(
+	k8sClients *k8sclient.Clients,
+	platformClient *platformapi.Client,
+	startFn func(context.Context, accessintentworker.RunnerConfig) (*accessintentworker.Runner, context.CancelFunc, error),
+) (*accessintentworker.Runner, context.CancelFunc, error) {
+	enabled, err := parseOptInBool("RUNTIME_ACCESS_INTENT_WORKER")
+	if err != nil {
+		return nil, nil, err
+	}
+	if !enabled {
+		return nil, nil, nil
+	}
+	dsn := firstNonEmptyEnv("RUNTIME_ACCESS_INTENT_POSTGRES_DSN", "PLATFORM_DB_DSN", "DATABASE_URL")
+	if dsn == "" {
+		return nil, nil, errors.New("RUNTIME_ACCESS_INTENT_POSTGRES_DSN, PLATFORM_DB_DSN, or DATABASE_URL is required when RUNTIME_ACCESS_INTENT_WORKER=true")
+	}
+	if !platformClient.Configured() {
+		return nil, nil, errors.New("PLATFORM_API_URL and INTERNAL_AUTH_TOKEN are required when RUNTIME_ACCESS_INTENT_WORKER=true")
+	}
+	if k8sClients == nil || k8sClients.Dynamic == nil {
+		return nil, nil, errors.New("RUNTIME_ACCESS_INTENT_WORKER requires Kubernetes client access")
+	}
+	if startFn == nil {
+		startFn = defaultStartAccessIntentWorker
+	}
+	workerID := envcfg.EnvOr("RUNTIME_ACCESS_INTENT_WORKER_ID", envcfg.EnvOr("HOSTNAME", "runtime-api-access-worker"))
+	cfg := accessintentworker.RunnerConfig{
+		PostgresDSN:    dsn,
+		PlatformClient: platformClient,
+		DynamicClient:  k8sClients.Dynamic,
+		ClusterIssuer:  strings.TrimSpace(os.Getenv("MCP_MTLS_CLUSTER_ISSUER")),
+		WorkerID:       workerID,
+	}
+
+	var runner *accessintentworker.Runner
+	var runCancel context.CancelFunc
+	if err := retryIntentStartup(context.Background(), intentStartupTimeout(), intentStartupRetryInterval, "access intent worker", func(attemptCtx context.Context) error {
+		r, cancel, err := startFn(attemptCtx, cfg)
+		if err != nil {
+			return err
+		}
+		runner = r
+		runCancel = cancel
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+	log.Printf("started opt-in access intent worker %s", workerID)
+	return runner, runCancel, nil
+}
+
+func defaultStartWorkloadIntentWorker(ctx context.Context, cfg workloadintentworker.RunnerConfig, deps workloadintentworker.Dependencies) (*workloadintentworker.Runner, context.CancelFunc, error) {
+	runner, err := workloadintentworker.NewRunner(ctx, cfg, deps)
+	if err != nil {
+		return nil, nil, err
+	}
+	runCancel, err := startIntentWorker(ctx, runner.Start)
+	if err != nil {
+		_ = runner.Stop(context.Background())
+		return nil, nil, err
+	}
+	return runner, runCancel, nil
+}
+
+func startOptInWorkloadIntentWorker(runtimeServer *runtimeapi.RuntimeServer, platformClient *platformapi.Client) (*workloadintentworker.Runner, context.CancelFunc, error) {
+	return startOptInWorkloadIntentWorkerWith(runtimeServer.KubernetesClients(), runtimeServer.AccessManager(), platformClient, defaultStartWorkloadIntentWorker)
+}
+
+func startOptInWorkloadIntentWorkerWith(
+	k8sClients *k8sclient.Clients,
+	accessMgr *k8sstore.Manager,
+	platformClient *platformapi.Client,
+	startFn func(context.Context, workloadintentworker.RunnerConfig, workloadintentworker.Dependencies) (*workloadintentworker.Runner, context.CancelFunc, error),
+) (*workloadintentworker.Runner, context.CancelFunc, error) {
+	enabled, err := parseOptInBool("RUNTIME_WORKLOAD_INTENT_WORKER")
+	if err != nil {
+		return nil, nil, err
+	}
+	if !enabled {
+		return nil, nil, nil
+	}
+	dsn := firstNonEmptyEnv("PLATFORM_WORKLOAD_INTENT_DB_DSN", "PLATFORM_DB_DSN", "DATABASE_URL")
+	if dsn == "" {
+		return nil, nil, errors.New("PLATFORM_WORKLOAD_INTENT_DB_DSN, PLATFORM_DB_DSN, or DATABASE_URL is required when RUNTIME_WORKLOAD_INTENT_WORKER=true")
+	}
+	if !platformClient.Configured() {
+		return nil, nil, errors.New("PLATFORM_API_URL and INTERNAL_AUTH_TOKEN are required when RUNTIME_WORKLOAD_INTENT_WORKER=true")
+	}
+	if k8sClients == nil || k8sClients.Dynamic == nil || k8sClients.Clientset == nil {
+		return nil, nil, errors.New("kubernetes client is required when RUNTIME_WORKLOAD_INTENT_WORKER=true")
+	}
+	if startFn == nil {
+		startFn = defaultStartWorkloadIntentWorker
+	}
+	workerID := strings.TrimSpace(os.Getenv("POD_NAME"))
+	if workerID == "" {
+		workerID, _ = os.Hostname()
+	}
+	if workerID == "" {
+		workerID = "runtime-workload-worker"
+	}
+	cfg := workloadintentworker.DefaultRunnerConfig()
+	cfg.DSN = dsn
+	cfg.WorkerID = workerID
+
+	deps := workloadintentworker.Dependencies{
+		Server: workloadintentworker.NewServerWorker(
+			platformClient,
+			workloadintentworker.NewKubeServerExecutor(k8sClients.Dynamic, k8sClients.Clientset, accessMgr, platformClient),
+			workerID,
+		),
+		Deployment: workloadintentworker.NewDeploymentWorker(
+			platformClient,
+			workloadintentworker.NewKubeDeploymentExecutor(k8sClients.Clientset),
+			workerID,
+		),
+		Publication: workloadintentworker.NewImagePublicationWorker(
+			platformClient,
+			workloadintentworker.NewKubePublicationHelperRunner(
+				k8sClients.Clientset,
+				strings.TrimSpace(os.Getenv("MCP_REGISTRY_PUSH_HELPER_NAMESPACE")),
+				strings.TrimSpace(os.Getenv("MCP_REGISTRY_PUSH_SKOPEO_IMAGE")),
+				strings.TrimSpace(os.Getenv("MCP_REGISTRY_STAGING_DIR")),
+			),
+			workerID,
+		),
+		Restart: workloadintentworker.NewRestartWorker(
+			platformClient,
+			workloadintentworker.NewKubeRestartPatcher(k8sClients.Clientset),
+			workerID,
+		),
+	}
+
+	var runner *workloadintentworker.Runner
+	var runCancel context.CancelFunc
+	if err := retryIntentStartup(context.Background(), intentStartupTimeout(), intentStartupRetryInterval, "workload intent worker", func(attemptCtx context.Context) error {
+		r, cancel, err := startFn(attemptCtx, cfg, deps)
+		if err != nil {
+			return err
+		}
+		runner = r
+		runCancel = cancel
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+	log.Printf("started opt-in workload intent worker %s", workerID)
+	return runner, runCancel, nil
+}
+
+func defaultNewWorkloadIntentObserver(
+	platform workloadintentobserver.PlatformClient,
+	cluster workloadintentobserver.ClusterReader,
+	cfg workloadintentobserver.Config,
+) workloadObserverRunner {
+	return workloadintentobserver.New(platform, cluster, cfg)
+}
+
+func startOptInWorkloadIntentObserver(runtimeServer *runtimeapi.RuntimeServer, platformClient *platformapi.Client) (context.CancelFunc, <-chan struct{}, error) {
+	return startOptInWorkloadIntentObserverWith(runtimeServer.KubernetesClients(), platformClient, defaultNewWorkloadIntentObserver)
+}
+
+func startOptInWorkloadIntentObserverWith(
+	k8sClients *k8sclient.Clients,
+	platformClient *platformapi.Client,
+	newObserver func(workloadintentobserver.PlatformClient, workloadintentobserver.ClusterReader, workloadintentobserver.Config) workloadObserverRunner,
+) (context.CancelFunc, <-chan struct{}, error) {
+	enabled, err := parseOptInBool("RUNTIME_WORKLOAD_INTENT_OBSERVER")
+	if err != nil {
+		return nil, nil, err
+	}
+	if !enabled {
+		return nil, nil, nil
+	}
+	if !platformClient.Configured() {
+		return nil, nil, errors.New("PLATFORM_API_URL and INTERNAL_AUTH_TOKEN are required when RUNTIME_WORKLOAD_INTENT_OBSERVER=true")
+	}
+	if k8sClients == nil || k8sClients.Dynamic == nil || k8sClients.Clientset == nil {
+		return nil, nil, errors.New("kubernetes client is required when RUNTIME_WORKLOAD_INTENT_OBSERVER=true")
+	}
+	if newObserver == nil {
+		newObserver = defaultNewWorkloadIntentObserver
+	}
+	observerID := strings.TrimSpace(os.Getenv("POD_NAME"))
+	if observerID == "" {
+		observerID, _ = os.Hostname()
+	}
+	if observerID == "" {
+		observerID = "runtime-workload-observer"
+	}
+	clusterKey := strings.TrimSpace(os.Getenv("MCP_WORKLOAD_OBSERVER_CLUSTER_KEY"))
+	obs := newObserver(
+		platformClient,
+		workloadintentobserver.NewKubeClusterReader(k8sClients.Dynamic, k8sClients.Clientset),
+		workloadintentobserver.Config{
+			ClusterKey:   clusterKey,
+			ObserverID:   observerID,
+			PollInterval: positiveEnvDuration("MCP_WORKLOAD_OBSERVER_INTERVAL", "RUNTIME_WORKLOAD_INTENT_OBSERVER_INTERVAL"),
+		},
+	)
+	obsCtx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		obs.Run(obsCtx)
+	}()
+	log.Printf("started opt-in workload intent observer %s", observerID)
+	return cancel, done, nil
+}
+
+func firstNonEmptyEnv(keys ...string) string {
+	for _, key := range keys {
+		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func positiveEnvDuration(keys ...string) time.Duration {
+	for _, key := range keys {
+		if d := envcfg.EnvDuration(key, 0); d > 0 {
+			return d
+		}
+	}
+	return 0
 }
 
 func defaultInstanceID(prefix string) string {
