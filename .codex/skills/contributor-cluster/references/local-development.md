@@ -77,3 +77,6 @@ QA E2E imports its verified bootstrap registry image into Kind before setup.
 Build, metadata stamp, node architecture, architecture check, and tag failures
 stop image preparation at the original error. Diagnose that error before
 rerunning; later publishing must not proceed with an unverified image.
+Setup requires the current registry rollout to complete before image publishing.
+An available old replica is insufficient. A failed rollout stops setup; inspect
+the registry Pod/events and rerun setup after fixing the cause.

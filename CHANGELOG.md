@@ -61,6 +61,10 @@ Earlier release notes remain available in [GitHub Releases](https://github.com/m
   image into Kind before setup. This prevents misleading later push failures
   and registry image-pull errors during local verification
   ([#986](https://github.com/tavric-labs/mcp-runtime/issues/986)).
+- Setup waits for the current registry rollout to finish before publishing
+  platform images and fails if that rollout cannot complete. An available old
+  replica no longer allows pushes to race its shutdown
+  ([#992](https://github.com/tavric-labs/mcp-runtime/issues/992)).
 - Operator reconciliation now records the reconciled `MCPServer` generation in condition
   `observedGeneration` instead of a concurrently bumped generation, fences bundled `mcp-auth`
   Deployment patches with optimistic locking so concurrent container edits fail with a conflict

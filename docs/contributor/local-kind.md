@@ -32,6 +32,10 @@ lookup, architecture check, or local tag operation. Fix the first reported
 failure before retrying. Before setup, QA imports the verified bootstrap
 registry image into each Kind node, so that registry can start without pulling
 its own image from the registry it is about to provide.
+Setup waits for the current registry Deployment generation to finish rolling
+out before publishing platform images. An available old replica does not
+satisfy that handoff: inspect the registry rollout if setup fails here, then
+rerun the supported setup command after correcting the failure.
 
 ### Host CPU and memory
 
